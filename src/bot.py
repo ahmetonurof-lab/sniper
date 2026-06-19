@@ -59,7 +59,7 @@ class PaperTrader:
         self.symbols = [s.upper() for s in (symbols or cfg.SYMBOLS)]
         self.hub = BinanceWSHub(
             symbols=self.symbols,
-            timeframes=["1m", "15m"],
+            timeframes=["15m"],
             max_bars=500,
             base_url="wss://fstream.binancefuture.com/stream?streams=",
         )
@@ -148,10 +148,40 @@ class PaperTrader:
                 if "wick" in self._log_state.get(sym, {}):
                     del self._log_state[sym]["wick"]
 
-        if not rsm.can_trigger():
-            return
+        if rsm.can_trigger():
+            self._try_entry(sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg)
 
-        # Entry
+        # Trailing (15m FVG bazli, backtest ile ayni)
+        trade = self.active_trades.get(sym)
+        if trade and current.is_closed:
+            chunk = bars_15m[:-1] if len(bars_15m) > 1 else bars_15m
+            fvgs = detect_fvgs(chunk, lookback=min(50, len(chunk)), timeframe="15m", min_fvg_size=min_fvg)
+            for fvg in fvgs:
+                if trade["side"] == "long" and fvg.direction != "bullish":
+                    continue
+                if trade["side"] == "short" and fvg.direction != "bearish":
+                    continue
+                if fvg.filled or fvg.invalidated:
+                    continue
+                buffer = atr_val * fvg_buf
+                if trade["side"] == "long":
+                    new_sl = fvg.bottom - buffer
+                    if new_sl > trade["sl"]:
+                        sl_diff = new_sl - trade["sl"]
+                        trade["sl"] = new_sl
+                        trade["tp"] = trade["tp"] + sl_diff
+                        trade["trailing_count"] += 1
+                        log.info("[TRAIL] %s trail#%d sl=%.2f tp=%.2f", sym, trade["trailing_count"], trade["sl"], trade["tp"])
+                else:
+                    new_sl = fvg.top + buffer
+                    if new_sl < trade["sl"]:
+                        sl_diff = trade["sl"] - new_sl
+                        trade["sl"] = new_sl
+                        trade["tp"] = trade["tp"] - sl_diff
+                        trade["trailing_count"] += 1
+                        log.info("[TRAIL] %s trail#%d sl=%.2f tp=%.2f", sym, trade["trailing_count"], trade["sl"], trade["tp"])
+
+    def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):
         if sym in self.active_trades:
             rsm.reset()
             return
@@ -198,102 +228,53 @@ class PaperTrader:
         }
         rsm.reset()
 
-    def _on_1m_close(self, sym: str, bars_1m: list[Bar]):
-        # Her 1m bar kapanisinda trailing + exit kontrolu
+        # Exit kontrolu (15m bazli)
         trade = self.active_trades.get(sym)
-        if not trade:
-            return
-
-        cfg = self.cfgs[sym]
-        min_fvg = cfg["MIN_FVG_SIZE"]
-        fvg_buf = cfg["FVG_BUFFER_MULT"]
-        current = bars_1m[-1]
-
-        # Exit kontrol
-        exited = False
-        if trade["side"] == "long":
-            if current.low <= trade["sl"]:
-                trade["exit_price"] = trade["sl"]
-                trade["result"] = "SL"
-                exited = True
-            elif current.high >= trade["tp"]:
-                trade["exit_price"] = trade["tp"]
-                trade["result"] = "TP"
-                exited = True
-        else:
-            if current.high >= trade["sl"]:
-                trade["exit_price"] = trade["sl"]
-                trade["result"] = "SL"
-                exited = True
-            elif current.low <= trade["tp"]:
-                trade["exit_price"] = trade["tp"]
-                trade["result"] = "TP"
-                exited = True
-
-        if exited:
-            diff = (trade["exit_price"] - trade["entry_price"]) if trade["side"] == "long" \
-                else (trade["entry_price"] - trade["exit_price"])
-            pnl = round(diff * trade["qty"], 2)
-            self._balance += pnl
-            self._pl(sym, f"exit_{current.timestamp}", (
-                f"🟥 EXIT: {trade['result']} | PRICE: {trade['exit_price']:.2f} "
-                f"| PNL: {pnl:+.2f} | BALANCE: {self._balance:.2f} | TRAIL: {trade['trailing_count']}"
-            ))
-            log.info("[PAPER] %s %s exit=%s pnl=%.2f balance=%.2f",
-                     sym, trade['result'], trade['exit_price'], pnl, self._balance)
-            self.trades.append({
-                **trade, "pnl": pnl, "exit_bar": current.index, "close_time": current.timestamp,
-            })
-            del self.active_trades[sym]
-            return
-
-        # Trailing - her 5 bar'da FVG tara
-        if current.index % 5 != 0:
-            return
-
-        trail_atr = max(current.range, current.close * 0.0001)
-        chunk = bars_1m[-100:] if len(bars_1m) > 100 else bars_1m
-        fvgs = detect_fvgs(chunk, lookback=min(50, len(chunk)), timeframe="1m", min_fvg_size=min_fvg)
-        for fvg in fvgs:
-            if trade["side"] == "long" and fvg.direction != "bullish":
-                continue
-            if trade["side"] == "short" and fvg.direction != "bearish":
-                continue
-            if fvg.filled or fvg.invalidated:
-                continue
-
-            buffer = trail_atr * fvg_buf
-            if trade["side"] == "long":
-                new_sl = fvg.bottom - buffer
-                if new_sl > trade["sl"]:
-                    sl_diff = new_sl - trade["sl"]
-                    trade["sl"] = new_sl
-                    trade["tp"] = trade["tp"] + sl_diff
-                    trade["trailing_count"] += 1
-                    log.info("[TRAIL] %s trail#%d sl=%.2f tp=%.2f", sym, trade["trailing_count"], trade["sl"], trade["tp"])
+        if trade:
+            side = trade["side"]
+            if side == "long":
+                if current.low <= trade["sl"]:
+                    trade["exit_price"] = trade["sl"]
+                    trade["result"] = "SL"
+                    self._exit_trade(sym, trade, current)
+                elif current.high >= trade["tp"]:
+                    trade["exit_price"] = trade["tp"]
+                    trade["result"] = "TP"
+                    self._exit_trade(sym, trade, current)
             else:
-                new_sl = fvg.top + buffer
-                if new_sl < trade["sl"]:
-                    sl_diff = trade["sl"] - new_sl
-                    trade["sl"] = new_sl
-                    trade["tp"] = trade["tp"] - sl_diff
-                    trade["trailing_count"] += 1
-                    log.info("[TRAIL] %s trail#%d sl=%.2f tp=%.2f", sym, trade["trailing_count"], trade["sl"], trade["tp"])
+                if current.high >= trade["sl"]:
+                    trade["exit_price"] = trade["sl"]
+                    trade["result"] = "SL"
+                    self._exit_trade(sym, trade, current)
+                elif current.low <= trade["tp"]:
+                    trade["exit_price"] = trade["tp"]
+                    trade["result"] = "TP"
+                    self._exit_trade(sym, trade, current)
+
+    def _exit_trade(self, sym, trade, current):
+        diff = (trade["exit_price"] - trade["entry_price"]) if trade["side"] == "long" \
+            else (trade["entry_price"] - trade["exit_price"])
+        pnl = round(diff * trade["qty"], 2)
+        self._balance += pnl
+        self._pl(sym, f"exit_{current.timestamp}", (
+            f"🟥 EXIT: {trade['result']} | PRICE: {trade['exit_price']:.2f} "
+            f"| PNL: {pnl:+.2f} | BALANCE: {self._balance:.2f} | TRAIL: {trade['trailing_count']}"
+        ))
+        log.info("[PAPER] %s %s exit=%s pnl=%.2f balance=%.2f",
+                 sym, trade['result'], trade['exit_price'], pnl, self._balance)
+        self.trades.append({
+            **trade, "pnl": pnl, "exit_bar": current.index, "close_time": current.timestamp,
+        })
+        del self.active_trades[sym]
 
     async def on_15m(self, sym: str, bars: list[Bar]):
         if len(bars) < 10:
             return
         self._on_15m_close(sym, bars)
 
-    async def on_1m(self, sym: str, bars: list[Bar]):
-        if len(bars) < 5:
-            return
-        self._on_1m_close(sym, bars)
-
     async def run(self):
         for sym in self.symbols:
             self.hub.register_callback(sym, "15m", lambda b, s=sym: self.on_15m(s, b))
-            self.hub.register_callback(sym, "1m", lambda b, s=sym: self.on_1m(s, b))
 
         log.info("PaperTrader baslatildi. Semboller: %s", self.symbols)
         log.info("BASLANGIC BAKIYESI: %.2f USDT", self._balance)
