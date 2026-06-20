@@ -114,7 +114,7 @@ class PaperTrader:
         if prev == msg:
             return
         self._log_state.setdefault(sym, {})[key] = msg
-        print(f"[{sym:<12}] {msg}")
+        print(f"[{sym:<12}] {msg}", flush=True)
 
     def _session_label(self, hour: int) -> str:
         if hour >= 22 or hour < 2:
@@ -139,22 +139,38 @@ class PaperTrader:
         hour = dt.hour
         session = self._session_label(hour)
 
-        # Session gate
-        if session == "ASIA":
-            self._pl(sym, "session", f"🟥 SESSION: ASIA (22:00-02:00) | trading kapali")
-            return
-        self._pl(sym, "session", f"🟩 SESSION: {session} | {hour:02d}:{dt.minute:02d} UTC | ✅")
-
-        # CBDR tracking + sweep
+        # Session gate + CBDR durumu (her zaman goster)
         ss = self.states[sym]
         ss.update(dt, current.open, current.high, current.low, current.close, atr_val)
 
-        if not ss.sweep_confirmed:
+        if session == "ASIA":
+            self._pl(sym, "session", f"🟥 SESSION: ASIA (22:00-02:00) | bar_utc_hour={hour} | trading kapali")
             return
 
+        cbdr_status = "✅ LOCKED" if ss.cbdr_locked else "⏳ BODY TRACKING..."
+        self._pl(sym, "session", (
+            f"🟩 SESSION: {session} | {hour:02d}:{dt.minute:02d} UTC "
+            f"| CBDR: {cbdr_status}"
+        ))
+
+        if not ss.cbdr_locked:
+            # CBDR henuz kilitlenmedi, body tracking devam ediyor
+            return
+
+        if not ss.sweep_confirmed:
+            # CBDR kilitli ama sweep yok — bekliyor
+            self._pl(sym, "sweep_wait", (
+                f"🟨 SWEEP: BEKLENIYOR | CBDR_BODY: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}]"
+            ))
+            return
+
+        # Sweep var
         sweep_dir = ss.sweep_direction or "bullish"
         sweep_lvl = ss.sweep_level or 0.0
         self._pl(sym, "sweep", f"🟩 SWEEP: DETECTED | TYPE: {sweep_dir.upper()} | LEVEL: {sweep_lvl:.2f}")
+        # sweep_wait varsa temizle
+        if "sweep_wait" in self._log_state.get(sym, {}):
+            del self._log_state[sym]["sweep_wait"]
 
         rsm = self.rsms[sym]
         if rsm.state_name == "IDLE":
@@ -349,6 +365,15 @@ class PaperTrader:
 
         # Gecmis barlari yukle
         await asyncio.gather(*[self._prefill_bars(sym) for sym in self.symbols])
+
+        # Prefill sonrasi hemen analizi tetikle (15dk bekleme yok)
+        for sym in self.symbols:
+            bars = self.hub.get_bars(sym, "15m")
+            if bars and len(bars) >= 10:
+                await self.on_15m(sym, bars)
+                log.info("[INIT] %s ilk analiz tamam (%d bar)", sym, len(bars))
+
+        log.info("Gecmis barlar yuklendi, WS baslatiliyor...")
 
         log.info("Gecmis barlar yuklendi, WS baslatiliyor...")
         await self.hub.run()
