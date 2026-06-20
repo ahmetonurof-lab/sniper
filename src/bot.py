@@ -345,6 +345,22 @@ class PaperTrader:
         except Exception as e:
             log.warning("[PREFILL] %s REST hatasi: %s", sym, e)
 
+    def _warmup_cbdr(self, sym: str):
+        """Prefill barlarla CBDR body tracking'i besle (gecmis 22:00-02:00 barlarindan body hesapla)."""
+        bars = self.hub.get_bars(sym, "15m")
+        if not bars or len(bars) < 10:
+            return
+        ss = self.states[sym]
+        for bar in bars:
+            try:
+                dt = datetime.fromtimestamp(bar.timestamp / 1000, tz=UTC)
+            except Exception:
+                continue
+            atr = max(bar.range, bar.close * 0.0001)
+            ss.update(dt, bar.open, bar.high, bar.low, bar.close, atr)
+        log.info("[WARMUP] %s CBDR body: lock=%s | body=[%.2f-%.2f] | sweep=%s",
+                 sym, ss.cbdr_locked, ss.cbdr_body_low, ss.cbdr_body_high, ss.sweep_confirmed)
+
     async def run(self):
         for sym in self.symbols:
             self.hub.register_callback(sym, "15m", lambda b, s=sym: self.on_15m(s, b))
@@ -368,6 +384,10 @@ class PaperTrader:
 
         # Gecmis barlari yukle
         await asyncio.gather(*[self._prefill_bars(sym) for sym in self.symbols])
+
+        # CBDR body'yi gecmis barlardan hesapla (22:00-02:00 araligindakileri bul)
+        for sym in self.symbols:
+            self._warmup_cbdr(sym)
 
         # Prefill sonrasi hemen analizi tetikle (15dk bekleme yok)
         for sym in self.symbols:
