@@ -234,7 +234,23 @@ class BinanceRESTClient:
             log.warning("[POSITIONS] Pozisyonlar alınamadı: %s", e)
             return []
 
-    async def place_stop_order(self, symbol: str, side: str, qty: float, stop_price: float, client_id: str = "") -> dict:
+    async def place_market_order(self, symbol: str, side: str, qty: float) -> dict:
+        """MARKET emri gonderir (pozisyon acmak icin)."""
+        params = {
+            "symbol": symbol,
+            "side": side.upper(),
+            "type": "MARKET",
+            "quantity": qty,
+        }
+        try:
+            return await self.post("/fapi/v1/order", params)
+        except Exception as e:
+            log.warning("[MARKET] %s MARKET hatasi: %s", symbol, e)
+            return {}
+
+    async def place_stop_order(
+        self, symbol: str, side: str, qty: float, stop_price: float, client_id: str = ""
+    ) -> dict:
         """STOP_MARKET reduceOnly emri gonderir (SL)."""
         params = {
             "symbol": symbol,

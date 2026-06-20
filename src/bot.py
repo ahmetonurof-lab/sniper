@@ -143,16 +143,22 @@ class PaperTrader:
         hour = dt.hour
         session = self._session_label(hour)
 
-        # Session gate + CBDR durumu (her zaman goster)
+        # Session gate + CBDR durumu
         ss = self.states[sym]
         ss.update(dt, current.open, current.high, current.low, current.close, atr_val)
 
         if session == "ASIA":
-            self._pl(sym, "session", f"🟥 SESSION: ASIA (22:00-02:00) | bar_utc_hour={hour} | trading kapali")
+            self._pl(sym, "session", "🟥 SESSION: ASIA | 22:00-02:00 UTC | trading kapali")
             return
 
+        bias_str = ""
+        if ss.cbdr_locked and ss.sweep_confirmed:
+            bias_str = f" | BIAS | 🟩{'LONG' if ss.sweep_direction == 'bullish' else 'SHORT'}"
+
         cbdr_status = "✅ LOCKED" if ss.cbdr_locked else "⏳ BODY TRACKING..."
-        self._pl(sym, "session", (f"🟩 SESSION: {session} | {hour:02d}:{dt.minute:02d} UTC " f"| CBDR: {cbdr_status}"))
+        self._pl(
+            sym, "session", f"🟩 SESSION: {session} | {hour:02d}:{dt.minute:02d} UTC | CBDR: {cbdr_status}{bias_str}"
+        )
 
         if not ss.cbdr_locked:
             # CBDR henuz kilitlenmedi, body tracking devam ediyor
@@ -302,21 +308,27 @@ class PaperTrader:
         )
         log.info("[PAPER] %s %s @ %.2f sl=%.2f tp=%.2f qty=%.4f", sym, side, entry_price, sl, tp, qty)
 
-        # Testnet'e SL + TP emirlerini gonder (sadece canli modda)
+        # Testnet'e MARKET entry + SL/TP emirleri (sadece canli modda)
         if cfg.BINANCE_API_KEY and getattr(self, "_live", False):
+            mkt_side = "BUY" if side == "long" else "SELL"
             sl_side = "SELL" if side == "long" else "BUY"
-            sl_resp = await self.rest.place_stop_order(sym, sl_side, qty, sl)
-            tp_resp = await self.rest.place_tp_order(sym, sl_side, qty, tp)
-            sl_ok = bool(sl_resp.get("orderId"))
-            tp_ok = bool(tp_resp.get("orderId"))
-            if sl_ok:
-                log.info("[ORDER] %s SL OK orderId=%s", sym, sl_resp.get("orderId"))
-            if tp_ok:
-                log.info("[ORDER] %s TP OK orderId=%s", sym, tp_resp.get("orderId"))
-            if not sl_ok:
-                log.warning("[ORDER] %s SL BASARISIZ!", sym)
-            if not tp_ok:
-                log.warning("[ORDER] %s TP BASARISIZ!", sym)
+
+            mkt_resp = await self.rest.place_market_order(sym, mkt_side, qty)
+            if mkt_resp.get("orderId"):
+                log.info("[ORDER] %s MARKET entry OK orderId=%s", sym, mkt_resp.get("orderId"))
+
+                sl_resp = await self.rest.place_stop_order(sym, sl_side, qty, sl)
+                tp_resp = await self.rest.place_tp_order(sym, sl_side, qty, tp)
+                if sl_resp.get("orderId"):
+                    log.info("[ORDER] %s SL OK orderId=%s", sym, sl_resp.get("orderId"))
+                if tp_resp.get("orderId"):
+                    log.info("[ORDER] %s TP OK orderId=%s", sym, tp_resp.get("orderId"))
+                if not sl_resp.get("orderId"):
+                    log.warning("[ORDER] %s SL BASARISIZ!", sym)
+                if not tp_resp.get("orderId"):
+                    log.warning("[ORDER] %s TP BASARISIZ!", sym)
+            else:
+                log.warning("[ORDER] %s MARKET entry BASARISIZ — SL/TP atlandi", sym)
 
         self.active_trades[sym] = {
             "entry_bar_index": current.index,
