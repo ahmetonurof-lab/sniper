@@ -1,31 +1,33 @@
-# Active Context — Sniper Bot (Paper Trade)
+# Active Context — Sniper Bot (Paper Trade → Live)
 
 ## Mevcut Durum
-- **Bot durumu**: Paper trade hazir, `bot.py` orchestrator yazildi
-- **Strateji**: CBDR -> Sweep -> FVG Wick Rejection -> Trailing -> Exit (analyzer_v3)
+- **Bot calisiyor**: Testnet WS + REST API bagli
+- **Testnet bakiyesi**: 4995.96 USDT
+- **Strateji**: CBDR → Sweep → FVG Wick Rejection → Trailing → Exit (analyzer_v3)
 - **Sembol sayisi**: 7 (BTC/ETH/BNB/SOL/AVAX/LINK/XRP)
-- **FVG esikleri**: config.py FVG_SIZE_MAP'de coin bazli
+- **Emir gonderme**: Aktif — STOP_MARKET + TAKE_PROFIT_MARKET testnete gidiyor
 - **Session gate**: ASIA (22:00-02:00 UTC) red, LONDON+NY kabul
+- **Kazanc**: +37.42 USDT (LINK SHORT)
 
 ## Son Degisiklikler (2026-06-20)
-- `sonnet/src/`'den alinan dosyalar revize edildi:
-  - `bot_infra.py`: V4 bagimliliklari temizlendi, sadece sniper'a ozel
-  - `websocket.py`: demo bolumu silindi, sadece WS hub kaldi
-  - `bot_binance.py`: degisiklik yok (bagimsiz)
-- `bot.py` yazildi: Paper trade orchestrator
-  - BinanceWSHub + SessionState + RetraceStateMachine baglantisi
-  - 7 sembol ayni anda canli data alir
-  - Paper entry/trailing/exit/PnL takibi
-  - Progresif log (terminalde renkli)
-- `config.py`: FVG_SIZE_MAP eklendi, gereksiz V4 parametreleri temizlendi
-- `analyzer_v3.py`: SYMBOL_CONFIGS config.py'den okur hale getirildi
+- `bot.py`: CBDR warmup (gecmis barlardan body hesapla) → sweep hemen yakalanir
+- `bot.py`: Position recovery (restartta API'den pozisyonlari yukle, cift trade engelle)
+- `bot.py`: Testnet emir gonderme (SL=STOP_MARKET, TP=TAKE_PROFIT_MARKET)
+- `bot.py`: Trailing guncellemesinde SL/TP emirlerini yenile
+- `bot.py`: Logging duzeltildi — paper_trade.log hem sniper.paper hem ws_hub yazar
+- `bot.py`: Session/CBDR/Sweep status her bar'da gosterilir
+- `bot_binance.py`: get_positions(), place_stop_order(), place_tp_order() eklendi
+- `websocket.py`: prefill_bars() eklendi, open_timeout asyncio.wait_for ile
+- `config.py`: FVG_SIZE_MAP, TESTNET_API_KEY destegi
+- `backtest-sniper/config.py`: FVG_SIZE_MAP eklendi
 
 ## Acik Basliklar
-- ETH/BTC/XRP icin backtest sonuclari kontrol edilecek (bazi coinler negatif)
-- Paper trade canli test: `cd sniper\src && python bot.py`
-- `sniper` repoya push: `git push sniper main`
+- Pre-commit hooks (ruff, mypy, vulture) su an calismiyor — .pre-commit-config.yaml guncellenmeli
+- ETH/BTC/XRP icin backtest sonuclari kontrol edilecek
+- `pre-commit install` sonucta runner dogru calismali
 
-## Önemli Notlar
+## Onemli Notlar
 - `sonnet/src/` icindeki hicbir dosya degistirilmez veya silinmez
-- Tüm revizyonlar `sniper/src/` icinde yapilir
-- FVG esikleri per-coin analyzer'lardaki test edilmis degerlerle birebir ayni
+- Veriler mainnet WS'den gelir (testnet WS = mainnet data)
+- Emirler testnet'e gider — canliya geciste sadece API url degisecek
+- Bot koparsa testnet'te pozisyon kalir, restartta `_recover_positions()` alir
