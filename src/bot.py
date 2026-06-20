@@ -44,11 +44,10 @@ log = logging.getLogger("sniper.paper")
 log.setLevel(logging.INFO)
 log.propagate = False
 _fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s — %(message)s")
-_ch = logging.StreamHandler()
+_ch = logging.StreamHandler(sys.stdout)
 _ch.setFormatter(_fmt)
 log.addHandler(_ch)
 log.addHandler(logging.FileHandler(_log_file, mode="a", encoding="utf-8-sig"))
-log.handlers[1].setFormatter(_fmt)
 
 try:
     if hasattr(sys.stdout, "reconfigure"):
