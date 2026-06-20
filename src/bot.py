@@ -361,6 +361,73 @@ class PaperTrader:
         log.info("[WARMUP] %s CBDR body: lock=%s | body=[%.2f-%.2f] | sweep=%s",
                  sym, ss.cbdr_locked, ss.cbdr_body_low, ss.cbdr_body_high, ss.sweep_confirmed)
 
+    async def _recover_positions(self):
+        """API'de açık pozisyon varsa active_trades'e yükle, çift trade'i engelle."""
+        if not cfg.BINANCE_API_KEY:
+            return
+        try:
+            positions = await self.rest.get_positions()
+            if not positions:
+                log.info("[RECOVER] API'de acik pozisyon yok")
+                return
+
+            log.info("[RECOVER] %d pozisyon bulundu, envantere aliniyor...", len(positions))
+            for pos in positions:
+                sym = pos["symbol"]
+                if sym not in self.symbols:
+                    continue
+                amt = float(pos.get("positionAmt", 0))
+                direction = "long" if amt > 0 else "short"
+                entry = float(pos.get("entryPrice", 0))
+                pnl = float(pos.get("unRealizedProfit", 0))
+                mark_price = float(pos.get("markPrice", 0))
+
+                # SL/TP emirlerini çek
+                open_orders = await self.rest.get_open_orders(sym)
+                sl_orders = [
+                    o for o in open_orders
+                    if self.rest.get_order_type(o) in ("STOP_MARKET", "STOP", "STOP_LIMIT")
+                    and o.get("reduceOnly") in (True, "true", "True")
+                ]
+                tp_orders = [
+                    o for o in open_orders
+                    if self.rest.get_order_type(o) in ("TAKE_PROFIT_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT")
+                    and o.get("reduceOnly") in (True, "true", "True")
+                ]
+
+                if sl_orders and tp_orders:
+                    sl_price = self.rest.get_order_price(sl_orders[0])
+                    tp_price = self.rest.get_order_price(tp_orders[0])
+                    self.active_trades[sym] = {
+                        "entry_bar_index": 0,
+                        "entry_price": entry,
+                        "sl": sl_price,
+                        "tp": tp_price,
+                        "qty": abs(amt),
+                        "side": direction,
+                        "initial_sl": sl_price,
+                        "initial_tp": tp_price,
+                        "trailing_count": 0,
+                    }
+                    log.info("[RECOVER] %s %s @ %.2f | SL=%.2f TP=%.2f | yeni trade engellendi",
+                             sym, direction, entry, sl_price, tp_price)
+                else:
+                    log.warning("[RECOVER] %s %s @ %.2f | SL/TP bulunamadi (pozisyon korumasiz)",
+                                 sym, direction, entry)
+                    # Korumasiz pozisyonu da yine de active_trades'e koy
+                    # trailing/exit calismaz ama cift trade engellenir
+                    self.active_trades[sym] = {
+                        "entry_bar_index": 0,
+                        "entry_price": entry,
+                        "sl": 0, "tp": 0,
+                        "qty": abs(amt),
+                        "side": direction,
+                        "initial_sl": 0, "initial_tp": 0,
+                        "trailing_count": 0,
+                    }
+        except Exception as e:
+            log.warning("[RECOVER] Pozisyon kurtarma hatasi: %s", e)
+
     async def run(self):
         for sym in self.symbols:
             self.hub.register_callback(sym, "15m", lambda b, s=sym: self.on_15m(s, b))
@@ -381,6 +448,9 @@ class PaperTrader:
                 log.warning("BALANCE: alinamadi (%s), varsayilan %.2f kullaniliyor", e, INITIAL_CAPITAL)
         else:
             log.info("BALANCE: varsayilan %.2f USDT (API key yok)", INITIAL_CAPITAL)
+
+        # API'de açık pozisyon varsa envantere al (restart koruması)
+        await self._recover_positions()
 
         # Gecmis barlari yukle
         await asyncio.gather(*[self._prefill_bars(sym) for sym in self.symbols])
