@@ -21,12 +21,16 @@ from retrace_state import RetraceStateMachine
 from session import SessionState, detect_phase_from_timestamp
 from websocket import BinanceWSHub
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_OUTPUT_DIR = os.path.join(_SCRIPT_DIR, "..", "output")
+os.makedirs(_OUTPUT_DIR, exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
     handlers=[
         logging.handlers.TimedRotatingFileHandler(
-            filename="output/paper_trade.log",
+            filename=os.path.join(_OUTPUT_DIR, "paper_trade.log"),
             when="midnight",
             backupCount=7,
             encoding="utf-8-sig",
@@ -47,7 +51,6 @@ try:
 except Exception:
     pass
 
-os.makedirs("output", exist_ok=True)
 
 # ── Coin bazli konfigurasyon (config.py'den okur) ──────────────
 INITIAL_CAPITAL = cfg.INITIAL_BALANCE
