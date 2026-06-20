@@ -28,23 +28,26 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _OUTPUT_DIR = os.path.join(_SCRIPT_DIR, "..", "output")
 os.makedirs(_OUTPUT_DIR, exist_ok=True)
 
+_log_file = os.path.join(_OUTPUT_DIR, "paper_trade.log")
+
+# Root logger: ws_hub ve diger loglar icin
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
-    handlers=[
-        logging.handlers.TimedRotatingFileHandler(
-            filename=os.path.join(_OUTPUT_DIR, "paper_trade.log"),
-            when="midnight",
-            backupCount=7,
-            encoding="utf-8-sig",
-        ),
-    ],
+    handlers=[logging.FileHandler(_log_file, mode="a", encoding="utf-8-sig")],
+    force=True,
 )
+
+# sniper.paper: console + file (propagate kapali, cift yazmayi onler)
 log = logging.getLogger("sniper.paper")
+log.setLevel(logging.INFO)
 log.propagate = False
-_console = logging.StreamHandler()
-_console.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s — %(message)s"))
-log.addHandler(_console)
+_fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s — %(message)s")
+_ch = logging.StreamHandler()
+_ch.setFormatter(_fmt)
+log.addHandler(_ch)
+log.addHandler(logging.FileHandler(_log_file, mode="a", encoding="utf-8-sig"))
+log.handlers[1].setFormatter(_fmt)
 
 try:
     if hasattr(sys.stdout, "reconfigure"):
