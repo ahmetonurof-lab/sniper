@@ -126,7 +126,7 @@ class PaperTrader:
             return "LONDON"
         return "NEWYORK"
 
-    def _on_15m_close(self, sym: str, bars_15m: list[Bar]):
+    async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):
         cfg = self.cfgs[sym]
         min_fvg = cfg["MIN_FVG_SIZE"]
         sl_atr = cfg["SL_ATR_MULT"]
@@ -195,7 +195,7 @@ class PaperTrader:
                     del self._log_state[sym]["wick"]
 
         if rsm.can_trigger():
-            self._try_entry(sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg)
+            await self._try_entry(sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg)
 
         # Trailing (15m FVG bazli, backtest ile ayni)
         trade = self.active_trades.get(sym)
@@ -218,6 +218,7 @@ class PaperTrader:
                         trade["tp"] = trade["tp"] + sl_diff
                         trade["trailing_count"] += 1
                         log.info("[TRAIL] %s trail#%d sl=%.2f tp=%.2f", sym, trade["trailing_count"], trade["sl"], trade["tp"])
+                        await self._update_orders(sym, trade)
                 else:
                     new_sl = fvg.top + buffer
                     if new_sl < trade["sl"]:
@@ -226,8 +227,9 @@ class PaperTrader:
                         trade["tp"] = trade["tp"] - sl_diff
                         trade["trailing_count"] += 1
                         log.info("[TRAIL] %s trail#%d sl=%.2f tp=%.2f", sym, trade["trailing_count"], trade["sl"], trade["tp"])
+                        await self._update_orders(sym, trade)
 
-    def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):
+    async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):
         if sym in self.active_trades:
             rsm.reset()
             return
@@ -261,6 +263,22 @@ class PaperTrader:
         log.info("[PAPER] %s %s @ %.2f sl=%.2f tp=%.2f qty=%.4f",
                  sym, side, entry_price, sl, tp, qty)
 
+        # Testnet'e SL + TP emirlerini gonder
+        if cfg.BINANCE_API_KEY:
+            sl_side = "SELL" if side == "long" else "BUY"
+            sl_resp = await self.rest.place_stop_order(sym, sl_side, qty, sl)
+            tp_resp = await self.rest.place_tp_order(sym, sl_side, qty, tp)
+            sl_ok = bool(sl_resp.get("orderId"))
+            tp_ok = bool(tp_resp.get("orderId"))
+            if sl_ok:
+                log.info("[ORDER] %s SL OK orderId=%s", sym, sl_resp.get("orderId"))
+            if tp_ok:
+                log.info("[ORDER] %s TP OK orderId=%s", sym, tp_resp.get("orderId"))
+            if not sl_ok:
+                log.warning("[ORDER] %s SL BASARISIZ!", sym)
+            if not tp_ok:
+                log.warning("[ORDER] %s TP BASARISIZ!", sym)
+
         self.active_trades[sym] = {
             "entry_bar_index": current.index,
             "entry_price": entry_price,
@@ -273,6 +291,16 @@ class PaperTrader:
             "trailing_count": 0,
         }
         rsm.reset()
+
+    async def _update_orders(self, sym: str, trade: dict):
+        if not cfg.BINANCE_API_KEY:
+            return
+        sl_side = "SELL" if trade["side"] == "long" else "BUY"
+        await self.rest.place_stop_order(sym, sl_side, trade["qty"], trade["sl"],
+                                          client_id=f"sl_{sym}_{int(time.time())}")
+        await self.rest.place_tp_order(sym, sl_side, trade["qty"], trade["tp"],
+                                        client_id=f"tp_{sym}_{int(time.time())}")
+        log.info("[ORDER] %s trailing guncellendi sl=%.2f tp=%.2f", sym, trade["sl"], trade["tp"])
 
         # Exit kontrolu (15m bazli)
         trade = self.active_trades.get(sym)
@@ -316,7 +344,7 @@ class PaperTrader:
     async def on_15m(self, sym: str, bars: list[Bar]):
         if len(bars) < 10:
             return
-        self._on_15m_close(sym, bars)
+        await self._on_15m_close(sym, bars)
 
     async def _prefill_bars(self, sym: str):
         url = f"https://fapi.binance.com/fapi/v1/klines?symbol={sym}&interval=15m&limit=500"
@@ -465,8 +493,6 @@ class PaperTrader:
             if bars and len(bars) >= 10:
                 await self.on_15m(sym, bars)
                 log.info("[INIT] %s ilk analiz tamam (%d bar)", sym, len(bars))
-
-        log.info("Gecmis barlar yuklendi, WS baslatiliyor...")
 
         log.info("Gecmis barlar yuklendi, WS baslatiliyor...")
         await self.hub.run()

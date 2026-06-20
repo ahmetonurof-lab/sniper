@@ -227,13 +227,48 @@ class BinanceRESTClient:
             return 0.0
 
     async def get_positions(self) -> list[dict]:
-        """Açık pozisyonları döner (positionAmt != 0)."""
         try:
             raw = await self.get("/fapi/v2/account")
             return [p for p in raw.get("positions", []) if float(p.get("positionAmt", 0)) != 0]
         except Exception as e:
             log.warning("[POSITIONS] Pozisyonlar alınamadı: %s", e)
             return []
+
+    async def place_stop_order(self, symbol: str, side: str, qty: float, stop_price: float, client_id: str = "") -> dict:
+        """STOP_MARKET reduceOnly emri gonderir (SL)."""
+        params = {
+            "symbol": symbol,
+            "side": side.upper(),
+            "type": "STOP_MARKET",
+            "quantity": qty,
+            "stopPrice": stop_price,
+            "reduceOnly": True,
+            "timeInForce": "GTE_GTC",
+            "newClientOrderId": client_id or f"sl_{symbol}_{int(time.time())}",
+        }
+        try:
+            return await self.post("/fapi/v1/order", params)
+        except Exception as e:
+            log.warning("[SL] %s STOP_MARKET hatasi: %s", symbol, e)
+            return {}
+
+    async def place_tp_order(self, symbol: str, side: str, qty: float, stop_price: float, client_id: str = "") -> dict:
+        """TAKE_PROFIT_MARKET reduceOnly emri gonderir (TP)."""
+        params = {
+            "symbol": symbol,
+            "side": side.upper(),
+            "type": "TAKE_PROFIT_MARKET",
+            "quantity": qty,
+            "stopPrice": stop_price,
+            "reduceOnly": True,
+            "timeInForce": "GTE_GTC",
+            "newClientOrderId": client_id or f"tp_{symbol}_{int(time.time())}",
+        }
+        try:
+            return await self.post("/fapi/v1/order", params)
+        except Exception as e:
+            log.warning("[TP] %s TAKE_PROFIT_MARKET hatasi: %s", symbol, e)
+            return {}
 
     async def cancel_order(
         self,
