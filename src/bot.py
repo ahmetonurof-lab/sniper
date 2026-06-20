@@ -218,7 +218,7 @@ class PaperTrader:
                     continue
                 if fvg.filled or fvg.invalidated:
                     continue
-                buffer = atr_val * fvg_buf
+                buffer = trade["risk_pts"] * fvg_buf
                 if trade["side"] == "long":
                     new_sl = fvg.bottom - buffer
                     if new_sl > trade["sl"]:
@@ -257,21 +257,29 @@ class PaperTrader:
             if side_exit == "long":
                 if current.low <= trade_exit["sl"]:
                     trade_exit["exit_price"] = trade_exit["sl"]
+                    trade_exit["exit_bar"] = current.index
+                    trade_exit["exit_timestamp"] = current.timestamp
                     trade_exit["result"] = "SL"
-                    self._exit_trade(sym, trade_exit, current)
+                    self._exit_trade(sym, trade_exit, current, trade_exit["exit_timestamp"])
                 elif current.high >= trade_exit["tp"]:
                     trade_exit["exit_price"] = trade_exit["tp"]
+                    trade_exit["exit_bar"] = current.index
+                    trade_exit["exit_timestamp"] = current.timestamp
                     trade_exit["result"] = "TP"
-                    self._exit_trade(sym, trade_exit, current)
+                    self._exit_trade(sym, trade_exit, current, trade_exit["exit_timestamp"])
             else:
                 if current.high >= trade_exit["sl"]:
                     trade_exit["exit_price"] = trade_exit["sl"]
+                    trade_exit["exit_bar"] = current.index
+                    trade_exit["exit_timestamp"] = current.timestamp
                     trade_exit["result"] = "SL"
-                    self._exit_trade(sym, trade_exit, current)
+                    self._exit_trade(sym, trade_exit, current, trade_exit["exit_timestamp"])
                 elif current.low <= trade_exit["tp"]:
                     trade_exit["exit_price"] = trade_exit["tp"]
+                    trade_exit["exit_bar"] = current.index
+                    trade_exit["exit_timestamp"] = current.timestamp
                     trade_exit["result"] = "TP"
-                    self._exit_trade(sym, trade_exit, current)
+                    self._exit_trade(sym, trade_exit, current, trade_exit["exit_timestamp"])
 
     async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):
         if sym in self.active_trades:
@@ -339,6 +347,7 @@ class PaperTrader:
             "initial_sl": sl,
             "initial_tp": tp,
             "trailing_count": 0,
+            "risk_pts": risk_pts,
         }
         rsm.reset()
 
@@ -354,7 +363,7 @@ class PaperTrader:
         )
         log.info("[ORDER] %s trailing guncellendi sl=%.2f tp=%.2f", sym, trade["sl"], trade["tp"])
 
-    def _exit_trade(self, sym, trade, current):
+    def _exit_trade(self, sym, trade, current, exit_timestamp: int):
         diff = (
             (trade["exit_price"] - trade["entry_price"])
             if trade["side"] == "long"
@@ -364,7 +373,7 @@ class PaperTrader:
         self._balance += pnl
         self._pl(
             sym,
-            f"exit_{current.timestamp}",
+            f"exit_{exit_timestamp}",
             (
                 f"🟥 EXIT: {trade['result']} | PRICE: {trade['exit_price']:.2f} "
                 f"| PNL: {pnl:+.2f} | BALANCE: {self._balance:.2f} | TRAIL: {trade['trailing_count']}"
@@ -377,8 +386,8 @@ class PaperTrader:
             {
                 **trade,
                 "pnl": pnl,
-                "exit_bar": current.index,
-                "close_time": current.timestamp,
+                "exit_bar": trade["exit_bar"],
+                "close_time": exit_timestamp,
             }
         )
         del self.active_trades[sym]
@@ -416,7 +425,7 @@ class PaperTrader:
             log.warning("[PREFILL] %s REST hatasi: %s", sym, e)
 
     def _warmup_cbdr(self, sym: str):
-        """Prefill barlarla CBDR body tracking'i besle (gecmis 22:00-02:00 barlarindan body hesapla)."""
+        """Prefill barlarla CBDR body tracking'i besle (sadece 22:00-02:00 barlari)."""
         bars = self.hub.get_bars(sym, "15m")
         if not bars or len(bars) < 10:
             return
@@ -425,6 +434,9 @@ class PaperTrader:
             try:
                 dt = datetime.fromtimestamp(bar.timestamp / 1000, tz=UTC)
             except Exception:
+                continue
+            # Sadece CBDR saatleri (22:00-02:00 UTC)
+            if not (dt.hour >= 22 or dt.hour < 2):
                 continue
             atr = max(bar.range, bar.close * 0.0001)
             ss.update(dt, bar.open, bar.high, bar.low, bar.close, atr)
@@ -495,19 +507,37 @@ class PaperTrader:
                     )
                 else:
                     log.warning("[RECOVER] %s %s @ %.2f | SL/TP bulunamadi (pozisyon korumasiz)", sym, direction, entry)
-                    # Korumasiz pozisyonu da yine de active_trades'e koy
-                    # trailing/exit calismaz ama cift trade engellenir
+                    # SL/TP yoksa: entry price'tan %1 risk ile synthetic SL/TP oluştur
+                    # Bu en azından trailing'in çalışmasını ve exit'in olmasını sağlar
+                    atr_est = entry * 0.0001  # minimal fallback
+                    risk_pts = atr_est * self.cfgs[sym]["SL_ATR_MULT"]
+                    if direction == "long":
+                        sl = entry - risk_pts * 2
+                        tp = entry + risk_pts * self.cfgs[sym]["TP_RR"]
+                    else:
+                        sl = entry + risk_pts * 2
+                        tp = entry - risk_pts * self.cfgs[sym]["TP_RR"]
+
                     self.active_trades[sym] = {
                         "entry_bar_index": 0,
                         "entry_price": entry,
-                        "sl": 0,
-                        "tp": 0,
+                        "sl": sl,
+                        "tp": tp,
                         "qty": abs(amt),
                         "side": direction,
-                        "initial_sl": 0,
-                        "initial_tp": 0,
+                        "initial_sl": sl,
+                        "initial_tp": tp,
                         "trailing_count": 0,
+                        "risk_pts": risk_pts,  # trailing buffer için
                     }
+                    log.info(
+                        "[RECOVER] %s %s @ %.2f | SYNTHETIC SL=%.2f TP=%.2f (gerçek SL/TP yerleşince guncellenecek)",
+                        sym,
+                        direction,
+                        entry,
+                        sl,
+                        tp,
+                    )
         except Exception as e:
             log.warning("[RECOVER] Pozisyon kurtarma hatasi: %s", e)
 
@@ -532,6 +562,9 @@ class PaperTrader:
         else:
             log.info("BALANCE: varsayilan %.2f USDT (API key yok)", INITIAL_CAPITAL)
 
+        # Live mod aktif — prefill/analiz öncesi, böylece trailing+entry emirleri çalışır
+        self._live = True
+
         # API'de açık pozisyon varsa envantere al (restart koruması)
         await self._recover_positions()
 
@@ -550,7 +583,6 @@ class PaperTrader:
                 log.info("[INIT] %s ilk analiz tamam (%d bar)", sym, len(bars))
 
         log.info("Gecmis barlar yuklendi, WS baslatiliyor...")
-        self._live = True
         await self.hub.run()
 
 
