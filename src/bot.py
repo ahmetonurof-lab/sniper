@@ -302,8 +302,8 @@ class PaperTrader:
         )
         log.info("[PAPER] %s %s @ %.2f sl=%.2f tp=%.2f qty=%.4f", sym, side, entry_price, sl, tp, qty)
 
-        # Testnet'e SL + TP emirlerini gonder
-        if cfg.BINANCE_API_KEY:
+        # Testnet'e SL + TP emirlerini gonder (sadece canli modda)
+        if cfg.BINANCE_API_KEY and getattr(self, "_live", False):
             sl_side = "SELL" if side == "long" else "BUY"
             sl_resp = await self.rest.place_stop_order(sym, sl_side, qty, sl)
             tp_resp = await self.rest.place_tp_order(sym, sl_side, qty, tp)
@@ -332,7 +332,7 @@ class PaperTrader:
         rsm.reset()
 
     async def _update_orders(self, sym: str, trade: dict):
-        if not cfg.BINANCE_API_KEY:
+        if not cfg.BINANCE_API_KEY or not getattr(self, "_live", False):
             return
         sl_side = "SELL" if trade["side"] == "long" else "BUY"
         await self.rest.place_stop_order(
@@ -539,6 +539,7 @@ class PaperTrader:
                 log.info("[INIT] %s ilk analiz tamam (%d bar)", sym, len(bars))
 
         log.info("Gecmis barlar yuklendi, WS baslatiliyor...")
+        self._live = True
         await self.hub.run()
 
 
