@@ -21,10 +21,14 @@
 - `config.py`: FVG_SIZE_MAP, TESTNET_API_KEY destegi
 - `backtest-sniper/config.py`: FVG_SIZE_MAP eklendi
 
+## Son Degisiklikler (devam)
+- `bot.py`: 5 fix — risk_pts trailing buffer, warmup CBDR 22:00-02:00 filtresi, synthetic SL/TP recover, exit_timestamp dogru bar, _live=True prefill oncesi
+
 ## Acik Basliklar
 - Pre-commit hooks (ruff, mypy, vulture) su an calismiyor — .pre-commit-config.yaml guncellenmeli
 - ETH/BTC/XRP icin backtest sonuclari kontrol edilecek
 - `pre-commit install` sonucta runner dogru calismali
+- `bot.py` analyzer_v3.py ile davranissal birebir uyumlu, canliya gecis icin onay bekliyor
 
 ## Onemli Notlar
 - `sonnet/src/` icindeki hicbir dosya degistirilmez veya silinmez
