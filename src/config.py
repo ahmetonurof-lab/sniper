@@ -28,6 +28,6 @@ TP_RR = 2.0
 FVG_BUFFER_MULT = 0.25
 
 # ── Binance API ────────────────────────────────────────────────
-BINANCE_API_KEY = os.getenv("BINANCE_API_KEY")
-BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET")
+BINANCE_API_KEY = os.getenv("TESTNET_API_KEY") or os.getenv("BINANCE_API_KEY")
+BINANCE_API_SECRET = os.getenv("TESTNET_API_SECRET") or os.getenv("BINANCE_API_SECRET")
 IS_TESTNET = os.getenv("TESTNET", "True").lower() == "true"
