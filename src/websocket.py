@@ -367,9 +367,17 @@ class BinanceWSHub:
         return self._buffers[key]
 
     def get_bars(self, symbol: str, timeframe: str) -> list[Bar]:
-        """Anlık bar snapshot'ı döner (thread-safe değil, sadece asyncio loop'ta çağırın)."""
         buf = self._buffers.get((symbol.upper(), timeframe))
         return list(buf._bars) if buf else []
+
+    def prefill_bars(self, symbol: str, timeframe: str, bars: list[Bar]) -> None:
+        """REST'ten cekilen gecmis barlari buffer'a yukler. WS acilmadan once cagir."""
+        key = (symbol.upper(), timeframe)
+        buf = self._get_buffer(symbol, timeframe)
+        buf._bars = list(bars)
+        if buf._bars:
+            buf._next_index = buf._bars[-1].index + 1
+        log.info("[PREFILL] %s %s %d bar yuklendi", symbol, timeframe, len(buf._bars))
 
     # ── Mesaj yönlendirme ───────────────────────
 
@@ -446,45 +454,44 @@ class BinanceWSHub:
 
     async def _connect_and_listen(self) -> None:
         url = self._build_url()
-        log.info("Bağlanıyor: %s", url)
+        log.info("[WS] Bağlanıyor: %s", url)
+        print(f"[WS] Bağlanıyor: {url}", flush=True)
 
-        # Bağlantı öncesi _last_seen sıfırla (tüm sembol/timeframe çiftleri)
         now = time.time()
         for sym in self.symbols:
             for tf in self.timeframes:
                 self._last_seen[(sym, tf)] = now
 
-        # Heartbeat monitor'ü başlat (önceki varsa iptal et)
         if self._heartbeat_task is not None and not self._heartbeat_task.done():
             self._heartbeat_task.cancel()
         self._heartbeat_task = asyncio.create_task(self._heartbeat_monitor())
 
         try:
-            async with websockets.connect(
-                url,
-                ping_interval=60,
-                ping_timeout=40,
-                close_timeout=10,
-                open_timeout=30,
-            ) as ws:
-                self._ws = ws
-                log.info(
-                    "Bağlantı kuruldu (%d stream) | toplam reconnect: %d",
-                    len(self.symbols) * len(self.timeframes),
-                    self._reconnect_count,
-                )
-                try:
-                    async for raw in ws:
-                        if self._stop_event.is_set():
-                            break
-                        msg = raw.decode() if isinstance(raw, bytes) else raw
-                        await self._dispatch(msg)
-                finally:
-                    self._ws = None
-        except InvalidStatus as e:
-            # 502/503 → sunucu tarafı geçici hata, üste fırlat ki run() uzun beklesin
-            log.warning("WS handshake reddedildi: %s | url=%s", e, url)
-            raise
+            ws = await asyncio.wait_for(
+                websockets.connect(
+                    url,
+                    ping_interval=60,
+                    ping_timeout=40,
+                    close_timeout=10,
+                ),
+                timeout=30,
+            )
+            self._ws = ws
+            log.info("[WS] Bağlantı kuruldu (%d stream) | reconnect: %d",
+                     len(self.symbols) * len(self.timeframes), self._reconnect_count)
+            print(f"[WS] Bağlantı kuruldu", flush=True)
+            try:
+                async for raw in ws:
+                    if self._stop_event.is_set():
+                        break
+                    msg = raw.decode() if isinstance(raw, bytes) else raw
+                    await self._dispatch(msg)
+            finally:
+                self._ws = None
+        except asyncio.TimeoutError:
+            log.warning("[WS] Bağlantı zaman aşımı (30sn) | %s", url)
+            print(f"[WS] Bağlantı zaman aşımı", flush=True)
+            raise TimeoutError("WS connection timeout")
 
     async def run(self) -> None:
         """

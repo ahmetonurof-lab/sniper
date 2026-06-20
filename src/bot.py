@@ -7,14 +7,17 @@ Canli (paper) ortaminda calisir, gercek emir gondermez.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import logging.handlers
 import os
 import sys
+import urllib.request
 from datetime import UTC, datetime
 
 import config as cfg
-from bot_infra import _close_ohlc_writers
+from bot_binance import BinanceRESTClient
+from bot_infra import _close_ohlc_writers, _RateLimiter
 from fvg import detect_fvgs
 from models import Bar
 from retrace_state import RetraceStateMachine
@@ -60,11 +63,21 @@ RISK_PER_TRADE = cfg.RISK_PER_TRADE
 class PaperTrader:
     def __init__(self, symbols: list[str] | None = None):
         self.symbols = [s.upper() for s in (symbols or cfg.SYMBOLS)]
+
+        # Testnet / Mainnet config
+        self.testnet = cfg.IS_TESTNET
+        if self.testnet:
+            self.rest_base = "https://demo-fapi.binance.com"
+            self.ws_base = "wss://fstream.binancefuture.com/stream?streams="
+        else:
+            self.rest_base = "https://fapi.binance.com"
+            self.ws_base = "wss://fstream.binance.com/stream?streams="
+
         self.hub = BinanceWSHub(
             symbols=self.symbols,
             timeframes=["15m"],
             max_bars=500,
-            base_url="wss://fstream.binancefuture.com/stream?streams=",
+            base_url=self.ws_base,
         )
         self.states: dict[str, SessionState] = {}
         self.rsms: dict[str, RetraceStateMachine] = {}
@@ -73,6 +86,17 @@ class PaperTrader:
         self.trades: list[dict] = []
         self._log_state: dict[str, dict] = {}
         self._balance = INITIAL_CAPITAL
+
+        # REST client (testnet/mainnet)
+        api_key = cfg.BINANCE_API_KEY or ""
+        api_secret = cfg.BINANCE_API_SECRET or ""
+        self.rest = BinanceRESTClient(
+            api_key=api_key,
+            api_secret=api_secret,
+            base_url=self.rest_base,
+            rate_limiter=_RateLimiter(1200),
+            semaphore=asyncio.Semaphore(5),
+        )
 
         for sym in self.symbols:
             min_fvg = cfg.FVG_SIZE_MAP.get(sym, 0.5)
@@ -275,12 +299,58 @@ class PaperTrader:
             return
         self._on_15m_close(sym, bars)
 
+    async def _prefill_bars(self, sym: str):
+        url = f"https://fapi.binance.com/fapi/v1/klines?symbol={sym}&interval=15m&limit=500"
+        try:
+            loop = asyncio.get_running_loop()
+            raw = await loop.run_in_executor(
+                None,
+                lambda: urllib.request.urlopen(url, timeout=15).read().decode(),
+            )
+            data = json.loads(raw)
+            bars = [
+                Bar(
+                    index=i,
+                    open=float(k[1]),
+                    high=float(k[2]),
+                    low=float(k[3]),
+                    close=float(k[4]),
+                    volume=float(k[5]),
+                    timestamp=int(k[0]),
+                    is_closed=True,
+                )
+                for i, k in enumerate(data)
+            ]
+            self.hub.prefill_bars(sym, "15m", bars)
+            log.info("[PREFILL] %s 15m: %d bar yuklendi", sym, len(bars))
+        except Exception as e:
+            log.warning("[PREFILL] %s REST hatasi: %s", sym, e)
+
     async def run(self):
         for sym in self.symbols:
             self.hub.register_callback(sym, "15m", lambda b, s=sym: self.on_15m(s, b))
 
-        log.info("PaperTrader baslatildi. Semboller: %s", self.symbols)
-        log.info("BASLANGIC BAKIYESI: %.2f USDT", self._balance)
+        net = "TESTNET" if self.testnet else "MAINNET"
+        log.info("PaperTrader baslatiliyor. Semboller: %s | %s", self.symbols, net)
+
+        # Testnet bakiyesini cek
+        if cfg.BINANCE_API_KEY:
+            try:
+                bal = await self.rest.get_balance()
+                if bal > 0:
+                    self._balance = bal
+                    log.info("BALANCE: %.2f USDT (%s)", self._balance, net)
+                else:
+                    log.warning("BALANCE: 0 USDT, varsayilan %.2f kullaniliyor", INITIAL_CAPITAL)
+            except Exception as e:
+                log.warning("BALANCE: alinamadi (%s), varsayilan %.2f kullaniliyor", e, INITIAL_CAPITAL)
+        else:
+            log.info("BALANCE: varsayilan %.2f USDT (API key yok)", INITIAL_CAPITAL)
+
+        # Gecmis barlari yukle
+        await asyncio.gather(*[self._prefill_bars(sym) for sym in self.symbols])
+
+        log.info("Gecmis barlar yuklendi, WS baslatiliyor...")
         await self.hub.run()
 
 

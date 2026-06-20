@@ -215,6 +215,18 @@ class BinanceRESTClient:
             log.debug("[ORDERS] algoOrders alınamadı %s (önemsiz): %s", symbol.ljust(12), e)
         return orders
 
+    async def get_balance(self) -> float:
+        """Futures cüzdan bakiyesini döner (USDT)."""
+        try:
+            result = await self.get("/fapi/v2/account")
+            for asset in result.get("assets", []):
+                if asset.get("asset") == "USDT":
+                    return float(asset.get("walletBalance", 0))
+            return 0.0
+        except Exception as e:
+            log.warning("[BALANCE] Bakiye alınamadı: %s", e)
+            return 0.0
+
     async def cancel_order(
         self,
         order_id: Any,
