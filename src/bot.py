@@ -39,14 +39,11 @@ logging.basicConfig(
     force=True,
 )
 
-# sniper.paper: console + file (propagate kapali, cift yazmayi onler)
+# sniper.paper: sadece file (console cikti yok)
 log = logging.getLogger("sniper.paper")
 log.setLevel(logging.INFO)
 log.propagate = False
 _fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s — %(message)s")
-_ch = logging.StreamHandler(sys.stdout)
-_ch.setFormatter(_fmt)
-log.addHandler(_ch)
 log.addHandler(logging.FileHandler(_log_file, mode="a", encoding="utf-8-sig"))
 
 try:
@@ -118,7 +115,7 @@ class PaperTrader:
             return
         self._log_state.setdefault(sym, {})[key] = msg
         ts = datetime.now(UTC).strftime("%H:%M:%S")
-        print(f"[{ts}] [{sym:<12}] {msg}", flush=True)
+        print(f"\n[{ts}] [{sym:<12}] {msg}", flush=True)
 
     def _session_label(self, hour: int) -> str:
         if hour >= 22 or hour < 2:
