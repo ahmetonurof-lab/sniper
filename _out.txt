@@ -1,0 +1,4 @@
+2026-06-20 03:34:03,132 [INFO] sniper.paper — PaperTrader baslatildi. Semboller: ['BNBUSDT']
+2026-06-20 03:34:03,134 [INFO] sniper.paper — BASLANGIC BAKIYESI: 10000.00 USDT
+[WS] Bağlanıyor: wss://fstream.binancefuture.com/stream?streams=bnbusdt@kline_15m
+[WS] Bağlantı kuruldu
