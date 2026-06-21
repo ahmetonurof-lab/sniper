@@ -150,10 +150,6 @@ class PaperTrader:
             self._pl(sym, "session", "🟥 SESSION: ASIA | 22:00-02:00 UTC | trading kapali")
             return
 
-        bias_str = ""
-        if ss.cbdr_locked and ss.sweep_confirmed:
-            bias_str = f" | BIAS | 🟩{'LONG' if ss.sweep_direction == 'bullish' else 'SHORT'}"
-
         cbdr_status = "✅ LOCKED" if ss.cbdr_locked else "⏳ BODY TRACKING..."
         self._pl(
             sym, "session", f"🟩 SESSION: {session} | {hour:02d}:{dt.minute:02d} UTC | CBDR: {cbdr_status}{bias_str}"
@@ -165,17 +161,23 @@ class PaperTrader:
 
         if not ss.sweep_confirmed:
             # CBDR kilitli ama sweep yok — bekliyor
+            bias_str = ""
+            if ss.daily_bias != DailyBias.NEUTRAL:
+                direction = "LONG" if ss.daily_bias == DailyBias.BULLISH else "SHORT"
+                color = "🟩" if direction == "LONG" else "🟥"
+                bias_str = f" | BIAS | {color}{direction}"
             self._pl(
                 sym,
                 "sweep_wait",
-                (f"🟨 SWEEP: BEKLENIYOR | CBDR_BODY: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}]"),
+                (f"🟨 SWEEP: BEKLENIYOR{bias_str} | CBDR_BODY: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}]"),
             )
             return
 
         # Sweep var
         sweep_dir = ss.sweep_direction or "bullish"
         sweep_lvl = ss.sweep_level or 0.0
-        self._pl(sym, "sweep", f"🟩 SWEEP: DETECTED | TYPE: {sweep_dir.upper()} | LEVEL: {sweep_lvl:.2f}")
+        sweep_icon = "🟩" if sweep_dir == "bullish" else "🟥"
+        self._pl(sym, "sweep", f"🟩 SWEEP: DETECTED | TYPE: {sweep_icon}{sweep_dir.upper()} | LEVEL: {sweep_lvl:.2f}")
         # sweep_wait varsa temizle
         if "sweep_wait" in self._log_state.get(sym, {}):
             del self._log_state[sym]["sweep_wait"]
@@ -308,10 +310,11 @@ class PaperTrader:
             rsm.reset()
             return
 
+        bias_icon = "🟩" if side == "long" else "🟥"
         self._pl(
             sym,
             "entry",
-            (f"🟨 ENTRY: {side.upper()} | PRICE: {entry_price:.2f} " f"| SL: {sl:.2f} | TP: {tp:.2f} | QTY: {qty:.4f}"),
+            (f"🟨 ENTRY: {bias_icon}{side.upper()} | PRICE: {entry_price:.2f} " f"| SL: {sl:.2f} | TP: {tp:.2f} | QTY: {qty:.4f}"),
         )
         log.info("[PAPER] %s %s @ %.2f sl=%.2f tp=%.2f qty=%.4f", sym, side, entry_price, sl, tp, qty)
 
