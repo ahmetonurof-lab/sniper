@@ -150,6 +150,11 @@ class PaperTrader:
             self._pl(sym, "session", "🟥 SESSION: ASIA | 22:00-02:00 UTC | trading kapali")
             return
 
+        bias_str = ""
+        if ss.daily_bias != DailyBias.NEUTRAL:
+            direction = "LONG" if ss.daily_bias == DailyBias.BULLISH else "SHORT"
+            color = "🟩" if direction == "LONG" else "🟥"
+            bias_str = f" | BIAS: {color}{direction}"
         cbdr_status = "✅ LOCKED" if ss.cbdr_locked else "⏳ BODY TRACKING..."
         self._pl(
             sym, "session", f"🟩 SESSION: {session} | {hour:02d}:{dt.minute:02d} UTC | CBDR: {cbdr_status}{bias_str}"
