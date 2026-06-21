@@ -115,7 +115,11 @@ class PaperTrader:
             return
         self._log_state.setdefault(sym, {})[key] = msg
         ts = datetime.now(UTC).strftime("%H:%M:%S")
-        print(f"\n[{ts}] [{sym:<12}] {msg}", flush=True)
+        # Farklı coin grubu arasında boşluk
+        _prev_sym = getattr(self, '_prev_print_sym', None)
+        _separator = "" if _prev_sym == sym else "\n"
+        self._prev_print_sym = sym
+        print(f"{_separator}[{ts}] [{sym:<12}] {msg}", flush=True)
 
     def _session_label(self, hour: int) -> str:
         if hour >= 22 or hour < 2:
