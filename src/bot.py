@@ -22,7 +22,7 @@ from bot_infra import _close_ohlc_writers, _RateLimiter
 from fvg import detect_fvgs
 from models import Bar
 from retrace_state import RetraceStateMachine
-from session import SessionState
+from session import DailyBias, SessionState
 from websocket import BinanceWSHub
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
