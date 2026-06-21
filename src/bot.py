@@ -460,16 +460,16 @@ class PaperTrader:
         )
 
     async def _recover_positions(self):
-        """API'de açık pozisyon varsa active_trades'e yükle, çift trade'i engelle."""
+        """API'de açık pozisyon varsa active_trades'e yükle, cift trade'i engelle."""
         if not cfg.BINANCE_API_KEY:
             return
         try:
             positions = await self.rest.get_positions()
             if not positions:
-                log.info("[RECOVER] API'de acik pozisyon yok")
+                self._pl("SYSTEM", "recover", "✅ API'de acik pozisyon yok")
                 return
 
-            log.info("[RECOVER] %d pozisyon bulundu, envantere aliniyor...", len(positions))
+            self._pl("SYSTEM", "recover", f"🔄 {len(positions)} pozisyon bulundu, envantere aliniyor...")
             for pos in positions:
                 sym = pos["symbol"]
                 if sym not in self.symbols:
@@ -496,7 +496,7 @@ class PaperTrader:
                 if sl_orders and tp_orders:
                     sl_price = self.rest.get_order_price(sl_orders[0])
                     tp_price = self.rest.get_order_price(tp_orders[0])
-                    self.active_trades[sym] = {
+                    self.active_trades[sym].append({
                         "entry_bar_index": 0,
                         "entry_price": entry,
                         "sl": sl_price,
@@ -506,20 +506,11 @@ class PaperTrader:
                         "initial_sl": sl_price,
                         "initial_tp": tp_price,
                         "trailing_count": 0,
-                    }
-                    log.info(
-                        "[RECOVER] %s %s @ %.2f | SL=%.2f TP=%.2f | yeni trade engellendi",
-                        sym,
-                        direction,
-                        entry,
-                        sl_price,
-                        tp_price,
-                    )
+                    })
+                    self._pl(sym, "recover", f"🔒 {direction.upper()} @ {entry:.2f} | SL={sl_price:.2f} TP={tp_price:.2f} | yeni trade engellendi")
                 else:
-                    log.warning("[RECOVER] %s %s @ %.2f | SL/TP bulunamadi (pozisyon korumasiz)", sym, direction, entry)
-                    # SL/TP yoksa: entry price'tan %1 risk ile synthetic SL/TP oluştur
-                    # Bu en azından trailing'in çalışmasını ve exit'in olmasını sağlar
-                    atr_est = entry * 0.0001  # minimal fallback
+                    self._pl(sym, "recover", f"⚠️ {direction.upper()} @ {entry:.2f} | SL/TP bulunamadi (pozisyon korumasiz)")
+                    atr_est = entry * 0.0001
                     risk_pts = atr_est * self.cfgs[sym]["SL_ATR_MULT"]
                     if direction == "long":
                         sl = entry - risk_pts * 2
@@ -528,7 +519,7 @@ class PaperTrader:
                         sl = entry + risk_pts * 2
                         tp = entry - risk_pts * self.cfgs[sym]["TP_RR"]
 
-                    self.active_trades[sym] = {
+                    self.active_trades[sym].append({
                         "entry_bar_index": 0,
                         "entry_price": entry,
                         "sl": sl,
@@ -538,25 +529,18 @@ class PaperTrader:
                         "initial_sl": sl,
                         "initial_tp": tp,
                         "trailing_count": 0,
-                        "risk_pts": risk_pts,  # trailing buffer için
-                    }
-                    log.info(
-                        "[RECOVER] %s %s @ %.2f | SYNTHETIC SL=%.2f TP=%.2f (gerçek SL/TP yerleşince guncellenecek)",
-                        sym,
-                        direction,
-                        entry,
-                        sl,
-                        tp,
-                    )
+                        "risk_pts": risk_pts,
+                    })
+                    self._pl(sym, "recover", f"🔒 {direction.upper()} @ {entry:.2f} | SYNTHETIC SL={sl:.2f} TP={tp:.2f}")
         except Exception as e:
-            log.warning("[RECOVER] Pozisyon kurtarma hatasi: %s", e)
+            self._pl("SYSTEM", "recover", f"❌ Pozisyon kurtarma hatasi: {e}")
 
     async def run(self):
         for sym in self.symbols:
             self.hub.register_callback(sym, "15m", lambda b, s=sym: self.on_15m(s, b))
 
         net = "TESTNET" if self.testnet else "MAINNET"
-        log.info("PaperTrader baslatiliyor. Semboller: %s | %s", self.symbols, net)
+        self._pl("SYSTEM", "start", f"🚀 PaperTrader baslatiliyor | Semboller: {self.symbols} | {net}")
 
         # Testnet bakiyesini cek
         if cfg.BINANCE_API_KEY:
@@ -564,13 +548,13 @@ class PaperTrader:
                 bal = await self.rest.get_balance()
                 if bal > 0:
                     self._balance = bal
-                    log.info("BALANCE: %.2f USDT (%s)", self._balance, net)
+                    self._pl("SYSTEM", "balance", f"💰 BALANCE: {self._balance:.2f} USDT ({net})")
                 else:
-                    log.warning("BALANCE: 0 USDT, varsayilan %.2f kullaniliyor", INITIAL_CAPITAL)
+                    self._pl("SYSTEM", "balance", f"⚠️ BALANCE: 0 USDT, varsayilan {INITIAL_CAPITAL:.2f} kullaniliyor")
             except Exception as e:
-                log.warning("BALANCE: alinamadi (%s), varsayilan %.2f kullaniliyor", e, INITIAL_CAPITAL)
+                self._pl("SYSTEM", "balance", f"⚠️ BALANCE: alinamadi ({e}), varsayilan {INITIAL_CAPITAL:.2f}")
         else:
-            log.info("BALANCE: varsayilan %.2f USDT (API key yok)", INITIAL_CAPITAL)
+            self._pl("SYSTEM", "balance", f"💰 BALANCE: varsayilan {INITIAL_CAPITAL:.2f} USDT (API key yok)")
 
         # Live mod aktif — prefill/analiz öncesi, böylece trailing+entry emirleri çalışır
         self._live = True
