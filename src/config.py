@@ -1,7 +1,15 @@
 # config.py — sniper paper trade
 import os
+from pathlib import Path
 from dotenv import load_dotenv
-load_dotenv()
+
+# Root .env'i oku (sniper/src/ altındayken root'a çık)
+_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+_env_file = _ROOT_DIR / ".env"
+if _env_file.exists():
+    load_dotenv(_env_file)
+else:
+    load_dotenv()  # fallback: mevcut dizinde ara
 
 INITIAL_BALANCE = 10000.0
 RISK_PER_TRADE = 0.01
