@@ -117,7 +117,8 @@ class PaperTrader:
         if prev == msg:
             return
         self._log_state.setdefault(sym, {})[key] = msg
-        print(f"[{sym:<12}] {msg}", flush=True)
+        ts = datetime.now(UTC).strftime("%H:%M:%S")
+        print(f"[{ts}] [{sym:<12}] {msg}", flush=True)
 
     def _session_label(self, hour: int) -> str:
         if hour >= 22 or hour < 2:
