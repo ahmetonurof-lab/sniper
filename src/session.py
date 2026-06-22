@@ -36,6 +36,12 @@ class SessionState:
         self.trades_today: int = 0
         self.last_date: str = ""
 
+        # Retrade state — pivot bazli LBS/SBS sweep sonrasi 2. entry icin.
+        self.retrade_armed: bool = False
+        self.retrade_side: Literal["long", "short"] | None = None
+        self.retrade_sweep_level: float = 0.0
+        self.retrade_entry_bar: int = 0
+
     def update(self, dt: datetime, open: float, high: float, low: float, close: float, atr: float = 0.0):
         sess = detect_phase(dt)
         h = dt.hour
@@ -74,6 +80,10 @@ class SessionState:
         self.sweep_level = None
         self.london_high = 0.0
         self.london_low = float("inf")
+        self.retrade_armed = False
+        self.retrade_side = None
+        self.retrade_sweep_level = 0.0
+        self.retrade_entry_bar = 0
 
     def _track_cbdr_body(self, open: float, close: float):
         body_high = max(open, close)
