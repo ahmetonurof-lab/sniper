@@ -181,14 +181,14 @@ class PaperTrader:
             sd = ss.sweep_direction or "bullish"
             sl = ss.sweep_level or 0.0
             si = "🟩" if sd == "bullish" else "🟥"
-            self._pl(sym, "st_swp", f"✅ SWEEP: DETECTED | {si}{sd.upper()} | {sl:.2f}")
+            self._pl(sym, "st_swp", f"🟩 SWEEP: DETECTED | {si}{sd.upper()} | {sl:.2f}")
         else:
             bstr = ""
             if ss.daily_bias != DailyBias.NEUTRAL:
                 d = "LONG" if ss.daily_bias == DailyBias.BULLISH else "SHORT"
                 c = "🟩" if d == "LONG" else "🟥"
                 bstr = f" | BIAS: {c}{d}"
-            self._pl(sym, "st_swp", f"🟨 SWEEP: BEKLENIYOR{bstr} | CBDR: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}]")
+            self._pl(sym, "st_swp", f"🟨 SWEEP: BEKLENIYOR{bstr} | CBDR: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}] | {ts}")
             self._log_state.get(sym, {}).pop("st_fvg", None)
             self._log_state.get(sym, {}).pop("st_wck", None)
             return
@@ -203,8 +203,8 @@ class PaperTrader:
 
         if rsm.state_name == "TRIGGER_READY":
             tfvg = rsm.trigger_fvg
-            self._pl(sym, "st_fvg", f"✅ FVG_SCAN | MIN_SIZE: {min_fvg}")
-            self._pl(sym, "st_wck", f"✅ WICK_REJECTION | FVG:[{tfvg.bottom:.2f}-{tfvg.top:.2f}] | BODY_SAFE | CLOSE: {current.close:.2f}")
+            self._pl(sym, "st_fvg", f"🟩 FVG_SCAN | MIN_SIZE: {min_fvg}")
+            self._pl(sym, "st_wck", f"🟩 WICK_REJECTION | FVG:[{tfvg.bottom:.2f}-{tfvg.top:.2f}] | BODY_SAFE | CLOSE: {current.close:.2f}")
         elif rsm.state_name == "SWEEP_DETECTED":
             self._pl(sym, "st_fvg", f"🟨 FVG_SCAN | MIN_SIZE: {min_fvg} | FVG ARANIYOR...")
             self._log_state.get(sym, {}).pop("st_wck", None)
