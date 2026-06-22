@@ -18,17 +18,37 @@ LEVERAGE = 20
 LOG_LEVEL = "INFO"
 
 # ── Semboller (data dosyasi olanlar) ───────────────────────────
-SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "AVAXUSDT", "LINKUSDT", "XRPUSDT"]
+SYMBOLS = [
+    "BTCUSDT",
+    "ETHUSDT",
+    "BNBUSDT",
+    "SOLUSDT",
+    "AVAXUSDT",
+    "LINKUSDT",
+    "XRPUSDT",
+    "ATOMUSDT",
+    "ADAUSDT",
+    "SUIUSDT",
+    "APTUSDT",
+    "DOTUSDT",
+    "NEARUSDT",
+]
 
 # ── Coin bazli FVG esikleri ────────────────────────────────────
 FVG_SIZE_MAP: dict[str, float] = {
     "BTCUSDT": 10.0,
-    "ETHUSDT": 0.5,
-    "BNBUSDT": 0.5,
-    "SOLUSDT": 0.05,
-    "AVAXUSDT": 0.03,
-    "LINKUSDT": 0.02,
-    "XRPUSDT": 0.005,
+    "ETHUSDT": 1.5,
+    "BNBUSDT": 0.8,
+    "SOLUSDT": 0.14,
+    "AVAXUSDT": 0.01,
+    "LINKUSDT": 0.01,
+    "XRPUSDT": 0.002,
+    "ATOMUSDT": 0.005,
+    "ADAUSDT": 0.0003,
+    "SUIUSDT": 0.001,
+    "APTUSDT": 0.003,
+    "DOTUSDT": 0.003,
+    "NEARUSDT": 0.001,
 }
 
 # ── Risk parametreleri ─────────────────────────────────────────

@@ -24,10 +24,11 @@ _OUTPUT_DIR = os.path.join(_SCRIPT_DIR, "..", "output")
 os.makedirs(_OUTPUT_DIR, exist_ok=True)
 
 STATE_FILE = os.path.join(_OUTPUT_DIR, "trade_state.json")
-LOCK_FILE  = STATE_FILE + ".lock"
+LOCK_FILE = STATE_FILE + ".lock"
 
 
 # ── Yardımcılar ───────────────────────────────────────────────────
+
 
 def _today() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%d")
@@ -52,6 +53,7 @@ def _save(state: dict):
 
 # ── Günlük işlem kotası ───────────────────────────────────────────
 
+
 def can_open_trade(symbol: str) -> bool:
     """
     Bu sembol için bugün işlem açılabilir mi?
@@ -62,7 +64,7 @@ def can_open_trade(symbol: str) -> bool:
         state = _load()
         s = state.get(symbol, {})
         if s.get("date") != _today():
-            return True          # Yeni gün, kota sıfırlandı
+            return True  # Yeni gün, kota sıfırlandı
         if s.get("count", 0) >= 1:
             log.info("[STATE] %s — bugün kotası doldu (date=%s)", symbol, _today())
             return False
@@ -101,6 +103,7 @@ def mark_trade_closed(symbol: str):
 
 # ── Sweep tekilleştirme ───────────────────────────────────────────
 
+
 def is_sweep_used(sweep_id: str) -> bool:
     """
     Bu sweep ID bugün zaten kullanıldı mı?
@@ -113,6 +116,16 @@ def is_sweep_used(sweep_id: str) -> bool:
         if not entry:
             return False
         return entry.get("date") == _today()
+
+
+def unmark_sweep_used(sweep_id: str):
+    """Sweep ID'yi kullanılmadı olarak işaretle (reset/başarısız deneme sonrası)."""
+    with FileLock(LOCK_FILE):
+        state = _load()
+        used = state.get("_used_sweeps", {})
+        used.pop(sweep_id, None)
+        state["_used_sweeps"] = used
+        _save(state)
 
 
 def mark_sweep_used(sweep_id: str):
@@ -135,6 +148,7 @@ def mark_sweep_used(sweep_id: str):
 
 
 # ── Startup reconciliation ────────────────────────────────────────
+
 
 def reconcile_from_active(active_trades: dict):
     """
@@ -169,12 +183,15 @@ def reconcile_from_active(active_trades: dict):
 
         if changed:
             _save(state)
-            log.info("[STATE] reconcile: %s → bugün işlem açıldı olarak işaretlendi", changed)
+            log.info(
+                "[STATE] reconcile: %s → bugün işlem açıldı olarak işaretlendi", changed
+            )
         else:
             log.info("[STATE] reconcile: tüm semboller zaten güncel")
 
 
 # ── Debug yardımcısı ──────────────────────────────────────────────
+
 
 def dump_state() -> dict:
     """Tüm state'i döner (log/debug için)."""

@@ -35,13 +35,17 @@ class HTFFVG:
         return f"FVG([{self.bottom:.2f}-{self.top:.2f}] dir={self.direction} bar={self.bar_index})"
 
 
-def scan_htf_fvgs(bars_15m: list[Bar], lookback: int = 100, min_fvg_size: float = 10.0) -> list[HTFFVG]:
+def scan_htf_fvgs(
+    bars_15m: list[Bar], lookback: int = 100, min_fvg_size: float = 10.0
+) -> list[HTFFVG]:
     """Son 15m bar'ler icinde FVG'leri tara. min_fvg_size coin'e gore dinamik."""
     segment = bars_15m[-lookback:] if len(bars_15m) > lookback else bars_15m
     if len(segment) < 5:
         return []
 
-    fvgs = detect_fvgs(segment, lookback=len(segment), timeframe="15m", min_fvg_size=min_fvg_size)
+    fvgs = detect_fvgs(
+        segment, lookback=len(segment), timeframe="15m", min_fvg_size=min_fvg_size
+    )
     levels = [HTFFVG(f.top, f.bottom, f.direction, f.real_index) for f in fvgs]
     levels.sort(key=lambda x: x.bar_index)
     return levels[-10:] if len(levels) > 10 else levels
@@ -54,6 +58,7 @@ class RetraceStateMachine:
         self.sweep_level: float | None = None
         self.trigger_fvg: HTFFVG | None = None
         self._min_fvg_size = min_fvg_size
+        self._pending_sweep_id: str | None = None
 
     @property
     def state_name(self) -> str:
@@ -62,25 +67,50 @@ class RetraceStateMachine:
     def can_trigger(self) -> bool:
         return self.state == RetraceState.TRIGGER_READY
 
+    def _mark_sweep_used(self):
+        if self._pending_sweep_id is not None:
+            try:
+                from state_manager import mark_sweep_used
+
+                mark_sweep_used(self._pending_sweep_id)
+            except Exception:
+                pass
+            self._pending_sweep_id = None
+
     def reset(self):
+        if self._pending_sweep_id is not None:
+            try:
+                from state_manager import unmark_sweep_used
+
+                unmark_sweep_used(self._pending_sweep_id)
+            except Exception:
+                pass
         self.state = RetraceState.IDLE
         self.direction = None
         self.sweep_level = None
         self.trigger_fvg = None
+        self._pending_sweep_id = None
 
-    def on_sweep(self, direction: Literal["bullish", "bearish"], level: float, bar_index: int | None = None):
+    def on_sweep(
+        self,
+        direction: Literal["bullish", "bearish"],
+        level: float,
+        bar_index: int | None = None,
+    ):
         if self.state != RetraceState.IDLE:
             return
 
         # ── Sweep tekilleştirme: aynı sweep bar'ı restart sonrası tekrar tetiklenmesin ──
         if bar_index is not None:
             try:
-                from state_manager import is_sweep_used, mark_sweep_used
+                from state_manager import is_sweep_used
+
                 sweep_id = f"{direction}_{bar_index}"
                 if is_sweep_used(sweep_id):
-                    logger.info(f"[RST] SWEEP SKIP | sweep_id={sweep_id} zaten bugün kullanıldı")
+                    logger.info(
+                        f"[RST] SWEEP SKIP | sweep_id={sweep_id} zaten bugün kullanıldı"
+                    )
                     return
-                mark_sweep_used(sweep_id)
             except Exception as e:
                 logger.warning(f"[RST] sweep state kontrol hatası (geçiliyor): {e}")
         # ── Sweep tekilleştirme sonu ──
@@ -88,6 +118,9 @@ class RetraceStateMachine:
         self.state = RetraceState.SWEEP_DETECTED
         self.direction = direction
         self.sweep_level = level
+        self._pending_sweep_id = (
+            f"{direction}_{bar_index}" if bar_index is not None else None
+        )
         logger.info(f"[RST] SWEEP_DETECTED | dir={direction} level={level:.2f}")
 
     def on_sweep_confirmed(self, bars_15m: list[Bar], sweep_bar: Bar):
@@ -95,7 +128,9 @@ class RetraceStateMachine:
         if self.state != RetraceState.SWEEP_DETECTED:
             return
 
-        htf_fvgs = scan_htf_fvgs(bars_15m, lookback=100, min_fvg_size=self._min_fvg_size)
+        htf_fvgs = scan_htf_fvgs(
+            bars_15m, lookback=100, min_fvg_size=self._min_fvg_size
+        )
         if not htf_fvgs:
             self.reset()
             return
@@ -116,6 +151,7 @@ class RetraceStateMachine:
                 if wick_touched and not body_broke_down:
                     self.state = RetraceState.TRIGGER_READY
                     self.trigger_fvg = fvg
+                    self._mark_sweep_used()
                     return
             else:
                 wick_touched = last.high >= fvg.bottom
@@ -123,6 +159,7 @@ class RetraceStateMachine:
                 if wick_touched and not body_broke_up:
                     self.state = RetraceState.TRIGGER_READY
                     self.trigger_fvg = fvg
+                    self._mark_sweep_used()
                     return
 
         self.reset()
