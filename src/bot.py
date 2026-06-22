@@ -392,6 +392,8 @@ class PaperTrader:
             "initial_tp": tp,
             "trailing_count": 0,
             "risk_pts": risk_pts,
+            "sl_order_id": sl_id if (cfg.BINANCE_API_KEY and getattr(self, "_live", False)) else "",
+            "tp_order_id": tp_id if (cfg.BINANCE_API_KEY and getattr(self, "_live", False)) else "",
         }
         # -- Diske state yaz (restart koruması) --
         mark_trade_opened(sym, entry_price)
@@ -401,15 +403,18 @@ class PaperTrader:
         if not cfg.BINANCE_API_KEY or not getattr(self, "_live", False):
             return
         sl_side = "SELL" if trade["side"] == "long" else "BUY"
-        # account_trade[active_trades]'daki qty'yi al
         qty = trade.get("qty", trade.get("lot", 0))
-        await self.rest.place_stop_order(
+        sl_resp = await self.rest.place_stop_order(
             sym, sl_side, qty, trade["sl"], client_id=f"sl_{sym}_{int(time.time())}"
         )
-        await self.rest.place_tp_order(
+        sl_id = sl_resp.get("algoId") or sl_resp.get("orderId") or sl_resp.get("id") or ""
+        trade["sl_order_id"] = sl_id
+        tp_resp = await self.rest.place_tp_order(
             sym, sl_side, qty, trade["tp"], client_id=f"tp_{sym}_{int(time.time())}"
         )
-        log.info("[ORDER] %s trailing guncellendi sl=%.2f tp=%.2f", sym, trade["sl"], trade["tp"])
+        tp_id = tp_resp.get("algoId") or tp_resp.get("orderId") or tp_resp.get("id") or ""
+        trade["tp_order_id"] = tp_id
+        log.info("[ORDER] %s trailing guncellendi sl=%.2f (id=%s) tp=%.2f (id=%s)", sym, trade["sl"], sl_id, trade["tp"], tp_id)
 
     async def _exit_trade(self, sym, trade, current, exit_timestamp: int):
         diff = (
@@ -564,6 +569,8 @@ class PaperTrader:
                     sl_price = self.rest.get_order_price(sl_orders[0])
                     tp_price = self.rest.get_order_price(tp_orders[0])
                     risk_pts = abs(entry - sl_price) / 2
+                    sl_id = sl_orders[0].get("algoId") or sl_orders[0].get("orderId") or ""
+                    tp_id = tp_orders[0].get("algoId") or tp_orders[0].get("orderId") or ""
                     self.active_trades[sym] = {
                         "entry_bar_index": 0,
                         "entry_price": entry,
@@ -575,6 +582,8 @@ class PaperTrader:
                         "initial_tp": tp_price,
                         "trailing_count": 0,
                         "risk_pts": risk_pts,
+                        "sl_order_id": sl_id,
+                        "tp_order_id": tp_id,
                     }
                     self._pl(
                         sym,
@@ -641,6 +650,18 @@ class PaperTrader:
         # -- State dosyasını active_trades ile senkronize et --
         reconcile_from_active(self.active_trades)
 
+        # -- User Data Stream (WS ile SL/TP takibi) --
+        if cfg.BINANCE_API_KEY:
+            try:
+                listen_key = await self.rest.get_listen_key()
+                if listen_key:
+                    self.hub.set_user_data_listen_key(listen_key)
+                    self._register_user_data_callbacks()
+                    asyncio.create_task(self.hub._listen_key_refresh_loop(self.rest))
+                    log.info("[USER_DATA] Listen key aktif: %s...", listen_key[:10])
+            except Exception as e:
+                log.warning("[USER_DATA] Listen key basarisiz (devam): %s", e)
+
         # Gecmis barlari yukle
         await asyncio.gather(*[self._prefill_bars(sym) for sym in self.symbols])
 
@@ -657,6 +678,55 @@ class PaperTrader:
 
         log.info("Gecmis barlar yuklendi, WS baslatiliyor...")
         await self.hub.run()
+
+    # ─────────────────────────────────────────────────────────────────
+    # User Data Stream callback'leri
+    # ─────────────────────────────────────────────────────────────────
+
+    def _register_user_data_callbacks(self) -> None:
+        @self.hub.on_user_data("ORDER_TRADE_UPDATE")
+        async def on_order_update(msg: dict) -> None:
+            od = msg.get("o", {})
+            sym = od.get("s", "")
+            status = od.get("X", "")
+            oid = str(od.get("c", "") or od.get("i", ""))
+            log.info("[WS-ORDER] %s status=%s id=%s", sym, status, oid)
+            if status not in ("CANCELED", "EXPIRED"):
+                return
+            trade = self.active_trades.get(sym)
+            if not trade:
+                return
+            s_id = str(trade.get("sl_order_id", ""))
+            t_id = str(trade.get("tp_order_id", ""))
+            if oid not in (s_id, t_id):
+                return
+            label = "SL" if oid == s_id else "TP"
+            log.warning("🚨 [WS-REPAIR] %s %s emri silindi — onariliyor...", sym, label)
+            try:
+                await self._repair_protection(sym, trade, has_sl=(oid != s_id), has_tp=(oid != t_id))
+            except Exception as e:
+                log.critical("[WS-REPAIR] %s onarim hatasi: %s", sym, e)
+
+        @self.hub.on_user_data("ACCOUNT_UPDATE")
+        async def on_account_update(msg: dict) -> None:
+            ud = msg.get("a", {})
+            for bal in ud.get("B", []):
+                if bal.get("a") in ("USDT", "FDUSD", "USDC"):
+                    self._balance = float(bal.get("bc", self._balance))
+
+    async def _repair_protection(self, sym: str, trade: dict, has_sl: bool, has_tp: bool) -> None:
+        """WS tarafindan silinen SL/TP emirlerini yeniden olustur."""
+        if not has_sl and trade.get("sl"):
+            sl_side = "SELL" if trade["side"] == "long" else "BUY"
+            sl_resp = await self.rest.place_stop_order(sym, sl_side, trade["qty"], trade["sl"])
+            trade["sl_order_id"] = sl_resp.get("algoId") or sl_resp.get("orderId") or ""
+            log.info("[REPAIR] %s SL yeniden kuruldu: %.2f (id=%s)", sym, trade["sl"], trade["sl_order_id"])
+        if not has_tp and trade.get("tp"):
+            sl_side = "SELL" if trade["side"] == "long" else "BUY"
+            tp_resp = await self.rest.place_tp_order(sym, sl_side, trade["qty"], trade["tp"])
+            trade["tp_order_id"] = tp_resp.get("algoId") or tp_resp.get("orderId") or ""
+            log.info("[REPAIR] %s TP yeniden kuruldu: %.2f (id=%s)", sym, trade["tp"], trade["tp_order_id"])
+        log.info("[REPAIR] %s onarim tamam", sym)
 
 
 if __name__ == "__main__":
