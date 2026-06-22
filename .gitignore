@@ -8,10 +8,17 @@ sniper_files.txt
 sniper_only.txt
 sonnet_files.txt
 sonnet_only.txt
-cline
+cline/
+sniper/
 
 # Output
 output/
+
+# Cache
+.ruff_cache/
+
+# Leftovers
+memory-bank/
 
 # Byte-compiled
 __pycache__/
