@@ -91,6 +91,7 @@ class PaperTrader:
         self.active_trades: dict[str, dict] = {}
         self.trades: list[dict] = []
         self._log_state: dict[str, dict] = {}
+        self._stage: dict[str, dict] = {}
         self._balance = INITIAL_CAPITAL
 
         # REST client (testnet/mainnet)
@@ -155,71 +156,64 @@ class PaperTrader:
         ss.update(dt, current.open, current.high, current.low, current.close, atr_val)
 
         if session == "ASIA":
-            self._pl(sym, "session", "🟥 SESSION: ASIA | 22:00-02:00 UTC | trading kapali")
+            self._pl(sym, "st_ses", "🟥 SESSION: ASIA | 22:00-02:00 UTC | trading kapali")
+            self._stage.pop(sym, None)
             return
+
+        # ── Stage-based pipeline display ──
+        st = self._stage.setdefault(sym, {})
+        ts = f"{hour:02d}:{dt.minute:02d}"
 
         bias_str = ""
         if ss.daily_bias != DailyBias.NEUTRAL:
-            direction = "LONG" if ss.daily_bias == DailyBias.BULLISH else "SHORT"
-            color = "🟩" if direction == "LONG" else "🟥"
-            bias_str = f" | BIAS: {color}{direction}"
-        cbdr_status = "✅ LOCKED" if ss.cbdr_locked else "⏳ BODY TRACKING..."
-        self._pl(
-            sym, "session", f"🟩 SESSION: {session} | {hour:02d}:{dt.minute:02d} UTC | CBDR: {cbdr_status}{bias_str}"
-        )
+            d = "LONG" if ss.daily_bias == DailyBias.BULLISH else "SHORT"
+            c = "🟩" if d == "LONG" else "🟥"
+            bias_str = f" | BIAS: {c}{d}"
+        cbdr_s = "✅ LOCKED" if ss.cbdr_locked else "⏳ BODY TRACKING..."
+        self._pl(sym, "st_ses", f"🟩 SESSION: {session} | {ts} UTC | CBDR: {cbdr_s}{bias_str}")
 
         if not ss.cbdr_locked:
-            # CBDR henuz kilitlenmedi, body tracking devam ediyor
+            st.clear()
             return
 
-        if not ss.sweep_confirmed:
-            # CBDR kilitli ama sweep yok — bekliyor
-            bias_str = ""
+        # ── Stage 1: SWEEP ──
+        if ss.sweep_confirmed:
+            sd = ss.sweep_direction or "bullish"
+            sl = ss.sweep_level or 0.0
+            si = "🟩" if sd == "bullish" else "🟥"
+            self._pl(sym, "st_swp", f"✅ SWEEP: DETECTED | {si}{sd.upper()} | {sl:.2f}")
+        else:
+            bstr = ""
             if ss.daily_bias != DailyBias.NEUTRAL:
-                direction = "LONG" if ss.daily_bias == DailyBias.BULLISH else "SHORT"
-                color = "🟩" if direction == "LONG" else "🟥"
-                bias_str = f" | BIAS | {color}{direction}"
-            self._pl(
-                sym,
-                "sweep_wait",
-                (f"🟨 SWEEP: BEKLENIYOR{bias_str} | CBDR_BODY: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}] | {hour:02d}:{dt.minute:02d}"),
-            )
+                d = "LONG" if ss.daily_bias == DailyBias.BULLISH else "SHORT"
+                c = "🟩" if d == "LONG" else "🟥"
+                bstr = f" | BIAS: {c}{d}"
+            self._pl(sym, "st_swp", f"🟨 SWEEP: BEKLENIYOR{bstr} | CBDR: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}]")
+            self._log_state.get(sym, {}).pop("st_fvg", None)
+            self._log_state.get(sym, {}).pop("st_wck", None)
             return
 
-        # Sweep var
-        sweep_dir = ss.sweep_direction or "bullish"
-        sweep_lvl = ss.sweep_level or 0.0
-        sweep_icon = "🟩" if sweep_dir == "bullish" else "🟥"
-        self._pl(sym, "sweep", f"🟩 SWEEP: DETECTED | TYPE: {sweep_icon}{sweep_dir.upper()} | LEVEL: {sweep_lvl:.2f}")
-        # sweep_wait varsa temizle
-        if "sweep_wait" in self._log_state.get(sym, {}):
-            del self._log_state[sym]["sweep_wait"]
-
+        # ── Stage 2: FVG SCAN + Stage 3: WICK REJECTION ──
         rsm = self.rsms[sym]
         if rsm.state_name == "IDLE":
-            rsm.on_sweep(direction=sweep_dir, level=sweep_lvl, bar_index=current.index)
+            rsm.on_sweep(direction=ss.sweep_direction or "bullish", level=ss.sweep_level or 0.0, bar_index=current.index)
 
         if rsm.state_name == "SWEEP_DETECTED":
             rsm.on_sweep_confirmed(bars_15m, current)
-            if rsm.state_name == "TRIGGER_READY":
-                tfvg = rsm.trigger_fvg
-                self._pl(sym, "fvg_size", f"🟩 FVG_SCAN | MIN_SIZE: {min_fvg}")
-                self._pl(
-                    sym,
-                    "wick",
-                    (
-                        f"🟩 WICK_REJECTION | FVG:[{tfvg.bottom:.2f}-{tfvg.top:.2f}] "
-                        f"| WICK_TOUCHED: {tfvg.top if sweep_dir == 'bullish' else tfvg.bottom:.2f} "
-                        f"| CLOSE: {current.close:.2f} | BODY_SAFE"
-                    ),
-                )
-            elif rsm.state_name == "IDLE":
-                self._pl(sym, "fvg_size", f"🟨 FVG_SCAN | MIN_SIZE: {min_fvg}")
-                if "wick" in self._log_state.get(sym, {}):
-                    del self._log_state[sym]["wick"]
+
+        if rsm.state_name == "TRIGGER_READY":
+            tfvg = rsm.trigger_fvg
+            self._pl(sym, "st_fvg", f"✅ FVG_SCAN | MIN_SIZE: {min_fvg}")
+            self._pl(sym, "st_wck", f"✅ WICK_REJECTION | FVG:[{tfvg.bottom:.2f}-{tfvg.top:.2f}] | BODY_SAFE | CLOSE: {current.close:.2f}")
+        elif rsm.state_name == "SWEEP_DETECTED":
+            self._pl(sym, "st_fvg", f"🟨 FVG_SCAN | MIN_SIZE: {min_fvg} | FVG ARANIYOR...")
+            self._log_state.get(sym, {}).pop("st_wck", None)
+        else:
+            self._pl(sym, "st_fvg", f"🟨 FVG_SCAN | MIN_SIZE: {min_fvg} | FVG BULUNAMADI")
+            self._log_state.get(sym, {}).pop("st_wck", None)
 
         if rsm.can_trigger():
-            await self._try_entry(sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg)
+            await self._try_entry(sym, current, atr_val, rsm, ss, ss.sweep_direction or "bullish", sl_atr, tp_rr, fvg_buf, min_fvg)
 
         # Trailing (15m FVG bazli, backtest ile ayni)
         trade = self.active_trades.get(sym)
@@ -569,6 +563,7 @@ class PaperTrader:
                 if sl_orders and tp_orders:
                     sl_price = self.rest.get_order_price(sl_orders[0])
                     tp_price = self.rest.get_order_price(tp_orders[0])
+                    risk_pts = abs(entry - sl_price) / 2
                     self.active_trades[sym] = {
                         "entry_bar_index": 0,
                         "entry_price": entry,
@@ -579,6 +574,7 @@ class PaperTrader:
                         "initial_sl": sl_price,
                         "initial_tp": tp_price,
                         "trailing_count": 0,
+                        "risk_pts": risk_pts,
                     }
                     self._pl(
                         sym,
