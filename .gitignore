@@ -1,18 +1,25 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+# External projects (tracked at root level)
+backtest-sniper/
+vscode-extension/
+sonnet/
 
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
+# Artifacts
+sniper_files.txt
+sniper_only.txt
+sonnet_files.txt
+sonnet_only.txt
+cline
 
 # Output
 output/
-data/
 
-# VS Code
-.vscode/
+# Byte-compiled
+__pycache__/
+*.py[cod]
+
+# Environment
+.env
+.venv
+
+# Coverage
+.coverage
