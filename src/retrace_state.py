@@ -71,6 +71,20 @@ class RetraceStateMachine:
     def on_sweep(self, direction: Literal["bullish", "bearish"], level: float, bar_index: int | None = None):
         if self.state != RetraceState.IDLE:
             return
+
+        # ── Sweep tekilleştirme: aynı sweep bar'ı restart sonrası tekrar tetiklenmesin ──
+        if bar_index is not None:
+            try:
+                from state_manager import is_sweep_used, mark_sweep_used
+                sweep_id = f"{direction}_{bar_index}"
+                if is_sweep_used(sweep_id):
+                    logger.info(f"[RST] SWEEP SKIP | sweep_id={sweep_id} zaten bugün kullanıldı")
+                    return
+                mark_sweep_used(sweep_id)
+            except Exception as e:
+                logger.warning(f"[RST] sweep state kontrol hatası (geçiliyor): {e}")
+        # ── Sweep tekilleştirme sonu ──
+
         self.state = RetraceState.SWEEP_DETECTED
         self.direction = direction
         self.sweep_level = level

@@ -23,6 +23,12 @@ from fvg import detect_fvgs
 from models import Bar
 from retrace_state import RetraceStateMachine
 from session import DailyBias, SessionState
+from state_manager import (
+    can_open_trade,
+    mark_trade_opened,
+    mark_trade_closed,
+    reconcile_from_active,
+)
 from websocket import BinanceWSHub
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -116,7 +122,7 @@ class PaperTrader:
         self._log_state.setdefault(sym, {})[key] = msg
         ts = datetime.now(UTC).strftime("%H:%M:%S")
         # Farklı coin grubu arasında boşluk
-        _prev_sym = getattr(self, '_prev_print_sym', None)
+        _prev_sym = getattr(self, "_prev_print_sym", None)
         _separator = "" if _prev_sym == sym else "\n"
         self._prev_print_sym = sym
         print(f"{_separator}[{ts}] [{sym:<12}] {msg}", flush=True)
@@ -176,7 +182,7 @@ class PaperTrader:
             self._pl(
                 sym,
                 "sweep_wait",
-                (f"🟨 SWEEP: BEKLENIYOR{bias_str} | CBDR_BODY: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}]"),
+                (f"🟨 SWEEP: BEKLENIYOR{bias_str} | CBDR_BODY: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}] | {hour:02d}:{dt.minute:02d}"),
             )
             return
 
@@ -269,31 +275,39 @@ class PaperTrader:
                     trade_exit["exit_bar"] = current.index
                     trade_exit["exit_timestamp"] = current.timestamp
                     trade_exit["result"] = "SL"
-                    self._exit_trade(sym, trade_exit, current, trade_exit["exit_timestamp"])
+                    await self._exit_trade(sym, trade_exit, current, trade_exit["exit_timestamp"])
                 elif current.high >= trade_exit["tp"]:
                     trade_exit["exit_price"] = trade_exit["tp"]
                     trade_exit["exit_bar"] = current.index
                     trade_exit["exit_timestamp"] = current.timestamp
                     trade_exit["result"] = "TP"
-                    self._exit_trade(sym, trade_exit, current, trade_exit["exit_timestamp"])
+                    await self._exit_trade(sym, trade_exit, current, trade_exit["exit_timestamp"])
             else:
                 if current.high >= trade_exit["sl"]:
                     trade_exit["exit_price"] = trade_exit["sl"]
                     trade_exit["exit_bar"] = current.index
                     trade_exit["exit_timestamp"] = current.timestamp
                     trade_exit["result"] = "SL"
-                    self._exit_trade(sym, trade_exit, current, trade_exit["exit_timestamp"])
+                    await self._exit_trade(sym, trade_exit, current, trade_exit["exit_timestamp"])
                 elif current.low <= trade_exit["tp"]:
                     trade_exit["exit_price"] = trade_exit["tp"]
                     trade_exit["exit_bar"] = current.index
                     trade_exit["exit_timestamp"] = current.timestamp
                     trade_exit["result"] = "TP"
-                    self._exit_trade(sym, trade_exit, current, trade_exit["exit_timestamp"])
+                    await self._exit_trade(sym, trade_exit, current, trade_exit["exit_timestamp"])
 
     async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):
         if sym in self.active_trades:
             rsm.reset()
             return
+
+        # -- Gunluk kota kontrolu: bugün bu sembol için zaten işlem açıldıysa geç --
+        if not can_open_trade(sym):
+            self._pl(sym, "quota", f"QUOTA: {sym} bugün işlem kotası doldu, sinyal pas geçiliyor")
+            log.info("[STATE] %s günlük kota doldu, _try_entry atlandı", sym)
+            rsm.reset()
+            return
+        # -- Gunluk kota kontrolu sonu --
 
         side = "long" if sweep_dir == "bullish" else "short"
         entry_price = current.close
@@ -321,31 +335,57 @@ class PaperTrader:
         self._pl(
             sym,
             "entry",
-            (f"🟨 ENTRY: {bias_icon}{side.upper()} | PRICE: {entry_price:.2f} " f"| SL: {sl:.2f} | TP: {tp:.2f} | QTY: {qty:.4f}"),
+            (
+                f"🟨 ENTRY: {bias_icon}{side.upper()} | PRICE: {entry_price:.2f} "
+                f"| SL: {sl:.2f} | TP: {tp:.2f} | QTY: {qty:.4f}"
+            ),
         )
         log.info("[PAPER] %s %s @ %.2f sl=%.2f tp=%.2f qty=%.4f", sym, side, entry_price, sl, tp, qty)
 
-        # Testnet'e MARKET entry + SL/TP emirleri (sadece canli modda)
+        # ── Testnet/Mainnet emirleri (sonnet trader.py'den adapte) ──
         if cfg.BINANCE_API_KEY and getattr(self, "_live", False):
             mkt_side = "BUY" if side == "long" else "SELL"
             sl_side = "SELL" if side == "long" else "BUY"
 
-            mkt_resp = await self.rest.place_market_order(sym, mkt_side, qty)
-            if mkt_resp.get("orderId"):
-                log.info("[ORDER] %s MARKET entry OK orderId=%s", sym, mkt_resp.get("orderId"))
+            # 1. Quantity + price precision
+            try:
+                rounded_qty = await self.rest.apply_amount_precision(sym, qty)
+                valid_qty = await self.rest.validate_min_amount(sym, rounded_qty)
+                if valid_qty <= 0:
+                    self._pl(sym, "order_err", f"❌ ORDER: qty={qty:.6f} minQty altinda")
+                    log.warning("[ORDER] %s qty=%.8f minQty altinda, emir atlandi", sym, qty)
+                else:
+                    rounded_sl = await self.rest.apply_price_precision(sym, sl)
+                    rounded_tp = await self.rest.apply_price_precision(sym, tp)
 
-                sl_resp = await self.rest.place_stop_order(sym, sl_side, qty, sl)
-                tp_resp = await self.rest.place_tp_order(sym, sl_side, qty, tp)
-                if sl_resp.get("orderId"):
-                    log.info("[ORDER] %s SL OK orderId=%s", sym, sl_resp.get("orderId"))
-                if tp_resp.get("orderId"):
-                    log.info("[ORDER] %s TP OK orderId=%s", sym, tp_resp.get("orderId"))
-                if not sl_resp.get("orderId"):
-                    log.warning("[ORDER] %s SL BASARISIZ!", sym)
-                if not tp_resp.get("orderId"):
-                    log.warning("[ORDER] %s TP BASARISIZ!", sym)
-            else:
-                log.warning("[ORDER] %s MARKET entry BASARISIZ — SL/TP atlandi", sym)
+                    # 2. MARKET entry
+                    mkt_resp = await self.rest.place_market_order(sym, mkt_side, valid_qty)
+                    mkt_id = mkt_resp.get("orderId") or mkt_resp.get("id") or ""
+                    if mkt_id:
+                        self._pl(sym, "order_ok", f"✅ ORDER: MARKET {mkt_side} OK | ID: {mkt_id}")
+                        log.info("[ORDER] %s MARKET entry OK orderId=%s qty=%.8f", sym, mkt_id, valid_qty)
+
+                        # 3. SL (algo endpoint)
+                        sl_resp = await self.rest.place_stop_order(sym, sl_side, valid_qty, rounded_sl)
+                        sl_id = sl_resp.get("algoId") or sl_resp.get("orderId") or sl_resp.get("id") or ""
+                        if sl_id:
+                            log.info("[ORDER] %s SL OK algoId=%s", sym, sl_id)
+                        else:
+                            log.warning("[ORDER] %s SL BASARISIZ! resp=%s", sym, sl_resp)
+
+                        # 4. TP (algo endpoint)
+                        tp_resp = await self.rest.place_tp_order(sym, sl_side, valid_qty, rounded_tp)
+                        tp_id = tp_resp.get("algoId") or tp_resp.get("orderId") or tp_resp.get("id") or ""
+                        if tp_id:
+                            log.info("[ORDER] %s TP OK algoId=%s", sym, tp_id)
+                        else:
+                            log.warning("[ORDER] %s TP BASARISIZ! resp=%s", sym, tp_resp)
+                    else:
+                        self._pl(sym, "order_err", "❌ ORDER: MARKET BASARISIZ")
+                        log.warning("[ORDER] %s MARKET entry BASARISIZ — SL/TP atlandi", sym)
+            except Exception as e:
+                self._pl(sym, "order_err", f"❌ ORDER: HATA — {e}")
+                log.exception("[ORDER] %s beklenmeyen hata", sym)
 
         self.active_trades[sym] = {
             "entry_bar_index": current.index,
@@ -359,21 +399,25 @@ class PaperTrader:
             "trailing_count": 0,
             "risk_pts": risk_pts,
         }
+        # -- Diske state yaz (restart koruması) --
+        mark_trade_opened(sym, entry_price)
         rsm.reset()
 
     async def _update_orders(self, sym: str, trade: dict):
         if not cfg.BINANCE_API_KEY or not getattr(self, "_live", False):
             return
         sl_side = "SELL" if trade["side"] == "long" else "BUY"
+        # account_trade[active_trades]'daki qty'yi al
+        qty = trade.get("qty", trade.get("lot", 0))
         await self.rest.place_stop_order(
-            sym, sl_side, trade["qty"], trade["sl"], client_id=f"sl_{sym}_{int(time.time())}"
+            sym, sl_side, qty, trade["sl"], client_id=f"sl_{sym}_{int(time.time())}"
         )
         await self.rest.place_tp_order(
-            sym, sl_side, trade["qty"], trade["tp"], client_id=f"tp_{sym}_{int(time.time())}"
+            sym, sl_side, qty, trade["tp"], client_id=f"tp_{sym}_{int(time.time())}"
         )
         log.info("[ORDER] %s trailing guncellendi sl=%.2f tp=%.2f", sym, trade["sl"], trade["tp"])
 
-    def _exit_trade(self, sym, trade, current, exit_timestamp: int):
+    async def _exit_trade(self, sym, trade, current, exit_timestamp: int):
         diff = (
             (trade["exit_price"] - trade["entry_price"])
             if trade["side"] == "long"
@@ -392,6 +436,33 @@ class PaperTrader:
         log.info(
             "[PAPER] %s %s exit=%s pnl=%.2f balance=%.2f", sym, trade["result"], trade["exit_price"], pnl, self._balance
         )
+
+        # Testnet'teki pozisyonu kapat + eski SL/TP emirlerini iptal et
+        if cfg.BINANCE_API_KEY and getattr(self, "_live", False):
+            try:
+                # Önce eski SL/TP emirlerini bul ve iptal et (-4130 hatasını önlemek için)
+                try:
+                    open_orders = await self.rest.get_all_orders(sym)
+                    for o in open_orders if isinstance(open_orders, list) else []:
+                        oid = o.get("algoId") or o.get("orderId") or o.get("id")
+                        if oid:
+                            is_algo = "algoId" in o
+                            await self.rest.cancel_order(oid, sym, reason="exit_close", is_algo=is_algo)
+                except Exception as e:
+                    log.warning("[CANCEL] %s emir iptal hatasi (googled): %s", sym, e)
+
+                close_side = "SELL" if trade["side"] == "long" else "BUY"
+                qty = trade.get("qty", trade.get("lot", 0))
+                rounded_qty = await self.rest.apply_amount_precision(sym, qty)
+                valid_qty = await self.rest.validate_min_amount(sym, rounded_qty)
+                if valid_qty > 0:
+                    close_resp = await self.rest.place_market_order(sym, close_side, valid_qty)
+                    if close_resp.get("orderId") or close_resp.get("id"):
+                        log.info("[CLOSE] %s pozisyon kapatildi orderId=%s", sym, close_resp.get("orderId", ""))
+                else:
+                    log.warning("[CLOSE] %s qty=%.8f minQty altinda, pozisyon kapatilamadi", sym, qty)
+            except Exception as e:
+                log.warning("[CLOSE] %s pozisyon kapatma hatasi: %s", sym, e)
         self.trades.append(
             {
                 **trade,
@@ -401,6 +472,8 @@ class PaperTrader:
             }
         )
         del self.active_trades[sym]
+        # -- Diske state guncelle (trade kapandı) --
+        mark_trade_closed(sym)
 
     async def on_15m(self, sym: str, bars: list[Bar]):
         if len(bars) < 10:
@@ -478,25 +551,25 @@ class PaperTrader:
                 direction = "long" if amt > 0 else "short"
                 entry = float(pos.get("entryPrice", 0))
 
-                # SL/TP emirlerini çek
-                open_orders = await self.rest.get_open_orders(sym)
+                # SL/TP emirlerini çek (normal + algo)
+                open_orders = await self.rest.get_all_orders(sym)
                 sl_orders = [
                     o
                     for o in open_orders
                     if self.rest.get_order_type(o) in ("STOP_MARKET", "STOP", "STOP_LIMIT")
-                    and o.get("reduceOnly") in (True, "true", "True")
+                    and (o.get("reduceOnly") in (True, "true", "True") or o.get("closePosition") in (True, "true", "True"))
                 ]
                 tp_orders = [
                     o
                     for o in open_orders
                     if self.rest.get_order_type(o) in ("TAKE_PROFIT_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT")
-                    and o.get("reduceOnly") in (True, "true", "True")
+                    and (o.get("reduceOnly") in (True, "true", "True") or o.get("closePosition") in (True, "true", "True"))
                 ]
 
                 if sl_orders and tp_orders:
                     sl_price = self.rest.get_order_price(sl_orders[0])
                     tp_price = self.rest.get_order_price(tp_orders[0])
-                    self.active_trades[sym].append({
+                    self.active_trades[sym] = {
                         "entry_bar_index": 0,
                         "entry_price": entry,
                         "sl": sl_price,
@@ -506,10 +579,16 @@ class PaperTrader:
                         "initial_sl": sl_price,
                         "initial_tp": tp_price,
                         "trailing_count": 0,
-                    })
-                    self._pl(sym, "recover", f"🔒 {direction.upper()} @ {entry:.2f} | SL={sl_price:.2f} TP={tp_price:.2f} | yeni trade engellendi")
+                    }
+                    self._pl(
+                        sym,
+                        "recover",
+                        f"🔒 {direction.upper()} @ {entry:.2f} | SL={sl_price:.2f} TP={tp_price:.2f} | yeni trade engellendi",
+                    )
                 else:
-                    self._pl(sym, "recover", f"⚠️ {direction.upper()} @ {entry:.2f} | SL/TP bulunamadi (pozisyon korumasiz)")
+                    self._pl(
+                        sym, "recover", f"⚠️ {direction.upper()} @ {entry:.2f} | SL/TP bulunamadi (pozisyon korumasiz)"
+                    )
                     atr_est = entry * 0.0001
                     risk_pts = atr_est * self.cfgs[sym]["SL_ATR_MULT"]
                     if direction == "long":
@@ -519,7 +598,7 @@ class PaperTrader:
                         sl = entry + risk_pts * 2
                         tp = entry - risk_pts * self.cfgs[sym]["TP_RR"]
 
-                    self.active_trades[sym].append({
+                    self.active_trades[sym] = {
                         "entry_bar_index": 0,
                         "entry_price": entry,
                         "sl": sl,
@@ -530,8 +609,10 @@ class PaperTrader:
                         "initial_tp": tp,
                         "trailing_count": 0,
                         "risk_pts": risk_pts,
-                    })
-                    self._pl(sym, "recover", f"🔒 {direction.upper()} @ {entry:.2f} | SYNTHETIC SL={sl:.2f} TP={tp:.2f}")
+                    }
+                    self._pl(
+                        sym, "recover", f"🔒 {direction.upper()} @ {entry:.2f} | SYNTHETIC SL={sl:.2f} TP={tp:.2f}"
+                    )
         except Exception as e:
             self._pl("SYSTEM", "recover", f"❌ Pozisyon kurtarma hatasi: {e}")
 
@@ -561,6 +642,8 @@ class PaperTrader:
 
         # API'de açık pozisyon varsa envantere al (restart koruması)
         await self._recover_positions()
+        # -- State dosyasını active_trades ile senkronize et --
+        reconcile_from_active(self.active_trades)
 
         # Gecmis barlari yukle
         await asyncio.gather(*[self._prefill_bars(sym) for sym in self.symbols])

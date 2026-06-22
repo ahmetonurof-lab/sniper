@@ -477,9 +477,12 @@ class BinanceWSHub:
                 timeout=30,
             )
             self._ws = ws
-            log.info("[WS] Bağlantı kuruldu (%d stream) | reconnect: %d",
-                     len(self.symbols) * len(self.timeframes), self._reconnect_count)
-            print(f"[WS] Bağlantı kuruldu", flush=True)
+            log.info(
+                "[WS] Bağlantı kuruldu (%d stream) | reconnect: %d",
+                len(self.symbols) * len(self.timeframes),
+                self._reconnect_count,
+            )
+            print("[WS] Bağlantı kuruldu", flush=True)
             try:
                 async for raw in ws:
                     if self._stop_event.is_set():
@@ -488,9 +491,9 @@ class BinanceWSHub:
                     await self._dispatch(msg)
             finally:
                 self._ws = None
-        except asyncio.TimeoutError:
+        except TimeoutError:
             log.warning("[WS] Bağlantı zaman aşımı (30sn) | %s", url)
-            print(f"[WS] Bağlantı zaman aşımı", flush=True)
+            print("[WS] Bağlantı zaman aşımı", flush=True)
             raise TimeoutError("WS connection timeout")
 
     async def run(self) -> None:
@@ -582,8 +585,13 @@ if __name__ == "__main__":
 
     @hub.on_bar("BTCUSDT", "15m")
     async def btc_m15_handler(bars: list[Bar]) -> None:
-        log.info("BTCUSDT 15m | bar=%d | close=%.2f | high=%.2f | low=%.2f",
-                 len(bars), bars[-1].close, bars[-1].high, bars[-1].low)
+        log.info(
+            "BTCUSDT 15m | bar=%d | close=%.2f | high=%.2f | low=%.2f",
+            len(bars),
+            bars[-1].close,
+            bars[-1].high,
+            bars[-1].low,
+        )
 
     @hub.on_bar("ETHUSDT", "15m")
     async def eth_m15_handler(bars: list[Bar]) -> None:

@@ -1,6 +1,7 @@
 # config.py — sniper paper trade
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Root .env'i oku (sniper/src/ altındayken root'a çık)

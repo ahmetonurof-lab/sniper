@@ -195,23 +195,34 @@ def close_trades(active_trades, current, scan_bar, trades, pipeline):
     return still_active
 
 
-def format_report(symbol, trades, pipeline, total_signals, rejected_other,
-                  initial_capital, sl_atr_mult, tp_rr, fvg_buffer_mult,
-                  min_fvg_size, n_bars_1m, n_bars_15m):
+def format_report(
+    symbol,
+    trades,
+    pipeline,
+    total_signals,
+    rejected_other,
+    initial_capital,
+    sl_atr_mult,
+    tp_rr,
+    fvg_buffer_mult,
+    min_fvg_size,
+    n_bars_1m,
+    n_bars_15m,
+):
     """Markdown formatinda detayli rapor olustur."""
     lines = []
     lines.append(f"# SNIPER BACKTEST RAPORU — {symbol}")
     lines.append("")
-    lines.append(f"## Parametreler")
-    lines.append(f"| Parametre | Deger |")
-    lines.append(f"|-----------|-------|")
+    lines.append("## Parametreler")
+    lines.append("| Parametre | Deger |")
+    lines.append("|-----------|-------|")
     lines.append(f"| Sembol | {symbol} |")
     lines.append(f"| Min FVG Size | {min_fvg_size} |")
     lines.append(f"| SL ATR Mult | {sl_atr_mult} |")
     lines.append(f"| TP R:R | {tp_rr} |")
     lines.append(f"| FVG Buffer Mult | {fvg_buffer_mult} |")
     lines.append(f"| Risk/Trade | %{RISK_PER_TRADE * 100:.0f} |")
-    lines.append(                f"| Session | ALL (CBDR+London+NY) |")
+    lines.append("| Session | ALL (CBDR+London+NY) |")
     lines.append(f"| Initial Capital | {initial_capital:.0f} USDT |")
     lines.append(f"| 1m Bars | {n_bars_1m} |")
     lines.append(f"| 15m Bars | {n_bars_15m} |")
@@ -324,12 +335,8 @@ def format_report(symbol, trades, pipeline, total_signals, rejected_other,
         lines.append("## Trailing Etkisi")
         lines.append("| Durum | Islem | PnL | WR |")
         lines.append("|-------|-------|-----|----|")
-        lines.append(
-            f"| Trailing aktif | {len(trailed)} | {trailed_pnl:+.2f} | {trailed_wr:.1f}% |"
-        )
-        lines.append(
-            f"| Trailing yok | {len(not_trailed)} | {not_trailed_pnl:+.2f} | {not_trailed_wr:.1f}% |"
-        )
+        lines.append(f"| Trailing aktif | {len(trailed)} | {trailed_pnl:+.2f} | {trailed_wr:.1f}% |")
+        lines.append(f"| Trailing yok | {len(not_trailed)} | {not_trailed_pnl:+.2f} | {not_trailed_wr:.1f}% |")
         lines.append("")
 
     # Son 20 trade
@@ -354,7 +361,9 @@ def run():
     bars_1m = load_data(CSV_FILE)
     bars_15m = resample_15m(bars_1m)
     print(f"  1m: {len(bars_1m)} bars | 15m: {len(bars_15m)} bars")
-    print(f"  Config: MIN_FVG_SIZE={MIN_FVG_SIZE}, SL_ATR_MULT={SL_ATR_MULT}, TP_RR={TP_RR}, FVG_BUFFER={FVG_BUFFER_MULT}\n")
+    print(
+        f"  Config: MIN_FVG_SIZE={MIN_FVG_SIZE}, SL_ATR_MULT={SL_ATR_MULT}, TP_RR={TP_RR}, FVG_BUFFER={FVG_BUFFER_MULT}\n"
+    )
 
     ss = SessionState()
     rsm = RetraceStateMachine(min_fvg_size=MIN_FVG_SIZE)
@@ -512,9 +521,18 @@ def run():
 
     # Rapor olustur
     report = format_report(
-        SYMBOL, trades, pipeline, total_signals, rejected_other,
-        INITIAL_CAPITAL, SL_ATR_MULT, TP_RR, FVG_BUFFER_MULT,
-        MIN_FVG_SIZE, len(bars_1m), len(bars_15m),
+        SYMBOL,
+        trades,
+        pipeline,
+        total_signals,
+        rejected_other,
+        INITIAL_CAPITAL,
+        SL_ATR_MULT,
+        TP_RR,
+        FVG_BUFFER_MULT,
+        MIN_FVG_SIZE,
+        len(bars_1m),
+        len(bars_15m),
     )
 
     # Ekrana yazdir

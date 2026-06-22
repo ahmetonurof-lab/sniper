@@ -28,6 +28,24 @@ from typing import Any
 log = logging.getLogger("nexus.live")
 
 
+# ─────────────────────────────────────────────────────────────────
+# Precision yardımcıları (sonnet exchange.py'den)
+# ─────────────────────────────────────────────────────────────────
+
+def _round_to_tick(value: float, tick: float) -> float:
+    """Değeri tick size'a yuvarla."""
+    if tick <= 0:
+        return value
+    return round(round(value / tick) * tick, 8)
+
+
+def _round_step(value: float, step: float) -> float:
+    """Değeri step size'a göre aşağı yuvarla (lot hesapları için)."""
+    if step <= 0:
+        return value
+    return round((value // step) * step, 8)
+
+
 class BinanceRESTClient:
     """
     İmzalı Binance Futures REST istemcisi.
@@ -50,6 +68,9 @@ class BinanceRESTClient:
         self._base_url = base_url
         self._rate_limiter = rate_limiter
         self._semaphore = semaphore
+        self._exchange_info: dict | None = None
+        self._exchange_info_ts: float = 0.0
+        self._symbol_info: dict[str, dict] = {}
 
     # ─────────────────────────────────────────────────────────────────
     # Statik yardımcılar (main.py'de @staticmethod olarak tanımlıydı)
@@ -73,6 +94,85 @@ class BinanceRESTClient:
             return int(raw)
         except (ValueError, TypeError):
             return 0
+
+    # ─────────────────────────────────────────────────────────────────
+    # Exchange Info (önbellekli) — sonnet exchange.py'den
+    # ─────────────────────────────────────────────────────────────────
+
+    async def _load_exchange_info(self, force: bool = False) -> dict:
+        """Exchange info'yu yükler, 5 dakika önbellekte tutar."""
+        now = time.time()
+        if not force and self._exchange_info and (now - self._exchange_info_ts) < 300:
+            return self._exchange_info
+        data = await self.get("/fapi/v1/exchangeInfo")
+        self._exchange_info = data
+        self._exchange_info_ts = now
+        self._symbol_info.clear()
+        for s in data.get("symbols", []):
+            self._symbol_info[s["symbol"]] = s
+        log.info("[EXCHANGE_INFO] %d sembol yüklendi", len(self._symbol_info))
+        return data
+
+    async def get_symbol_info(self, symbol: str) -> dict | None:
+        """Tek bir sembolün exchange info'sunu döner (önbellekten)."""
+        await self._load_exchange_info()
+        return self._symbol_info.get(symbol)
+
+    # ─────────────────────────────────────────────────────────────────
+    # Precision yardımcıları — sonnet exchange.py'den
+    # ─────────────────────────────────────────────────────────────────
+
+    async def get_tick_size(self, symbol: str) -> float:
+        """Sembolün tick size'ını döner (fiyat hassasiyeti)."""
+        info = await self.get_symbol_info(symbol)
+        if not info:
+            return 0.0001
+        for f in info.get("filters", []):
+            if f["filterType"] == "PRICE_FILTER":
+                return float(f.get("tickSize", 0.0001))
+        return 0.0001
+
+    async def get_step_size(self, symbol: str) -> float:
+        """Sembolün step size'ını döner (miktar hassasiyeti)."""
+        info = await self.get_symbol_info(symbol)
+        if not info:
+            return 0.001
+        for f in info.get("filters", []):
+            if f["filterType"] == "LOT_SIZE":
+                return float(f.get("stepSize", 0.001))
+        return 0.001
+
+    async def get_min_qty(self, symbol: str) -> float:
+        """Sembolün minimum işlem miktarını döner."""
+        info = await self.get_symbol_info(symbol)
+        if not info:
+            return 0.0
+        for f in info.get("filters", []):
+            if f["filterType"] == "LOT_SIZE":
+                return float(f.get("minQty", 0.0))
+        return 0.0
+
+    async def apply_price_precision(self, symbol: str, price: float) -> float:
+        """Fiyatı tick size'a göre yuvarla."""
+        if price is None or price == 0:
+            return price
+        return _round_to_tick(price, await self.get_tick_size(symbol))
+
+    async def apply_amount_precision(self, symbol: str, amount: float) -> float:
+        """Miktarı step size'a göre yuvarla."""
+        if amount is None or amount == 0:
+            return amount
+        return _round_step(amount, await self.get_step_size(symbol))
+
+    async def validate_min_amount(self, symbol: str, amount: float) -> float:
+        """Amount < minQty ise 0.0 döner, yoksa amount'u döner."""
+        if amount <= 0:
+            return 0.0
+        min_qty = await self.get_min_qty(symbol)
+        if min_qty > 0 and amount < min_qty:
+            log.warning("[MINQTY] %s amount=%.8f < min_qty=%.8f", symbol, amount, min_qty)
+            return 0.0
+        return amount
 
     # ─────────────────────────────────────────────────────────────────
     # Transport katmanı
@@ -235,15 +335,39 @@ class BinanceRESTClient:
             return []
 
     async def place_market_order(self, symbol: str, side: str, qty: float) -> dict:
-        """MARKET emri gonderir (pozisyon acmak icin)."""
+        """
+        MARKET emri gonderir (pozisyon acmak icin).
+        Precision uygular, demo API fallback yapar.
+        """
+        rounded_qty = await self.apply_amount_precision(symbol, qty)
+        valid_qty = await self.validate_min_amount(symbol, rounded_qty)
+        if valid_qty <= 0:
+            log.warning("[MARKET] %s qty=%.8f minQty altinda, iptal", symbol, qty)
+            return {}
+
         params = {
             "symbol": symbol,
             "side": side.upper(),
             "type": "MARKET",
-            "quantity": qty,
+            "quantity": rounded_qty,
         }
         try:
-            return await self.post("/fapi/v1/order", params)
+            result = await self.post("/fapi/v1/order", params)
+            if result.get("orderId") or result.get("id"):
+                return result
+            # Demo API: orderId dönmezse GET ile bul
+            import asyncio as _asyncio
+            await _asyncio.sleep(0.5)
+            try:
+                orders = await self.get_open_orders(symbol)
+                for o in orders if isinstance(orders, list) else []:
+                    if (o.get("symbol") == symbol and
+                        o.get("side", "").upper() == side.upper() and
+                        o.get("type", "").upper() == "MARKET"):
+                        return o
+            except Exception:
+                pass
+            return result
         except Exception as e:
             log.warning("[MARKET] %s MARKET hatasi: %s", symbol, e)
             return {}
@@ -251,37 +375,92 @@ class BinanceRESTClient:
     async def place_stop_order(
         self, symbol: str, side: str, qty: float, stop_price: float, client_id: str = ""
     ) -> dict:
-        """STOP_MARKET reduceOnly emri gonderir (SL)."""
+        """
+        STOP_MARKET emri — Algo endpoint (/fapi/v1/algoOrder) kullanir.
+        closePosition=True ile reduceOnly yerine yeni API.
+        """
+        rounded_qty = await self.apply_amount_precision(symbol, qty)
+        valid_qty = await self.validate_min_amount(symbol, rounded_qty)
+        if valid_qty <= 0:
+            log.warning("[SL] %s qty=%.8f minQty altinda, iptal", symbol, qty)
+            return {}
+
+        rounded_price = await self.apply_price_precision(symbol, stop_price)
+
         params = {
             "symbol": symbol,
             "side": side.upper(),
             "type": "STOP_MARKET",
-            "quantity": qty,
-            "stopPrice": stop_price,
-            "reduceOnly": True,
+            "algoType": "CONDITIONAL",
+            "workingType": "MARK_PRICE",
+            "quantity": rounded_qty,
+            "triggerPrice": str(rounded_price),
+            "closePosition": "true",
             "timeInForce": "GTE_GTC",
             "newClientOrderId": client_id or f"sl_{symbol}_{int(time.time())}",
         }
         try:
-            return await self.post("/fapi/v1/order", params)
+            result = await self.post("/fapi/v1/algoOrder", params)
+            if result.get("algoId") or result.get("orderId") or result.get("id"):
+                return result
+            # Demo API fallback
+            import asyncio as _asyncio
+            await _asyncio.sleep(0.5)
+            try:
+                orders = await self.get("/fapi/v1/openAlgoOrders", f"symbol={symbol}")
+                for o in orders if isinstance(orders, list) else []:
+                    if (o.get("symbol") == symbol and
+                        o.get("side", "").upper() == side.upper() and
+                        (o.get("type") or o.get("orderType", "")).upper() == "STOP_MARKET"):
+                        return o
+            except Exception:
+                pass
+            return result
         except Exception as e:
             log.warning("[SL] %s STOP_MARKET hatasi: %s", symbol, e)
             return {}
 
     async def place_tp_order(self, symbol: str, side: str, qty: float, stop_price: float, client_id: str = "") -> dict:
-        """TAKE_PROFIT_MARKET reduceOnly emri gonderir (TP)."""
+        """
+        TAKE_PROFIT_MARKET emri — Algo endpoint (/fapi/v1/algoOrder) kullanir.
+        """
+        rounded_qty = await self.apply_amount_precision(symbol, qty)
+        valid_qty = await self.validate_min_amount(symbol, rounded_qty)
+        if valid_qty <= 0:
+            log.warning("[TP] %s qty=%.8f minQty altinda, iptal", symbol, qty)
+            return {}
+
+        rounded_price = await self.apply_price_precision(symbol, stop_price)
+
         params = {
             "symbol": symbol,
             "side": side.upper(),
             "type": "TAKE_PROFIT_MARKET",
-            "quantity": qty,
-            "stopPrice": stop_price,
-            "reduceOnly": True,
+            "algoType": "CONDITIONAL",
+            "workingType": "MARK_PRICE",
+            "quantity": rounded_qty,
+            "triggerPrice": str(rounded_price),
+            "closePosition": "true",
             "timeInForce": "GTE_GTC",
             "newClientOrderId": client_id or f"tp_{symbol}_{int(time.time())}",
         }
         try:
-            return await self.post("/fapi/v1/order", params)
+            result = await self.post("/fapi/v1/algoOrder", params)
+            if result.get("algoId") or result.get("orderId") or result.get("id"):
+                return result
+            # Demo API fallback
+            import asyncio as _asyncio
+            await _asyncio.sleep(0.5)
+            try:
+                orders = await self.get("/fapi/v1/openAlgoOrders", f"symbol={symbol}")
+                for o in orders if isinstance(orders, list) else []:
+                    if (o.get("symbol") == symbol and
+                        o.get("side", "").upper() == side.upper() and
+                        (o.get("type") or o.get("orderType", "")).upper() == "TAKE_PROFIT_MARKET"):
+                        return o
+            except Exception:
+                pass
+            return result
         except Exception as e:
             log.warning("[TP] %s TAKE_PROFIT_MARKET hatasi: %s", symbol, e)
             return {}
