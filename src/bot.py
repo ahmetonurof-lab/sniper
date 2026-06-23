@@ -840,6 +840,25 @@ class PaperTrader:
                             remaining_id,
                             e,
                         )
+
+                # Eger tetiklenen yonun Binance emri yoksa (örn: kurtarilmis/sentetik/unprotected pozisyon)
+                # pozisyonun acik kalmamasi icin piyasa fiyatindan manuel kapatiyoruz.
+                trigger_id = (
+                    trade.get("sl_order_id")
+                    if trade.get("result") == "SL"
+                    else trade.get("tp_order_id")
+                )
+                if not trigger_id:
+                    log.warning(
+                        "[CLOSE] %s tetiklenen %s emri Binance ID'si olmadigi icin acil market kapanisi yapiliyor...",
+                        sym,
+                        trade.get("result"),
+                    )
+                    mkt_side = "SELL" if trade["side"] == "long" else "BUY"
+                    try:
+                        await self.rest.place_market_order(sym, mkt_side, trade["qty"])
+                    except Exception as e:
+                        log.warning("[CLOSE] %s acil kapanis emri hatasi: %s", sym, e)
             except Exception as e:
                 log.warning("[CLOSE] %s exit temizleme hatasi: %s", sym, e)
 
