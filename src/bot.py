@@ -1070,6 +1070,47 @@ class PaperTrader:
                         sl = entry + risk_pts * 2
                         tp = entry - risk_pts * self.cfgs[sym]["TP_RR"]
 
+                    sl_id = ""
+                    tp_id = ""
+                    if cfg.BINANCE_API_KEY:
+                        try:
+                            sl_side = "SELL" if direction == "long" else "BUY"
+                            rounded_sl = await self.rest.apply_price_precision(sym, sl)
+                            rounded_tp = await self.rest.apply_price_precision(sym, tp)
+
+                            sl_resp = await self.rest.place_stop_order(
+                                sym, sl_side, abs(amt), rounded_sl
+                            )
+                            sl_id = (
+                                sl_resp.get("algoId")
+                                or sl_resp.get("orderId")
+                                or sl_resp.get("id")
+                                or ""
+                            )
+
+                            tp_resp = await self.rest.place_tp_order(
+                                sym, sl_side, abs(amt), rounded_tp
+                            )
+                            tp_id = (
+                                tp_resp.get("algoId")
+                                or tp_resp.get("orderId")
+                                or tp_resp.get("id")
+                                or ""
+                            )
+
+                            log.info(
+                                "[RECOVER] %s icin Binance uzerinde SL/TP emirleri olusturuldu (sl_id=%s, tp_id=%s)",
+                                sym,
+                                sl_id,
+                                tp_id,
+                            )
+                        except Exception as e:
+                            log.warning(
+                                "[RECOVER] %s icin Binance koruma emri yerlestirme hatasi: %s",
+                                sym,
+                                e,
+                            )
+
                     self.active_trades[sym] = {
                         "entry_bar_index": 0,
                         "entry_price": entry,
@@ -1083,11 +1124,13 @@ class PaperTrader:
                         "trailing_count": 0,
                         "risk_pts": risk_pts,
                         "is_retrade": False,
+                        "sl_order_id": sl_id,
+                        "tp_order_id": tp_id,
                     }
                     self._pl(
                         sym,
                         "recover",
-                        f"\U0001f512 {direction.upper()} @ {entry:.2f} | SYNTHETIC SL={sl:.2f} TP={tp:.2f}",
+                        f"\U0001f512 {direction.upper()} @ {entry:.2f} | SL={sl:.2f} (id={sl_id}) TP={tp:.2f} (id={tp_id}) kuruldu",
                     )
         except Exception as e:
             self._pl("SYSTEM", "recover", f"\u274c Pozisyon kurtarma hatasi: {e}")
