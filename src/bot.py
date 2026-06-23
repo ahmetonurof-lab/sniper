@@ -28,6 +28,7 @@ from state_manager import (
     mark_trade_opened,
     mark_trade_closed,
     reconcile_from_active,
+    get_trade_count_today,
 )
 from websocket import BinanceWSHub
 
@@ -282,8 +283,28 @@ class PaperTrader:
             rsm_r.on_sweep_confirmed(sweep_chunk, sweep_bar)
 
         if rsm_r.can_trigger():
+            # FIX #6a: Session filtresi — analyzer.py ile aynı (sadece LONDON+NEWYORK).
+            phase = detect_phase_from_timestamp(current.timestamp)
+            if phase not in (SessionPhase.NEWYORK, SessionPhase.LONDON):
+                rsm_r.reset()
+                return
+
+            # FIX #6b: Sweep, primary entry barından sonra oluşmuş olmalı.
+            # retrade_entry_bar kaydedildi ama hiç kontrol edilmiyordu;
+            # primary trade'den önceki sweep'e denk düşebiliyordu.
+            if sweep_bar_idx <= (ss.retrade_entry_bar or 0):
+                log.info("[RETRADE] %s sweep (bar=%d) primary entry barından (bar=%d) önce — atlandı",
+                         sym, sweep_bar_idx, ss.retrade_entry_bar or 0)
+                rsm_r.reset()
+                return
+
             await self._try_entry(sym, current, atr_val, rsm_r, ss, sweep_dir, cfg["SL_ATR_MULT"], cfg["TP_RR"], cfg["FVG_BUFFER_MULT"], cfg["MIN_FVG_SIZE"], is_retrade=True)
+            # FIX #6c: rsm_r.reset() eksikti — _try_entry başarısız olsa bile
+            # retrade_armed False yapılıyordu ama rsm_r TRIGGER_READY'de kalıyordu.
+            # _try_entry içinde reset() çağrılıyor ama is_retrade=True durumunda
+            # erken return'lerde çağrılmıyor; güvenlik için burada da sıfırlıyoruz.
             ss.retrade_armed = False
+            rsm_r.reset()
 
     # ── 1m: Trailing + Exit (hibrit izleme) ──
 
@@ -306,6 +327,10 @@ class PaperTrader:
             # Analyzer ile birebir ayni buffer formulu
             buffer = abs(trade["initial_sl"] - trade["entry_price"]) * fvg_buf
 
+            # FIX #4: Döngüde her FVG için ayrı API çağrısı yerine,
+            # tüm FVG'ler arasından en iyi SL'yi seç, sonra tek _update_orders çağır.
+            # Analyzer.py davranışıyla örtüşür (ilk geçerli FVG'de durur).
+            trailing_updated = False
             for fvg in fvgs:
                 if trade["side"] == "long" and fvg.direction != "bullish":
                     continue
@@ -322,7 +347,8 @@ class PaperTrader:
                         trade["tp"] = trade["tp"] + sl_diff
                         trade["trailing_count"] += 1
                         log.info("[TRAIL] %s trail#%d sl=%.2f tp=%.2f", sym, trade["trailing_count"], trade["sl"], trade["tp"])
-                        await self._update_orders(sym, trade)
+                        trailing_updated = True
+                        break  # İlk geçerli FVG'de dur, analyzer.py davranışı
                 else:
                     new_sl = fvg.top + buffer
                     if new_sl < trade["sl"]:
@@ -331,7 +357,11 @@ class PaperTrader:
                         trade["tp"] = trade["tp"] - sl_diff
                         trade["trailing_count"] += 1
                         log.info("[TRAIL] %s trail#%d sl=%.2f tp=%.2f", sym, trade["trailing_count"], trade["sl"], trade["tp"])
-                        await self._update_orders(sym, trade)
+                        trailing_updated = True
+                        break  # İlk geçerli FVG'de dur, analyzer.py davranışı
+
+            if trailing_updated:
+                await self._update_orders(sym, trade)
 
         # Exit kontrolu (1m bar bazli)
         if trade["side"] == "long":
@@ -440,11 +470,17 @@ class PaperTrader:
                         else:
                             log.warning("[ORDER] %s TP BASARISIZ! resp=%s", sym, tp_resp)
                     else:
-                        self._pl(sym, "order_err", "\u274c ORDER: MARKET BASARISIZ")
-                        log.warning("[ORDER] %s MARKET entry BASARISIZ \u2014 SL/TP atlandi", sym)
+                        # FIX #2: Market emir başarısız olduysa trade kaydedilmemeli.
+                        # Eski kod buradan devam edip active_trades'e yazıyordu → hayalet pozisyon.
+                        self._pl(sym, "order_err", "\u274c ORDER: MARKET BASARISIZ \u2014 trade iptal")
+                        log.warning("[ORDER] %s MARKET entry BASARISIZ \u2014 trade kaydedilmedi", sym)
+                        rsm.reset()
+                        return
             except Exception as e:
                 self._pl(sym, "order_err", f"\u274c ORDER: HATA \u2014 {e}")
                 log.exception("[ORDER] %s beklenmeyen hata", sym)
+                rsm.reset()
+                return
 
         self.active_trades[sym] = {
             "entry_bar_index": current.index,
@@ -472,6 +508,23 @@ class PaperTrader:
             return
         sl_side = "SELL" if trade["side"] == "long" else "BUY"
         qty = trade.get("qty", trade.get("lot", 0))
+
+        # FIX #3: Yeni SL/TP göndermeden önce mevcut emirleri iptal et.
+        # Eski kod iptalsiz yeni emir açıyordu → Binance'de birikimli emirler
+        # geriye çekilmede yanlış tetiklenip ters pozisyon açabiliyordu.
+        old_sl_id = trade.get("sl_order_id", "")
+        old_tp_id = trade.get("tp_order_id", "")
+        if old_sl_id:
+            try:
+                await self.rest.cancel_order(old_sl_id, sym, reason="trail_update", is_algo=True)
+            except Exception as e:
+                log.warning("[CANCEL] %s eski SL iptal hatasi (id=%s): %s", sym, old_sl_id, e)
+        if old_tp_id:
+            try:
+                await self.rest.cancel_order(old_tp_id, sym, reason="trail_update", is_algo=True)
+            except Exception as e:
+                log.warning("[CANCEL] %s eski TP iptal hatasi (id=%s): %s", sym, old_tp_id, e)
+
         sl_resp = await self.rest.place_stop_order(
             sym, sl_side, qty, trade["sl"], client_id=f"sl_{sym}_{int(time.time())}"
         )
@@ -495,31 +548,25 @@ class PaperTrader:
         self._pl(sym, f"exit_{exit_timestamp}", f"\U0001f7e5 EXIT: {trade['result']} | PRICE: {trade['exit_price']:.2f} | PNL: {pnl:+.2f} | BALANCE: {self._balance:.2f} | TRAIL: {trade['trailing_count']}")
         log.info("[PAPER] %s %s exit=%s pnl=%.2f balance=%.2f", sym, trade["result"], trade["exit_price"], pnl, self._balance)
 
-        # Testnet pozisyon kapat + SL/TP emirlerini iptal
+        # FIX #5: Manuel kapanış emri kaldırıldı.
+        # SL/TP emirleri closePosition=True ile kurulduğundan Binance pozisyonu
+        # zaten kapattı. Buradan tekrar place_market_order göndermek, sıfır pozisyon
+        # üzerine emir atarak ters yönde yeni pozisyon açıyordu.
+        # Yapılması gereken: karşı taraftaki bekleyen emri iptal etmek.
         if cfg.BINANCE_API_KEY and getattr(self, "_live", False):
             try:
-                try:
-                    open_orders = await self.rest.get_all_orders(sym)
-                    for o in open_orders if isinstance(open_orders, list) else []:
-                        oid = o.get("algoId") or o.get("orderId") or o.get("id")
-                        if oid:
-                            is_algo = "algoId" in o
-                            await self.rest.cancel_order(oid, sym, reason="exit_close", is_algo=is_algo)
-                except Exception as e:
-                    log.warning("[CANCEL] %s emir iptal hatasi: %s", sym, e)
-
-                close_side = "SELL" if trade["side"] == "long" else "BUY"
-                qty = trade.get("qty", trade.get("lot", 0))
-                rounded_qty = await self.rest.apply_amount_precision(sym, qty)
-                valid_qty = await self.rest.validate_min_amount(sym, rounded_qty)
-                if valid_qty > 0:
-                    close_resp = await self.rest.place_market_order(sym, close_side, valid_qty)
-                    if close_resp.get("orderId") or close_resp.get("id"):
-                        log.info("[CLOSE] %s pozisyon kapatildi orderId=%s", sym, close_resp.get("orderId", ""))
-                else:
-                    log.warning("[CLOSE] %s qty=%.8f minQty altinda, pozisyon kapatilamadi", sym, qty)
+                remaining_id = (
+                    trade.get("tp_order_id") if trade.get("result") == "SL"
+                    else trade.get("sl_order_id")
+                )
+                if remaining_id:
+                    try:
+                        await self.rest.cancel_order(remaining_id, sym, reason="exit_close", is_algo=True)
+                        log.info("[CANCEL] %s kalan koruma emri iptal edildi (id=%s)", sym, remaining_id)
+                    except Exception as e:
+                        log.warning("[CANCEL] %s kalan emir iptal hatasi (id=%s): %s", sym, remaining_id, e)
             except Exception as e:
-                log.warning("[CLOSE] %s pozisyon kapatma hatasi: %s", sym, e)
+                log.warning("[CLOSE] %s exit temizleme hatasi: %s", sym, e)
 
         # Retrade arm: gunun ilk primary trade kapandiginda
         ss = self.states[sym]
@@ -545,7 +592,10 @@ class PaperTrader:
         await self._on_1m_close(sym, bars)
 
     async def _prefill_bars(self, sym: str, timeframe: str = "15m"):
-        url = f"https://fapi.binance.com/fapi/v1/klines?symbol={sym}&interval={timeframe}&limit=500"
+        # FIX #7: Testnet modunda da mainnet URL kullanılıyordu.
+        # Testnet ve mainnet fiyatları farklı olduğundan CBDR warmup yanlış
+        # fiyat seviyeleriyle başlıyor, sweep/FVG tespiti sapıyordu.
+        url = f"{self.rest_base}/fapi/v1/klines?symbol={sym}&interval={timeframe}&limit=500"
         try:
             loop = asyncio.get_running_loop()
             raw = await loop.run_in_executor(
@@ -581,8 +631,9 @@ class PaperTrader:
                 dt = datetime.fromtimestamp(bar.timestamp / 1000, tz=UTC)
             except Exception:
                 continue
-            if not (dt.hour >= 22 or dt.hour < 2):
-                continue
+            # FIX #1: Tüm barlar SessionState'e beslenmeli.
+            # Eski filtre (sadece 22:00-02:00 CBDR saatleri) London/NY barlarını
+            # atlıyordu; london_high/london_low=0 kalıyor ve TP yanlış hesaplanıyordu.
             atr = max(bar.range, bar.close * 0.0001)
             ss.update(dt, bar.open, bar.high, bar.low, bar.close, atr)
         log.info("[WARMUP] %s CBDR body: lock=%s | body=[%.2f-%.2f] | sweep=%s", sym, ss.cbdr_locked, ss.cbdr_body_low, ss.cbdr_body_high, ss.sweep_confirmed)
@@ -694,6 +745,20 @@ class PaperTrader:
 
         await self._recover_positions()
         reconcile_from_active(self.active_trades)
+
+        # FIX #8: Restart sonrası trades_today senkronizasyonu.
+        # Bot yeniden başlatıldığında ss.trades_today=0 olarak başlar, ama
+        # state_manager disk'te o günün işlem sayısını biliyor.
+        # ss.trades_today=0 kalırsa _check_retrade içindeki "trades_today != 1"
+        # koşulu hiç geçilemiyor → o gün retrade açılamıyor.
+        for sym in self.symbols:
+            try:
+                count = get_trade_count_today(sym)
+                if count > 0:
+                    self.states[sym].trades_today = count
+                    log.info("[SYNC] %s trades_today disk'ten senkronize edildi: %d", sym, count)
+            except Exception as e:
+                log.warning("[SYNC] %s trades_today sync hatasi: %s", sym, e)
 
         # User Data Stream (WS Zirhi — REST polling yok)
         if cfg.BINANCE_API_KEY:

@@ -34,7 +34,6 @@ class SessionState:
         self.sweep_direction: Literal["bullish", "bearish"] | None = None
         self.sweep_level: float | None = None
         self.trades_today: int = 0
-        self.last_date: str = ""
 
         # Retrade state — pivot bazli LBS/SBS sweep sonrasi 2. entry icin.
         self.retrade_armed: bool = False
@@ -51,10 +50,6 @@ class SessionState:
         if cbdr_key != self.cbdr_day:
             self._reset_for_new_cbdr_cycle()
             self.cbdr_day = cbdr_key
-
-        if today != self.last_date:
-            self.last_date = today
-            self.trades_today = 0
 
         if sess == SessionPhase.CBDR and not self.cbdr_locked:
             self._track_cbdr_body(open, close)
@@ -84,6 +79,10 @@ class SessionState:
         self.retrade_side = None
         self.retrade_sweep_level = 0.0
         self.retrade_entry_bar = 0
+        # trades_today burada sıfırlanmalı: CBDR döngüsü 22:00'de başlar,
+        # gece yarısı değil. last_date/today bloğu 22:00-00:00 arasında
+        # eski günün sayısını taşıyarak retrade'i engelliyordu.
+        self.trades_today = 0
 
     def _track_cbdr_body(self, open: float, close: float):
         body_high = max(open, close)

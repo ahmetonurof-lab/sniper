@@ -5,6 +5,7 @@ Nexus v4 / Sniper Bot — disk tabanlı, restart-proof state yönetimi.
 Kullanım:
     from state_manager import can_open_trade, mark_trade_opened, mark_trade_closed
     from state_manager import is_sweep_used, mark_sweep_used, reconcile_from_active
+    from state_manager import get_trade_count_today
 """
 
 from __future__ import annotations
@@ -188,6 +189,27 @@ def reconcile_from_active(active_trades: dict):
             )
         else:
             log.info("[STATE] reconcile: tüm semboller zaten güncel")
+
+
+# ── Restart senkronizasyonu ───────────────────────────────────────
+
+
+def get_trade_count_today(symbol: str) -> int:
+    """
+    Bot restart sonrası trades_today'i disk'ten okumak için.
+    Bugüne ait kayıt varsa count döner, yoksa 0 döner.
+
+    bot.py run() içinde reconcile_from_active'den sonra çağrılır:
+        count = get_trade_count_today(sym)
+        if count > 0:
+            self.states[sym].trades_today = count
+    """
+    with FileLock(LOCK_FILE):
+        state = _load()
+        s = state.get(symbol, {})
+        if s.get("date") != _today():
+            return 0
+        return s.get("count", 0)
 
 
 # ── Debug yardımcısı ──────────────────────────────────────────────
