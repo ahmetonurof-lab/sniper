@@ -353,7 +353,6 @@ class PaperTrader:
                         trade["trailing_count"] += 1
                         log.info("[TRAIL] %s trail#%d sl=%.2f tp=%.2f", sym, trade["trailing_count"], trade["sl"], trade["tp"])
                         trailing_updated = True
-                        break  # İlk geçerli FVG'de dur, analyzer.py davranışı
                 else:
                     new_sl = fvg.top + buffer
                     if new_sl < trade["sl"]:
@@ -363,7 +362,6 @@ class PaperTrader:
                         trade["trailing_count"] += 1
                         log.info("[TRAIL] %s trail#%d sl=%.2f tp=%.2f", sym, trade["trailing_count"], trade["sl"], trade["tp"])
                         trailing_updated = True
-                        break  # İlk geçerli FVG'de dur, analyzer.py davranışı
 
             if trailing_updated:
                 await self._update_orders(sym, trade)
