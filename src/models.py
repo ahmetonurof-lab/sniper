@@ -67,11 +67,17 @@ class Bar:
 
     def __post_init__(self) -> None:
         if self.high < self.low:
-            raise ValueError(f"Bar[{self.index}]: high ({self.high}) < low ({self.low})")
+            raise ValueError(
+                f"Bar[{self.index}]: high ({self.high}) < low ({self.low})"
+            )
         if not (self.low <= self.open <= self.high):
-            raise ValueError(f"Bar[{self.index}]: open ({self.open}) out of [low, high]")
+            raise ValueError(
+                f"Bar[{self.index}]: open ({self.open}) out of [low, high]"
+            )
         if not (self.low <= self.close <= self.high):
-            raise ValueError(f"Bar[{self.index}]: close ({self.close}) out of [low, high]")
+            raise ValueError(
+                f"Bar[{self.index}]: close ({self.close}) out of [low, high]"
+            )
 
 
 @dataclass(frozen=True)
@@ -87,7 +93,9 @@ class FVG:
 
     def __post_init__(self) -> None:
         if self.top <= self.bottom:
-            raise ValueError(f"FVG[{self.real_index}]: top ({self.top}) <= bottom ({self.bottom})")
+            raise ValueError(
+                f"FVG[{self.real_index}]: top ({self.top}) <= bottom ({self.bottom})"
+            )
         if self._next_check_abs < 0:
             object.__setattr__(self, "_next_check_abs", self.real_index + 2)
 
@@ -127,7 +135,10 @@ class CHoCH:
 
     def __post_init__(self) -> None:
         if self.bar_index < self.pivot_bar_index:
-            raise ValueError(f"CHoCH[{self.bar_index}]: bar_index < pivot_bar_index " f"({self.pivot_bar_index})")
+            raise ValueError(
+                f"CHoCH[{self.bar_index}]: bar_index < pivot_bar_index "
+                f"({self.pivot_bar_index})"
+            )
 
     def age_bars(self, current_index: int) -> int:
         return max(0, current_index - self.bar_index)
@@ -209,9 +220,21 @@ class AnalysisResult:
         return self.direction is not None and self.fvg_quality is not None
 
     def summary(self) -> str:
-        choch_str = f"choch={self.choch.direction}@{self.choch.level:.2f}" if self.choch else "choch=None"
-        fvg_str = f"fvg=[{self.fvg.bottom:.2f}-{self.fvg.top:.2f}]" if self.fvg else "fvg=None"
-        score_str = f"score={self.fvg_quality.score:.3f}" if self.fvg_quality else "quality=None"
+        choch_str = (
+            f"choch={self.choch.direction}@{self.choch.level:.2f}"
+            if self.choch
+            else "choch=None"
+        )
+        fvg_str = (
+            f"fvg=[{self.fvg.bottom:.2f}-{self.fvg.top:.2f}]"
+            if self.fvg
+            else "fvg=None"
+        )
+        score_str = (
+            f"score={self.fvg_quality.score:.3f}"
+            if self.fvg_quality
+            else "quality=None"
+        )
         return (
             f"{self.symbol} | {self.direction} | {choch_str} | {fvg_str} | "
             f"{score_str} | adx={self.adx_value:.1f} | armed={self.armed}"

@@ -85,7 +85,9 @@ def update_fvg_states(
         if fvg.invalidated or fvg.real_index < first_abs:
             continue
 
-        scan_from_abs = max(getattr(fvg, "_next_check_abs", fvg.real_index + 2), fvg.real_index + 2)
+        scan_from_abs = max(
+            getattr(fvg, "_next_check_abs", fvg.real_index + 2), fvg.real_index + 2
+        )
 
         for abs_i in range(scan_from_abs, last_abs + 1):
             list_pos = abs_i - first_abs
@@ -124,7 +126,12 @@ def find_latest_unfilled_fvg(
     min_fvg_size: float = MIN_FVG_SIZE,
 ) -> FVG | None:
     matches = [
-        f for f in fvgs if f.direction == direction and not f.filled and not f.invalidated and f.size >= min_fvg_size
+        f
+        for f in fvgs
+        if f.direction == direction
+        and not f.filled
+        and not f.invalidated
+        and f.size >= min_fvg_size
     ]
     if not matches:
         return None
@@ -146,12 +153,16 @@ def is_retesting_fvg(
 
     if fvg.direction == "bullish":
         lower_bound = max(fvg.bottom - buffer, 0.0)
-        wick_touches = current_bar.low <= fvg.top + buffer and current_bar.low >= lower_bound
+        wick_touches = (
+            current_bar.low <= fvg.top + buffer and current_bar.low >= lower_bound
+        )
         body_safe = body_low >= lower_bound
         return wick_touches and body_safe
     else:
         lower_bound = max(fvg.bottom - buffer, 0.0)
-        wick_touches = current_bar.high >= lower_bound and current_bar.high <= fvg.top + buffer
+        wick_touches = (
+            current_bar.high >= lower_bound and current_bar.high <= fvg.top + buffer
+        )
         body_safe = body_high <= fvg.top + buffer
         return wick_touches and body_safe
 
@@ -170,7 +181,12 @@ def cleanup_fvgs(
         and not (not f.filled and (current_abs - f.real_index) > max_age * 2)
     ]
     if before != len(kept):
-        logger.info("[FVG-CLEANUP] %d FVG temizlendi (%d -> %d).", before - len(kept), before, len(kept))
+        logger.info(
+            "[FVG-CLEANUP] %d FVG temizlendi (%d -> %d).",
+            before - len(kept),
+            before,
+            len(kept),
+        )
     return kept
 
 
@@ -190,7 +206,9 @@ def refresh_fvg_list(
     existing_indices = {f.real_index for f in fvgs}
     new_fvgs = [
         f
-        for f in detect_fvgs(bars, lookback=lookback, timeframe=timeframe, min_fvg_size=min_fvg_size)
+        for f in detect_fvgs(
+            bars, lookback=lookback, timeframe=timeframe, min_fvg_size=min_fvg_size
+        )
         if f.real_index not in existing_indices
     ]
     fvgs.extend(new_fvgs)

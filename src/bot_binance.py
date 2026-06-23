@@ -32,6 +32,7 @@ log = logging.getLogger("nexus.live")
 # Precision yardımcıları (sonnet exchange.py'den)
 # ─────────────────────────────────────────────────────────────────
 
+
 def _round_to_tick(value: float, tick: float) -> float:
     """Değeri tick size'a yuvarla."""
     if tick <= 0:
@@ -170,7 +171,9 @@ class BinanceRESTClient:
             return 0.0
         min_qty = await self.get_min_qty(symbol)
         if min_qty > 0 and amount < min_qty:
-            log.warning("[MINQTY] %s amount=%.8f < min_qty=%.8f", symbol, amount, min_qty)
+            log.warning(
+                "[MINQTY] %s amount=%.8f < min_qty=%.8f", symbol, amount, min_qty
+            )
             return 0.0
         return amount
 
@@ -187,8 +190,12 @@ class BinanceRESTClient:
             last_error = None
             for attempt in range(max_retries):
                 ts = int(time.time() * 1000)
-                full_params = f"{params}&timestamp={ts}" if params else f"timestamp={ts}"
-                sig = hmac.new(secret.encode(), full_params.encode(), hashlib.sha256).hexdigest()
+                full_params = (
+                    f"{params}&timestamp={ts}" if params else f"timestamp={ts}"
+                )
+                sig = hmac.new(
+                    secret.encode(), full_params.encode(), hashlib.sha256
+                ).hexdigest()
                 url = f"{self._base_url}{endpoint}?{full_params}&signature={sig}"
                 req = urllib.request.Request(url, headers={"X-MBX-APIKEY": key})
                 loop = asyncio.get_running_loop()
@@ -234,11 +241,15 @@ class BinanceRESTClient:
             for attempt in range(max_retries):
                 params["timestamp"] = int(time.time() * 1000)
                 query_string = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
-                sig = hmac.new(secret.encode(), query_string.encode(), hashlib.sha256).hexdigest()
+                sig = hmac.new(
+                    secret.encode(), query_string.encode(), hashlib.sha256
+                ).hexdigest()
                 query_string += f"&signature={sig}"
                 url = f"{self._base_url}{endpoint}"
                 data = query_string.encode()
-                req = urllib.request.Request(url, data=data, headers={"X-MBX-APIKEY": key})
+                req = urllib.request.Request(
+                    url, data=data, headers={"X-MBX-APIKEY": key}
+                )
                 loop = asyncio.get_running_loop()
                 try:
                     raw = await loop.run_in_executor(
@@ -279,12 +290,18 @@ class BinanceRESTClient:
             secret = self._api_secret
             ts = int(time.time() * 1000)
             full_params = f"{params}&timestamp={ts}" if params else f"timestamp={ts}"
-            sig = hmac.new(secret.encode(), full_params.encode(), hashlib.sha256).hexdigest()
+            sig = hmac.new(
+                secret.encode(), full_params.encode(), hashlib.sha256
+            ).hexdigest()
             url = f"{self._base_url}{endpoint}?{full_params}&signature={sig}"
-            req = urllib.request.Request(url, headers={"X-MBX-APIKEY": key}, method="DELETE")
+            req = urllib.request.Request(
+                url, headers={"X-MBX-APIKEY": key}, method="DELETE"
+            )
             loop = asyncio.get_running_loop()
             try:
-                raw = await loop.run_in_executor(None, lambda: urllib.request.urlopen(req).read().decode())
+                raw = await loop.run_in_executor(
+                    None, lambda: urllib.request.urlopen(req).read().decode()
+                )
                 return json.loads(raw)
             except urllib.error.HTTPError as e:
                 body = e.read().decode()
@@ -312,7 +329,9 @@ class BinanceRESTClient:
             if isinstance(algo_raw, list):
                 orders.extend(algo_raw)
         except Exception as e:
-            log.debug("[ORDERS] algoOrders alınamadı %s (önemsiz): %s", symbol.ljust(12), e)
+            log.debug(
+                "[ORDERS] algoOrders alınamadı %s (önemsiz): %s", symbol.ljust(12), e
+            )
         return orders
 
     async def get_balance(self) -> float:
@@ -329,7 +348,11 @@ class BinanceRESTClient:
     async def get_positions(self) -> list[dict]:
         try:
             raw = await self.get("/fapi/v2/account")
-            return [p for p in raw.get("positions", []) if float(p.get("positionAmt", 0)) != 0]
+            return [
+                p
+                for p in raw.get("positions", [])
+                if float(p.get("positionAmt", 0)) != 0
+            ]
         except Exception as e:
             log.warning("[POSITIONS] Pozisyonlar alınamadı: %s", e)
             return []
@@ -357,13 +380,16 @@ class BinanceRESTClient:
                 return result
             # Demo API: orderId dönmezse GET ile bul
             import asyncio as _asyncio
+
             await _asyncio.sleep(0.5)
             try:
                 orders = await self.get_open_orders(symbol)
                 for o in orders if isinstance(orders, list) else []:
-                    if (o.get("symbol") == symbol and
-                        o.get("side", "").upper() == side.upper() and
-                        o.get("type", "").upper() == "MARKET"):
+                    if (
+                        o.get("symbol") == symbol
+                        and o.get("side", "").upper() == side.upper()
+                        and o.get("type", "").upper() == "MARKET"
+                    ):
                         return o
             except Exception:
                 pass
@@ -405,13 +431,17 @@ class BinanceRESTClient:
                 return result
             # Demo API fallback
             import asyncio as _asyncio
+
             await _asyncio.sleep(0.5)
             try:
                 orders = await self.get("/fapi/v1/openAlgoOrders", f"symbol={symbol}")
                 for o in orders if isinstance(orders, list) else []:
-                    if (o.get("symbol") == symbol and
-                        o.get("side", "").upper() == side.upper() and
-                        (o.get("type") or o.get("orderType", "")).upper() == "STOP_MARKET"):
+                    if (
+                        o.get("symbol") == symbol
+                        and o.get("side", "").upper() == side.upper()
+                        and (o.get("type") or o.get("orderType", "")).upper()
+                        == "STOP_MARKET"
+                    ):
                         return o
             except Exception:
                 pass
@@ -420,7 +450,9 @@ class BinanceRESTClient:
             log.warning("[SL] %s STOP_MARKET hatasi: %s", symbol, e)
             return {}
 
-    async def place_tp_order(self, symbol: str, side: str, qty: float, stop_price: float, client_id: str = "") -> dict:
+    async def place_tp_order(
+        self, symbol: str, side: str, qty: float, stop_price: float, client_id: str = ""
+    ) -> dict:
         """
         TAKE_PROFIT_MARKET emri — Algo endpoint (/fapi/v1/algoOrder) kullanir.
         """
@@ -450,13 +482,17 @@ class BinanceRESTClient:
                 return result
             # Demo API fallback
             import asyncio as _asyncio
+
             await _asyncio.sleep(0.5)
             try:
                 orders = await self.get("/fapi/v1/openAlgoOrders", f"symbol={symbol}")
                 for o in orders if isinstance(orders, list) else []:
-                    if (o.get("symbol") == symbol and
-                        o.get("side", "").upper() == side.upper() and
-                        (o.get("type") or o.get("orderType", "")).upper() == "TAKE_PROFIT_MARKET"):
+                    if (
+                        o.get("symbol") == symbol
+                        and o.get("side", "").upper() == side.upper()
+                        and (o.get("type") or o.get("orderType", "")).upper()
+                        == "TAKE_PROFIT_MARKET"
+                    ):
                         return o
             except Exception:
                 pass
@@ -477,31 +513,59 @@ class BinanceRESTClient:
             try:
                 params = f"symbol={symbol}&algoId={order_id}"
                 await self.delete("/fapi/v1/algoOrder", params)
-                log.info("🧹 İPTAL (algo) | %s algoId=%s reason=%s", symbol.ljust(12), order_id, reason)
+                log.info(
+                    "🧹 İPTAL (algo) | %s algoId=%s reason=%s",
+                    symbol.ljust(12),
+                    order_id,
+                    reason,
+                )
                 return True
             except Exception as e:
                 err = str(e)
                 if "Unknown order" in err or "-2011" in err:
-                    log.info("🧹 İPTAL (algo) | %s algoId=%s zaten yok (ok)", symbol.ljust(12), order_id)
+                    log.info(
+                        "🧹 İPTAL (algo) | %s algoId=%s zaten yok (ok)",
+                        symbol.ljust(12),
+                        order_id,
+                    )
                     return True
-                log.warning("🧹 İPTAL hatası (algo) %s algoId=%s: %s", symbol.ljust(12), order_id, e)
+                log.warning(
+                    "🧹 İPTAL hatası (algo) %s algoId=%s: %s",
+                    symbol.ljust(12),
+                    order_id,
+                    e,
+                )
                 return False
         else:
             try:
                 params = f"symbol={symbol}&orderId={order_id}"
                 await self.delete("/fapi/v1/order", params)
-                log.info("🧹 İPTAL | %s orderId=%s reason=%s", symbol.ljust(12), order_id, reason)
+                log.info(
+                    "🧹 İPTAL | %s orderId=%s reason=%s",
+                    symbol.ljust(12),
+                    order_id,
+                    reason,
+                )
                 return True
             except Exception as e:
                 err = str(e)
                 if "Unknown order" in err or "-2011" in err:
-                    log.info("🧹 İPTAL | %s orderId=%s zaten yok (ok)", symbol.ljust(12), order_id)
+                    log.info(
+                        "🧹 İPTAL | %s orderId=%s zaten yok (ok)",
+                        symbol.ljust(12),
+                        order_id,
+                    )
                     return True
                 # Algo endpoint'ini dene
                 try:
                     params = f"symbol={symbol}&algoId={order_id}"
                     await self.delete("/fapi/v1/algoOrder", params)
-                    log.info("🧹 İPTAL (algo fallback) | %s algoId=%s reason=%s", symbol.ljust(12), order_id, reason)
+                    log.info(
+                        "🧹 İPTAL (algo fallback) | %s algoId=%s reason=%s",
+                        symbol.ljust(12),
+                        order_id,
+                        reason,
+                    )
                     return True
                 except Exception as e2:
                     log.warning(

@@ -1050,15 +1050,13 @@ class PaperTrader:
     async def _reconcile_ghost_positions(self):
         if not cfg.BINANCE_API_KEY:
             return
-        from state_manager import STATE_FILE
+        from state_manager import dump_state, mark_trade_closed
 
         try:
-            with open(STATE_FILE, "r", encoding="utf-8") as f:
-                state = json.load(f)
+            state = dump_state()
         except Exception:
             return
 
-        changed = False
         for sym, s in list(state.items()):
             if sym.startswith("_"):
                 continue
@@ -1115,8 +1113,7 @@ class PaperTrader:
                             f"\U0001f512 GHOST: {direction.upper()} @ {entry:.2f} | SL/TP mevcut",
                         )
                 else:
-                    state[sym]["open"] = False
-                    changed = True
+                    mark_trade_closed(sym)
                     log.info("[GHOST] %s pozisyon kapali, state temizlendi", sym)
                     self._pl(
                         sym,
@@ -1125,12 +1122,6 @@ class PaperTrader:
                     )
             except Exception as e:
                 log.warning("[GHOST] %s sorgu hatasi: %s", sym, e)
-
-        if changed:
-            from state_manager import _save as _save_state
-
-            _save_state(state)
-            log.info("[GHOST] State dosyasi temizlendi")
 
     async def run(self):
         for sym in self.symbols:

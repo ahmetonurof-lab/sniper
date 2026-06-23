@@ -107,14 +107,18 @@ def _close_ohlc_writers() -> None:
 def export_ohlc_15m(bar: Bar, symbol: str) -> None:
     filepath = os.path.join("output", "live_ohlc", f"{symbol}_15m.csv")
     writer = _get_ohlc_writer(filepath)
-    ts = datetime.fromtimestamp(bar.timestamp / 1000, tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
+    ts = datetime.fromtimestamp(bar.timestamp / 1000, tz=UTC).strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
     writer.writerow([ts, bar.open, bar.high, bar.low, bar.close, bar.volume])
 
 
 def export_ohlc_1m(bar: Bar, symbol: str) -> None:
     filepath = os.path.join("output", "live_ohlc", f"{symbol}_1m.csv")
     writer = _get_ohlc_writer(filepath)
-    ts = datetime.fromtimestamp(bar.timestamp / 1000, tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
+    ts = datetime.fromtimestamp(bar.timestamp / 1000, tz=UTC).strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
     writer.writerow([ts, bar.open, bar.high, bar.low, bar.close, bar.volume])
 
 

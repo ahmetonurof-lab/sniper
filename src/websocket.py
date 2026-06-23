@@ -209,10 +209,14 @@ class BinanceWSHub:
         self._user_data_ws_url: str | None = None
         self._user_data_ws: websockets.WebSocketClientProtocol | None = None
         self._user_data_task: asyncio.Task | None = None
-        self._user_data_callbacks: dict[str, list[Callable[[dict], Awaitable[None]]]] = defaultdict(list)
+        self._user_data_callbacks: dict[
+            str, list[Callable[[dict], Awaitable[None]]]
+        ] = defaultdict(list)
 
         # ── Heartbeat / timeout izleme ────────────────
-        self._last_seen: dict[tuple[str, str], float] = {}  # (symbol, timeframe) → timestamp
+        self._last_seen: dict[
+            tuple[str, str], float
+        ] = {}  # (symbol, timeframe) → timestamp
         self._heartbeat_task: asyncio.Task | None = None
         self._ws: websockets.WebSocketClientProtocol | None = None
         # Her timeframe için maksimum beklenen tick aralığı + %50 tolerans
@@ -272,7 +276,9 @@ class BinanceWSHub:
     def on_user_data(
         self,
         event_type: str,
-    ) -> Callable[[Callable[[dict], Awaitable[None]]], Callable[[dict], Awaitable[None]]]:
+    ) -> Callable[
+        [Callable[[dict], Awaitable[None]]], Callable[[dict], Awaitable[None]]
+    ]:
         """
         User data event callback dekoratörü.
 
@@ -282,7 +288,9 @@ class BinanceWSHub:
             async def handle_order(msg): ...
         """
 
-        def decorator(fn: Callable[[dict], Awaitable[None]]) -> Callable[[dict], Awaitable[None]]:
+        def decorator(
+            fn: Callable[[dict], Awaitable[None]],
+        ) -> Callable[[dict], Awaitable[None]]:
             self._user_data_callbacks[event_type].append(fn)
             return fn
 
@@ -319,12 +327,16 @@ class BinanceWSHub:
                             try:
                                 await cb(data)
                             except Exception:
-                                log.exception("[USER_DATA] Callback hatası: %s", event_type)
+                                log.exception(
+                                    "[USER_DATA] Callback hatası: %s", event_type
+                                )
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 if not self._stop_event.is_set():
-                    log.warning("[USER_DATA] Bağlantı hatası (%.1f sn sonra yeniden): %s", 5, e)
+                    log.warning(
+                        "[USER_DATA] Bağlantı hatası (%.1f sn sonra yeniden): %s", 5, e
+                    )
                     await asyncio.sleep(5)
 
     async def _listen_key_refresh_loop(self, http_client) -> None:
@@ -576,7 +588,9 @@ class BinanceWSHub:
 # ──────────────────────────────────────────────
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s"
+    )
 
     SYMBOLS = ["BTCUSDT", "ETHUSDT"]
     TIMEFRAMES = ["1m", "5m", "15m", "1h"]

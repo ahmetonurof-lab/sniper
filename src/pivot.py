@@ -43,7 +43,9 @@ def find_swing_highs(
         if not right_ok:
             continue
 
-        result.append(SwingPoint(kind="high", price=candidate_high, bar_index=bar.index))
+        result.append(
+            SwingPoint(kind="high", price=candidate_high, bar_index=bar.index)
+        )
 
     return result
 
@@ -84,7 +86,9 @@ class SwingStateManager:
         self._highs: list[SwingPoint] = []
         self._lows: list[SwingPoint] = []
 
-    def ingest(self, bars: list[Bar], left: int = DEFAULT_LEFT, right: int = DEFAULT_RIGHT) -> None:
+    def ingest(
+        self, bars: list[Bar], left: int = DEFAULT_LEFT, right: int = DEFAULT_RIGHT
+    ) -> None:
         existing_high_idx = {p.bar_index for p in self._highs}
         existing_low_idx = {p.bar_index for p in self._lows}
 
@@ -131,7 +135,9 @@ class SwingStateManager:
                 return p
         return None
 
-    def cleanup(self, max_age: int = MAX_PIVOT_AGE_BARS, current_abs: int | None = None) -> None:
+    def cleanup(
+        self, max_age: int = MAX_PIVOT_AGE_BARS, current_abs: int | None = None
+    ) -> None:
         if not self._highs and not self._lows:
             return
 

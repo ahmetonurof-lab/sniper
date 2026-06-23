@@ -69,7 +69,10 @@ def load_data(filepath):
     with open(filepath, encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for i, row in enumerate(reader):
-            ts = int(datetime.strptime(row["open_time"], "%Y-%m-%d %H:%M:%S").timestamp() * 1000)
+            ts = int(
+                datetime.strptime(row["open_time"], "%Y-%m-%d %H:%M:%S").timestamp()
+                * 1000
+            )
             bars.append(
                 Bar(
                     index=i,
@@ -106,7 +109,9 @@ def resample_15m(bars_1m):
     return m15
 
 
-def apply_trailing_stop(active_trades, current_fvgs, risk_pts, buffer_mult, pipeline, min_fvg_size):
+def apply_trailing_stop(
+    active_trades, current_fvgs, risk_pts, buffer_mult, pipeline, min_fvg_size
+):
     """
     Aktif islemler icin FVG bazli trailing SL/TP guncellemesi.
     Sadece yone uygun, dolmamis ve gecersiz olmamis FVG'ler kullanilir.
@@ -277,9 +282,15 @@ def format_report(
     lines.append("|--------|-------|")
     lines.append(f"| Toplam Islem | {len(trades)} |")
     lines.append(f"| Kazanan | {len(wins)} (%{len(wins) / len(trades) * 100:.1f}) |")
-    lines.append(f"| Kaybeden | {len(losses)} (%{len(losses) / len(trades) * 100:.1f}) |")
-    lines.append(f"| TP ile kapanan | {tp_count} (%{tp_count / len(trades) * 100:.1f}) |")
-    lines.append(f"| SL ile kapanan | {sl_count} (%{sl_count / len(trades) * 100:.1f}) |")
+    lines.append(
+        f"| Kaybeden | {len(losses)} (%{len(losses) / len(trades) * 100:.1f}) |"
+    )
+    lines.append(
+        f"| TP ile kapanan | {tp_count} (%{tp_count / len(trades) * 100:.1f}) |"
+    )
+    lines.append(
+        f"| SL ile kapanan | {sl_count} (%{sl_count / len(trades) * 100:.1f}) |"
+    )
     lines.append(f"| Acik kalan | {open_count} |")
     lines.append(f"| Toplam PnL | **{total_pnl:+.2f} USDT** |")
     lines.append(f"| Max Drawdown | {dd_max:.1f}% |")
@@ -309,9 +320,15 @@ def format_report(
     long_wr = len(long_wins) / len(long_trades) * 100 if long_trades else 0
     short_wr = len(short_wins) / len(short_trades) * 100 if short_trades else 0
     long_avg_rr = sum(t["rr"] for t in long_wins) / len(long_wins) if long_wins else 0
-    short_avg_rr = sum(t["rr"] for t in short_wins) / len(short_wins) if short_wins else 0
-    long_trail = sum(t.get("trailing_count", 0) for t in long_trades) / max(len(long_trades), 1)
-    short_trail = sum(t.get("trailing_count", 0) for t in short_trades) / max(len(short_trades), 1)
+    short_avg_rr = (
+        sum(t["rr"] for t in short_wins) / len(short_wins) if short_wins else 0
+    )
+    long_trail = sum(t.get("trailing_count", 0) for t in long_trades) / max(
+        len(long_trades), 1
+    )
+    short_trail = sum(t.get("trailing_count", 0) for t in short_trades) / max(
+        len(short_trades), 1
+    )
 
     lines.append("## Long / Short Karsilastirma")
     lines.append("| Yon | Islem | WR | PnL | Avg Win RR | Ort Trail |")
@@ -331,12 +348,18 @@ def format_report(
         trailed_pnl = sum(t["pnl"] for t in trailed)
         not_trailed_pnl = sum(t["pnl"] for t in not_trailed)
         trailed_wr = sum(1 for t in trailed if t["pnl"] > 0) / len(trailed) * 100
-        not_trailed_wr = sum(1 for t in not_trailed if t["pnl"] > 0) / len(not_trailed) * 100
+        not_trailed_wr = (
+            sum(1 for t in not_trailed if t["pnl"] > 0) / len(not_trailed) * 100
+        )
         lines.append("## Trailing Etkisi")
         lines.append("| Durum | Islem | PnL | WR |")
         lines.append("|-------|-------|-----|----|")
-        lines.append(f"| Trailing aktif | {len(trailed)} | {trailed_pnl:+.2f} | {trailed_wr:.1f}% |")
-        lines.append(f"| Trailing yok | {len(not_trailed)} | {not_trailed_pnl:+.2f} | {not_trailed_wr:.1f}% |")
+        lines.append(
+            f"| Trailing aktif | {len(trailed)} | {trailed_pnl:+.2f} | {trailed_wr:.1f}% |"
+        )
+        lines.append(
+            f"| Trailing yok | {len(not_trailed)} | {not_trailed_pnl:+.2f} | {not_trailed_wr:.1f}% |"
+        )
         lines.append("")
 
     # Son 20 trade
@@ -398,7 +421,9 @@ def run():
             continue
 
         # 1 — CBDR tracking
-        ss.update(entry_dt, current.open, current.high, current.low, current.close, atr_val)
+        ss.update(
+            entry_dt, current.open, current.high, current.low, current.close, atr_val
+        )
         if ss.cbdr_locked:
             pipeline["cbdr_locked"] += 1
 
@@ -454,15 +479,27 @@ def run():
                     sl = trigger_fvg.bottom - (risk_pts * FVG_BUFFER_MULT)
                 else:
                     sl = entry_price - risk_pts * 2
-                tp = ss.london_high if ss.london_high > entry_price else entry_price + risk_pts * TP_RR
+                tp = (
+                    ss.london_high
+                    if ss.london_high > entry_price
+                    else entry_price + risk_pts * TP_RR
+                )
             else:
                 if trigger_fvg:
                     sl = trigger_fvg.top + (risk_pts * FVG_BUFFER_MULT)
                 else:
                     sl = entry_price + risk_pts * 2
-                tp = ss.london_low if ss.london_low < entry_price else entry_price - risk_pts * TP_RR
+                tp = (
+                    ss.london_low
+                    if ss.london_low < entry_price
+                    else entry_price - risk_pts * TP_RR
+                )
 
-            qty = (INITIAL_CAPITAL * RISK_PER_TRADE) / abs(sl - entry_price) if abs(sl - entry_price) > 0 else 0
+            qty = (
+                (INITIAL_CAPITAL * RISK_PER_TRADE) / abs(sl - entry_price)
+                if abs(sl - entry_price) > 0
+                else 0
+            )
             if qty <= 0:
                 rsm.reset()
                 rejected_other += 1
@@ -494,7 +531,12 @@ def run():
                 min_fvg_size=MIN_FVG_SIZE,
             )
             active_trades = apply_trailing_stop(
-                active_trades, current_fvgs, risk_pts, FVG_BUFFER_MULT, pipeline, MIN_FVG_SIZE
+                active_trades,
+                current_fvgs,
+                risk_pts,
+                FVG_BUFFER_MULT,
+                pipeline,
+                MIN_FVG_SIZE,
             )
 
         # 7 — Exit kontrolu
