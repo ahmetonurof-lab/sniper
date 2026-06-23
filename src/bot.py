@@ -14,7 +14,9 @@ import os
 import sys
 import time
 import urllib.request
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timezone, timedelta
+
+TR_TZ = timezone(timedelta(hours=3))
 
 import config as cfg
 from bot_binance import BinanceRESTClient
@@ -37,6 +39,9 @@ _OUTPUT_DIR = os.path.join(_SCRIPT_DIR, "..", "output")
 os.makedirs(_OUTPUT_DIR, exist_ok=True)
 
 _log_file = os.path.join(_OUTPUT_DIR, "paper_trade.log")
+
+# Logger'ın saat dilimini Türkiye Saati (UTC+3) olarak ayarla
+logging.Formatter.converter = lambda *args: datetime.now(TR_TZ).timetuple()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -118,7 +123,7 @@ class PaperTrader:
         if prev == msg:
             return
         self._log_state.setdefault(sym, {})[key] = msg
-        ts = datetime.now(UTC).strftime("%H:%M:%S")
+        ts = datetime.now(TR_TZ).strftime("%H:%M:%S")
         _prev_sym = getattr(self, "_prev_print_sym", None)
         _separator = "" if _prev_sym == sym else "\n"
         self._prev_print_sym = sym
@@ -446,6 +451,8 @@ class PaperTrader:
                 if valid_qty <= 0:
                     self._pl(sym, "order_err", f"\u274c ORDER: qty={qty:.6f} minQty altinda")
                     log.warning("[ORDER] %s qty=%.8f minQty altinda, emir atlandi", sym, qty)
+                    rsm.reset()
+                    return
                 else:
                     rounded_sl = await self.rest.apply_price_precision(sym, sl)
                     rounded_tp = await self.rest.apply_price_precision(sym, tp)
