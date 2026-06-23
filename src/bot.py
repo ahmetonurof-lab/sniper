@@ -457,6 +457,9 @@ class PaperTrader:
                 if trade["side"] == "long":
                     new_sl = fvg.bottom - buffer
                     if new_sl > trade["sl"]:
+                        min_move = trade["risk_pts"] * 0.2
+                        if (new_sl - trade["sl"]) <= min_move:
+                            continue
                         sl_diff = new_sl - trade["sl"]
                         trade["sl"] = new_sl
                         trade["tp"] = trade["tp"] + sl_diff
@@ -472,6 +475,9 @@ class PaperTrader:
                 else:
                     new_sl = fvg.top + buffer
                     if new_sl < trade["sl"]:
+                        min_move = trade["risk_pts"] * 0.2
+                        if (trade["sl"] - new_sl) <= min_move:
+                            continue
                         sl_diff = trade["sl"] - new_sl
                         trade["sl"] = new_sl
                         trade["tp"] = trade["tp"] - sl_diff
@@ -488,18 +494,18 @@ class PaperTrader:
             if trailing_updated:
                 success = await self._update_orders(sym, trade)
                 if not success:
-                    log.warning("[TRAIL] %s SL guncelleme basarisiz. Acil market kapanisi yapiliyor...", sym)
-                    mkt_side = "SELL" if trade["side"] == "long" else "BUY"
+                    log.warning("[TRAIL] UPDATE FAIL → emergency SL restore")
+                    sl_side = "SELL" if trade["side"] == "long" else "BUY"
                     try:
-                        await self.rest.place_market_order(sym, mkt_side, trade["qty"], reduce_only=True)
+                        await self.rest.place_stop_order(
+                            sym,
+                            sl_side,
+                            trade["qty"],
+                            trade["sl"]
+                        )
                     except Exception as e:
-                        log.critical("[TRAIL] %s acil market kapanis emri hatasi: %s", sym, e)
-                    
-                    trade["exit_price"] = trade["sl"]
-                    trade["exit_bar"] = current.index
-                    trade["exit_timestamp"] = current.timestamp
-                    trade["result"] = "SL"
-                    await self._exit_trade(sym, trade, current, current.timestamp)
+                        log.critical("[TRAIL] emergency SL restore hatasi: %s", e)
+                    trade["sl_fallback"] = True
                     return
 
         # Exit kontrolu (1m bar bazli)
@@ -736,29 +742,11 @@ class PaperTrader:
         sl_side = "SELL" if trade["side"] == "long" else "BUY"
         qty = trade.get("qty", trade.get("lot", 0))
 
-        # FIX #3: Yeni SL/TP göndermeden önce mevcut emirleri iptal et.
-        # Eski kod iptalsiz yeni emir açıyordu → Binance'de birikimli emirler
-        # geriye çekilmede yanlış tetiklenip ters pozisyon açabiliyordu.
         old_sl_id = trade.get("sl_order_id", "")
         old_tp_id = trade.get("tp_order_id", "")
-        if old_sl_id:
-            try:
-                await self.rest.cancel_order(
-                    old_sl_id, sym, reason="trail_update", is_algo=True
-                )
-            except Exception as e:
-                log.warning(
-                    "[CANCEL] %s eski SL iptal hatasi (id=%s): %s", sym, old_sl_id, e
-                )
-        if old_tp_id:
-            try:
-                await self.rest.cancel_order(
-                    old_tp_id, sym, reason="trail_update", is_algo=True
-                )
-            except Exception as e:
-                log.warning(
-                    "[CANCEL] %s eski TP iptal hatasi (id=%s): %s", sym, old_tp_id, e
-                )
+
+        sl_ok = False
+        tp_ok = False
 
         sl_resp = await self.rest.place_stop_order(
             sym, sl_side, qty, trade["sl"], client_id=f"sl_{sym}_{int(time.time())}"
@@ -769,8 +757,10 @@ class PaperTrader:
         trade["sl_order_id"] = sl_id
 
         if not sl_id:
-            log.error("[ORDER] %s SL emri yerlesitirilemedi (fiyat gecilmis olabilir)!", sym)
-            return False
+            log.warning("[TRAIL] SL reject → eski SL korunuyor")
+            return False  # BURADA STOP
+
+        sl_ok = True
 
         tp_resp = await self.rest.place_tp_order(
             sym, sl_side, qty, trade["tp"], client_id=f"tp_{sym}_{int(time.time())}"
@@ -779,6 +769,30 @@ class PaperTrader:
             tp_resp.get("algoId") or tp_resp.get("orderId") or tp_resp.get("id") or ""
         )
         trade["tp_order_id"] = tp_id
+
+        if tp_id:
+            tp_ok = True
+
+        # sadece başarılıysa eski emirleri sil
+        if sl_ok and old_sl_id:
+            try:
+                await self.rest.cancel_order(
+                    old_sl_id, sym, reason="trail_update", is_algo=True
+                )
+            except Exception as e:
+                log.warning(
+                    "[CANCEL] %s eski SL iptal hatasi (id=%s): %s", sym, old_sl_id, e
+                )
+        if tp_ok and old_tp_id:
+            try:
+                await self.rest.cancel_order(
+                    old_tp_id, sym, reason="trail_update", is_algo=True
+                )
+            except Exception as e:
+                log.warning(
+                    "[CANCEL] %s eski TP iptal hatasi (id=%s): %s", sym, old_tp_id, e
+                )
+
         log.info(
             "[ORDER] %s trailing guncellendi sl=%.2f (id=%s) tp=%.2f (id=%s)",
             sym,
