@@ -170,8 +170,16 @@ class PaperTrader:
             d = "LONG" if ss.daily_bias == DailyBias.BULLISH else "SHORT"
             c = "\U0001f7e9" if d == "LONG" else "\U0001f7e5"
             bias_str = f" | BIAS: {c}{d}"
-        cbdr_s = "\u2705 LOCKED" if ss.cbdr_locked else "\u23f3 BODY TRACKING..."
-        self._pl(sym, "st_ses", f"\U0001f7e9 SESSION: {session} | {ts} UTC | CBDR: {cbdr_s}{bias_str}")
+        if not ss.cbdr_locked:
+            cbdr_s = "\u23f3 BODY TRACKING..."
+            stage_str = ""
+        elif ss.sweep_confirmed:
+            cbdr_s = "\u2705 LOCKED"
+            stage_str = " | \u2705 SWEEP OK \u2192 FVG TARAMASI"
+        else:
+            cbdr_s = "\u2705 LOCKED"
+            stage_str = " | \u23f3 SWEEP BEKLENIYOR"
+        self._pl(sym, "st_ses", f"\U0001f7e9 SESSION: {session} | {ts} UTC | CBDR: {cbdr_s}{bias_str}{stage_str}")
 
         if not ss.cbdr_locked:
             st.clear()
@@ -203,8 +211,8 @@ class PaperTrader:
 
         if rsm.state_name == "TRIGGER_READY":
             tfvg = rsm.trigger_fvg
-            self._pl(sym, "st_fvg", f"\U0001f7e9 FVG_SCAN | MIN_SIZE: {min_fvg}")
-            self._pl(sym, "st_wck", f"\U0001f7e9 WICK_REJECTION | FVG:[{tfvg.bottom:.2f}-{tfvg.top:.2f}] | BODY_SAFE | CLOSE: {current.close:.2f}")
+            self._pl(sym, "st_fvg", f"\U0001f7e9 FVG_SCAN | MIN_SIZE: {min_fvg} | \u2705 FVG HAZIR")
+            self._pl(sym, "st_wck", f"\u23f3 WICK_REJECTION | FVG:[{tfvg.bottom:.2f}-{tfvg.top:.2f}] | BODY_SAFE | CLOSE: {current.close:.2f} | \u27a1\ufe0f ENTRY BEKLENIYOR")
         elif rsm.state_name == "SWEEP_DETECTED":
             self._pl(sym, "st_fvg", f"\U0001f7e8 FVG_SCAN | MIN_SIZE: {min_fvg} | FVG ARANIYOR...")
             self._log_state.get(sym, {}).pop("st_wck", None)
@@ -643,6 +651,21 @@ class PaperTrader:
             ss.update(dt, bar.open, bar.high, bar.low, bar.close, atr)
         log.info("[WARMUP] %s CBDR body: lock=%s | body=[%.2f-%.2f] | sweep=%s", sym, ss.cbdr_locked, ss.cbdr_body_low, ss.cbdr_body_high, ss.sweep_confirmed)
 
+    async def _set_leverage(self, symbol: str) -> None:
+        """POST /fapi/v1/leverage — sembol için kaldıraç ayarı."""
+        if not cfg.BINANCE_API_KEY:
+            return
+        try:
+            resp = await self.rest.post(
+                "/fapi/v1/leverage",
+                {"symbol": symbol, "leverage": cfg.LEVERAGE},
+            )
+            effective = resp.get("leverage", cfg.LEVERAGE)
+            self._pl(symbol, "leverage", f"⚙️ LEVERAGE: {effective}x set edildi")
+            log.info("[LEVERAGE] %s leverage=%dx OK", symbol, effective)
+        except Exception as e:
+            log.warning("[LEVERAGE] %s leverage set hatasi (devam): %s", symbol, e)
+
     async def _recover_positions(self):
         if not cfg.BINANCE_API_KEY:
             return
@@ -747,6 +770,13 @@ class PaperTrader:
             self._pl("SYSTEM", "balance", f"\U0001f4b0 BALANCE: varsayilan {INITIAL_CAPITAL:.2f} USDT (API key yok)")
 
         self._live = True
+
+        # Leverage: her sembol için config'deki değeri set et
+        if cfg.BINANCE_API_KEY:
+            await asyncio.gather(
+                *[self._set_leverage(sym) for sym in self.symbols],
+                return_exceptions=True,
+            )
 
         await self._recover_positions()
         reconcile_from_active(self.active_trades)

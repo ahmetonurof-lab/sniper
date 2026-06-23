@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime, UTC
+from datetime import datetime, timedelta, UTC
 
 from filelock import FileLock
 
@@ -32,7 +32,16 @@ LOCK_FILE = STATE_FILE + ".lock"
 
 
 def _today() -> str:
-    return datetime.now(UTC).strftime("%Y-%m-%d")
+    """CBDR döngüsüne uyumlu gün tanımı.
+
+    SessionState 22:00 UTC'de yeni CBDR döngüsü başlatır ve trades_today=0 yapar.
+    state_manager da aynı sınırı kullanmalı, aksi halde 22:00-00:00 UTC arasında
+    can_open_trade() eski günün count'unu görüp yeni döngünün ilk trade'ini engeller.
+    """
+    now = datetime.now(UTC)
+    if now.hour >= 22:
+        return (now + timedelta(days=1)).strftime("%Y-%m-%d")
+    return now.strftime("%Y-%m-%d")
 
 
 def _load() -> dict:
