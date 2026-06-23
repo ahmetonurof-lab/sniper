@@ -1308,7 +1308,7 @@ class PaperTrader:
             ud = msg.get("a", {})
             for bal in ud.get("B", []):
                 if bal.get("a") in ("USDT", "FDUSD", "USDC"):
-                    self._balance = float(bal.get("bc", self._balance))
+                    self._balance = float(bal.get("wb", self._balance))
 
     async def _repair_protection(
         self, sym: str, trade: dict, has_sl: bool, has_tp: bool
