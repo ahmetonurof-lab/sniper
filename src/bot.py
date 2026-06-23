@@ -170,16 +170,8 @@ class PaperTrader:
             d = "LONG" if ss.daily_bias == DailyBias.BULLISH else "SHORT"
             c = "\U0001f7e9" if d == "LONG" else "\U0001f7e5"
             bias_str = f" | BIAS: {c}{d}"
-        if not ss.cbdr_locked:
-            cbdr_s = "\u23f3 BODY TRACKING..."
-            stage_str = ""
-        elif ss.sweep_confirmed:
-            cbdr_s = "\u2705 LOCKED"
-            stage_str = " | \u2705 SWEEP OK \u2192 FVG TARAMASI"
-        else:
-            cbdr_s = "\u2705 LOCKED"
-            stage_str = " | \u23f3 SWEEP BEKLENIYOR"
-        self._pl(sym, "st_ses", f"\U0001f7e9 SESSION: {session} | {ts} UTC | CBDR: {cbdr_s}{bias_str}{stage_str}")
+        cbdr_s = "\u2705 LOCKED" if ss.cbdr_locked else "\u23f3 BODY TRACKING..."
+        self._pl(sym, "st_ses", f"\U0001f7e9 SESSION: {session} | {ts} UTC | CBDR: {cbdr_s}{bias_str}")
 
         if not ss.cbdr_locked:
             st.clear()
