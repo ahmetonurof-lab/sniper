@@ -491,7 +491,7 @@ class PaperTrader:
                     log.warning("[TRAIL] %s SL guncelleme basarisiz. Acil market kapanisi yapiliyor...", sym)
                     mkt_side = "SELL" if trade["side"] == "long" else "BUY"
                     try:
-                        await self.rest.place_market_order(sym, mkt_side, trade["qty"])
+                        await self.rest.place_market_order(sym, mkt_side, trade["qty"], reduce_only=True)
                     except Exception as e:
                         log.critical("[TRAIL] %s acil market kapanis emri hatasi: %s", sym, e)
                     
@@ -856,7 +856,7 @@ class PaperTrader:
                     )
                     mkt_side = "SELL" if trade["side"] == "long" else "BUY"
                     try:
-                        await self.rest.place_market_order(sym, mkt_side, trade["qty"])
+                        await self.rest.place_market_order(sym, mkt_side, trade["qty"], reduce_only=True)
                     except Exception as e:
                         log.warning("[CLOSE] %s acil kapanis emri hatasi: %s", sym, e)
             except Exception as e:

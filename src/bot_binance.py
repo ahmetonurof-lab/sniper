@@ -357,9 +357,11 @@ class BinanceRESTClient:
             log.warning("[POSITIONS] Pozisyonlar alınamadı: %s", e)
             return []
 
-    async def place_market_order(self, symbol: str, side: str, qty: float) -> dict:
+    async def place_market_order(
+        self, symbol: str, side: str, qty: float, reduce_only: bool = False
+    ) -> dict:
         """
-        MARKET emri gonderir (pozisyon acmak icin).
+        MARKET emri gonderir (pozisyon acmak/kapatmak icin).
         Precision uygular, demo API fallback yapar.
         """
         rounded_qty = await self.apply_amount_precision(symbol, qty)
@@ -374,6 +376,9 @@ class BinanceRESTClient:
             "type": "MARKET",
             "quantity": rounded_qty,
         }
+        if reduce_only:
+            params["reduceOnly"] = "true"
+
         try:
             result = await self.post("/fapi/v1/order", params)
             if result.get("orderId") or result.get("id"):
