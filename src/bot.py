@@ -413,13 +413,6 @@ class PaperTrader:
             rsm.reset()
             return
 
-        if not is_retrade:
-            if not can_open_trade(sym):
-                self._pl(sym, "quota", f"\u2757 QUOTA: {sym} bugun islem kotasi doldu, sinyal pas gecilior")
-                log.info("[STATE] %s gunluk kota doldu, _try_entry atlandi", sym)
-                rsm.reset()
-                return
-
         side = "long" if sweep_dir == "bullish" else "short"
         entry_price = current.close
         risk_pts = atr_val * sl_atr

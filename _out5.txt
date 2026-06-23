@@ -1,9 +1,0 @@
-2026-06-20 03:50:41,858 [INFO] sniper.paper — PaperTrader baslatiliyor. Semboller: ['BNBUSDT'] | TESTNET
-2026-06-20 03:50:45,576 [INFO] sniper.paper — BALANCE: 4995.96 USDT (TESTNET)
-2026-06-20 03:50:46,277 [INFO] sniper.paper — [PREFILL] BNBUSDT 15m: 500 bar yuklendi
-2026-06-20 03:50:46,277 [INFO] sniper.paper — [INIT] BNBUSDT ilk analiz tamam (500 bar)
-2026-06-20 03:50:46,277 [INFO] sniper.paper — Gecmis barlar yuklendi, WS baslatiliyor...
-2026-06-20 03:50:46,277 [INFO] sniper.paper — Gecmis barlar yuklendi, WS baslatiliyor...
-[BNBUSDT     ] 🟥 SESSION: ASIA (22:00-02:00) | trading kapali
-[WS] Bağlanıyor: wss://fstream.binancefuture.com/stream?streams=bnbusdt@kline_15m
-[WS] Bağlantı kuruldu
