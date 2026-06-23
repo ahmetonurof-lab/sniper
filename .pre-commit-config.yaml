@@ -12,7 +12,7 @@ repos:
     rev: v2.11
     hooks:
       - id: vulture
-        args: [--min-confidence, "80", "sniper/"]
+        args: [--min-confidence, "80", "src/"]
 
   # mypy — tip kontrolü
   - repo: https://github.com/pre-commit/mirrors-mypy
