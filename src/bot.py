@@ -16,8 +16,6 @@ import time
 import urllib.request
 from datetime import UTC, datetime, timezone, timedelta
 
-TR_TZ = timezone(timedelta(hours=3))
-
 import config as cfg
 from bot_binance import BinanceRESTClient
 from bot_infra import _close_ohlc_writers, _RateLimiter
@@ -32,6 +30,8 @@ from state_manager import (
     get_trade_count_today,
 )
 from websocket import BinanceWSHub
+
+TR_TZ = timezone(timedelta(hours=3))
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _OUTPUT_DIR = os.path.join(_SCRIPT_DIR, "..", "output")
