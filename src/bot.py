@@ -118,9 +118,9 @@ class PaperTrader:
             self.rsms[sym] = RetraceStateMachine(min_fvg_size=min_fvg)
             self.rsms_retrade[sym] = RetraceStateMachine(min_fvg_size=min_fvg * 0.3)
 
-    def _pl(self, sym: str, key: str, msg: str):
+    def _pl(self, sym: str, key: str, msg: str, force: bool = False):
         prev = self._log_state.get(sym, {}).get(key)
-        if prev == msg:
+        if not force and prev == msg:
             return
         self._log_state.setdefault(sym, {})[key] = msg
         ts = datetime.now(TR_TZ).strftime("%H:%M:%S")
@@ -158,7 +158,7 @@ class PaperTrader:
         ss.update(dt, current.open, current.high, current.low, current.close, atr_val)
 
         if session == "ASIA":
-            self._pl(sym, "st_ses", f"\U0001f7e5 SESSION: ASIA | 22:00-02:00 UTC | trading kapali")
+            self._pl(sym, "st_ses", f"\U0001f7e5 SESSION: ASIA | 22:00-02:00 UTC | trading kapali", force=True)
             self._stage.pop(sym, None)
             return
 
@@ -171,7 +171,7 @@ class PaperTrader:
             c = "\U0001f7e9" if d == "LONG" else "\U0001f7e5"
             bias_str = f" | BIAS: {c}{d}"
         cbdr_s = "\u2705 LOCKED" if ss.cbdr_locked else "\u23f3 BODY TRACKING..."
-        self._pl(sym, "st_ses", f"\U0001f7e9 SESSION: {session} | {ts} UTC | CBDR: {cbdr_s}{bias_str}")
+        self._pl(sym, "st_ses", f"\U0001f7e9 SESSION: {session} | {ts} UTC | CBDR: {cbdr_s}{bias_str}", force=True)
 
         if not ss.cbdr_locked:
             st.clear()
@@ -181,14 +181,14 @@ class PaperTrader:
             sd = ss.sweep_direction or "bullish"
             sl = ss.sweep_level or 0.0
             si = "\U0001f7e9" if sd == "bullish" else "\U0001f7e5"
-            self._pl(sym, "st_swp", f"\U0001f7e9 SWEEP: DETECTED | {si}{sd.upper()} | {sl:.2f}")
+            self._pl(sym, "st_swp", f"\U0001f7e9 SWEEP: DETECTED | {si}{sd.upper()} | {sl:.2f}", force=True)
         else:
             bstr = ""
             if ss.daily_bias != DailyBias.NEUTRAL:
                 d = "LONG" if ss.daily_bias == DailyBias.BULLISH else "SHORT"
                 c = "\U0001f7e9" if d == "LONG" else "\U0001f7e5"
                 bstr = f" | BIAS: {c}{d}"
-            self._pl(sym, "st_swp", f"\U0001f7e8 SWEEP: BEKLENIYOR{bstr} | CBDR: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}] | {ts}")
+            self._pl(sym, "st_swp", f"\U0001f7e8 SWEEP: BEKLENIYOR{bstr} | CBDR: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}] | {ts}", force=True)
             self._log_state.get(sym, {}).pop("st_fvg", None)
             self._log_state.get(sym, {}).pop("st_wck", None)
             await self._check_retrade(sym, bars_15m, current, atr_val, ss)
@@ -203,13 +203,13 @@ class PaperTrader:
 
         if rsm.state_name == "TRIGGER_READY":
             tfvg = rsm.trigger_fvg
-            self._pl(sym, "st_fvg", f"\U0001f7e9 FVG_SCAN | MIN_SIZE: {min_fvg} | \u2705 FVG HAZIR")
-            self._pl(sym, "st_wck", f"\u23f3 WICK_REJECTION | FVG:[{tfvg.bottom:.2f}-{tfvg.top:.2f}] | BODY_SAFE | CLOSE: {current.close:.2f} | \u27a1\ufe0f ENTRY BEKLENIYOR")
+            self._pl(sym, "st_fvg", f"\U0001f7e9 FVG_SCAN | MIN_SIZE: {min_fvg} | \u2705 FVG HAZIR", force=True)
+            self._pl(sym, "st_wck", f"\u23f3 WICK_REJECTION | FVG:[{tfvg.bottom:.2f}-{tfvg.top:.2f}] | BODY_SAFE | CLOSE: {current.close:.2f} | \u27a1\ufe0f ENTRY BEKLENIYOR", force=True)
         elif rsm.state_name == "SWEEP_DETECTED":
-            self._pl(sym, "st_fvg", f"\U0001f7e8 FVG_SCAN | MIN_SIZE: {min_fvg} | FVG ARANIYOR...")
+            self._pl(sym, "st_fvg", f"\U0001f7e8 FVG_SCAN | MIN_SIZE: {min_fvg} | FVG ARANIYOR...", force=True)
             self._log_state.get(sym, {}).pop("st_wck", None)
         else:
-            self._pl(sym, "st_fvg", f"\U0001f7e8 FVG_SCAN | MIN_SIZE: {min_fvg} | FVG BULUNAMADI")
+            self._pl(sym, "st_fvg", f"\U0001f7e8 FVG_SCAN | MIN_SIZE: {min_fvg} | FVG BULUNAMADI", force=True)
             self._log_state.get(sym, {}).pop("st_wck", None)
 
         if rsm.can_trigger():
