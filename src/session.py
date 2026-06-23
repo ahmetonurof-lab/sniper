@@ -40,8 +40,18 @@ class SessionState:
         self.retrade_side: Literal["long", "short"] | None = None
         self.retrade_sweep_level: float = 0.0
         self.retrade_entry_bar: int = 0
+        # FIX #2: WS confirm bekleyen retrade arm (LIVE mod)
+        self.pending_retrade_arm: bool = False
 
-    def update(self, dt: datetime, open: float, high: float, low: float, close: float, atr: float = 0.0):
+    def update(
+        self,
+        dt: datetime,
+        open: float,
+        high: float,
+        low: float,
+        close: float,
+        atr: float = 0.0,
+    ):
         sess = detect_phase(dt)
         h = dt.hour
         today = dt.strftime("%Y-%m-%d")
@@ -76,6 +86,7 @@ class SessionState:
         self.london_high = 0.0
         self.london_low = float("inf")
         self.retrade_armed = False
+        self.pending_retrade_arm = False
         self.retrade_side = None
         self.retrade_sweep_level = 0.0
         self.retrade_entry_bar = 0
@@ -108,7 +119,9 @@ class SessionState:
         elif low < self.london_low:
             self.london_low = low
 
-    def _check_cbdr_sweep(self, high: float, low: float, close: float, atr: float = 0.0):
+    def _check_cbdr_sweep(
+        self, high: float, low: float, close: float, atr: float = 0.0
+    ):
         tolerance = atr * 0.5 if atr > 0 else 10.0
 
         if high > self.cbdr_body_high + tolerance:

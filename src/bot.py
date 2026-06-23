@@ -815,24 +815,33 @@ class PaperTrader:
             except Exception as e:
                 log.warning("[CLOSE] %s exit temizleme hatasi: %s", sym, e)
 
-        # Retrade arm: gunun ilk primary trade kapandiginda
+        # FIX #2: Retrade arm — LIVE modda WS confirm bekler, PAPER modda direkt arm
         ss = self.states[sym]
         if (
             not trade.get("is_retrade", False)
             and ss.trades_today == 1
             and not ss.retrade_armed
         ):
-            ss.retrade_armed = True
+            is_live = cfg.BINANCE_API_KEY and getattr(self, "_live", False)
             ss.retrade_side = "short" if trade["side"] == "long" else "long"
             ss.retrade_sweep_level = 0.0
             ss.retrade_entry_bar = trade.get(
                 "entry_bar_index", trade.get("entry_bar", 0)
             )
-            self._pl(
-                sym,
-                "rt_arm",
-                f"\U0001f6a9 RETRADE ARMED | ters yon: {ss.retrade_side.upper()}",
-            )
+            if is_live:
+                ss.pending_retrade_arm = True
+                self._pl(
+                    sym,
+                    "rt_arm_pending",
+                    "\u23f3 RETRADE ARM PENDING (WS confirm bekliyor)",
+                )
+            else:
+                ss.retrade_armed = True
+                self._pl(
+                    sym,
+                    "rt_arm",
+                    f"\U0001f6a9 RETRADE ARMED (paper) | ters yon: {ss.retrade_side.upper()}",
+                )
 
         self.trades.append(
             {
@@ -1036,6 +1045,93 @@ class PaperTrader:
         except Exception as e:
             self._pl("SYSTEM", "recover", f"\u274c Pozisyon kurtarma hatasi: {e}")
 
+    # FIX #3: Ghost pozisyon temizliği — trade_state.json'da "open": true
+    # görünüp Binance'de kapalı olan pozisyonları temizle.
+    async def _reconcile_ghost_positions(self):
+        if not cfg.BINANCE_API_KEY:
+            return
+        from state_manager import STATE_FILE
+
+        try:
+            with open(STATE_FILE, "r", encoding="utf-8") as f:
+                state = json.load(f)
+        except Exception:
+            return
+
+        changed = False
+        for sym, s in list(state.items()):
+            if sym.startswith("_"):
+                continue
+            if not s.get("open"):
+                continue
+            if sym in self.active_trades:
+                continue
+
+            log.info(
+                "[GHOST] %s state'de open=true ama active_trades'te yok — Binance sorgulaniyor...",
+                sym,
+            )
+            try:
+                positions = await self.rest.get_positions()
+                pos = next((p for p in positions if p["symbol"] == sym), None)
+                if pos and float(pos.get("positionAmt", 0)) != 0:
+                    amt = float(pos["positionAmt"])
+                    entry = float(pos.get("entryPrice", 0))
+                    direction = "long" if amt > 0 else "short"
+                    log.info(
+                        "[GHOST] %s pozisyon ACIK (amt=%s, entry=%.2f) — SL/TP kontrol ediliyor",
+                        sym,
+                        amt,
+                        entry,
+                    )
+                    # _recover_positions atlamis olabilir, mevcut emirleri kontrol et
+                    open_orders = await self.rest.get_all_orders(sym)
+                    has_sl = any(
+                        self.rest.get_order_type(o)
+                        in ("STOP_MARKET", "STOP", "STOP_LIMIT")
+                        for o in open_orders
+                    )
+                    has_tp = any(
+                        self.rest.get_order_type(o)
+                        in ("TAKE_PROFIT_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT")
+                        for o in open_orders
+                    )
+                    if not has_sl or not has_tp:
+                        log.warning(
+                            "[GHOST] %s SL/TP eksik (sl=%s tp=%s) — trade hatasi olabilir",
+                            sym,
+                            has_sl,
+                            has_tp,
+                        )
+                        self._pl(
+                            sym,
+                            "ghost_missing_sltp",
+                            f"\u26a0\ufe0f GHOST: {direction.upper()} @ {entry:.2f} | SL={has_sl} TP={has_tp} eksik",
+                        )
+                    else:
+                        self._pl(
+                            sym,
+                            "ghost_ok",
+                            f"\U0001f512 GHOST: {direction.upper()} @ {entry:.2f} | SL/TP mevcut",
+                        )
+                else:
+                    state[sym]["open"] = False
+                    changed = True
+                    log.info("[GHOST] %s pozisyon kapali, state temizlendi", sym)
+                    self._pl(
+                        sym,
+                        "ghost_cleaned",
+                        f"\U0001f4a4 GHOST: {sym} state temizlendi (pozisyon kapali)",
+                    )
+            except Exception as e:
+                log.warning("[GHOST] %s sorgu hatasi: %s", sym, e)
+
+        if changed:
+            from state_manager import _save as _save_state
+
+            _save_state(state)
+            log.info("[GHOST] State dosyasi temizlendi")
+
     async def run(self):
         for sym in self.symbols:
             self.hub.register_callback(sym, "15m", lambda b, s=sym: self.on_15m(s, b))
@@ -1088,6 +1184,10 @@ class PaperTrader:
 
         await self._recover_positions()
         reconcile_from_active(self.active_trades)
+
+        # FIX #3: Ghost pozisyon temizliği — trade_state.json'da "open": true
+        # olup Binance'de kapalı olan pozisyonları temizle.
+        await self._reconcile_ghost_positions()
 
         # FIX #8: Restart sonrası trades_today senkronizasyonu.
         # Bot yeniden başlatıldığında ss.trades_today=0 olarak başlar, ama
@@ -1150,6 +1250,48 @@ class PaperTrader:
             status = od.get("X", "")
             oid = str(od.get("c", "") or od.get("i", ""))
             log.info("[WS-ORDER] %s status=%s id=%s", sym, status, oid)
+
+            # FIX #1: FILLED/TRIGGERED → pozisyon kapanma confirmasyonu
+            if status in ("FILLED", "TRIGGERED"):
+                side = od.get("S", "")
+                qty = float(od.get("l", 0))
+                price = float(od.get("L", 0))
+                cum_qty = float(od.get("z", 0))
+                log.info(
+                    "[WS-FILLED] %s side=%s qty=%s price=%s cum_qty=%s",
+                    sym,
+                    side,
+                    qty,
+                    price,
+                    cum_qty,
+                )
+                trade = self.active_trades.get(sym)
+                if trade:
+                    s_id = str(trade.get("sl_order_id", ""))
+                    t_id = str(trade.get("tp_order_id", ""))
+                    if oid in (s_id, t_id):
+                        self._pl(
+                            sym,
+                            "filled_confirm",
+                            f"\u2705 BINANCE CONFIRMED: pozisyon kapatildi @ {price}",
+                        )
+                # FIX #2: WS confirm → retrade arm promotion
+                ss = self.states.get(sym)
+                if ss and getattr(ss, "pending_retrade_arm", False):
+                    ss.retrade_armed = True
+                    ss.pending_retrade_arm = False
+                    self._pl(
+                        sym,
+                        "rt_arm_confirm",
+                        f"\U0001f6a9 RETRADE ARMED (WS FILLED confirm) | ters yon: {ss.retrade_side.upper()}",
+                    )
+                    log.info(
+                        "[RETRADE] %s retrade_armed=True (WS FILLED confirm) side=%s",
+                        sym,
+                        ss.retrade_side,
+                    )
+                return
+
             if status not in ("CANCELED", "EXPIRED"):
                 return
             trade = self.active_trades.get(sym)
