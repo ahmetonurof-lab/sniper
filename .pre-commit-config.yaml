@@ -1,0 +1,31 @@
+repos:
+  # Ruff — linter + formatter (F821, F841, E501 vb.)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # Vulture — ölü kod, kullanılmayan fonksiyon/değişken
+  - repo: https://github.com/jendrikseipp/vulture
+    rev: v2.11
+    hooks:
+      - id: vulture
+        args: [--min-confidence, "80", "sniper/"]
+
+  # mypy — tip kontrolü
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        args: [--ignore-missing-imports, --no-strict-optional, --disable-error-code=annotation-unchecked, --disable-error-code=misc, --disable-error-code=has-type, --disable-error-code=call-arg, --disable-error-code=attr-defined, --disable-error-code=arg-type, --disable-error-code=assignment, --disable-error-code=no-redef]
+        files: ^(sonnet/src/|sniper/src/)
+
+  # Trailing whitespace + dosya sonu newline
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict

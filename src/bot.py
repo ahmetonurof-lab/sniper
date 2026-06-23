@@ -26,7 +26,6 @@ from models import Bar
 from retrace_state import RetraceStateMachine
 from session import DailyBias, SessionPhase, SessionState, detect_phase_from_timestamp
 from state_manager import (
-    can_open_trade,
     mark_trade_opened,
     mark_trade_closed,
     reconcile_from_active,
@@ -157,8 +156,30 @@ class PaperTrader:
         ss = self.states[sym]
         ss.update(dt, current.open, current.high, current.low, current.close, atr_val)
 
+        # Pozisyon açıkken sinyal taramasını atla. Trailing + exit _on_1m_close'da.
+        if sym in self.active_trades:
+            trade = self.active_trades[sym]
+            side_icon = "\U0001f7e9" if trade["side"] == "long" else "\U0001f7e5"
+            ts = f"{hour:02d}:{dt.minute:02d}"
+            self._log_state.get(sym, {}).pop("st_fvg", None)
+            self._log_state.get(sym, {}).pop("st_wck", None)
+            self._pl(
+                sym,
+                "st_ses",
+                f"{side_icon} POZISYON AKTIF | {trade['side'].upper()} @ {trade['entry_price']:.2f}"
+                f" | SL: {trade['sl']:.2f} | TP: {trade['tp']:.2f}"
+                f" | TRAIL: {trade.get('trailing_count', 0)}x | {ts} UTC",
+                force=True,
+            )
+            return
+
         if session == "ASIA":
-            self._pl(sym, "st_ses", f"\U0001f7e5 SESSION: ASIA | 22:00-02:00 UTC | trading kapali", force=True)
+            self._pl(
+                sym,
+                "st_ses",
+                "\U0001f7e5 SESSION: ASIA | 22:00-02:00 UTC | trading kapali",
+                force=True,
+            )
             self._stage.pop(sym, None)
             return
 
@@ -171,7 +192,12 @@ class PaperTrader:
             c = "\U0001f7e9" if d == "LONG" else "\U0001f7e5"
             bias_str = f" | BIAS: {c}{d}"
         cbdr_s = "\u2705 LOCKED" if ss.cbdr_locked else "\u23f3 BODY TRACKING..."
-        self._pl(sym, "st_ses", f"\U0001f7e9 SESSION: {session} | {ts} UTC | CBDR: {cbdr_s}{bias_str}", force=True)
+        self._pl(
+            sym,
+            "st_ses",
+            f"\U0001f7e9 SESSION: {session} | {ts} UTC | CBDR: {cbdr_s}{bias_str}",
+            force=True,
+        )
 
         if not ss.cbdr_locked:
             st.clear()
@@ -181,14 +207,24 @@ class PaperTrader:
             sd = ss.sweep_direction or "bullish"
             sl = ss.sweep_level or 0.0
             si = "\U0001f7e9" if sd == "bullish" else "\U0001f7e5"
-            self._pl(sym, "st_swp", f"\U0001f7e9 SWEEP: DETECTED | {si}{sd.upper()} | {sl:.2f}", force=True)
+            self._pl(
+                sym,
+                "st_swp",
+                f"\U0001f7e9 SWEEP: DETECTED | {si}{sd.upper()} | {sl:.2f}",
+                force=True,
+            )
         else:
             bstr = ""
             if ss.daily_bias != DailyBias.NEUTRAL:
                 d = "LONG" if ss.daily_bias == DailyBias.BULLISH else "SHORT"
                 c = "\U0001f7e9" if d == "LONG" else "\U0001f7e5"
                 bstr = f" | BIAS: {c}{d}"
-            self._pl(sym, "st_swp", f"\U0001f7e8 SWEEP: BEKLENIYOR{bstr} | CBDR: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}] | {ts}", force=True)
+            self._pl(
+                sym,
+                "st_swp",
+                f"\U0001f7e8 SWEEP: BEKLENIYOR{bstr} | CBDR: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}] | {ts}",
+                force=True,
+            )
             self._log_state.get(sym, {}).pop("st_fvg", None)
             self._log_state.get(sym, {}).pop("st_wck", None)
             await self._check_retrade(sym, bars_15m, current, atr_val, ss)
@@ -196,20 +232,44 @@ class PaperTrader:
 
         rsm = self.rsms[sym]
         if rsm.state_name == "IDLE":
-            rsm.on_sweep(direction=ss.sweep_direction or "bullish", level=ss.sweep_level or 0.0, bar_index=current.index)
+            rsm.on_sweep(
+                direction=ss.sweep_direction or "bullish",
+                level=ss.sweep_level or 0.0,
+                bar_index=current.index,
+            )
 
         if rsm.state_name == "SWEEP_DETECTED":
             rsm.on_sweep_confirmed(bars_15m, current)
 
         if rsm.state_name == "TRIGGER_READY":
             tfvg = rsm.trigger_fvg
-            self._pl(sym, "st_fvg", f"\U0001f7e9 FVG_SCAN | MIN_SIZE: {min_fvg} | \u2705 FVG HAZIR", force=True)
-            self._pl(sym, "st_wck", f"\u23f3 WICK_REJECTION | FVG:[{tfvg.bottom:.2f}-{tfvg.top:.2f}] | BODY_SAFE | CLOSE: {current.close:.2f} | \u27a1\ufe0f ENTRY BEKLENIYOR", force=True)
+            self._pl(
+                sym,
+                "st_fvg",
+                f"\U0001f7e9 FVG_SCAN | MIN_SIZE: {min_fvg} | \u2705 FVG HAZIR",
+                force=True,
+            )
+            self._pl(
+                sym,
+                "st_wck",
+                f"\u23f3 WICK_REJECTION | FVG:[{tfvg.bottom:.2f}-{tfvg.top:.2f}] | BODY_SAFE | CLOSE: {current.close:.2f} | \u27a1\ufe0f ENTRY BEKLENIYOR",
+                force=True,
+            )
         elif rsm.state_name == "SWEEP_DETECTED":
-            self._pl(sym, "st_fvg", f"\U0001f7e8 FVG_SCAN | MIN_SIZE: {min_fvg} | FVG ARANIYOR...", force=True)
+            self._pl(
+                sym,
+                "st_fvg",
+                f"\U0001f7e8 FVG_SCAN | MIN_SIZE: {min_fvg} | FVG ARANIYOR...",
+                force=True,
+            )
             self._log_state.get(sym, {}).pop("st_wck", None)
         else:
-            self._pl(sym, "st_fvg", f"\U0001f7e8 FVG_SCAN | MIN_SIZE: {min_fvg} | FVG BULUNAMADI", force=True)
+            self._pl(
+                sym,
+                "st_fvg",
+                f"\U0001f7e8 FVG_SCAN | MIN_SIZE: {min_fvg} | FVG BULUNAMADI",
+                force=True,
+            )
             self._log_state.get(sym, {}).pop("st_wck", None)
 
         if rsm.can_trigger():
@@ -230,13 +290,32 @@ class PaperTrader:
                 rsm.reset()
                 return
 
-            await self._try_entry(sym, current, atr_val, rsm, ss, rsm.direction, sl_atr, tp_rr, fvg_buf, min_fvg, is_retrade=False)
+            await self._try_entry(
+                sym,
+                current,
+                atr_val,
+                rsm,
+                ss,
+                rsm.direction,
+                sl_atr,
+                tp_rr,
+                fvg_buf,
+                min_fvg,
+                is_retrade=False,
+            )
 
         await self._check_retrade(sym, bars_15m, current, atr_val, ss)
 
     # ── Retrade: trailing sweep + FVG + 2. entry (analyzer.py #8) ──
 
-    async def _check_retrade(self, sym: str, bars_15m: list[Bar], current: Bar, atr_val: float, ss: SessionState):
+    async def _check_retrade(
+        self,
+        sym: str,
+        bars_15m: list[Bar],
+        current: Bar,
+        atr_val: float,
+        ss: SessionState,
+    ):
         cfg = self.cfgs[sym]
         if not ss.retrade_armed:
             return
@@ -256,7 +335,7 @@ class PaperTrader:
             cb = bars_15m[check_idx]
             if check_idx - lookback < 0:
                 continue
-            recent_bars = bars_15m[check_idx - lookback:check_idx]
+            recent_bars = bars_15m[check_idx - lookback : check_idx]
 
             if ss.retrade_side == "short":
                 recent_high = max(b.high for b in recent_bars)
@@ -274,17 +353,27 @@ class PaperTrader:
         if not sweep_found:
             return
 
-        self._pl(sym, "rt_sweep", f"\U0001f7e9 RETRADE SWEEP | {ss.retrade_side.upper()} yonunde sweep bulundu bar={sweep_bar_idx}")
+        self._pl(
+            sym,
+            "rt_sweep",
+            f"\U0001f7e9 RETRADE SWEEP | {ss.retrade_side.upper()} yonunde sweep bulundu bar={sweep_bar_idx}",
+        )
 
         rsm_r = self.rsms_retrade[sym]
         sweep_dir = "bearish" if ss.retrade_side == "short" else "bullish"
 
         if rsm_r.state_name == "IDLE":
-            rsm_r.on_sweep(direction=sweep_dir, level=0.0, bar_index=bars_15m[sweep_bar_idx].index)
+            rsm_r.on_sweep(
+                direction=sweep_dir, level=0.0, bar_index=bars_15m[sweep_bar_idx].index
+            )
 
         if rsm_r.state_name == "SWEEP_DETECTED":
             sweep_bar = bars_15m[sweep_bar_idx]
-            sweep_chunk = bars_15m[max(0, sweep_bar_idx - WINDOW_15M):sweep_bar_idx + 1] if sweep_bar_idx >= WINDOW_15M else bars_15m
+            sweep_chunk = (
+                bars_15m[max(0, sweep_bar_idx - WINDOW_15M) : sweep_bar_idx + 1]
+                if sweep_bar_idx >= WINDOW_15M
+                else bars_15m
+            )
             rsm_r.on_sweep_confirmed(sweep_chunk, sweep_bar)
 
         if rsm_r.can_trigger():
@@ -298,12 +387,28 @@ class PaperTrader:
             # retrade_entry_bar kaydedildi ama hiç kontrol edilmiyordu;
             # primary trade'den önceki sweep'e denk düşebiliyordu.
             if sweep_bar_idx <= (ss.retrade_entry_bar or 0):
-                log.info("[RETRADE] %s sweep (bar=%d) primary entry barından (bar=%d) önce — atlandı",
-                         sym, sweep_bar_idx, ss.retrade_entry_bar or 0)
+                log.info(
+                    "[RETRADE] %s sweep (bar=%d) primary entry barından (bar=%d) önce — atlandı",
+                    sym,
+                    sweep_bar_idx,
+                    ss.retrade_entry_bar or 0,
+                )
                 rsm_r.reset()
                 return
 
-            await self._try_entry(sym, current, atr_val, rsm_r, ss, sweep_dir, cfg["SL_ATR_MULT"], cfg["TP_RR"], cfg["FVG_BUFFER_MULT"], cfg["MIN_FVG_SIZE"], is_retrade=True)
+            await self._try_entry(
+                sym,
+                current,
+                atr_val,
+                rsm_r,
+                ss,
+                sweep_dir,
+                cfg["SL_ATR_MULT"],
+                cfg["TP_RR"],
+                cfg["FVG_BUFFER_MULT"],
+                cfg["MIN_FVG_SIZE"],
+                is_retrade=True,
+            )
             # FIX #6c: rsm_r.reset() eksikti — _try_entry başarısız olsa bile
             # retrade_armed False yapılıyordu ama rsm_r TRIGGER_READY'de kalıyordu.
             # _try_entry içinde reset() çağrılıyor ama is_retrade=True durumunda
@@ -327,7 +432,12 @@ class PaperTrader:
         bars_15m = self.hub.get_bars(sym, "15m")
         if bars_15m and len(bars_15m) > 1:
             chunk = bars_15m[:-1] if len(bars_15m) > 1 else bars_15m
-            fvgs = detect_fvgs(chunk, lookback=min(50, len(chunk)), timeframe="15m", min_fvg_size=min_fvg)
+            fvgs = detect_fvgs(
+                chunk,
+                lookback=min(50, len(chunk)),
+                timeframe="15m",
+                min_fvg_size=min_fvg,
+            )
 
             # Analyzer ile birebir ayni buffer formulu
             buffer = abs(trade["initial_sl"] - trade["entry_price"]) * fvg_buf
@@ -351,7 +461,13 @@ class PaperTrader:
                         trade["sl"] = new_sl
                         trade["tp"] = trade["tp"] + sl_diff
                         trade["trailing_count"] += 1
-                        log.info("[TRAIL] %s trail#%d sl=%.2f tp=%.2f", sym, trade["trailing_count"], trade["sl"], trade["tp"])
+                        log.info(
+                            "[TRAIL] %s trail#%d sl=%.2f tp=%.2f",
+                            sym,
+                            trade["trailing_count"],
+                            trade["sl"],
+                            trade["tp"],
+                        )
                         trailing_updated = True
                 else:
                     new_sl = fvg.top + buffer
@@ -360,7 +476,13 @@ class PaperTrader:
                         trade["sl"] = new_sl
                         trade["tp"] = trade["tp"] - sl_diff
                         trade["trailing_count"] += 1
-                        log.info("[TRAIL] %s trail#%d sl=%.2f tp=%.2f", sym, trade["trailing_count"], trade["sl"], trade["tp"])
+                        log.info(
+                            "[TRAIL] %s trail#%d sl=%.2f tp=%.2f",
+                            sym,
+                            trade["trailing_count"],
+                            trade["sl"],
+                            trade["tp"],
+                        )
                         trailing_updated = True
 
             if trailing_updated:
@@ -400,7 +522,20 @@ class PaperTrader:
 
     # ── Entry ──
 
-    async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg, is_retrade=False):
+    async def _try_entry(
+        self,
+        sym,
+        current,
+        atr_val,
+        rsm,
+        ss,
+        sweep_dir,
+        sl_atr,
+        tp_rr,
+        fvg_buf,
+        min_fvg,
+        is_retrade=False,
+    ):
         if sym in self.active_trades:
             rsm.reset()
             return
@@ -411,11 +546,27 @@ class PaperTrader:
         trigger_fvg = rsm.trigger_fvg
 
         if side == "long":
-            sl = (trigger_fvg.bottom - (risk_pts * fvg_buf)) if trigger_fvg else (entry_price - risk_pts * 2)
-            tp = ss.london_high if ss.london_high > entry_price else entry_price + risk_pts * tp_rr
+            sl = (
+                (trigger_fvg.bottom - (risk_pts * fvg_buf))
+                if trigger_fvg
+                else (entry_price - risk_pts * 2)
+            )
+            tp = (
+                ss.london_high
+                if ss.london_high > entry_price
+                else entry_price + risk_pts * tp_rr
+            )
         else:
-            sl = (trigger_fvg.top + (risk_pts * fvg_buf)) if trigger_fvg else (entry_price + risk_pts * 2)
-            tp = ss.london_low if ss.london_low < entry_price else entry_price - risk_pts * tp_rr
+            sl = (
+                (trigger_fvg.top + (risk_pts * fvg_buf))
+                if trigger_fvg
+                else (entry_price + risk_pts * 2)
+            )
+            tp = (
+                ss.london_low
+                if ss.london_low < entry_price
+                else entry_price - risk_pts * tp_rr
+            )
 
         risk_dist = abs(sl - entry_price)
         if risk_dist <= 0:
@@ -427,8 +578,20 @@ class PaperTrader:
             rsm.reset()
             return
 
-        self._pl(sym, "entry", f"\U0001f7e8 ENTRY: {side.upper()} | PRICE: {entry_price:.2f} | SL: {sl:.2f} | TP: {tp:.2f} | QTY: {qty:.4f}")
-        log.info("[PAPER] %s %s @ %.2f sl=%.2f tp=%.2f qty=%.4f", sym, side, entry_price, sl, tp, qty)
+        self._pl(
+            sym,
+            "entry",
+            f"\U0001f7e8 ENTRY: {side.upper()} | PRICE: {entry_price:.2f} | SL: {sl:.2f} | TP: {tp:.2f} | QTY: {qty:.4f}",
+        )
+        log.info(
+            "[PAPER] %s %s @ %.2f sl=%.2f tp=%.2f qty=%.4f",
+            sym,
+            side,
+            entry_price,
+            sl,
+            tp,
+            qty,
+        )
 
         sl_id = ""
         tp_id = ""
@@ -440,38 +603,78 @@ class PaperTrader:
                 rounded_qty = await self.rest.apply_amount_precision(sym, qty)
                 valid_qty = await self.rest.validate_min_amount(sym, rounded_qty)
                 if valid_qty <= 0:
-                    self._pl(sym, "order_err", f"\u274c ORDER: qty={qty:.6f} minQty altinda")
-                    log.warning("[ORDER] %s qty=%.8f minQty altinda, emir atlandi", sym, qty)
+                    self._pl(
+                        sym, "order_err", f"\u274c ORDER: qty={qty:.6f} minQty altinda"
+                    )
+                    log.warning(
+                        "[ORDER] %s qty=%.8f minQty altinda, emir atlandi", sym, qty
+                    )
                     rsm.reset()
                     return
                 else:
                     rounded_sl = await self.rest.apply_price_precision(sym, sl)
                     rounded_tp = await self.rest.apply_price_precision(sym, tp)
 
-                    mkt_resp = await self.rest.place_market_order(sym, mkt_side, valid_qty)
+                    mkt_resp = await self.rest.place_market_order(
+                        sym, mkt_side, valid_qty
+                    )
                     mkt_id = mkt_resp.get("orderId") or mkt_resp.get("id") or ""
                     if mkt_id:
-                        self._pl(sym, "order_ok", f"\u2705 ORDER: MARKET {mkt_side} OK | ID: {mkt_id}")
-                        log.info("[ORDER] %s MARKET entry OK orderId=%s qty=%.8f", sym, mkt_id, valid_qty)
+                        self._pl(
+                            sym,
+                            "order_ok",
+                            f"\u2705 ORDER: MARKET {mkt_side} OK | ID: {mkt_id}",
+                        )
+                        log.info(
+                            "[ORDER] %s MARKET entry OK orderId=%s qty=%.8f",
+                            sym,
+                            mkt_id,
+                            valid_qty,
+                        )
 
-                        sl_resp = await self.rest.place_stop_order(sym, sl_side, valid_qty, rounded_sl)
-                        sl_id = sl_resp.get("algoId") or sl_resp.get("orderId") or sl_resp.get("id") or ""
+                        sl_resp = await self.rest.place_stop_order(
+                            sym, sl_side, valid_qty, rounded_sl
+                        )
+                        sl_id = (
+                            sl_resp.get("algoId")
+                            or sl_resp.get("orderId")
+                            or sl_resp.get("id")
+                            or ""
+                        )
                         if sl_id:
                             log.info("[ORDER] %s SL OK algoId=%s", sym, sl_id)
                         else:
-                            log.warning("[ORDER] %s SL BASARISIZ! resp=%s", sym, sl_resp)
+                            log.warning(
+                                "[ORDER] %s SL BASARISIZ! resp=%s", sym, sl_resp
+                            )
 
-                        tp_resp = await self.rest.place_tp_order(sym, sl_side, valid_qty, rounded_tp)
-                        tp_id = tp_resp.get("algoId") or tp_resp.get("orderId") or tp_resp.get("id") or ""
+                        tp_resp = await self.rest.place_tp_order(
+                            sym, sl_side, valid_qty, rounded_tp
+                        )
+                        tp_id = (
+                            tp_resp.get("algoId")
+                            or tp_resp.get("orderId")
+                            or tp_resp.get("id")
+                            or ""
+                        )
                         if tp_id:
                             log.info("[ORDER] %s TP OK algoId=%s", sym, tp_id)
                         else:
-                            log.warning("[ORDER] %s TP BASARISIZ! resp=%s", sym, tp_resp)
+                            log.warning(
+                                "[ORDER] %s TP BASARISIZ! resp=%s", sym, tp_resp
+                            )
                     else:
                         # FIX #2: Market emir başarısız olduysa trade kaydedilmemeli.
                         # Eski kod buradan devam edip active_trades'e yazıyordu → hayalet pozisyon.
-                        self._pl(sym, "order_err", "\u274c ORDER: MARKET BASARISIZ \u2014 trade iptal")
-                        log.warning("[ORDER] %s MARKET entry BASARISIZ \u2014 trade kaydedilmedi", sym)
+                        self._pl(
+                            sym,
+                            "order_err",
+                            "\u274c ORDER: MARKET BASARISIZ \u2014 trade iptal",
+                        )
+                        log.warning(
+                            "[ORDER] %s MARKET entry BASARISIZ \u2014 trade kaydedilmedi",
+                            sym,
+                        )
                         rsm.reset()
                         return
             except Exception as e:
@@ -493,8 +696,12 @@ class PaperTrader:
             "trailing_count": 0,
             "is_retrade": is_retrade,
             "risk_pts": risk_pts,
-            "sl_order_id": sl_id if (cfg.BINANCE_API_KEY and getattr(self, "_live", False)) else "",
-            "tp_order_id": tp_id if (cfg.BINANCE_API_KEY and getattr(self, "_live", False)) else "",
+            "sl_order_id": sl_id
+            if (cfg.BINANCE_API_KEY and getattr(self, "_live", False))
+            else "",
+            "tp_order_id": tp_id
+            if (cfg.BINANCE_API_KEY and getattr(self, "_live", False))
+            else "",
         }
         if not is_retrade:
             mark_trade_opened(sym, entry_price)
@@ -514,26 +721,45 @@ class PaperTrader:
         old_tp_id = trade.get("tp_order_id", "")
         if old_sl_id:
             try:
-                await self.rest.cancel_order(old_sl_id, sym, reason="trail_update", is_algo=True)
+                await self.rest.cancel_order(
+                    old_sl_id, sym, reason="trail_update", is_algo=True
+                )
             except Exception as e:
-                log.warning("[CANCEL] %s eski SL iptal hatasi (id=%s): %s", sym, old_sl_id, e)
+                log.warning(
+                    "[CANCEL] %s eski SL iptal hatasi (id=%s): %s", sym, old_sl_id, e
+                )
         if old_tp_id:
             try:
-                await self.rest.cancel_order(old_tp_id, sym, reason="trail_update", is_algo=True)
+                await self.rest.cancel_order(
+                    old_tp_id, sym, reason="trail_update", is_algo=True
+                )
             except Exception as e:
-                log.warning("[CANCEL] %s eski TP iptal hatasi (id=%s): %s", sym, old_tp_id, e)
+                log.warning(
+                    "[CANCEL] %s eski TP iptal hatasi (id=%s): %s", sym, old_tp_id, e
+                )
 
         sl_resp = await self.rest.place_stop_order(
             sym, sl_side, qty, trade["sl"], client_id=f"sl_{sym}_{int(time.time())}"
         )
-        sl_id = sl_resp.get("algoId") or sl_resp.get("orderId") or sl_resp.get("id") or ""
+        sl_id = (
+            sl_resp.get("algoId") or sl_resp.get("orderId") or sl_resp.get("id") or ""
+        )
         trade["sl_order_id"] = sl_id
         tp_resp = await self.rest.place_tp_order(
             sym, sl_side, qty, trade["tp"], client_id=f"tp_{sym}_{int(time.time())}"
         )
-        tp_id = tp_resp.get("algoId") or tp_resp.get("orderId") or tp_resp.get("id") or ""
+        tp_id = (
+            tp_resp.get("algoId") or tp_resp.get("orderId") or tp_resp.get("id") or ""
+        )
         trade["tp_order_id"] = tp_id
-        log.info("[ORDER] %s trailing guncellendi sl=%.2f (id=%s) tp=%.2f (id=%s)", sym, trade["sl"], sl_id, trade["tp"], tp_id)
+        log.info(
+            "[ORDER] %s trailing guncellendi sl=%.2f (id=%s) tp=%.2f (id=%s)",
+            sym,
+            trade["sl"],
+            sl_id,
+            trade["tp"],
+            tp_id,
+        )
 
     async def _exit_trade(self, sym, trade, current, exit_timestamp: int):
         diff = (
@@ -543,8 +769,19 @@ class PaperTrader:
         )
         pnl = round(diff * trade["qty"], 2)
         self._balance += pnl
-        self._pl(sym, f"exit_{exit_timestamp}", f"\U0001f7e5 EXIT: {trade['result']} | PRICE: {trade['exit_price']:.2f} | PNL: {pnl:+.2f} | BALANCE: {self._balance:.2f} | TRAIL: {trade['trailing_count']}")
-        log.info("[PAPER] %s %s exit=%s pnl=%.2f balance=%.2f", sym, trade["result"], trade["exit_price"], pnl, self._balance)
+        self._pl(
+            sym,
+            f"exit_{exit_timestamp}",
+            f"\U0001f7e5 EXIT: {trade['result']} | PRICE: {trade['exit_price']:.2f} | PNL: {pnl:+.2f} | BALANCE: {self._balance:.2f} | TRAIL: {trade['trailing_count']}",
+        )
+        log.info(
+            "[PAPER] %s %s exit=%s pnl=%.2f balance=%.2f",
+            sym,
+            trade["result"],
+            trade["exit_price"],
+            pnl,
+            self._balance,
+        )
 
         # FIX #5: Manuel kapanış emri kaldırıldı.
         # SL/TP emirleri closePosition=True ile kurulduğundan Binance pozisyonu
@@ -554,28 +791,57 @@ class PaperTrader:
         if cfg.BINANCE_API_KEY and getattr(self, "_live", False):
             try:
                 remaining_id = (
-                    trade.get("tp_order_id") if trade.get("result") == "SL"
+                    trade.get("tp_order_id")
+                    if trade.get("result") == "SL"
                     else trade.get("sl_order_id")
                 )
                 if remaining_id:
                     try:
-                        await self.rest.cancel_order(remaining_id, sym, reason="exit_close", is_algo=True)
-                        log.info("[CANCEL] %s kalan koruma emri iptal edildi (id=%s)", sym, remaining_id)
+                        await self.rest.cancel_order(
+                            remaining_id, sym, reason="exit_close", is_algo=True
+                        )
+                        log.info(
+                            "[CANCEL] %s kalan koruma emri iptal edildi (id=%s)",
+                            sym,
+                            remaining_id,
+                        )
                     except Exception as e:
-                        log.warning("[CANCEL] %s kalan emir iptal hatasi (id=%s): %s", sym, remaining_id, e)
+                        log.warning(
+                            "[CANCEL] %s kalan emir iptal hatasi (id=%s): %s",
+                            sym,
+                            remaining_id,
+                            e,
+                        )
             except Exception as e:
                 log.warning("[CLOSE] %s exit temizleme hatasi: %s", sym, e)
 
         # Retrade arm: gunun ilk primary trade kapandiginda
         ss = self.states[sym]
-        if not trade.get("is_retrade", False) and ss.trades_today == 1 and not ss.retrade_armed:
+        if (
+            not trade.get("is_retrade", False)
+            and ss.trades_today == 1
+            and not ss.retrade_armed
+        ):
             ss.retrade_armed = True
             ss.retrade_side = "short" if trade["side"] == "long" else "long"
             ss.retrade_sweep_level = 0.0
-            ss.retrade_entry_bar = trade.get("entry_bar_index", trade.get("entry_bar", 0))
-            self._pl(sym, "rt_arm", f"\U0001f6a9 RETRADE ARMED | ters yon: {ss.retrade_side.upper()}")
+            ss.retrade_entry_bar = trade.get(
+                "entry_bar_index", trade.get("entry_bar", 0)
+            )
+            self._pl(
+                sym,
+                "rt_arm",
+                f"\U0001f6a9 RETRADE ARMED | ters yon: {ss.retrade_side.upper()}",
+            )
 
-        self.trades.append({**trade, "pnl": pnl, "exit_bar": trade["exit_bar"], "close_time": exit_timestamp})
+        self.trades.append(
+            {
+                **trade,
+                "pnl": pnl,
+                "exit_bar": trade["exit_bar"],
+                "close_time": exit_timestamp,
+            }
+        )
         del self.active_trades[sym]
         mark_trade_closed(sym)
 
@@ -634,7 +900,14 @@ class PaperTrader:
             # atlıyordu; london_high/london_low=0 kalıyor ve TP yanlış hesaplanıyordu.
             atr = max(bar.range, bar.close * 0.0001)
             ss.update(dt, bar.open, bar.high, bar.low, bar.close, atr)
-        log.info("[WARMUP] %s CBDR body: lock=%s | body=[%.2f-%.2f] | sweep=%s", sym, ss.cbdr_locked, ss.cbdr_body_low, ss.cbdr_body_high, ss.sweep_confirmed)
+        log.info(
+            "[WARMUP] %s CBDR body: lock=%s | body=[%.2f-%.2f] | sweep=%s",
+            sym,
+            ss.cbdr_locked,
+            ss.cbdr_body_low,
+            ss.cbdr_body_high,
+            ss.sweep_confirmed,
+        )
 
     async def _set_leverage(self, symbol: str) -> None:
         """POST /fapi/v1/leverage — sembol için kaldıraç ayarı."""
@@ -660,7 +933,11 @@ class PaperTrader:
                 self._pl("SYSTEM", "recover", "\u2705 API'de acik pozisyon yok")
                 return
 
-            self._pl("SYSTEM", "recover", f"\U0001f504 {len(positions)} pozisyon bulundu, envantere aliniyor...")
+            self._pl(
+                "SYSTEM",
+                "recover",
+                f"\U0001f504 {len(positions)} pozisyon bulundu, envantere aliniyor...",
+            )
             for pos in positions:
                 sym = pos["symbol"]
                 if sym not in self.symbols:
@@ -671,22 +948,36 @@ class PaperTrader:
 
                 open_orders = await self.rest.get_all_orders(sym)
                 sl_orders = [
-                    o for o in open_orders
-                    if self.rest.get_order_type(o) in ("STOP_MARKET", "STOP", "STOP_LIMIT")
-                    and (o.get("reduceOnly") in (True, "true", "True") or o.get("closePosition") in (True, "true", "True"))
+                    o
+                    for o in open_orders
+                    if self.rest.get_order_type(o)
+                    in ("STOP_MARKET", "STOP", "STOP_LIMIT")
+                    and (
+                        o.get("reduceOnly") in (True, "true", "True")
+                        or o.get("closePosition") in (True, "true", "True")
+                    )
                 ]
                 tp_orders = [
-                    o for o in open_orders
-                    if self.rest.get_order_type(o) in ("TAKE_PROFIT_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT")
-                    and (o.get("reduceOnly") in (True, "true", "True") or o.get("closePosition") in (True, "true", "True"))
+                    o
+                    for o in open_orders
+                    if self.rest.get_order_type(o)
+                    in ("TAKE_PROFIT_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT")
+                    and (
+                        o.get("reduceOnly") in (True, "true", "True")
+                        or o.get("closePosition") in (True, "true", "True")
+                    )
                 ]
 
                 if sl_orders and tp_orders:
                     sl_price = self.rest.get_order_price(sl_orders[0])
                     tp_price = self.rest.get_order_price(tp_orders[0])
                     risk_pts = abs(entry - sl_price) / 2
-                    sl_id = sl_orders[0].get("algoId") or sl_orders[0].get("orderId") or ""
-                    tp_id = tp_orders[0].get("algoId") or tp_orders[0].get("orderId") or ""
+                    sl_id = (
+                        sl_orders[0].get("algoId") or sl_orders[0].get("orderId") or ""
+                    )
+                    tp_id = (
+                        tp_orders[0].get("algoId") or tp_orders[0].get("orderId") or ""
+                    )
                     self.active_trades[sym] = {
                         "entry_bar_index": 0,
                         "entry_price": entry,
@@ -703,9 +994,17 @@ class PaperTrader:
                         "sl_order_id": sl_id,
                         "tp_order_id": tp_id,
                     }
-                    self._pl(sym, "recover", f"\U0001f512 {direction.upper()} @ {entry:.2f} | SL={sl_price:.2f} TP={tp_price:.2f} | yeni trade engellendi")
+                    self._pl(
+                        sym,
+                        "recover",
+                        f"\U0001f512 {direction.upper()} @ {entry:.2f} | SL={sl_price:.2f} TP={tp_price:.2f} | yeni trade engellendi",
+                    )
                 else:
-                    self._pl(sym, "recover", f"\u26a0\ufe0f {direction.upper()} @ {entry:.2f} | SL/TP bulunamadi (pozisyon korumasiz)")
+                    self._pl(
+                        sym,
+                        "recover",
+                        f"\u26a0\ufe0f {direction.upper()} @ {entry:.2f} | SL/TP bulunamadi (pozisyon korumasiz)",
+                    )
                     atr_est = entry * 0.0001
                     risk_pts = atr_est * self.cfgs[sym]["SL_ATR_MULT"]
                     if direction == "long":
@@ -729,7 +1028,11 @@ class PaperTrader:
                         "risk_pts": risk_pts,
                         "is_retrade": False,
                     }
-                    self._pl(sym, "recover", f"\U0001f512 {direction.upper()} @ {entry:.2f} | SYNTHETIC SL={sl:.2f} TP={tp:.2f}")
+                    self._pl(
+                        sym,
+                        "recover",
+                        f"\U0001f512 {direction.upper()} @ {entry:.2f} | SYNTHETIC SL={sl:.2f} TP={tp:.2f}",
+                    )
         except Exception as e:
             self._pl("SYSTEM", "recover", f"\u274c Pozisyon kurtarma hatasi: {e}")
 
@@ -739,20 +1042,40 @@ class PaperTrader:
             self.hub.register_callback(sym, "1m", lambda b, s=sym: self.on_1m(s, b))
 
         net = "TESTNET" if self.testnet else "MAINNET"
-        self._pl("SYSTEM", "start", f"\U0001f680 PaperTrader baslatiliyor | Semboller: {self.symbols} | {net}")
+        self._pl(
+            "SYSTEM",
+            "start",
+            f"\U0001f680 PaperTrader baslatiliyor | Semboller: {self.symbols} | {net}",
+        )
 
         if cfg.BINANCE_API_KEY:
             try:
                 bal = await self.rest.get_balance()
                 if bal > 0:
                     self._balance = bal
-                    self._pl("SYSTEM", "balance", f"\U0001f4b0 BALANCE: {self._balance:.2f} USDT ({net})")
+                    self._pl(
+                        "SYSTEM",
+                        "balance",
+                        f"\U0001f4b0 BALANCE: {self._balance:.2f} USDT ({net})",
+                    )
                 else:
-                    self._pl("SYSTEM", "balance", f"\u26a0\ufe0f BALANCE: 0 USDT, varsayilan {INITIAL_CAPITAL:.2f} kullaniliyor")
+                    self._pl(
+                        "SYSTEM",
+                        "balance",
+                        f"\u26a0\ufe0f BALANCE: 0 USDT, varsayilan {INITIAL_CAPITAL:.2f} kullaniliyor",
+                    )
             except Exception as e:
-                self._pl("SYSTEM", "balance", f"\u26a0\ufe0f BALANCE: alinamadi ({e}), varsayilan {INITIAL_CAPITAL:.2f}")
+                self._pl(
+                    "SYSTEM",
+                    "balance",
+                    f"\u26a0\ufe0f BALANCE: alinamadi ({e}), varsayilan {INITIAL_CAPITAL:.2f}",
+                )
         else:
-            self._pl("SYSTEM", "balance", f"\U0001f4b0 BALANCE: varsayilan {INITIAL_CAPITAL:.2f} USDT (API key yok)")
+            self._pl(
+                "SYSTEM",
+                "balance",
+                f"\U0001f4b0 BALANCE: varsayilan {INITIAL_CAPITAL:.2f} USDT (API key yok)",
+            )
 
         self._live = True
 
@@ -776,7 +1099,11 @@ class PaperTrader:
                 count = get_trade_count_today(sym)
                 if count > 0:
                     self.states[sym].trades_today = count
-                    log.info("[SYNC] %s trades_today disk'ten senkronize edildi: %d", sym, count)
+                    log.info(
+                        "[SYNC] %s trades_today disk'ten senkronize edildi: %d",
+                        sym,
+                        count,
+                    )
             except Exception as e:
                 log.warning("[SYNC] %s trades_today sync hatasi: %s", sym, e)
 
@@ -833,9 +1160,13 @@ class PaperTrader:
             if oid not in (s_id, t_id):
                 return
             label = "SL" if oid == s_id else "TP"
-            log.warning("[WS-REPAIR] %s %s emri silindi \u2014 onariliyor...", sym, label)
+            log.warning(
+                "[WS-REPAIR] %s %s emri silindi \u2014 onariliyor...", sym, label
+            )
             try:
-                await self._repair_protection(sym, trade, has_sl=(oid != s_id), has_tp=(oid != t_id))
+                await self._repair_protection(
+                    sym, trade, has_sl=(oid != s_id), has_tp=(oid != t_id)
+                )
             except Exception as e:
                 log.critical("[WS-REPAIR] %s onarim hatasi: %s", sym, e)
 
@@ -846,17 +1177,33 @@ class PaperTrader:
                 if bal.get("a") in ("USDT", "FDUSD", "USDC"):
                     self._balance = float(bal.get("bc", self._balance))
 
-    async def _repair_protection(self, sym: str, trade: dict, has_sl: bool, has_tp: bool) -> None:
+    async def _repair_protection(
+        self, sym: str, trade: dict, has_sl: bool, has_tp: bool
+    ) -> None:
         if not has_sl and trade.get("sl"):
             sl_side = "SELL" if trade["side"] == "long" else "BUY"
-            sl_resp = await self.rest.place_stop_order(sym, sl_side, trade["qty"], trade["sl"])
+            sl_resp = await self.rest.place_stop_order(
+                sym, sl_side, trade["qty"], trade["sl"]
+            )
             trade["sl_order_id"] = sl_resp.get("algoId") or sl_resp.get("orderId") or ""
-            log.info("[REPAIR] %s SL yeniden kuruldu: %.2f (id=%s)", sym, trade["sl"], trade["sl_order_id"])
+            log.info(
+                "[REPAIR] %s SL yeniden kuruldu: %.2f (id=%s)",
+                sym,
+                trade["sl"],
+                trade["sl_order_id"],
+            )
         if not has_tp and trade.get("tp"):
             sl_side = "SELL" if trade["side"] == "long" else "BUY"
-            tp_resp = await self.rest.place_tp_order(sym, sl_side, trade["qty"], trade["tp"])
+            tp_resp = await self.rest.place_tp_order(
+                sym, sl_side, trade["qty"], trade["tp"]
+            )
             trade["tp_order_id"] = tp_resp.get("algoId") or tp_resp.get("orderId") or ""
-            log.info("[REPAIR] %s TP yeniden kuruldu: %.2f (id=%s)", sym, trade["tp"], trade["tp_order_id"])
+            log.info(
+                "[REPAIR] %s TP yeniden kuruldu: %.2f (id=%s)",
+                sym,
+                trade["tp"],
+                trade["tp_order_id"],
+            )
         log.info("[REPAIR] %s onarim tamam", sym)
 
 
