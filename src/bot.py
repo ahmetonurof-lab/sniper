@@ -486,7 +486,21 @@ class PaperTrader:
                         trailing_updated = True
 
             if trailing_updated:
-                await self._update_orders(sym, trade)
+                success = await self._update_orders(sym, trade)
+                if not success:
+                    log.warning("[TRAIL] %s SL guncelleme basarisiz. Acil market kapanisi yapiliyor...", sym)
+                    mkt_side = "SELL" if trade["side"] == "long" else "BUY"
+                    try:
+                        await self.rest.place_market_order(sym, mkt_side, trade["qty"])
+                    except Exception as e:
+                        log.critical("[TRAIL] %s acil market kapanis emri hatasi: %s", sym, e)
+                    
+                    trade["exit_price"] = trade["sl"]
+                    trade["exit_bar"] = current.index
+                    trade["exit_timestamp"] = current.timestamp
+                    trade["result"] = "SL"
+                    await self._exit_trade(sym, trade, current, current.timestamp)
+                    return
 
         # Exit kontrolu (1m bar bazli)
         if trade["side"] == "long":
@@ -644,9 +658,17 @@ class PaperTrader:
                         if sl_id:
                             log.info("[ORDER] %s SL OK algoId=%s", sym, sl_id)
                         else:
-                            log.warning(
-                                "[ORDER] %s SL BASARISIZ! resp=%s", sym, sl_resp
+                            log.critical(
+                                "[ORDER] %s SL BASARISIZ! Acil pozisyon kapatiliyor. resp=%s", sym, sl_resp
                             )
+                            # Acil pozisyon kapatma
+                            opp_side = "SELL" if mkt_side == "BUY" else "BUY"
+                            try:
+                                await self.rest.place_market_order(sym, opp_side, valid_qty)
+                            except Exception as e:
+                                log.critical("[ORDER] %s acil pozisyon kapatma emri basarisiz: %s", sym, e)
+                            rsm.reset()
+                            return
 
                         tp_resp = await self.rest.place_tp_order(
                             sym, sl_side, valid_qty, rounded_tp
@@ -708,9 +730,9 @@ class PaperTrader:
         ss.trades_today += 1
         rsm.reset()
 
-    async def _update_orders(self, sym: str, trade: dict):
+    async def _update_orders(self, sym: str, trade: dict) -> bool:
         if not cfg.BINANCE_API_KEY or not getattr(self, "_live", False):
-            return
+            return True
         sl_side = "SELL" if trade["side"] == "long" else "BUY"
         qty = trade.get("qty", trade.get("lot", 0))
 
@@ -745,6 +767,11 @@ class PaperTrader:
             sl_resp.get("algoId") or sl_resp.get("orderId") or sl_resp.get("id") or ""
         )
         trade["sl_order_id"] = sl_id
+
+        if not sl_id:
+            log.error("[ORDER] %s SL emri yerlesitirilemedi (fiyat gecilmis olabilir)!", sym)
+            return False
+
         tp_resp = await self.rest.place_tp_order(
             sym, sl_side, qty, trade["tp"], client_id=f"tp_{sym}_{int(time.time())}"
         )
@@ -760,6 +787,7 @@ class PaperTrader:
             trade["tp"],
             tp_id,
         )
+        return True
 
     async def _exit_trade(self, sym, trade, current, exit_timestamp: int):
         diff = (
