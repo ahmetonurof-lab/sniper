@@ -232,6 +232,14 @@ class PaperTrader:
             return
 
         rsm = self.rsms[sym]
+
+        # FIX #9: Retrade armed → primary RSM'i atla, ölü döngüyü engelle.
+        # 1.entry tamamlandı, retrade kolu açıldı. CBDR sweep hala True olduğu için
+        # primary RSM her bar IDLE→SWEEP→reset→"FVG BULUNAMADI" döngüsüne giriyor.
+        if ss.retrade_armed:
+            await self._check_retrade(sym, bars_15m, current, atr_val, ss)
+            return
+
         if rsm.state_name == "IDLE":
             rsm.on_sweep(
                 direction=ss.sweep_direction or "bullish",
