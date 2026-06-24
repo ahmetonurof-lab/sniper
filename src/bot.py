@@ -201,6 +201,7 @@ class PaperTrader:
 
         if not ss.cbdr_locked:
             st.clear()
+            log.info("[SKIP] %s CBDR henuz kilitlenmedi — sinyal taranmadi", sym)
             return
 
         if ss.sweep_confirmed:
@@ -275,18 +276,22 @@ class PaperTrader:
         if rsm.can_trigger():
             # Bias filter (analyzer.py ile ayni)
             if rsm.direction == "bullish" and ss.daily_bias == DailyBias.BEARISH:
+                log.info("[SKIP] %s bullish trigger — bias BEARISH, atlandi", sym)
                 rsm.reset()
                 return
             if rsm.direction == "bearish" and ss.daily_bias == DailyBias.BULLISH:
+                log.info("[SKIP] %s bearish trigger — bias BULLISH, atlandi", sym)
                 rsm.reset()
                 return
             if ss.daily_bias == DailyBias.NEUTRAL:
+                log.info("[SKIP] %s trigger — bias NEUTRAL, atlandi", sym)
                 rsm.reset()
                 return
 
             # Session filter (analyzer.py: NEWYORK + LONDON)
             phase = detect_phase_from_timestamp(current.timestamp)
             if phase not in (SessionPhase.NEWYORK, SessionPhase.LONDON):
+                log.info("[SKIP] %s trigger — session %s, atlandi", sym, phase)
                 rsm.reset()
                 return
 
@@ -320,8 +325,12 @@ class PaperTrader:
         if not ss.retrade_armed:
             return
         if ss.trades_today != 1:
+            log.info(
+                "[SKIP] %s retrade — trades_today=%d (beklenen=1)", sym, ss.trades_today
+            )
             return
         if sym in self.active_trades:
+            log.info("[SKIP] %s retrade — aktif trade var, beklemede", sym)
             return
 
         WINDOW_15M = 500
@@ -351,6 +360,7 @@ class PaperTrader:
                     break
 
         if not sweep_found:
+            log.info("[SKIP] %s retrade — sweep bulunamadi (%s)", sym, ss.retrade_side)
             return
 
         self._pl(
@@ -380,6 +390,7 @@ class PaperTrader:
             # FIX #6a: Session filtresi — analyzer.py ile aynı (sadece LONDON+NEWYORK).
             phase = detect_phase_from_timestamp(current.timestamp)
             if phase not in (SessionPhase.NEWYORK, SessionPhase.LONDON):
+                log.info("[SKIP] %s retrade trigger — session %s, atlandi", sym, phase)
                 rsm_r.reset()
                 return
 
@@ -556,6 +567,7 @@ class PaperTrader:
         is_retrade=False,
     ):
         if sym in self.active_trades:
+            log.info("[SKIP] %s entry — aktif trade var (rsm reset)", sym)
             rsm.reset()
             return
 
@@ -607,6 +619,7 @@ class PaperTrader:
             risk_pct = risk_map.get("primary", RISK_PER_TRADE)
         qty = (self._balance * risk_pct) / risk_dist / cfg.LEVERAGE
         if qty <= 0:
+            log.warning("[SKIP] %s entry — qty=%.6f <= 0 (rsm reset)", sym, qty)
             rsm.reset()
             return
 
@@ -905,13 +918,19 @@ class PaperTrader:
             except Exception as e:
                 log.warning("[CLOSE] %s exit temizleme hatasi: %s", sym, e)
 
-        # FIX #2: Retrade arm — LIVE modda WS confirm bekler, PAPER modda direkt arm
+        # FIX #2: Retrade arm
         ss = self.states[sym]
-        if (
-            not trade.get("is_retrade", False)
-            and ss.trades_today == 1
-            and not ss.retrade_armed
-        ):
+        if trade.get("is_retrade", False):
+            log.info("[SKIP] %s retrade arm — bu trade zaten retrade", sym)
+        elif ss.trades_today != 1:
+            log.info(
+                "[SKIP] %s retrade arm — trades_today=%d (beklenen=1)",
+                sym,
+                ss.trades_today,
+            )
+        elif ss.retrade_armed:
+            log.info("[SKIP] %s retrade arm — zaten armed", sym)
+        else:
             ss.retrade_side = "short" if trade["side"] == "long" else "long"
             ss.retrade_sweep_level = 0.0
             ss.retrade_entry_bar = trade.get(
@@ -1238,11 +1257,15 @@ class PaperTrader:
                         )
                 else:
                     mark_trade_closed(sym)
-                    log.info("[GHOST] %s pozisyon kapali, state temizlendi", sym)
+                    self.states[sym].trades_today = 0
+                    log.info(
+                        "[GHOST] %s pozisyon kapali, state temizlendi — trades_today sifirlandi",
+                        sym,
+                    )
                     self._pl(
                         sym,
                         "ghost_cleaned",
-                        f"\U0001f4a4 GHOST: {sym} state temizlendi (pozisyon kapali)",
+                        f"\U0001f4a4 GHOST: {sym} state temizlendi, trades_today=0",
                     )
             except Exception as e:
                 log.warning("[GHOST] %s sorgu hatasi: %s", sym, e)
@@ -1300,15 +1323,8 @@ class PaperTrader:
         await self._recover_positions()
         reconcile_from_active(self.active_trades)
 
-        # FIX #3: Ghost pozisyon temizliği — trade_state.json'da "open": true
-        # olup Binance'de kapalı olan pozisyonları temizle.
-        await self._reconcile_ghost_positions()
-
         # FIX #8: Restart sonrası trades_today senkronizasyonu.
-        # Bot yeniden başlatıldığında ss.trades_today=0 olarak başlar, ama
-        # state_manager disk'te o günün işlem sayısını biliyor.
-        # ss.trades_today=0 kalırsa _check_retrade içindeki "trades_today != 1"
-        # koşulu hiç geçilemiyor → o gün retrade açılamıyor.
+        # ÖNCE disk'teki count'u oku, SONRA ghost recovery sıfırlasın.
         for sym in self.symbols:
             try:
                 count = get_trade_count_today(sym)
@@ -1321,6 +1337,11 @@ class PaperTrader:
                     )
             except Exception as e:
                 log.warning("[SYNC] %s trades_today sync hatasi: %s", sym, e)
+
+        # FIX #3: Ghost pozisyon temizliği — trade_state.json'da "open": true
+        # olup Binance'de kapalı olan pozisyonları temizle.
+        # FIX #8'den SONRA çalışmalı (trades_today sıfırlaması FIX #8'i ezmesin).
+        await self._reconcile_ghost_positions()
 
         # User Data Stream (WS Zirhi — REST polling yok)
         if cfg.BINANCE_API_KEY:
