@@ -600,7 +600,12 @@ class PaperTrader:
             rsm.reset()
             return
 
-        qty = (self._balance * RISK_PER_TRADE) / risk_dist / cfg.LEVERAGE
+        risk_map = cfg.SYMBOL_RISK_MAP.get(sym, {})
+        if is_retrade:
+            risk_pct = risk_map.get("retrade", RISK_PER_TRADE)
+        else:
+            risk_pct = risk_map.get("primary", RISK_PER_TRADE)
+        qty = (self._balance * risk_pct) / risk_dist / cfg.LEVERAGE
         if qty <= 0:
             rsm.reset()
             return

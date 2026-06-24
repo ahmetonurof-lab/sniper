@@ -14,8 +14,25 @@ else:
 
 INITIAL_BALANCE = 10000.0
 RISK_PER_TRADE = 0.01
-LEVERAGE = 20
+LEVERAGE = 3
 LOG_LEVEL = "INFO"
+
+# ── Per-symbol risk map (primary entry / retrade) ─────────────
+SYMBOL_RISK_MAP = {
+    "BTCUSDT": {"primary": 0.012, "retrade": 0.010},
+    "ETHUSDT": {"primary": 0.010, "retrade": 0.010},
+    "BNBUSDT": {"primary": 0.010, "retrade": 0.010},
+    "SOLUSDT": {"primary": 0.010, "retrade": 0.010},
+    "AVAXUSDT": {"primary": 0.015, "retrade": 0.010},
+    "LINKUSDT": {"primary": 0.015, "retrade": 0.010},
+    "XRPUSDT": {"primary": 0.010, "retrade": 0.010},
+    "ATOMUSDT": {"primary": 0.010, "retrade": 0.010},
+    "ADAUSDT": {"primary": 0.010, "retrade": 0.010},
+    "SUIUSDT": {"primary": 0.010, "retrade": 0.010},
+    "APTUSDT": {"primary": 0.010, "retrade": 0.010},
+    "DOTUSDT": {"primary": 0.015, "retrade": 0.010},
+    "NEARUSDT": {"primary": 0.012, "retrade": 0.010},
+}
 
 # ── Semboller (data dosyasi olanlar) ───────────────────────────
 SYMBOLS = [
