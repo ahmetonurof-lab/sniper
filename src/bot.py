@@ -600,7 +600,7 @@ class PaperTrader:
             rsm.reset()
             return
 
-        qty = (self._balance * RISK_PER_TRADE) / risk_dist
+        qty = (self._balance * RISK_PER_TRADE) / risk_dist / cfg.LEVERAGE
         if qty <= 0:
             rsm.reset()
             return
