@@ -912,26 +912,17 @@ class PaperTrader:
             and ss.trades_today == 1
             and not ss.retrade_armed
         ):
-            is_live = cfg.BINANCE_API_KEY and getattr(self, "_live", False)
             ss.retrade_side = "short" if trade["side"] == "long" else "long"
             ss.retrade_sweep_level = 0.0
             ss.retrade_entry_bar = trade.get(
                 "entry_bar_index", trade.get("entry_bar", 0)
             )
-            if is_live:
-                ss.pending_retrade_arm = True
-                self._pl(
-                    sym,
-                    "rt_arm_pending",
-                    "\u23f3 RETRADE ARM PENDING (WS confirm bekliyor)",
-                )
-            else:
-                ss.retrade_armed = True
-                self._pl(
-                    sym,
-                    "rt_arm",
-                    f"\U0001f6a9 RETRADE ARMED (paper) | ters yon: {ss.retrade_side.upper()}",
-                )
+            ss.retrade_armed = True
+            self._pl(
+                sym,
+                "rt_arm",
+                f"\U0001f6a9 RETRADE ARMED | ters yon: {ss.retrade_side.upper()}",
+            )
 
         self.trades.append(
             {
