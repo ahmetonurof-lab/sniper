@@ -413,7 +413,8 @@ class PaperTrader:
             # retrade_armed False yapılıyordu ama rsm_r TRIGGER_READY'de kalıyordu.
             # _try_entry içinde reset() çağrılıyor ama is_retrade=True durumunda
             # erken return'lerde çağrılmıyor; güvenlik için burada da sıfırlıyoruz.
-            ss.retrade_armed = False
+            if sym not in self.active_trades:
+                ss.retrade_armed = False
             rsm_r.reset()
 
     # ── 1m: Trailing + Exit (hibrit izleme) ──
@@ -498,15 +499,13 @@ class PaperTrader:
                     sl_side = "SELL" if trade["side"] == "long" else "BUY"
                     try:
                         await self.rest.place_stop_order(
-                            sym,
-                            sl_side,
-                            trade["qty"],
-                            trade["sl"]
+                            sym, sl_side, trade["qty"], trade["sl"]
                         )
                     except Exception as e:
                         log.critical("[TRAIL] emergency SL restore hatasi: %s", e)
                     trade["sl_fallback"] = True
                     return
+                return
 
         # Exit kontrolu (1m bar bazli)
         if trade["side"] == "long":
@@ -589,7 +588,15 @@ class PaperTrader:
             )
 
         risk_dist = abs(sl - entry_price)
-        if risk_dist <= 0:
+        min_risk_dist = atr_val * 0.1
+        if risk_dist < min_risk_dist:
+            log.warning(
+                "[ENTRY] %s risk_dist=%.6f < min=%.6f (atr=%.6f) — trade atlandı",
+                sym,
+                risk_dist,
+                min_risk_dist,
+                atr_val,
+            )
             rsm.reset()
             return
 
@@ -665,14 +672,22 @@ class PaperTrader:
                             log.info("[ORDER] %s SL OK algoId=%s", sym, sl_id)
                         else:
                             log.critical(
-                                "[ORDER] %s SL BASARISIZ! Acil pozisyon kapatiliyor. resp=%s", sym, sl_resp
+                                "[ORDER] %s SL BASARISIZ! Acil pozisyon kapatiliyor. resp=%s",
+                                sym,
+                                sl_resp,
                             )
                             # Acil pozisyon kapatma
                             opp_side = "SELL" if mkt_side == "BUY" else "BUY"
                             try:
-                                await self.rest.place_market_order(sym, opp_side, valid_qty)
+                                await self.rest.place_market_order(
+                                    sym, opp_side, valid_qty
+                                )
                             except Exception as e:
-                                log.critical("[ORDER] %s acil pozisyon kapatma emri basarisiz: %s", sym, e)
+                                log.critical(
+                                    "[ORDER] %s acil pozisyon kapatma emri basarisiz: %s",
+                                    sym,
+                                    e,
+                                )
                             rsm.reset()
                             return
 
@@ -772,6 +787,13 @@ class PaperTrader:
 
         if tp_id:
             tp_ok = True
+        else:
+            log.critical(
+                "[ORDER] %s TP BASARISIZ! sl_ok=%s tp_resp=%s — pozisyon SL korumalı ama TP yok",
+                sym,
+                sl_ok,
+                tp_resp,
+            )
 
         # sadece başarılıysa eski emirleri sil
         if sl_ok and old_sl_id:
@@ -801,7 +823,7 @@ class PaperTrader:
             trade["tp"],
             tp_id,
         )
-        return True
+        return sl_ok and tp_ok
 
     async def _exit_trade(self, sym, trade, current, exit_timestamp: int):
         diff = (
@@ -870,7 +892,9 @@ class PaperTrader:
                     )
                     mkt_side = "SELL" if trade["side"] == "long" else "BUY"
                     try:
-                        await self.rest.place_market_order(sym, mkt_side, trade["qty"], reduce_only=True)
+                        await self.rest.place_market_order(
+                            sym, mkt_side, trade["qty"], reduce_only=True
+                        )
                     except Exception as e:
                         log.warning("[CLOSE] %s acil kapanis emri hatasi: %s", sym, e)
             except Exception as e:
@@ -1430,9 +1454,9 @@ class PaperTrader:
                 trade["sl_order_id"],
             )
         if not has_tp and trade.get("tp"):
-            sl_side = "SELL" if trade["side"] == "long" else "BUY"
+            tp_side = "SELL" if trade["side"] == "long" else "BUY"
             tp_resp = await self.rest.place_tp_order(
-                sym, sl_side, trade["qty"], trade["tp"]
+                sym, tp_side, trade["qty"], trade["tp"]
             )
             trade["tp_order_id"] = tp_resp.get("algoId") or tp_resp.get("orderId") or ""
             log.info(
