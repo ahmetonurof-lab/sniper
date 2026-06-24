@@ -28,6 +28,9 @@ from state_manager import (
     mark_trade_closed,
     reconcile_from_active,
     get_trade_count_today,
+    save_retrade_arm,
+    load_retrade_arm,
+    clear_retrade_arm,
 )
 from websocket import BinanceWSHub
 
@@ -434,6 +437,7 @@ class PaperTrader:
             # erken return'lerde çağrılmıyor; güvenlik için burada da sıfırlıyoruz.
             if sym not in self.active_trades:
                 ss.retrade_armed = False
+                clear_retrade_arm(sym)
             rsm_r.reset()
 
     # ── 1m: Trailing + Exit (hibrit izleme) ──
@@ -772,7 +776,9 @@ class PaperTrader:
             if (cfg.BINANCE_API_KEY and getattr(self, "_live", False))
             else "",
         }
-        if not is_retrade:
+        if is_retrade:
+            clear_retrade_arm(sym)
+        else:
             mark_trade_opened(sym, entry_price)
         ss.trades_today += 1
         rsm.reset()
@@ -945,6 +951,7 @@ class PaperTrader:
                 "entry_bar_index", trade.get("entry_bar", 0)
             )
             ss.retrade_armed = True
+            save_retrade_arm(sym, ss.retrade_side, ss.retrade_entry_bar)
             self._pl(
                 sym,
                 "rt_arm",
@@ -1350,6 +1357,23 @@ class PaperTrader:
         # olup Binance'de kapalı olan pozisyonları temizle.
         # FIX #8'den SONRA çalışmalı (trades_today sıfırlaması FIX #8'i ezmesin).
         await self._reconcile_ghost_positions()
+
+        # FIX #10: Retrade state'ini diskten geri yükle (restart-proof).
+        for sym in self.symbols:
+            try:
+                ra = load_retrade_arm(sym)
+                if ra:
+                    self.states[sym].retrade_armed = True
+                    self.states[sym].retrade_side = ra["side"]
+                    self.states[sym].retrade_entry_bar = ra["entry_bar"]
+                    log.info(
+                        "[RETRADE] %s diskten restore: side=%s bar=%d",
+                        sym,
+                        ra["side"],
+                        ra["entry_bar"],
+                    )
+            except Exception as e:
+                log.warning("[RETRADE] %s restore hatasi: %s", sym, e)
 
         # User Data Stream (WS Zirhi — REST polling yok)
         if cfg.BINANCE_API_KEY:

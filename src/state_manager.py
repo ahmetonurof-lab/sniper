@@ -221,6 +221,49 @@ def get_trade_count_today(symbol: str) -> int:
         return s.get("count", 0)
 
 
+# ── Retrade state persistansı (restart-proof) ─────────────────────
+
+
+def save_retrade_arm(symbol: str, side: str, entry_bar: int):
+    """Retrade arm state'ini diske yaz."""
+    with FileLock(LOCK_FILE):
+        state = _load()
+        if symbol in state:
+            state[symbol]["retrade_armed"] = True
+            state[symbol]["retrade_side"] = side
+            state[symbol]["retrade_entry_bar"] = entry_bar
+            _save(state)
+    log.info(
+        "[STATE] %s retrade arm kaydedildi: side=%s bar=%d", symbol, side, entry_bar
+    )
+
+
+def clear_retrade_arm(symbol: str):
+    """Retrade arm state'ini diskten temizle."""
+    with FileLock(LOCK_FILE):
+        state = _load()
+        if symbol in state:
+            state[symbol].pop("retrade_armed", None)
+            state[symbol].pop("retrade_side", None)
+            state[symbol].pop("retrade_entry_bar", None)
+            _save(state)
+
+
+def load_retrade_arm(symbol: str) -> dict | None:
+    """Diskten retrade state'ini oku. Bugüne aitse döndür, yoksa None."""
+    with FileLock(LOCK_FILE):
+        state = _load()
+        s = state.get(symbol, {})
+        if s.get("date") != _today():
+            return None
+        if s.get("retrade_armed"):
+            return {
+                "side": s.get("retrade_side", ""),
+                "entry_bar": s.get("retrade_entry_bar", 0),
+            }
+        return None
+
+
 # ── Debug yardımcısı ──────────────────────────────────────────────
 
 
