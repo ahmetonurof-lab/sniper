@@ -43,7 +43,7 @@ os.makedirs(_OUTPUT_DIR, exist_ok=True)
 _log_file = os.path.join(_OUTPUT_DIR, "paper_trade.log")
 
 # Logger'ın saat dilimini Türkiye Saati (UTC+3) olarak ayarla
-logging.Formatter.converter = lambda *args: datetime.now(TR_TZ).timetuple()
+logging.Formatter.converter = lambda: datetime.now(TR_TZ).timetuple()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -936,9 +936,9 @@ class PaperTrader:
         ss = self.states[sym]
         if trade.get("is_retrade", False):
             log.info("[SKIP] %s retrade arm — bu trade zaten retrade", sym)
-        elif ss.trades_today != 1:
+        elif ss.trades_today not in (0, 1):
             log.info(
-                "[SKIP] %s retrade arm — trades_today=%d (beklenen=1)",
+                "[SKIP] %s retrade arm — trades_today=%d (beklenen=0 veya 1)",
                 sym,
                 ss.trades_today,
             )
