@@ -138,6 +138,7 @@ class SessionState:
                 self.sweep_direction = "bearish"
                 self.sweep_level = self.cbdr_body_low
                 self.daily_bias = DailyBias.BEARISH
+                return
 
 
 def detect_phase(dt: datetime) -> SessionPhase:
