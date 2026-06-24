@@ -214,7 +214,7 @@ class PaperTrader:
             self._pl(
                 sym,
                 "st_swp",
-                f"\U0001f7e9 SWEEP: DETECTED | {si}{sd.upper()} | {sl:.2f}",
+                f"\U0001f7e9 SWEEP: DETECTED | {si}{sd.upper()} | [{sl:.2f}] | CBDR: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}]",
                 force=True,
             )
         else:
