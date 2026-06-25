@@ -591,13 +591,14 @@ class PaperTrader:
                 min_fvg_size=min_fvg,
             )
 
-            # Analyzer ile birebir ayni buffer formulu
             buffer = abs(trade["initial_sl"] - trade["entry_price"]) * fvg_buf
 
-            # FIX #4: Döngüde her FVG için ayrı API çağrısı yerine,
-            # tüm FVG'ler arasından en iyi SL'yi seç, sonra tek _update_orders çağır.
-            # Analyzer.py davranışıyla örtüşür (ilk geçerli FVG'de durur).
             trailing_updated = False
+            # FIX #2: Rollback için eski değerleri yedekle
+            old_sl = trade["sl"]
+            old_tp = trade["tp"]
+            old_trailing_count = trade["trailing_count"]
+
             for fvg in fvgs:
                 if trade["side"] == "long" and fvg.direction != "bullish":
                     continue
@@ -608,7 +609,6 @@ class PaperTrader:
 
                 if trade["side"] == "long":
                     new_sl = fvg.bottom - buffer
-                    new_sl = await self.rest.apply_price_precision(sym, new_sl)
                     if new_sl > trade["sl"]:
                         min_move = trade["risk_pts"] * 0.2
                         if (new_sl - trade["sl"]) <= min_move:
@@ -627,7 +627,6 @@ class PaperTrader:
                         trailing_updated = True
                 else:
                     new_sl = fvg.top + buffer
-                    new_sl = await self.rest.apply_price_precision(sym, new_sl)
                     if new_sl < trade["sl"]:
                         min_move = trade["risk_pts"] * 0.2
                         if (trade["sl"] - new_sl) <= min_move:
@@ -648,15 +647,15 @@ class PaperTrader:
             if trailing_updated:
                 success = await self._update_orders(sym, trade)
                 if not success:
-                    log.warning("[TRAIL] UPDATE FAIL → emergency SL restore")
-                    sl_side = "SELL" if trade["side"] == "long" else "BUY"
-                    try:
-                        await self.rest.place_stop_order(
-                            sym, sl_side, trade["qty"], trade["sl"]
-                        )
-                    except Exception as e:
-                        log.critical("[TRAIL] emergency SL restore hatasi: %s", e)
-                    trade["sl_fallback"] = True
+                    # FIX #2: Binance emri reddetti veya ağ hatası. In-memory state'i geri al.
+                    log.warning(
+                        "[TRAIL] %s UPDATE FAIL -> in-memory SL/TP rollback yapiliyor",
+                        sym,
+                    )
+                    trade["sl"] = old_sl
+                    trade["tp"] = old_tp
+                    trade["trailing_count"] = old_trailing_count
+                    # Eski SL/TP Binance'de hala aktif ve trade["sl_order_id"] korunuyor.
                     return
                 return
 
@@ -928,76 +927,106 @@ class PaperTrader:
     async def _update_orders(self, sym: str, trade: dict) -> bool:
         if not cfg.BINANCE_API_KEY or not getattr(self, "_live", False):
             return True
+
         sl_side = "SELL" if trade["side"] == "long" else "BUY"
         qty = trade.get("qty", trade.get("lot", 0))
 
         old_sl_id = trade.get("sl_order_id", "")
         old_tp_id = trade.get("tp_order_id", "")
 
+        new_sl_id = ""
+        new_tp_id = ""
         sl_ok = False
         tp_ok = False
 
-        sl_resp = await self.rest.place_stop_order(
-            sym, sl_side, qty, trade["sl"], client_id=f"sl_{sym}_{int(time.time())}"
-        )
-        sl_id = (
-            sl_resp.get("algoId") or sl_resp.get("orderId") or sl_resp.get("id") or ""
-        )
-        trade["sl_order_id"] = sl_id
+        # ── 1. YENİ SL EMRİNİ AT (ESKİYİ HENÜZ SİLME) ──
+        try:
+            sl_resp = await self.rest.place_stop_order(
+                sym, sl_side, qty, trade["sl"], client_id=f"sl_{sym}_{int(time.time())}"
+            )
+            new_sl_id = (
+                sl_resp.get("algoId")
+                or sl_resp.get("orderId")
+                or sl_resp.get("id")
+                or ""
+            )
+            if new_sl_id:
+                sl_ok = True
+            else:
+                log.warning(
+                    "[TRAIL] %s SL reject (yeni emir alinamadi) -> eski SL korunuyor",
+                    sym,
+                )
+        except Exception as e:
+            log.warning("[TRAIL] %s SL place hatasi: %s -> eski SL korunuyor", sym, e)
 
-        if not sl_id:
-            log.warning("[TRAIL] SL reject → eski SL korunuyor")
-            return False  # BURADA STOP
+        # ── 2. YENİ TP EMRİNİ AT ──
+        try:
+            tp_resp = await self.rest.place_tp_order(
+                sym, sl_side, qty, trade["tp"], client_id=f"tp_{sym}_{int(time.time())}"
+            )
+            new_tp_id = (
+                tp_resp.get("algoId")
+                or tp_resp.get("orderId")
+                or tp_resp.get("id")
+                or ""
+            )
+            if new_tp_id:
+                tp_ok = True
+            else:
+                log.warning("[TRAIL] %s TP reject -> eski TP korunuyor", sym)
+        except Exception as e:
+            log.warning("[TRAIL] %s TP place hatasi: %s -> eski TP korunuyor", sym, e)
 
-        sl_ok = True
+        # ── 3. SADECE BAŞARILI OLANLARI STATE'E YAZ VE ESKİLERİ SİL (FIX #1) ──
+        if sl_ok:
+            trade["sl_order_id"] = new_sl_id  # Sadece başarılıysa ez
+            if old_sl_id:
+                try:
+                    await self.rest.cancel_order(
+                        old_sl_id, sym, reason="trail_update", is_algo=True
+                    )
+                except Exception as e:
+                    log.warning(
+                        "[CANCEL] %s eski SL iptal hatasi (id=%s): %s",
+                        sym,
+                        old_sl_id,
+                        e,
+                    )
 
-        tp_resp = await self.rest.place_tp_order(
-            sym, sl_side, qty, trade["tp"], client_id=f"tp_{sym}_{int(time.time())}"
-        )
-        tp_id = (
-            tp_resp.get("algoId") or tp_resp.get("orderId") or tp_resp.get("id") or ""
-        )
-        trade["tp_order_id"] = tp_id
+        if tp_ok:
+            trade["tp_order_id"] = new_tp_id
+            if old_tp_id:
+                try:
+                    await self.rest.cancel_order(
+                        old_tp_id, sym, reason="trail_update", is_algo=True
+                    )
+                except Exception as e:
+                    log.warning(
+                        "[CANCEL] %s eski TP iptal hatasi (id=%s): %s",
+                        sym,
+                        old_tp_id,
+                        e,
+                    )
 
-        if tp_id:
-            tp_ok = True
-        else:
-            log.critical(
-                "[ORDER] %s TP BASARISIZ! sl_ok=%s tp_resp=%s — pozisyon SL korumalı ama TP yok",
+        if not (sl_ok and tp_ok):
+            log.warning(
+                "[TRAIL] %s trailing kismen/tamamen basarisiz (sl=%s, tp=%s) -> eski ID'ler korundu",
                 sym,
                 sl_ok,
-                tp_resp,
+                tp_ok,
             )
-
-        # sadece başarılıysa eski emirleri sil
-        if sl_ok and old_sl_id:
-            try:
-                await self.rest.cancel_order(
-                    old_sl_id, sym, reason="trail_update", is_algo=True
-                )
-            except Exception as e:
-                log.warning(
-                    "[CANCEL] %s eski SL iptal hatasi (id=%s): %s", sym, old_sl_id, e
-                )
-        if tp_ok and old_tp_id:
-            try:
-                await self.rest.cancel_order(
-                    old_tp_id, sym, reason="trail_update", is_algo=True
-                )
-            except Exception as e:
-                log.warning(
-                    "[CANCEL] %s eski TP iptal hatasi (id=%s): %s", sym, old_tp_id, e
-                )
+            return False
 
         log.info(
             "[ORDER] %s trailing guncellendi sl=%.2f (id=%s) tp=%.2f (id=%s)",
             sym,
             trade["sl"],
-            sl_id,
+            new_sl_id,
             trade["tp"],
-            tp_id,
+            new_tp_id,
         )
-        return sl_ok and tp_ok
+        return True
 
     async def _exit_trade(self, sym, trade, current, exit_timestamp: int):
         diff = (
@@ -1565,47 +1594,56 @@ class PaperTrader:
             oid = str(od.get("c", "") or od.get("i", ""))
             log.info("[WS-ORDER] %s status=%s id=%s", sym, status, oid)
 
-            # FIX #1: FILLED/TRIGGERED → pozisyon kapanma confirmasyonu
+            # Binance reduceOnly flag'i (R=True veya reduceOnly=True)
+            is_reduce_only = od.get("R", False) or od.get("reduceOnly", False)
+
             if status in ("FILLED", "TRIGGERED"):
-                side = od.get("S", "")
-                qty = float(od.get("l", 0))
                 price = float(od.get("L", 0))
-                cum_qty = float(od.get("z", 0))
-                log.info(
-                    "[WS-FILLED] %s side=%s qty=%s price=%s cum_qty=%s",
-                    sym,
-                    side,
-                    qty,
-                    price,
-                    cum_qty,
-                )
+
                 trade = self.active_trades.get(sym)
                 if trade:
                     s_id = str(trade.get("sl_order_id", ""))
                     t_id = str(trade.get("tp_order_id", ""))
+
                     if oid in (s_id, t_id):
+                        # Normal akış: ID eşleşti
                         self._pl(
                             sym,
                             "filled_confirm",
-                            f"\u2705 BINANCE CONFIRMED: pozisyon kapatildi @ {price}",
+                            f"✅ BINANCE CONFIRMED: pozisyon kapatildi @ {price}",
                         )
-                # FIX #2: WS confirm → retrade arm promotion
-                ss = self.states.get(sym)
-                if ss and getattr(ss, "pending_retrade_arm", False):
-                    ss.retrade_armed = True
-                    ss.retrade_fvg_attempts = 0
-                    ss.retrade_mode = "fvg"
-                    ss.pending_retrade_arm = False
-                    self._pl(
-                        sym,
-                        "rt_arm_confirm",
-                        f"\U0001f6a9 RETRADE ARMED (WS FILLED confirm) | ters yon: {ss.retrade_side.upper()}",
-                    )
-                    log.info(
-                        "[RETRADE] %s retrade_armed=True (WS FILLED confirm) side=%s",
-                        sym,
-                        ss.retrade_side,
-                    )
+
+                        # Trade'i kapat (eğer henüz _on_1m_close kapatmadıysa)
+                        if sym in self.active_trades:
+                            trade["exit_price"] = price
+                            trade["result"] = "SL" if oid == s_id else "TP"
+                            await self._exit_trade(
+                                sym, trade, None, int(time.time() * 1000)
+                            )
+                    else:
+                        # FIX #3: ID eşleşmiyor AMA reduceOnly FILLED geldi!
+                        if is_reduce_only:
+                            log.critical(
+                                "[WS-FALLBACK] %s reduceOnly FILLED geldi ama ID eslesmedi (oid=%s, beklenen_sl=%s, beklenen_tp=%s). "
+                                "Binance pozisyonu kapatti, bot trade'i sonlandiriyor.",
+                                sym,
+                                oid,
+                                s_id,
+                                t_id,
+                            )
+                            trade["exit_price"] = price
+                            trade["result"] = "WS_FALLBACK"
+                            await self._exit_trade(
+                                sym, trade, None, int(time.time() * 1000)
+                            )
+                else:
+                    # trade active_trades'te yok ama reduceOnly FILLED geldi.
+                    if is_reduce_only:
+                        log.info(
+                            "[WS-GHOST] %s reduceOnly FILLED (oid=%s) ama active_trades bos. Ignore.",
+                            sym,
+                            oid,
+                        )
                 return
 
             if status not in ("CANCELED", "EXPIRED"):

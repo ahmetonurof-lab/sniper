@@ -215,7 +215,6 @@ class AnalysisResult:
     def is_valid_signal(
         self,
         _threshold: float | None = None,
-        adx: float | None = None,
     ) -> bool:
         return self.direction is not None and self.fvg_quality is not None
 
