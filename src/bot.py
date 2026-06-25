@@ -43,7 +43,9 @@ os.makedirs(_OUTPUT_DIR, exist_ok=True)
 _log_file = os.path.join(_OUTPUT_DIR, "paper_trade.log")
 
 # Logger'ın saat dilimini Türkiye Saati (UTC+3) olarak ayarla
-logging.Formatter.converter = lambda: datetime.now(TR_TZ).timetuple()
+logging.Formatter.converter = staticmethod(
+    lambda ts: datetime.fromtimestamp(ts, TR_TZ).timetuple()
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -223,6 +225,14 @@ class PaperTrader:
                 d = "LONG" if ss.daily_bias == DailyBias.BULLISH else "SHORT"
                 c = "\U0001f7e9" if d == "LONG" else "\U0001f7e5"
                 bstr = f" | BIAS: {c}{d}"
+            if ss.range_type == "DEAD":
+                self._pl(
+                    sym,
+                    "st_swp",
+                    f"\U0001f480 CBDR/ASIA DEAD \u2014 sweep aranm\u0131yor | {ts}",
+                    force=True,
+                )
+                return
             self._pl(
                 sym,
                 "st_swp",

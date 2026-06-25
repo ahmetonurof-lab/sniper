@@ -36,6 +36,10 @@ class SessionState:
         self.trades_today: int = 0
 
         # Retrade state — pivot bazli LBS/SBS sweep sonrasi 2. entry icin.
+        self.asia_high: float = 0.0
+        self.asia_low: float = float("inf")
+        self.range_type: str = ""
+
         self.retrade_armed: bool = False
         self.retrade_side: Literal["long", "short"] | None = None
         self.retrade_sweep_level: float = 0.0
@@ -62,13 +66,36 @@ class SessionState:
             self.cbdr_day = cbdr_key
 
         if sess == SessionPhase.CBDR and not self.cbdr_locked:
-            self._track_cbdr_body(open, close)
+            self._track_cbdr_body(open, high, low, close)
 
         if 2 <= h < 22 and not self.cbdr_locked and self.cbdr_body_high > 0:
             self.cbdr_locked = True
 
-        if self.cbdr_locked and not self.sweep_confirmed:
-            self._check_cbdr_sweep(high, low, close, atr)
+        if self.cbdr_locked:
+            cbdr_range_pct = (
+                ((self.cbdr_body_high - self.cbdr_body_low) / self.cbdr_body_low * 100)
+                if self.cbdr_body_low > 0
+                else 0
+            )
+            if cbdr_range_pct < 0.5:
+                if self.asia_high > 0:
+                    asia_range_pct = (
+                        ((self.asia_high - self.asia_low) / self.asia_low * 100)
+                        if self.asia_low > 0
+                        else 0
+                    )
+                    if asia_range_pct < 0.3:
+                        self.range_type = "DEAD"
+                        self.cbdr_locked = False
+                    else:
+                        self.cbdr_body_high = self.asia_high
+                        self.cbdr_body_low = self.asia_low
+                        self.range_type = "ASIA"
+                else:
+                    self.range_type = "DEAD"
+                    self.cbdr_locked = False
+            else:
+                self.range_type = "CBDR"
 
         if sess == SessionPhase.LONDON:
             self._track_london(high, low)
@@ -79,6 +106,9 @@ class SessionState:
         self.cbdr_body_high = 0.0
         self.cbdr_body_low = float("inf")
         self.cbdr_locked = False
+        self.asia_high = 0.0
+        self.asia_low = float("inf")
+        self.range_type = ""
         self.daily_bias = DailyBias.NEUTRAL
         self.sweep_confirmed = False
         self.sweep_direction = None
@@ -95,19 +125,21 @@ class SessionState:
         # eski günün sayısını taşıyarak retrade'i engelliyordu.
         self.trades_today = 0
 
-    def _track_cbdr_body(self, open: float, close: float):
-        body_high = max(open, close)
-        body_low = min(open, close)
-        if body_high > self.cbdr_body_high:
-            self.cbdr_body_high = body_high
-        if body_low < self.cbdr_body_low:
-            self.cbdr_body_low = body_low
+    def _track_cbdr_body(self, open: float, high: float, low: float, close: float):
+        if high > self.cbdr_body_high:
+            self.cbdr_body_high = high
+        if low < self.cbdr_body_low:
+            self.cbdr_body_low = low
 
     def _track_london(self, high: float, low: float):
         if high > self.london_high:
             self.london_high = high
         if low < self.london_low:
             self.london_low = low
+        if high > self.asia_high:
+            self.asia_high = high
+        if low < self.asia_low:
+            self.asia_low = low
 
     def _track_ny(self, high: float, low: float):
         if self.london_high == 0:
