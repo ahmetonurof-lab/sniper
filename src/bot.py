@@ -197,10 +197,12 @@ class PaperTrader:
             c = "\U0001f7e9" if d == "LONG" else "\U0001f7e5"
             bias_str = f" | BIAS: {c}{d}"
         cbdr_s = "\u2705 LOCKED" if ss.cbdr_locked else "\u23f3 BODY TRACKING..."
+        rt = ss.range_type if ss.range_type in ("CBDR", "ASIA", "DEAD") else ""
+        rt_str = f" | RANGE: {rt}" if rt else ""
         self._pl(
             sym,
             "st_ses",
-            f"\U0001f7e9 SESSION: {session} | {ts} UTC | CBDR: {cbdr_s}{bias_str}",
+            f"\U0001f7e9 SESSION: {session} | {ts} UTC | CBDR: {cbdr_s}{rt_str}{bias_str}",
             force=True,
         )
 
@@ -233,10 +235,11 @@ class PaperTrader:
                     force=True,
                 )
                 return
+            rt = ss.range_type if ss.range_type in ("CBDR", "ASIA") else "CBDR"
             self._pl(
                 sym,
                 "st_swp",
-                f"\U0001f7e8 SWEEP: BEKLENIYOR{bstr} | CBDR: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}] | {ts}",
+                f"\U0001f7e8 SWEEP: BEKLENIYOR{bstr} | {rt}: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}] | {ts}",
                 force=True,
             )
             self._log_state.get(sym, {}).pop("st_fvg", None)
