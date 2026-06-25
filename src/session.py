@@ -38,7 +38,8 @@ class SessionState:
         # Retrade state — pivot bazli LBS/SBS sweep sonrasi 2. entry icin.
         self.asia_high: float = 0.0
         self.asia_low: float = float("inf")
-        self.range_type: str = ""
+        self.range_type: str = "CBDR"
+        self.asia_checked: bool = False
 
         self.retrade_armed: bool = False
         self.retrade_side: Literal["long", "short"] | None = None
@@ -71,7 +72,8 @@ class SessionState:
         if 2 <= h < 22 and not self.cbdr_locked and self.cbdr_body_high > 0:
             self.cbdr_locked = True
 
-        if h == 8 and self.cbdr_locked and self.range_type == "CBDR":
+        if h >= 8 and not self.asia_checked and self.cbdr_locked:
+            self.asia_checked = True
             cbdr_range_pct = (
                 ((self.cbdr_body_high - self.cbdr_body_low) / self.cbdr_body_low * 100)
                 if self.cbdr_body_low > 0
@@ -91,9 +93,10 @@ class SessionState:
                         self.cbdr_body_high = self.asia_high
                         self.cbdr_body_low = self.asia_low
                         self.range_type = "ASIA"
-                else:
-                    self.range_type = "DEAD"
-                    self.cbdr_locked = False
+            # dar değilse range_type zaten "CBDR", dokunma
+
+        if 2 <= h < 8:
+            self._track_asia(high, low)
 
         if sess == SessionPhase.LONDON:
             self._track_london(high, low)
@@ -106,7 +109,8 @@ class SessionState:
         self.cbdr_locked = False
         self.asia_high = 0.0
         self.asia_low = float("inf")
-        self.range_type = ""
+        self.range_type = "CBDR"
+        self.asia_checked = False
         self.daily_bias = DailyBias.NEUTRAL
         self.sweep_confirmed = False
         self.sweep_direction = None
@@ -128,6 +132,12 @@ class SessionState:
             self.cbdr_body_high = high
         if low < self.cbdr_body_low:
             self.cbdr_body_low = low
+
+    def _track_asia(self, high: float, low: float):
+        if high > self.asia_high:
+            self.asia_high = high
+        if low < self.asia_low:
+            self.asia_low = low
 
     def _track_london(self, high: float, low: float):
         if high > self.london_high:
