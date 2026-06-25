@@ -752,6 +752,7 @@ class PaperTrader:
                 min_risk_dist,
                 atr_val,
             )
+            del self.active_trades[sym]
             rsm.reset()
             return
 
@@ -763,6 +764,7 @@ class PaperTrader:
         qty = (self._balance * risk_pct) / risk_dist / cfg.LEVERAGE
         if qty <= 0:
             log.warning("[SKIP] %s entry — qty=%.6f <= 0 (rsm reset)", sym, qty)
+            del self.active_trades[sym]
             rsm.reset()
             return
 
