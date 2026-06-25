@@ -145,11 +145,11 @@ class PaperTrader:
     # ── 15m: Sinyal kurulumu (CBDR, Sweep, FVG, Entry, Retrade) ──
 
     async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):
-        cfg = self.cfgs[sym]
-        min_fvg = cfg["MIN_FVG_SIZE"]
-        sl_atr = cfg["SL_ATR_MULT"]
-        tp_rr = cfg["TP_RR"]
-        fvg_buf = cfg["FVG_BUFFER_MULT"]
+        sym_cfg = self.cfgs[sym]
+        min_fvg = sym_cfg["MIN_FVG_SIZE"]
+        sl_atr = sym_cfg["SL_ATR_MULT"]
+        tp_rr = sym_cfg["TP_RR"]
+        fvg_buf = sym_cfg["FVG_BUFFER_MULT"]
 
         current = bars_15m[-1]
         atr_val = max(current.range, current.close * 0.0001)
@@ -352,7 +352,7 @@ class PaperTrader:
         atr_val: float,
         ss: SessionState,
     ):
-        cfg = self.cfgs[sym]
+        sym_cfg = self.cfgs[sym]
         if not ss.retrade_armed:
             return
         if ss.trades_today != 1:
@@ -446,10 +446,10 @@ class PaperTrader:
                 rsm_r,
                 ss,
                 sweep_dir,
-                cfg["SL_ATR_MULT"],
-                cfg["TP_RR"],
-                cfg["FVG_BUFFER_MULT"],
-                cfg["MIN_FVG_SIZE"],
+                sym_cfg["SL_ATR_MULT"],
+                sym_cfg["TP_RR"],
+                sym_cfg["FVG_BUFFER_MULT"],
+                sym_cfg["MIN_FVG_SIZE"],
                 is_retrade=True,
             )
             if sym not in self.active_trades:
@@ -481,7 +481,7 @@ class PaperTrader:
                     lhr_tp = (
                         ss.london_low
                         if ss.london_low < lhr_entry_price
-                        else lhr_entry_price - lhr_risk_pts * cfg["TP_RR"]
+                        else lhr_entry_price - lhr_risk_pts * sym_cfg["TP_RR"]
                     )
                     lhr_risk_dist = abs(lhr_sl - lhr_entry_price)
                     lhr_min_risk_dist = atr_val * 0.1
@@ -532,7 +532,7 @@ class PaperTrader:
                     lhr_tp = (
                         ss.london_high
                         if ss.london_high > lhr_entry_price
-                        else lhr_entry_price + lhr_risk_pts * cfg["TP_RR"]
+                        else lhr_entry_price + lhr_risk_pts * sym_cfg["TP_RR"]
                     )
                     lhr_risk_dist = abs(lhr_sl - lhr_entry_price)
                     lhr_min_risk_dist = atr_val * 0.1
@@ -575,9 +575,9 @@ class PaperTrader:
         if not trade:
             return
 
-        cfg = self.cfgs[sym]
-        fvg_buf = cfg["FVG_BUFFER_MULT"]
-        min_fvg = cfg["MIN_FVG_SIZE"]
+        sym_cfg = self.cfgs[sym]
+        fvg_buf = sym_cfg["FVG_BUFFER_MULT"]
+        min_fvg = sym_cfg["MIN_FVG_SIZE"]
         current = bars_1m[-1]
 
         # FVG Trailing (15m data, 1m kapanisinda kontrol)
