@@ -1,16 +1,18 @@
 """
-bot_binance.py — NEXUS V4
-──────────────────────────
-İmzalı Binance REST çağrıları: GET / POST / DELETE + retry + semaphore.
+bot_binance.py — NEXUS V4 / P9
+────────────────────────────────
+İmzalı Binance REST çağrıları: GET / POST / DELETE + retry + circuit breaker.
+aiohttp tabanlı native async HTTP — urllib tamamen kaldırıldı.
 LiveTradingBot instance state'ini bilmez — bağımsız test edilebilir.
 
+P9 değişiklikleri:
+  - urllib.request → aiohttp.ClientSession (native async, connection pooling)
+  - RetryConfig + CircuitBreaker entegrasyonu
+  - get()/post()/delete() → Result[dict]
+  - ClientTimeout yapılandırması
+  - _prefill_bars artık BinanceRESTClient üzerinden çalışıyor
+
 Orijinal konum: sonnet/src/main.py
-  _fetch_binance_signed      satır 489
-  _fetch_binance_signed_post satır 534
-  _fetch_binance_signed_delete satır 964
-  _cancel_order_by_id        satır 913
-  _get_open_orders_async     satır 580
-  _get_order_type / _get_order_price / _safe_order_timestamp (statik)
 """
 
 from __future__ import annotations
@@ -20,10 +22,14 @@ import hashlib
 import hmac
 import json
 import logging
+import random
 import time
-import urllib.error
-import urllib.request
 from typing import Any
+
+import aiohttp
+
+from bot_infra import CircuitBreaker, RetryConfig
+from models import Result
 
 log = logging.getLogger("nexus.live")
 
@@ -49,8 +55,8 @@ def _round_step(value: float, step: float) -> float:
 
 class BinanceRESTClient:
     """
-    İmzalı Binance Futures REST istemcisi.
-    Rate limiter + semaphore + retry zinciri içerir.
+    İmzalı Binance Futures REST istemcisi (P9: aiohttp tabanlı).
+    Rate limiter + retry (exponential backoff + jitter) + circuit breaker içerir.
     LiveTradingBot'un dış API iletişim katmanı.
 
     Bağımlılıklar enjekte edilir — test'te mock kullanılabilir.
@@ -63,15 +69,72 @@ class BinanceRESTClient:
         base_url: str,
         rate_limiter: Any,
         semaphore: asyncio.Semaphore,
+        retry_config: RetryConfig | None = None,
+        circuit_breaker: CircuitBreaker | None = None,
+        connector_limit: int = 10,
+        connector_limit_per_host: int = 5,
+        timeout_total: float = 30.0,
+        timeout_connect: float = 10.0,
     ) -> None:
         self._api_key = api_key
         self._api_secret = api_secret
         self._base_url = base_url
         self._rate_limiter = rate_limiter
         self._semaphore = semaphore
+        self._retry_config = retry_config or RetryConfig()
+        self._circuit_breaker = circuit_breaker or CircuitBreaker()
+
+        # aiohttp session (lazy init)
+        self._session: aiohttp.ClientSession | None = None
+        self._connector_limit = connector_limit
+        self._connector_limit_per_host = connector_limit_per_host
+        self._timeout_total = timeout_total
+        self._timeout_connect = timeout_connect
+
+        # Cache
         self._exchange_info: dict | None = None
         self._exchange_info_ts: float = 0.0
         self._symbol_info: dict[str, dict] = {}
+
+    # ─────────────────────────────────────────────────────────────
+    # Session yönetimi (P9.2)
+    # ─────────────────────────────────────────────────────────────
+
+    async def _ensure_session(self) -> aiohttp.ClientSession:
+        """aiohttp session'ı lazy olarak oluştur veya yeniden bağlan.
+
+        Windows'ta aiodns (pycares) DNS çözümleyici sorunu nedeniyle
+        ThreadedResolver kullanılır — getaddrinfo'yu thread pool'da çalıştırır.
+        """
+        if self._session is None or self._session.closed:
+            from aiohttp.resolver import ThreadedResolver
+
+            connector = aiohttp.TCPConnector(
+                limit=self._connector_limit,
+                limit_per_host=self._connector_limit_per_host,
+                ttl_dns_cache=300,
+                resolver=ThreadedResolver(),
+            )
+            timeout = aiohttp.ClientTimeout(
+                total=self._timeout_total,
+                connect=self._timeout_connect,
+            )
+            self._session = aiohttp.ClientSession(
+                connector=connector,
+                timeout=timeout,
+            )
+            log.debug(
+                "[HTTP] aiohttp session oluşturuldu (limit=%d, limit_per_host=%d)",
+                self._connector_limit,
+                self._connector_limit_per_host,
+            )
+        return self._session
+
+    async def close(self) -> None:
+        """Session'ı kapat. Graceful shutdown için."""
+        if self._session and not self._session.closed:
+            await self._session.close()
+            log.debug("[HTTP] aiohttp session kapatıldı")
 
     # ─────────────────────────────────────────────────────────────────
     # Statik yardımcılar (main.py'de @staticmethod olarak tanımlıydı)
@@ -105,7 +168,11 @@ class BinanceRESTClient:
         now = time.time()
         if not force and self._exchange_info and (now - self._exchange_info_ts) < 300:
             return self._exchange_info
-        data = await self.get("/fapi/v1/exchangeInfo")
+        r = await self.get("/fapi/v1/exchangeInfo")
+        if r.is_err:
+            log.warning("[EXCHANGE_INFO] Yüklenemedi: %s", r.error)
+            return self._exchange_info or {}
+        data = r.value
         self._exchange_info = data
         self._exchange_info_ts = now
         self._symbol_info.clear()
@@ -177,136 +244,210 @@ class BinanceRESTClient:
             return 0.0
         return amount
 
-    # ─────────────────────────────────────────────────────────────────
-    # Transport katmanı
-    # ─────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────
+    # Transport katmanı (P9.2: aiohttp + P9.3: Result[dict])
+    # ─────────────────────────────────────────────────────────────
 
-    async def get(self, endpoint: str, params: str = "", max_retries: int = 3) -> dict:
-        """İmzalı GET isteği — retry + backoff + semaphore."""
-        await self._rate_limiter.acquire()
-        async with self._semaphore:
-            key = self._api_key
-            secret = self._api_secret
-            last_error = None
-            for attempt in range(max_retries):
-                ts = int(time.time() * 1000)
-                full_params = (
-                    f"{params}&timestamp={ts}" if params else f"timestamp={ts}"
-                )
-                sig = hmac.new(
-                    secret.encode(), full_params.encode(), hashlib.sha256
-                ).hexdigest()
-                url = f"{self._base_url}{endpoint}?{full_params}&signature={sig}"
-                req = urllib.request.Request(url, headers={"X-MBX-APIKEY": key})
-                loop = asyncio.get_running_loop()
-                try:
-                    raw = await loop.run_in_executor(
-                        None,
-                        lambda req=req: urllib.request.urlopen(req).read().decode(),
-                    )
-                    return json.loads(raw)
-                except urllib.error.HTTPError as e:
-                    body = e.read().decode() if hasattr(e, "read") else str(e)
-                    last_error = f"HTTP {e.code}: {body[:200]}"
-                    log.warning(
-                        "[HTTP] %s → %s (attempt %d/%d, url=%s)",
-                        endpoint,
-                        last_error,
-                        attempt + 1,
-                        max_retries,
-                        url[:120],
-                    )
-                    if attempt < max_retries - 1:
-                        await asyncio.sleep(1.0 * (attempt + 1))
-                except Exception as e:
-                    last_error = str(e)[:200]
-                    log.warning(
-                        "[HTTP] %s → %s (attempt %d/%d)",
-                        endpoint,
-                        last_error,
-                        attempt + 1,
-                        max_retries,
-                    )
-                    if attempt < max_retries - 1:
-                        await asyncio.sleep(1.0 * (attempt + 1))
-            raise Exception(last_error or "unknown HTTP error")
+    def _build_headers(self) -> dict[str, str]:
+        """API key header'ı."""
+        return {"X-MBX-APIKEY": self._api_key}
 
-    async def post(self, endpoint: str, params: dict, max_retries: int = 3) -> dict:
-        """İmzalı POST isteği — retry + backoff + semaphore."""
-        await self._rate_limiter.acquire()
-        async with self._semaphore:
-            key = self._api_key
-            secret = self._api_secret
-            last_error = None
-            for attempt in range(max_retries):
+    def _sign_params(self, params_str: str) -> str:
+        """Query string'e timestamp + signature ekle."""
+        ts = int(time.time() * 1000)
+        full = f"{params_str}&timestamp={ts}" if params_str else f"timestamp={ts}"
+        sig = hmac.new(
+            self._api_secret.encode(), full.encode(), hashlib.sha256
+        ).hexdigest()
+        return f"{full}&signature={sig}"
+
+    def _compute_backoff(self, attempt: int) -> float:
+        """Exponential backoff + optional jitter hesapla."""
+        rc = self._retry_config
+        delay = rc.base_delay * (rc.backoff_multiplier**attempt)
+        delay = min(delay, rc.max_delay)
+        if rc.jitter:
+            jitter = delay * 0.25 * (2 * random.random() - 1)
+            delay = max(0, delay + jitter)
+        return delay
+
+    def _should_retry(self, status: int | None) -> bool:
+        """Bu HTTP status kodunda retry yapılmalı mı?"""
+        if status is None:
+            return True  # bağlantı hatası → retry
+        return status in self._retry_config.retry_on_http
+
+    async def get(self, endpoint: str, params: str = "") -> Result[dict]:
+        """İmzalı GET isteği — exponential backoff + jitter + circuit breaker.
+
+        Returns:
+            Result[dict]: Başarılıysa ok(value=parsed_json), hata varsa fail(error=msg)
+        """
+
+        async def _do_get() -> dict:
+            await self._rate_limiter.acquire()
+            async with self._semaphore:
+                session = await self._ensure_session()
+                signed = self._sign_params(params)
+                url = f"{self._base_url}{endpoint}?{signed}"
+                headers = self._build_headers()
+                last_error = None
+                rc = self._retry_config
+                for attempt in range(rc.max_retries):
+                    try:
+                        async with session.get(url, headers=headers) as resp:
+                            text = await resp.text()
+                            if resp.status == 200:
+                                return json.loads(text)
+                            last_error = f"HTTP {resp.status}: {text[:200]}"
+                            if not self._should_retry(resp.status):
+                                break
+                    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                        last_error = f"{type(e).__name__}: {e}"[:200]
+                        if not self._should_retry(None):
+                            break
+                    except Exception as e:
+                        last_error = str(e)[:200]
+                        if not self._should_retry(None):
+                            break
+                    if attempt < rc.max_retries - 1:
+                        delay = self._compute_backoff(attempt)
+                        log.warning(
+                            "[HTTP] %s → %s (attempt %d/%d, %.1fs backoff)",
+                            endpoint,
+                            last_error,
+                            attempt + 1,
+                            rc.max_retries,
+                            delay,
+                        )
+                        await asyncio.sleep(delay)
+                raise Exception(last_error or "unknown HTTP error")
+
+        try:
+            result = await self._circuit_breaker.call(_do_get)
+            if isinstance(result, Result):
+                return result  # Circuit breaker fail'i
+            return Result.ok(result)
+        except Exception as e:
+            return Result.fail(str(e))
+
+    async def post(self, endpoint: str, params: dict) -> Result[dict]:
+        """İmzalı POST isteği — exponential backoff + jitter + circuit breaker.
+
+        Returns:
+            Result[dict]: Başarılıysa ok(value=parsed_json), hata varsa fail(error=msg)
+        """
+
+        async def _do_post() -> dict:
+            await self._rate_limiter.acquire()
+            async with self._semaphore:
+                session = await self._ensure_session()
                 params["timestamp"] = int(time.time() * 1000)
                 query_string = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
                 sig = hmac.new(
-                    secret.encode(), query_string.encode(), hashlib.sha256
+                    self._api_secret.encode(),
+                    query_string.encode(),
+                    hashlib.sha256,
                 ).hexdigest()
                 query_string += f"&signature={sig}"
                 url = f"{self._base_url}{endpoint}"
-                data = query_string.encode()
-                req = urllib.request.Request(
-                    url, data=data, headers={"X-MBX-APIKEY": key}
-                )
-                loop = asyncio.get_running_loop()
-                try:
-                    raw = await loop.run_in_executor(
-                        None,
-                        lambda req=req: urllib.request.urlopen(req).read().decode(),
-                    )
-                    return json.loads(raw)
-                except urllib.error.HTTPError as e:
-                    body = e.read().decode() if hasattr(e, "read") else str(e)
-                    last_error = f"HTTP {e.code}: {body[:200]}"
-                    log.warning(
-                        "[HTTP-POST] %s → %s (attempt %d/%d)",
-                        endpoint,
-                        last_error,
-                        attempt + 1,
-                        max_retries,
-                    )
-                    if attempt < max_retries - 1:
-                        await asyncio.sleep(1.0 * (attempt + 1))
-                except Exception as e:
-                    last_error = str(e)[:200]
-                    log.warning(
-                        "[HTTP-POST] %s → %s (attempt %d/%d)",
-                        endpoint,
-                        last_error,
-                        attempt + 1,
-                        max_retries,
-                    )
-                    if attempt < max_retries - 1:
-                        await asyncio.sleep(1.0 * (attempt + 1))
-            raise Exception(last_error or "unknown HTTP error")
+                headers = self._build_headers()
+                headers["Content-Type"] = "application/x-www-form-urlencoded"
+                last_error = None
+                rc = self._retry_config
+                for attempt in range(rc.max_retries):
+                    try:
+                        async with session.post(
+                            url, data=query_string, headers=headers
+                        ) as resp:
+                            text = await resp.text()
+                            if resp.status == 200:
+                                return json.loads(text)
+                            last_error = f"HTTP {resp.status}: {text[:200]}"
+                            if not self._should_retry(resp.status):
+                                break
+                    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                        last_error = f"{type(e).__name__}: {e}"[:200]
+                        if not self._should_retry(None):
+                            break
+                    except Exception as e:
+                        last_error = str(e)[:200]
+                        if not self._should_retry(None):
+                            break
+                    if attempt < rc.max_retries - 1:
+                        delay = self._compute_backoff(attempt)
+                        log.warning(
+                            "[HTTP-POST] %s → %s (attempt %d/%d, %.1fs backoff)",
+                            endpoint,
+                            last_error,
+                            attempt + 1,
+                            rc.max_retries,
+                            delay,
+                        )
+                        await asyncio.sleep(delay)
+                raise Exception(last_error or "unknown HTTP error")
 
-    async def delete(self, endpoint: str, params: str = "") -> dict:
-        """İmzalı DELETE isteği."""
-        await self._rate_limiter.acquire()
-        async with self._semaphore:
-            key = self._api_key
-            secret = self._api_secret
-            ts = int(time.time() * 1000)
-            full_params = f"{params}&timestamp={ts}" if params else f"timestamp={ts}"
-            sig = hmac.new(
-                secret.encode(), full_params.encode(), hashlib.sha256
-            ).hexdigest()
-            url = f"{self._base_url}{endpoint}?{full_params}&signature={sig}"
-            req = urllib.request.Request(
-                url, headers={"X-MBX-APIKEY": key}, method="DELETE"
-            )
-            loop = asyncio.get_running_loop()
-            try:
-                raw = await loop.run_in_executor(
-                    None, lambda: urllib.request.urlopen(req).read().decode()
-                )
-                return json.loads(raw)
-            except urllib.error.HTTPError as e:
-                body = e.read().decode()
-                log.debug("DELETE %s → HTTP %s: %s", endpoint, e.code, body)
-                raise Exception(f"HTTP {e.code}: {body}") from e
+        try:
+            result = await self._circuit_breaker.call(_do_post)
+            if isinstance(result, Result):
+                return result
+            return Result.ok(result)
+        except Exception as e:
+            return Result.fail(str(e))
+
+    async def delete(self, endpoint: str, params: str = "") -> Result[dict]:
+        """İmzalı DELETE isteği — exponential backoff + jitter + circuit breaker.
+
+        Returns:
+            Result[dict]: Başarılıysa ok(value=parsed_json), hata varsa fail(error=msg)
+        """
+
+        async def _do_delete() -> dict:
+            await self._rate_limiter.acquire()
+            async with self._semaphore:
+                session = await self._ensure_session()
+                signed = self._sign_params(params)
+                url = f"{self._base_url}{endpoint}?{signed}"
+                headers = self._build_headers()
+                last_error = None
+                rc = self._retry_config
+                for attempt in range(rc.max_retries):
+                    try:
+                        async with session.delete(url, headers=headers) as resp:
+                            text = await resp.text()
+                            if resp.status == 200:
+                                return json.loads(text)
+                            last_error = f"HTTP {resp.status}: {text[:200]}"
+                            if not self._should_retry(resp.status):
+                                break
+                    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                        last_error = f"{type(e).__name__}: {e}"[:200]
+                        if not self._should_retry(None):
+                            break
+                    except Exception as e:
+                        last_error = str(e)[:200]
+                        if not self._should_retry(None):
+                            break
+                    if attempt < rc.max_retries - 1:
+                        delay = self._compute_backoff(attempt)
+                        log.warning(
+                            "[HTTP-DEL] %s → %s (attempt %d/%d, %.1fs backoff)",
+                            endpoint,
+                            last_error,
+                            attempt + 1,
+                            rc.max_retries,
+                            delay,
+                        )
+                        await asyncio.sleep(delay)
+                raise Exception(last_error or "unknown HTTP error")
+
+        try:
+            result = await self._circuit_breaker.call(_do_delete)
+            if isinstance(result, Result):
+                return result
+            return Result.ok(result)
+        except Exception as e:
+            return Result.fail(str(e))
 
     # ─────────────────────────────────────────────────────────────────
     # Emir sorgu / iptal
@@ -314,48 +455,49 @@ class BinanceRESTClient:
 
     async def get_open_orders(self, symbol: str) -> list:
         """Sembol için açık normal emirleri döner (list)."""
-        try:
-            result = await self.get("/fapi/v1/openOrders", f"symbol={symbol}")
-            return result if isinstance(result, list) else []
-        except Exception as e:
-            log.error("[ORDERS] Açık emirler alınamadı %s: %s", symbol.ljust(12), e)
+        r = await self.get("/fapi/v1/openOrders", f"symbol={symbol}")
+        if r.is_err:
+            log.error(
+                "[ORDERS] Açık emirler alınamadı %s: %s", symbol.ljust(12), r.error
+            )
             return []
+        result = r.value
+        return result if isinstance(result, list) else []
 
     async def get_all_orders(self, symbol: str) -> list:
         """Normal + algo emirleri birleşik olarak döner."""
         orders = await self.get_open_orders(symbol)
-        try:
-            algo_raw = await self.get("/fapi/v1/openAlgoOrders", f"symbol={symbol}")
-            if isinstance(algo_raw, list):
-                orders.extend(algo_raw)
-        except Exception as e:
+        r = await self.get("/fapi/v1/openAlgoOrders", f"symbol={symbol}")
+        if r.is_ok and isinstance(r.value, list):
+            orders.extend(r.value)
+        elif r.is_err:
             log.debug(
-                "[ORDERS] algoOrders alınamadı %s (önemsiz): %s", symbol.ljust(12), e
+                "[ORDERS] algoOrders alınamadı %s (önemsiz): %s",
+                symbol.ljust(12),
+                r.error,
             )
         return orders
 
     async def get_balance(self) -> float:
-        try:
-            result = await self.get("/fapi/v2/account")
-            for asset in result.get("assets", []):
-                if asset.get("asset") == "USDT":
-                    return float(asset.get("walletBalance", 0))
+        r = await self.get("/fapi/v2/account")
+        if r.is_err:
+            log.warning("[BALANCE] Bakiye alınamadı: %s", r.error)
             return 0.0
-        except Exception as e:
-            log.warning("[BALANCE] Bakiye alınamadı: %s", e)
-            return 0.0
+        for asset in r.value.get("assets", []):
+            if asset.get("asset") == "USDT":
+                return float(asset.get("walletBalance", 0))
+        return 0.0
 
     async def get_positions(self) -> list[dict]:
-        try:
-            raw = await self.get("/fapi/v2/account")
-            return [
-                p
-                for p in raw.get("positions", [])
-                if float(p.get("positionAmt", 0)) != 0
-            ]
-        except Exception as e:
-            log.warning("[POSITIONS] Pozisyonlar alınamadı: %s", e)
+        r = await self.get("/fapi/v2/account")
+        if r.is_err:
+            log.warning("[POSITIONS] Pozisyonlar alınamadı: %s", r.error)
             return []
+        return [
+            p
+            for p in r.value.get("positions", [])
+            if float(p.get("positionAmt", 0)) != 0
+        ]
 
     async def place_market_order(
         self, symbol: str, side: str, qty: float, reduce_only: bool = False
@@ -379,29 +521,27 @@ class BinanceRESTClient:
         if reduce_only:
             params["reduceOnly"] = "true"
 
-        try:
-            result = await self.post("/fapi/v1/order", params)
-            if result.get("orderId") or result.get("id"):
-                return result
-            # Demo API: orderId dönmezse GET ile bul
-            import asyncio as _asyncio
-
-            await _asyncio.sleep(0.5)
-            try:
-                orders = await self.get_open_orders(symbol)
-                for o in orders if isinstance(orders, list) else []:
-                    if (
-                        o.get("symbol") == symbol
-                        and o.get("side", "").upper() == side.upper()
-                        and o.get("type", "").upper() == "MARKET"
-                    ):
-                        return o
-            except Exception:
-                pass
-            return result
-        except Exception as e:
-            log.warning("[MARKET] %s MARKET hatasi: %s", symbol, e)
+        r = await self.post("/fapi/v1/order", params)
+        if r.is_err:
+            log.warning("[MARKET] %s MARKET hatasi: %s", symbol, r.error)
             return {}
+        result = r.value
+        if result.get("orderId") or result.get("id"):
+            return result
+        # Demo API: orderId dönmezse GET ile bul
+        await asyncio.sleep(0.5)
+        try:
+            orders = await self.get_open_orders(symbol)
+            for o in orders if isinstance(orders, list) else []:
+                if (
+                    o.get("symbol") == symbol
+                    and o.get("side", "").upper() == side.upper()
+                    and o.get("type", "").upper() == "MARKET"
+                ):
+                    return o
+        except Exception:
+            pass
+        return result
 
     async def place_stop_order(
         self, symbol: str, side: str, qty: float, stop_price: float, client_id: str = ""
@@ -430,30 +570,29 @@ class BinanceRESTClient:
             "timeInForce": "GTE_GTC",
             "newClientOrderId": client_id or f"sl_{symbol}_{int(time.time())}",
         }
-        try:
-            result = await self.post("/fapi/v1/algoOrder", params)
-            if result.get("algoId") or result.get("orderId") or result.get("id"):
-                return result
-            # Demo API fallback
-            import asyncio as _asyncio
-
-            await _asyncio.sleep(0.5)
-            try:
-                orders = await self.get("/fapi/v1/openAlgoOrders", f"symbol={symbol}")
-                for o in orders if isinstance(orders, list) else []:
-                    if (
-                        o.get("symbol") == symbol
-                        and o.get("side", "").upper() == side.upper()
-                        and (o.get("type") or o.get("orderType", "")).upper()
-                        == "STOP_MARKET"
-                    ):
-                        return o
-            except Exception:
-                pass
-            return result
-        except Exception as e:
-            log.warning("[SL] %s STOP_MARKET hatasi: %s", symbol, e)
+        r = await self.post("/fapi/v1/algoOrder", params)
+        if r.is_err:
+            log.warning("[SL] %s STOP_MARKET hatasi: %s", symbol, r.error)
             return {}
+        result = r.value
+        if result.get("algoId") or result.get("orderId") or result.get("id"):
+            return result
+        # Demo API fallback
+        await asyncio.sleep(0.5)
+        try:
+            orders_r = await self.get("/fapi/v1/openAlgoOrders", f"symbol={symbol}")
+            orders = orders_r.value if orders_r.is_ok else []
+            for o in orders if isinstance(orders, list) else []:
+                if (
+                    o.get("symbol") == symbol
+                    and o.get("side", "").upper() == side.upper()
+                    and (o.get("type") or o.get("orderType", "")).upper()
+                    == "STOP_MARKET"
+                ):
+                    return o
+        except Exception:
+            pass
+        return result
 
     async def place_tp_order(
         self, symbol: str, side: str, qty: float, stop_price: float, client_id: str = ""
@@ -481,30 +620,29 @@ class BinanceRESTClient:
             "timeInForce": "GTE_GTC",
             "newClientOrderId": client_id or f"tp_{symbol}_{int(time.time())}",
         }
-        try:
-            result = await self.post("/fapi/v1/algoOrder", params)
-            if result.get("algoId") or result.get("orderId") or result.get("id"):
-                return result
-            # Demo API fallback
-            import asyncio as _asyncio
-
-            await _asyncio.sleep(0.5)
-            try:
-                orders = await self.get("/fapi/v1/openAlgoOrders", f"symbol={symbol}")
-                for o in orders if isinstance(orders, list) else []:
-                    if (
-                        o.get("symbol") == symbol
-                        and o.get("side", "").upper() == side.upper()
-                        and (o.get("type") or o.get("orderType", "")).upper()
-                        == "TAKE_PROFIT_MARKET"
-                    ):
-                        return o
-            except Exception:
-                pass
-            return result
-        except Exception as e:
-            log.warning("[TP] %s TAKE_PROFIT_MARKET hatasi: %s", symbol, e)
+        r = await self.post("/fapi/v1/algoOrder", params)
+        if r.is_err:
+            log.warning("[TP] %s TAKE_PROFIT_MARKET hatasi: %s", symbol, r.error)
             return {}
+        result = r.value
+        if result.get("algoId") or result.get("orderId") or result.get("id"):
+            return result
+        # Demo API fallback
+        await asyncio.sleep(0.5)
+        try:
+            orders_r = await self.get("/fapi/v1/openAlgoOrders", f"symbol={symbol}")
+            orders = orders_r.value if orders_r.is_ok else []
+            for o in orders if isinstance(orders, list) else []:
+                if (
+                    o.get("symbol") == symbol
+                    and o.get("side", "").upper() == side.upper()
+                    and (o.get("type") or o.get("orderType", "")).upper()
+                    == "TAKE_PROFIT_MARKET"
+                ):
+                    return o
+        except Exception:
+            pass
+        return result
 
     async def cancel_order(
         self,
@@ -514,10 +652,14 @@ class BinanceRESTClient:
         is_algo: bool = False,
     ) -> bool:
         """Tek bir emri Binance REST API ile iptal et (DELETE)."""
+
+        def _check_unknown(err: str) -> bool:
+            return "Unknown order" in err or "-2011" in err
+
         if is_algo:
-            try:
-                params = f"symbol={symbol}&algoId={order_id}"
-                await self.delete("/fapi/v1/algoOrder", params)
+            params = f"symbol={symbol}&algoId={order_id}"
+            r = await self.delete("/fapi/v1/algoOrder", params)
+            if r.is_ok:
                 log.info(
                     "🧹 İPTAL (algo) | %s algoId=%s reason=%s",
                     symbol.ljust(12),
@@ -525,26 +667,24 @@ class BinanceRESTClient:
                     reason,
                 )
                 return True
-            except Exception as e:
-                err = str(e)
-                if "Unknown order" in err or "-2011" in err:
-                    log.info(
-                        "🧹 İPTAL (algo) | %s algoId=%s zaten yok (ok)",
-                        symbol.ljust(12),
-                        order_id,
-                    )
-                    return True
-                log.warning(
-                    "🧹 İPTAL hatası (algo) %s algoId=%s: %s",
+            if _check_unknown(r.error):
+                log.info(
+                    "🧹 İPTAL (algo) | %s algoId=%s zaten yok (ok)",
                     symbol.ljust(12),
                     order_id,
-                    e,
                 )
-                return False
+                return True
+            log.warning(
+                "🧹 İPTAL hatası (algo) %s algoId=%s: %s",
+                symbol.ljust(12),
+                order_id,
+                r.error,
+            )
+            return False
         else:
-            try:
-                params = f"symbol={symbol}&orderId={order_id}"
-                await self.delete("/fapi/v1/order", params)
+            params = f"symbol={symbol}&orderId={order_id}"
+            r = await self.delete("/fapi/v1/order", params)
+            if r.is_ok:
                 log.info(
                     "🧹 İPTAL | %s orderId=%s reason=%s",
                     symbol.ljust(12),
@@ -552,71 +692,82 @@ class BinanceRESTClient:
                     reason,
                 )
                 return True
-            except Exception as e:
-                err = str(e)
-                if "Unknown order" in err or "-2011" in err:
-                    log.info(
-                        "🧹 İPTAL | %s orderId=%s zaten yok (ok)",
-                        symbol.ljust(12),
-                        order_id,
-                    )
-                    return True
-                # Algo endpoint'ini dene
-                try:
-                    params = f"symbol={symbol}&algoId={order_id}"
-                    await self.delete("/fapi/v1/algoOrder", params)
-                    log.info(
-                        "🧹 İPTAL (algo fallback) | %s algoId=%s reason=%s",
-                        symbol.ljust(12),
-                        order_id,
-                        reason,
-                    )
-                    return True
-                except Exception as e2:
-                    log.warning(
-                        "🧹 İPTAL hatası %s orderId=%s (normal+algo): %s / %s",
-                        symbol.ljust(12).ljust(12),
-                        order_id,
-                        e,
-                        e2,
-                    )
+            err = r.error
+            if _check_unknown(err):
+                log.info(
+                    "🧹 İPTAL | %s orderId=%s zaten yok (ok)",
+                    symbol.ljust(12),
+                    order_id,
+                )
+                return True
+            # Algo endpoint'ini dene
+            params2 = f"symbol={symbol}&algoId={order_id}"
+            r2 = await self.delete("/fapi/v1/algoOrder", params2)
+            if r2.is_ok:
+                log.info(
+                    "🧹 İPTAL (algo fallback) | %s algoId=%s reason=%s",
+                    symbol.ljust(12),
+                    order_id,
+                    reason,
+                )
+                return True
+            log.warning(
+                "🧹 İPTAL hatası %s orderId=%s (normal+algo): %s / %s",
+                symbol.ljust(12),
+                order_id,
+                err,
+                r2.error,
+            )
             return False
 
-    # ─────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────
     # Listen Key (User Data Stream) — imzasız, sadece API Key header
-    # ─────────────────────────────────────────────────────────────────
+    # P9.2: aiohttp native async — artık blocking değil
+    # ─────────────────────────────────────────────────────────────
 
-    def _unsigned_post(self, endpoint: str, data: bytes | None = None) -> dict:
-        url = f"{self._base_url}{endpoint}"
-        req = urllib.request.Request(
-            url, data=data, headers={"X-MBX-APIKEY": self._api_key}, method="POST"
-        )
-        raw = urllib.request.urlopen(req).read().decode()
-        return json.loads(raw)
+    async def _unsigned_post(self, endpoint: str) -> Result[dict]:
+        """İmzasız POST isteği (listen key oluşturma için)."""
+        try:
+            session = await self._ensure_session()
+            url = f"{self._base_url}{endpoint}"
+            headers = self._build_headers()
+            async with session.post(url, headers=headers) as resp:
+                text = await resp.text()
+                if resp.status == 200:
+                    return Result.ok(json.loads(text))
+                return Result.fail(f"HTTP {resp.status}: {text[:200]}")
+        except Exception as e:
+            return Result.fail(str(e))
 
-    def _unsigned_put(self, endpoint: str) -> dict:
-        url = f"{self._base_url}{endpoint}"
-        req = urllib.request.Request(
-            url, headers={"X-MBX-APIKEY": self._api_key}, method="PUT"
-        )
-        raw = urllib.request.urlopen(req).read().decode()
-        return json.loads(raw)
+    async def _unsigned_put(self, endpoint: str) -> Result[dict]:
+        """İmzasız PUT isteği (listen key yenileme için)."""
+        try:
+            session = await self._ensure_session()
+            url = f"{self._base_url}{endpoint}"
+            headers = self._build_headers()
+            async with session.put(url, headers=headers) as resp:
+                text = await resp.text()
+                if resp.status == 200:
+                    return Result.ok(json.loads(text))
+                return Result.fail(f"HTTP {resp.status}: {text[:200]}")
+        except Exception as e:
+            return Result.fail(str(e))
 
     async def get_listen_key(self) -> str:
-        loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(
-            None, lambda: self._unsigned_post("/fapi/v1/listenKey")
-        )
-        key = result.get("listenKey", "")
+        """Yeni bir listen key oluştur (native async)."""
+        r = await self._unsigned_post("/fapi/v1/listenKey")
+        if r.is_err:
+            raise Exception(f"Listen key alınamadı: {r.error}")
+        key = r.value.get("listenKey", "")
         if not key:
-            raise Exception("Listen key alinamadi")
+            raise Exception("Listen key alınamadı: boş yanıt")
         log.info("[LISTEN_KEY] Yeni listen key olusturuldu")
         return key
 
-    def renew_listen_key(self, listen_key: str) -> None:
-        try:
-            self._unsigned_put(f"/fapi/v1/listenKey?listenKey={listen_key}")
+    async def renew_listen_key(self, listen_key: str) -> None:
+        """30 dakikada bir listen key'i yenile (native async)."""
+        r = await self._unsigned_put(f"/fapi/v1/listenKey?listenKey={listen_key}")
+        if r.is_ok:
             log.debug("[LISTEN_KEY] Key yenilendi")
-        except urllib.error.HTTPError as e:
-            body = e.read().decode() if hasattr(e, "read") else ""
-            log.warning("[LISTEN_KEY] Yenileme hatasi HTTP %s: %s", e.code, body[:100])
+        else:
+            log.warning("[LISTEN_KEY] Yenileme hatasi: %s", r.error)

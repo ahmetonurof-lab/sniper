@@ -1,0 +1,526 @@
+"""
+test_entry_manager.py — EntryManager: risk validation, position sizing,
+SL/TP calc, live order execution, LHR entry.
+"""
+
+import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from models import Bar
+from trading.entry_manager import (
+    EntryExecutionResult,
+    EntryManager,
+)
+
+
+# ── Helpers ───────────────────────────────────────────────────────
+
+
+def _bar(index, open_, high, low, close, is_closed=True, timestamp=0):
+    return Bar(
+        index=index,
+        open=open_,
+        high=high,
+        low=low,
+        close=close,
+        is_closed=is_closed,
+        timestamp=timestamp or (index * 900000),
+    )
+
+
+def _mock_fvg(top=105.0, bottom=103.0, direction="bullish"):
+    """Create a duck-typed FVG object for calculate_sl_tp."""
+    fvg = MagicMock()
+    fvg.top = top
+    fvg.bottom = bottom
+    fvg.direction = direction
+    return fvg
+
+
+def _mock_ss():
+    """Create a minimal SessionState mock."""
+    ss = MagicMock()
+    ss.trades_today = 0
+    ss.retrade_armed = False
+    return ss
+
+
+# ═══════════════════════════════════════════════════════════════════
+# EntryExecutionResult tests
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestEntryExecutionResult:
+    def test_defaults(self):
+        r = EntryExecutionResult(success=False)
+        assert r.success is False
+        assert r.qty == 0.0
+        assert r.sl_order_id == ""
+        assert r.tp_order_id == ""
+        assert r.error == ""
+
+    def test_success_with_ids(self):
+        r = EntryExecutionResult(
+            success=True, qty=0.5, sl_order_id="sl_123", tp_order_id="tp_456"
+        )
+        assert r.success is True
+        assert r.qty == 0.5
+        assert r.sl_order_id == "sl_123"
+        assert r.tp_order_id == "tp_456"
+
+    def test_failure_with_error(self):
+        r = EntryExecutionResult(success=False, error="MARKET BASARISIZ")
+        assert r.success is False
+        assert r.error == "MARKET BASARISIZ"
+
+
+# ═══════════════════════════════════════════════════════════════════
+# validate_risk tests
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestValidateRisk:
+    @patch("trading.entry_manager.cfg")
+    def test_passes_when_risk_dist_above_min(self, mock_cfg):
+        mock_cfg.MIN_RISK_DIST_ATR_MULT = 0.1
+        valid, msg = EntryManager.validate_risk(risk_dist=5.0, atr_val=10.0)
+        # min = 10.0 * 0.1 = 1.0, risk_dist=5.0 >= 1.0 → passes
+        assert valid is True
+        assert msg == ""
+
+    @patch("trading.entry_manager.cfg")
+    def test_fails_when_risk_dist_below_min(self, mock_cfg):
+        mock_cfg.MIN_RISK_DIST_ATR_MULT = 0.1
+        valid, msg = EntryManager.validate_risk(risk_dist=0.5, atr_val=10.0)
+        # min = 1.0, risk_dist=0.5 < 1.0 → fails
+        assert valid is False
+        assert "risk_dist" in msg
+        assert "min=" in msg
+
+    @patch("trading.entry_manager.cfg")
+    def test_exact_boundary_passes(self, mock_cfg):
+        mock_cfg.MIN_RISK_DIST_ATR_MULT = 0.1
+        valid, _ = EntryManager.validate_risk(risk_dist=1.0, atr_val=10.0)
+        assert valid is True
+
+    @patch("trading.entry_manager.cfg")
+    def test_zero_atr_handled(self, mock_cfg):
+        mock_cfg.MIN_RISK_DIST_ATR_MULT = 0.1
+        # min = 0.0 * 0.1 = 0.0, risk_dist=1.0 >= 0.0 → passes
+        valid, _ = EntryManager.validate_risk(risk_dist=1.0, atr_val=0.0)
+        assert valid is True
+
+    @patch("trading.entry_manager.cfg")
+    def test_zero_risk_dist_fails(self, mock_cfg):
+        mock_cfg.MIN_RISK_DIST_ATR_MULT = 0.1
+        valid, _ = EntryManager.validate_risk(risk_dist=0.0, atr_val=10.0)
+        assert valid is False
+
+
+# ═══════════════════════════════════════════════════════════════════
+# calculate_qty tests
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestCalculateQty:
+    def test_normal_calculation(self):
+        # balance=1000, risk_pct=0.01 (1%), risk_dist=5, leverage=10
+        # qty = (1000 * 0.01) / 5 / 10 = 10 / 5 / 10 = 0.2
+        qty = EntryManager.calculate_qty(
+            balance=1000.0, risk_pct=0.01, risk_dist=5.0, leverage=10
+        )
+        assert qty == pytest.approx(0.2)
+
+    def test_zero_balance(self):
+        qty = EntryManager.calculate_qty(
+            balance=0.0, risk_pct=0.01, risk_dist=5.0, leverage=10
+        )
+        assert qty == 0.0
+
+    def test_zero_risk_dist_returns_zero(self):
+        qty = EntryManager.calculate_qty(
+            balance=1000.0, risk_pct=0.01, risk_dist=0.0, leverage=10
+        )
+        assert qty == 0.0
+
+    def test_negative_risk_dist_returns_zero(self):
+        qty = EntryManager.calculate_qty(
+            balance=1000.0, risk_pct=0.01, risk_dist=-5.0, leverage=10
+        )
+        assert qty == 0.0
+
+    def test_high_leverage_increases_qty(self):
+        qty_10x = EntryManager.calculate_qty(1000.0, 0.01, 5.0, 10)
+        qty_20x = EntryManager.calculate_qty(1000.0, 0.01, 5.0, 20)
+        assert qty_20x == pytest.approx(qty_10x / 2)
+
+    def test_large_risk_pct_increases_qty(self):
+        qty_1pct = EntryManager.calculate_qty(1000.0, 0.01, 5.0, 10)
+        qty_2pct = EntryManager.calculate_qty(1000.0, 0.02, 5.0, 10)
+        assert qty_2pct == pytest.approx(qty_1pct * 2)
+
+    def test_wide_risk_dist_decreases_qty(self):
+        qty_narrow = EntryManager.calculate_qty(1000.0, 0.01, 5.0, 10)
+        qty_wide = EntryManager.calculate_qty(1000.0, 0.01, 10.0, 10)
+        assert qty_wide == pytest.approx(qty_narrow / 2)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# calculate_sl_tp tests
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestCalculateSlTp:
+    # ── Long with FVG ──
+
+    def test_long_with_fvg_uses_fvg_bottom(self):
+        fvg = _mock_fvg(top=105.0, bottom=103.0, direction="bullish")
+        sl, tp = EntryManager.calculate_sl_tp(
+            side="long",
+            entry_price=108.0,
+            risk_pts=3.0,
+            fvg_buf=0.3,
+            tp_rr=2.0,
+            trigger_fvg=fvg,
+            london_high=115.0,
+            london_low=100.0,
+        )
+        # sl = fvg.bottom - (risk_pts * fvg_buf) = 103.0 - (3.0 * 0.3) = 103.0 - 0.9 = 102.1
+        assert sl == pytest.approx(102.1)
+        # tp = london_high (115 > 108.0) = 115.0
+        assert tp == pytest.approx(115.0)
+
+    def test_long_without_fvg_uses_risk_fallback(self):
+        sl, tp = EntryManager.calculate_sl_tp(
+            side="long",
+            entry_price=108.0,
+            risk_pts=3.0,
+            fvg_buf=0.3,
+            tp_rr=2.0,
+            trigger_fvg=None,
+            london_high=115.0,
+            london_low=100.0,
+        )
+        # sl = entry_price - risk_pts * 2 = 108.0 - 6.0 = 102.0
+        assert sl == pytest.approx(102.0)
+        # tp = london_high (115 > 108) = 115.0
+        assert tp == pytest.approx(115.0)
+
+    def test_long_tp_fallback_when_london_high_below_entry(self):
+        sl, tp = EntryManager.calculate_sl_tp(
+            side="long",
+            entry_price=108.0,
+            risk_pts=3.0,
+            fvg_buf=0.3,
+            tp_rr=2.0,
+            trigger_fvg=None,
+            london_high=105.0,
+            london_low=100.0,
+        )
+        # london_high=105 < 108 → tp fallback = entry_price + risk_pts * tp_rr = 108 + 6 = 114.0
+        assert tp == pytest.approx(114.0)
+
+    # ── Short with FVG ──
+
+    def test_short_with_fvg_uses_fvg_top(self):
+        fvg = _mock_fvg(top=100.0, bottom=98.0, direction="bearish")
+        sl, tp = EntryManager.calculate_sl_tp(
+            side="short",
+            entry_price=95.0,
+            risk_pts=3.0,
+            fvg_buf=0.3,
+            tp_rr=2.0,
+            trigger_fvg=fvg,
+            london_high=110.0,
+            london_low=90.0,
+        )
+        # sl = fvg.top + (risk_pts * fvg_buf) = 100.0 + 0.9 = 100.9
+        assert sl == pytest.approx(100.9)
+        # tp = london_low (90 < 95) = 90.0
+        assert tp == pytest.approx(90.0)
+
+    def test_short_without_fvg_uses_risk_fallback(self):
+        sl, tp = EntryManager.calculate_sl_tp(
+            side="short",
+            entry_price=95.0,
+            risk_pts=3.0,
+            fvg_buf=0.3,
+            tp_rr=2.0,
+            trigger_fvg=None,
+            london_high=110.0,
+            london_low=90.0,
+        )
+        # sl = entry_price + risk_pts * 2 = 95.0 + 6.0 = 101.0
+        assert sl == pytest.approx(101.0)
+        # tp = london_low (90 < 95) = 90.0
+        assert tp == pytest.approx(90.0)
+
+    def test_short_tp_fallback_when_london_low_above_entry(self):
+        sl, tp = EntryManager.calculate_sl_tp(
+            side="short",
+            entry_price=95.0,
+            risk_pts=3.0,
+            fvg_buf=0.3,
+            tp_rr=2.0,
+            trigger_fvg=None,
+            london_high=110.0,
+            london_low=98.0,
+        )
+        # london_low=98 > 95 → tp fallback = entry_price - risk_pts * tp_rr = 95 - 6 = 89.0
+        assert tp == pytest.approx(89.0)
+
+    # ── Zero/edge values ──
+
+    def test_long_zero_risk_pts(self):
+        sl, tp = EntryManager.calculate_sl_tp(
+            side="long",
+            entry_price=100.0,
+            risk_pts=0.0,
+            fvg_buf=0.3,
+            tp_rr=2.0,
+            trigger_fvg=None,
+            london_high=110.0,
+            london_low=95.0,
+        )
+        # sl = 100.0 - 0.0 = 100.0
+        assert sl == pytest.approx(100.0)
+
+    def test_long_zero_london_high(self):
+        """London high=0 means use fallback TP."""
+        sl, tp = EntryManager.calculate_sl_tp(
+            side="long",
+            entry_price=100.0,
+            risk_pts=3.0,
+            fvg_buf=0.3,
+            tp_rr=2.0,
+            trigger_fvg=None,
+            london_high=0.0,
+            london_low=95.0,
+        )
+        # london_high=0 < entry_price=100 → tp = 100 + 6 = 106.0
+        assert tp == pytest.approx(106.0)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# execute_live_entry tests
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestExecuteLiveEntry:
+    @pytest.mark.asyncio
+    async def test_not_live_returns_success_with_qty(self):
+        mgr = EntryManager(rest_client=None, is_live=False)
+        result = await mgr.execute_live_entry("BTCUSDT", "long", 0.5, 100.0, 110.0)
+        assert result.success is True
+        assert result.qty == 0.5
+
+    @pytest.mark.asyncio
+    async def test_live_success_path(self):
+        mock_rest = MagicMock()
+        mock_rest.apply_amount_precision = AsyncMock(return_value=0.5)
+        mock_rest.validate_min_amount = AsyncMock(return_value=0.5)
+        mock_rest.place_market_order = AsyncMock(return_value={"orderId": 12345})
+        mock_rest.apply_price_precision = AsyncMock(side_effect=[99.9, 110.1])
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_001"})
+        mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_001"})
+
+        mgr = EntryManager(rest_client=mock_rest, is_live=True)
+        result = await mgr.execute_live_entry("BTCUSDT", "long", 0.5, 100.0, 110.0)
+
+        assert result.success is True
+        assert result.sl_order_id == "sl_001"
+        assert result.tp_order_id == "tp_001"
+        assert result.qty == 0.5
+
+    @pytest.mark.asyncio
+    async def test_qty_below_min_rejected(self):
+        mock_rest = MagicMock()
+        mock_rest.apply_amount_precision = AsyncMock(return_value=0.001)
+        mock_rest.validate_min_amount = AsyncMock(return_value=0.0)
+
+        mgr = EntryManager(rest_client=mock_rest, is_live=True)
+        result = await mgr.execute_live_entry("BTCUSDT", "long", 0.001, 100.0, 110.0)
+
+        assert result.success is False
+        assert "minQty" in result.error
+
+    @pytest.mark.asyncio
+    async def test_market_order_failure(self):
+        mock_rest = MagicMock()
+        mock_rest.apply_amount_precision = AsyncMock(return_value=0.5)
+        mock_rest.validate_min_amount = AsyncMock(return_value=0.5)
+        mock_rest.place_market_order = AsyncMock(return_value={"orderId": None})
+
+        mgr = EntryManager(rest_client=mock_rest, is_live=True)
+        result = await mgr.execute_live_entry("BTCUSDT", "long", 0.5, 100.0, 110.0)
+
+        assert result.success is False
+        assert "MARKET BASARISIZ" in result.error
+
+    @pytest.mark.asyncio
+    async def test_sl_order_failure_triggers_emergency_close(self):
+        mock_rest = MagicMock()
+        mock_rest.apply_amount_precision = AsyncMock(return_value=0.5)
+        mock_rest.validate_min_amount = AsyncMock(return_value=0.5)
+        mock_rest.place_market_order = AsyncMock(return_value={"orderId": 12345})
+        mock_rest.apply_price_precision = AsyncMock(return_value=99.9)
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": None})
+
+        mgr = EntryManager(rest_client=mock_rest, is_live=True)
+        result = await mgr.execute_live_entry("BTCUSDT", "long", 0.5, 100.0, 110.0)
+
+        assert result.success is False
+        assert "SL BASARISIZ" in result.error
+        # Emergency close should have been called (opposite side)
+        # place_market_order called twice: entry + emergency close
+        assert mock_rest.place_market_order.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_tp_failure_still_returns_success(self):
+        """TP failure is non-fatal — execution still succeeds."""
+        mock_rest = MagicMock()
+        mock_rest.apply_amount_precision = AsyncMock(return_value=0.5)
+        mock_rest.validate_min_amount = AsyncMock(return_value=0.5)
+        mock_rest.place_market_order = AsyncMock(return_value={"orderId": 12345})
+        mock_rest.apply_price_precision = AsyncMock(side_effect=[99.9, 110.1])
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_001"})
+        mock_rest.place_tp_order = AsyncMock(return_value={})  # No algoId
+
+        mgr = EntryManager(rest_client=mock_rest, is_live=True)
+        result = await mgr.execute_live_entry("BTCUSDT", "long", 0.5, 100.0, 110.0)
+
+        assert result.success is True
+        assert result.sl_order_id == "sl_001"
+        assert result.tp_order_id == ""  # TP failed, but still success
+
+
+# ═══════════════════════════════════════════════════════════════════
+# execute_lhr_entry tests
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestExecuteLhrEntry:
+    @patch("trading.entry_manager.cfg")
+    @patch("state_manager.clear_retrade_arm")
+    def test_lhr_entry_success_long(self, mock_clear_arm, mock_cfg):
+        mock_cfg.MIN_RISK_DIST_ATR_MULT = 0.1
+        ss = _mock_ss()
+        active_trades = {}
+        pl_calls = []
+
+        current = _bar(20, 108, 110, 106, 109)  # close=109
+
+        result = EntryManager.execute_lhr_entry(
+            sym="BTCUSDT",
+            side="long",
+            current=current,
+            atr_val=3.0,
+            sl=105.0,
+            tp=115.0,
+            ss=ss,
+            balance=1000.0,
+            risk_pct=0.01,
+            leverage=10,
+            zone_bottom=107.0,
+            zone_top=111.0,
+            active_trades=active_trades,
+            pl_callback=lambda s, k, m: pl_calls.append((s, k, m)),
+        )
+
+        assert result is True
+        assert "BTCUSDT" in active_trades
+        trade = active_trades["BTCUSDT"]
+        assert trade.side == "long"
+        assert trade.entry_price == 109.0
+        assert trade.sl == 105.0
+        assert trade.tp == 115.0
+        assert trade.is_retrade is True
+        assert trade.hybrid_mode == "lhr"
+        assert ss.trades_today == 1
+        assert ss.retrade_armed is False
+        assert len(pl_calls) == 1
+        mock_clear_arm.assert_called_once_with("BTCUSDT")
+
+    @patch("trading.entry_manager.cfg")
+    def test_lhr_entry_short(self, mock_cfg):
+        mock_cfg.MIN_RISK_DIST_ATR_MULT = 0.1
+        ss = _mock_ss()
+        active_trades = {}
+
+        current = _bar(20, 95, 97, 93, 94)  # close=94
+
+        result = EntryManager.execute_lhr_entry(
+            sym="ETHUSDT",
+            side="short",
+            current=current,
+            atr_val=3.0,
+            sl=98.0,
+            tp=88.0,
+            ss=ss,
+            balance=2000.0,
+            risk_pct=0.02,
+            leverage=20,
+            zone_bottom=92.0,
+            zone_top=98.0,
+            active_trades=active_trades,
+            pl_callback=lambda s, k, m: None,
+        )
+
+        assert result is True
+        assert active_trades["ETHUSDT"].side == "short"
+        assert active_trades["ETHUSDT"].entry_price == 94.0
+
+    @patch("trading.entry_manager.cfg")
+    def test_lhr_entry_fails_risk_validation(self, mock_cfg):
+        """Risk too small → returns False."""
+        mock_cfg.MIN_RISK_DIST_ATR_MULT = 10.0  # Very high threshold
+        ss = _mock_ss()
+        active_trades = {}
+
+        current = _bar(20, 108, 110, 106, 109)
+
+        result = EntryManager.execute_lhr_entry(
+            sym="BTCUSDT",
+            side="long",
+            current=current,
+            atr_val=100.0,
+            sl=105.0,
+            tp=115.0,
+            ss=ss,
+            balance=1000.0,
+            risk_pct=0.01,
+            leverage=10,
+            zone_bottom=107.0,
+            zone_top=111.0,
+            active_trades=active_trades,
+            pl_callback=lambda s, k, m: None,
+        )
+        assert result is False
+        assert len(active_trades) == 0
+
+    @patch("trading.entry_manager.cfg")
+    def test_lhr_entry_fails_zero_qty(self, mock_cfg):
+        """Zero balance → qty=0 → returns False."""
+        mock_cfg.MIN_RISK_DIST_ATR_MULT = 0.1
+        ss = _mock_ss()
+        active_trades = {}
+
+        current = _bar(20, 108, 110, 106, 109)
+
+        result = EntryManager.execute_lhr_entry(
+            sym="BTCUSDT",
+            side="long",
+            current=current,
+            atr_val=3.0,
+            sl=105.0,
+            tp=115.0,
+            ss=ss,
+            balance=0.0,
+            risk_pct=0.01,
+            leverage=10,
+            zone_bottom=107.0,
+            zone_top=111.0,
+            active_trades=active_trades,
+            pl_callback=lambda s, k, m: None,
+        )
+        assert result is False

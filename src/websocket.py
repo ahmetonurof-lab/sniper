@@ -346,7 +346,7 @@ class BinanceWSHub:
                 await asyncio.sleep(1800)  # 30 dakika
                 if self._user_data_listen_key:
                     try:
-                        http_client.renew_listen_key(self._user_data_listen_key)
+                        await http_client.renew_listen_key(self._user_data_listen_key)
                         log.info("[USER_DATA] Listen key yenilendi")
                     except Exception as e:
                         log.warning("[USER_DATA] Listen key yenileme hatası: %s", e)
@@ -384,7 +384,6 @@ class BinanceWSHub:
 
     def prefill_bars(self, symbol: str, timeframe: str, bars: list[Bar]) -> None:
         """REST'ten cekilen gecmis barlari buffer'a yukler. WS acilmadan once cagir."""
-        key = (symbol.upper(), timeframe)
         buf = self._get_buffer(symbol, timeframe)
         buf._bars = list(bars)
         if buf._bars:

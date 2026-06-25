@@ -1,5 +1,5 @@
 import pytest
-from src.models import (
+from models import (
     Bar,
     FVG,
     CHoCH,

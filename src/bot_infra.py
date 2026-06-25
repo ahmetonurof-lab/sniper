@@ -13,10 +13,11 @@ import math
 import os
 import threading
 import time
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, TypedDict
 
-from models import Bar
+from models import Bar, Result
 
 log = logging.getLogger("sniper.live")
 
@@ -66,6 +67,11 @@ def _round_price(price: float, tick: float) -> float:
         return price
     decimals = max(0, -int(math.floor(math.log10(tick))))
     return round(round(price / tick) * tick, decimals)
+
+
+def extract_order_id(resp: dict) -> str:
+    """Binance response'dan order ID çıkar (algoId > orderId > id)."""
+    return resp.get("algoId") or resp.get("orderId") or resp.get("id") or ""
 
 
 def fmt_bool(val: bool) -> str:
@@ -135,6 +141,99 @@ class _RateLimiter:
             if wait > 0:
                 await asyncio.sleep(wait)
             self._last = time.time()
+
+
+# ─────────────────────────────────────────────────────────────────
+# P9.1: RetryConfig + CircuitBreaker
+# ─────────────────────────────────────────────────────────────────
+
+
+@dataclass
+class RetryConfig:
+    """Yapılandırılabilir retry politikası.
+
+    Varsayılanlar Binance API için optimize edilmiştir:
+    - 3 deneme, exponential backoff (1s → 2s → 4s)
+    - ±%25 jitter (thundering herd önleme)
+    - 429/5xx hatalarında retry
+    """
+
+    max_retries: int = 3
+    base_delay: float = 1.0  # ilk bekleme (saniye)
+    max_delay: float = 30.0  # maksimum bekleme
+    backoff_multiplier: float = 2.0  # exponential factor
+    jitter: bool = True  # random jitter (±%25)
+    retry_on_http: tuple[int, ...] = (429, 500, 502, 503, 504)
+
+
+class CircuitBreaker:
+    """Arka arkaya hatalarda devreyi kesen koruma katmanı.
+
+    N başarısız istekten sonra M saniye boyunca tüm istekleri
+    anında reddeder. Bu sayede peş peşe hatalarda API'ye gereksiz
+    yük binmesini engeller.
+
+    Tek bir kullanıcı isteğinin retry'leri tek failure sayılır
+    (retry zinciri circuit breaker sayacını etkilemez).
+    """
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        recovery_timeout: float = 60.0,
+    ) -> None:
+        self._failure_threshold = failure_threshold
+        self._recovery_timeout = recovery_timeout
+        self._failure_count: int = 0
+        self._last_failure_time: float = 0.0
+        self._open_time: float = 0.0
+        self._lock = asyncio.Lock()
+
+    @property
+    def is_open(self) -> bool:
+        """Devre açık mı? (istekler reddediliyor)"""
+        if self._failure_count < self._failure_threshold:
+            return False
+        elapsed = time.time() - self._open_time
+        if elapsed >= self._recovery_timeout:
+            # Recovery süresi doldu → half-open
+            return False
+        return True
+
+    async def record_success(self) -> None:
+        """Başarılı istek — sayacı sıfırla."""
+        async with self._lock:
+            self._failure_count = 0
+
+    async def record_failure(self) -> None:
+        """Başarısız istek — sayacı artır, eşik aşılırsa devreyi aç."""
+        async with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+            if self._failure_count >= self._failure_threshold:
+                self._open_time = time.time()
+                log.warning(
+                    "[CIRCUIT] Devre açıldı! %d başarısız istek, "
+                    "%.0f saniye boyunca istekler reddedilecek.",
+                    self._failure_count,
+                    self._recovery_timeout,
+                )
+
+    async def call(self, fn, *args, **kwargs) -> Any:
+        """Circuit breaker kontrollü çağrı.
+
+        Devre açıksa anında Result.fail döner, kapalıysa fn'i çağırır.
+        """
+        if self.is_open:
+            remaining = self._recovery_timeout - (time.time() - self._open_time)
+            return Result.fail(f"Circuit breaker open — {remaining:.0f}s remaining")
+        try:
+            result = await fn(*args, **kwargs)
+            await self.record_success()
+            return result
+        except Exception:
+            await self.record_failure()
+            raise
 
 
 rate_limiter = _RateLimiter(max_per_minute=1200)

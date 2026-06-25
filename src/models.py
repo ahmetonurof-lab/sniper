@@ -8,9 +8,76 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Final, Literal
+from typing import Final, Generic, Literal, TypeVar
 
 logger = logging.getLogger("sniper.models")
+
+# ── Generic Result type (P8.1) ───────────────────────────────────
+
+T = TypeVar("T")
+
+
+@dataclass(frozen=True)
+class Result(Generic[T]):
+    """Rust tarzi Result[T]: her operasyon ya basarili ya da hatasiyla doner.
+
+    Kullanim:
+        def islem() -> Result[int]:
+            try:
+                return Result.ok(42)
+            except Exception as e:
+                return Result.fail(str(e))
+
+        r = islem()
+        if r.is_ok:
+            print(r.value)
+        else:
+            log.error(r.error)
+    """
+
+    success: bool
+    value: T | None = None
+    error: str = ""
+
+    @staticmethod
+    def ok(value: T) -> "Result[T]":
+        return Result(success=True, value=value)
+
+    @staticmethod
+    def fail(error: str) -> "Result[T]":
+        return Result(success=False, error=error)
+
+    @property
+    def is_ok(self) -> bool:
+        return self.success
+
+    @property
+    def is_err(self) -> bool:
+        return not self.success
+
+
+# ── WS-FALLBACK exception (P8.5) ──────────────────────────────────
+
+
+class WSFallbackError(Exception):
+    """Binance reduceOnly FILLED geldi ama ID eslesmedi.
+
+    Bu exception kritik bir durumu belirtir: Binance pozisyonu kapatti
+    ama bot'un takip ettigi SL/TP ID'leri ile eslesmedi. Trade yine de
+    kapatilir, ama bu exception yukari firlatilarak durumun sessiz
+    kalmamasi saglanir.
+    """
+
+    def __init__(self, symbol: str, oid: str, expected_sl: str, expected_tp: str):
+        self.symbol = symbol
+        self.oid = oid
+        self.expected_sl = expected_sl
+        self.expected_tp = expected_tp
+        super().__init__(
+            f"[WS-FALLBACK] {symbol} reduceOnly FILLED geldi ama ID eslesmedi "
+            f"(oid={oid}, beklenen_sl={expected_sl}, beklenen_tp={expected_tp})"
+        )
+
 
 _TF_PARAMS: Final[dict[str, tuple[int, int, int]]] = {
     "1m": (8, 5, 1),
@@ -238,3 +305,115 @@ class AnalysisResult:
             f"{self.symbol} | {self.direction} | {choch_str} | {fvg_str} | "
             f"{score_str} | adx={self.adx_value:.1f} | armed={self.armed}"
         )
+
+
+# ── ActiveTrade dataclass (Faz 1.1) ──────────────────────────────
+
+
+@dataclass
+class ActiveTrade:
+    """Canlı trade durumu. Hem attribute hem dict erişimini destekler.
+
+    Geriye dönük uyumlu: trade["side"] ve trade.side aynı değeri verir.
+    """
+
+    symbol: str = ""
+    side: Literal["long", "short"] = "long"
+    entry_price: float = 0.0
+    entry_bar_index: int = 0
+    sl: float = 0.0
+    tp: float = 0.0
+    qty: float = 0.0
+    initial_sl: float = 0.0
+    initial_tp: float = 0.0
+    risk_pts: float = 0.0
+    trailing_count: int = 0
+    is_retrade: bool = False
+    is_recovered: bool = False
+    hybrid_mode: str | None = None
+    sl_order_id: str = ""
+    tp_order_id: str = ""
+    # Runtime-only (exit sırasında doldurulur):
+    exit_price: float | None = None
+    exit_bar: int | None = None
+    exit_timestamp: int = 0
+    result: str | None = None
+    trigger_fvg: object | None = None  # HTFFVG
+    # PENDING kilidi için:
+    status: str = ""
+
+    # ── Dict uyumluluğu ───────────────────────────────────────
+
+    def __getitem__(self, key: str):
+        try:
+            return getattr(self, key)
+        except AttributeError:
+            raise KeyError(key)
+
+    def __setitem__(self, key: str, value) -> None:
+        setattr(self, key, value)
+
+    def get(self, key: str, default=None):
+        return getattr(self, key, default)
+
+    def __contains__(self, key: str) -> bool:
+        return hasattr(self, key)
+
+    def keys(self):
+        return self.__dataclass_fields__.keys()
+
+    def __iter__(self):
+        return iter(self.__dataclass_fields__)
+
+
+# ── PendingLock context manager (P8.4) ────────────────────────────
+
+
+class PendingLock:
+    """PENDING kilidi için context manager.
+
+    _try_entry() akışında API çağrısı öncesi PENDING statüsünde
+    placeholder trade oluşturur. Erken dönüş (hata, skip) durumunda
+    __exit__ garantisi ile temizler. Başarılı akışta commit() çağrısı
+    yapılır ve PENDING korunur — sonra gerçek trade ile ezilir.
+
+    Kullanim:
+        with PendingLock(self.active_trades, sym, logger=log) as lock:
+            ... API cagrisi ...
+            if hata:
+                return  # PENDING otomatik temizlenir
+            lock.commit()  # basarili — PENDING korunur
+
+        # context manager disinda:
+        self.active_trades[sym] = ActiveTrade(...)  # PENDING ezilir
+    """
+
+    def __init__(self, active_trades: dict, sym: str, logger=None):
+        self._active_trades = active_trades
+        self._sym = sym
+        self._log = logger
+        self._committed = False
+
+    def __enter__(self):
+        self._active_trades[self._sym] = ActiveTrade(status="PENDING")
+        self._committed = False
+        return self
+
+    def commit(self):
+        """Context manager'a basarili tamamlandigini bildir.
+
+        Cagrildiginda __exit__ PENDING state'i silmez.
+        """
+        self._committed = True
+
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
+        if self._committed:
+            return False  # normal cikis, PENDING korunur
+        trade = self._active_trades.get(self._sym)
+        if trade is not None and getattr(trade, "status", "") == "PENDING":
+            del self._active_trades[self._sym]
+            if self._log:
+                self._log.debug(
+                    "[CLEANUP] %s PENDING state temizlendi (context manager)", self._sym
+                )
+        return False  # istisnalari bastirma

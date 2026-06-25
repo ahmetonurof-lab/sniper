@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from src.session import (
+from session import (
     SessionState,
     SessionPhase,
     DailyBias,

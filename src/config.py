@@ -73,6 +73,21 @@ SL_ATR_MULT = 1.5
 TP_RR = 2.0
 FVG_BUFFER_MULT = 0.25
 
+# ── Magic Numbers (Faz 1.2) ────────────────────────────────────
+LHR_RETEST_PCT = 0.003  # LHR zone genişliği (eskiden LONDON_RETEST_PCT)
+RETRADE_SWEEP_WINDOW = 500  # Retrade sweep arama penceresi (eskiden WINDOW_15M)
+RETRADE_FVG_SIZE_MULT = 0.3  # Retrade min_fvg çarpanı
+CBDR_DEAD_THRESHOLD_PCT = 0.5  # CBDR dead eşiği (% olarak)
+ASIA_DEAD_THRESHOLD_PCT = 0.3  # Asya range dead eşiği (% olarak)
+TRAIL_MIN_MOVE_MULT = 0.2  # Min trailing hareket çarpanı
+RETRADE_FVG_MAX_ATTEMPTS = 3  # Retrade FVG max deneme sayısı
+MIN_RISK_DIST_ATR_MULT = 0.1  # Min risk mesafesi ATR çarpanı
+DEFAULT_ATR_FALLBACK_PCT = 0.0001  # Varsayılan ATR fallback (%)
+LHR_RISK_ATR_MULT = 1.0  # LHR risk ATR çarpanı
+CBDR_SWEEP_ATR_TOLERANCE_MULT = 0.5  # CBDR sweep toleransı ATR çarpanı
+CBDR_SWEEP_DEFAULT_TOLERANCE = 10.0  # CBDR sweep varsayılan tolerans (ATR=0 ise)
+FVG_BUFFER_MIN_FACTOR = 0.10  # FVG buffer minimum çarpanı (fvg.size * factor)
+
 # ── Binance API ────────────────────────────────────────────────
 BINANCE_API_KEY = os.getenv("TESTNET_API_KEY") or os.getenv("BINANCE_API_KEY")
 BINANCE_API_SECRET = os.getenv("TESTNET_API_SECRET") or os.getenv("BINANCE_API_SECRET")
