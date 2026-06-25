@@ -366,14 +366,16 @@ class PaperTrader:
         scan_bar = current.index
         sweep_bar_idx = None
         sweep_found = False
-        lookback = min(5, scan_bar)
         for check_idx in range(max(0, scan_bar - 4), scan_bar + 1):
             if check_idx < 0 or check_idx >= len(bars_15m):
                 continue
             cb = bars_15m[check_idx]
-            if check_idx - lookback < 0:
+            start_idx = max(0, check_idx - 5)
+            if start_idx >= check_idx:
                 continue
-            recent_bars = bars_15m[check_idx - lookback : check_idx]
+            recent_bars = bars_15m[start_idx:check_idx]
+            if not recent_bars:
+                continue
 
             if ss.retrade_side == "short":
                 recent_high = max(b.high for b in recent_bars)
@@ -601,6 +603,8 @@ class PaperTrader:
             rsm.reset()
             return
 
+        self.active_trades[sym] = {"status": "PENDING"}
+
         side = "long" if sweep_dir == "bullish" else "short"
         entry_price = current.close
         risk_pts = atr_val * sl_atr
@@ -690,9 +694,15 @@ class PaperTrader:
                     rounded_sl = await self.rest.apply_price_precision(sym, sl)
                     rounded_tp = await self.rest.apply_price_precision(sym, tp)
 
-                    mkt_resp = await self.rest.place_market_order(
-                        sym, mkt_side, valid_qty
-                    )
+                    try:
+                        mkt_resp = await self.rest.place_market_order(
+                            sym, mkt_side, valid_qty
+                        )
+                    except Exception as e:
+                        log.error("[ENTRY] %s market order hatası: %s", sym, e)
+                        del self.active_trades[sym]
+                        rsm.reset()
+                        return
                     mkt_id = mkt_resp.get("orderId") or mkt_resp.get("id") or ""
                     if mkt_id:
                         self._pl(
@@ -736,6 +746,7 @@ class PaperTrader:
                                     sym,
                                     e,
                                 )
+                            del self.active_trades[sym]
                             rsm.reset()
                             return
 
@@ -766,11 +777,14 @@ class PaperTrader:
                             "[ORDER] %s MARKET entry BASARISIZ \u2014 trade kaydedilmedi",
                             sym,
                         )
+                        del self.active_trades[sym]
                         rsm.reset()
                         return
             except Exception as e:
                 self._pl(sym, "order_err", f"\u274c ORDER: HATA \u2014 {e}")
                 log.exception("[ORDER] %s beklenmeyen hata", sym)
+                if sym in self.active_trades:
+                    del self.active_trades[sym]
                 rsm.reset()
                 return
 
