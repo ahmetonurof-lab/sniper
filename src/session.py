@@ -71,7 +71,7 @@ class SessionState:
         if 2 <= h < 22 and not self.cbdr_locked and self.cbdr_body_high > 0:
             self.cbdr_locked = True
 
-        if self.cbdr_locked:
+        if h == 8 and self.cbdr_locked and self.range_type == "CBDR":
             cbdr_range_pct = (
                 ((self.cbdr_body_high - self.cbdr_body_low) / self.cbdr_body_low * 100)
                 if self.cbdr_body_low > 0
@@ -94,8 +94,6 @@ class SessionState:
                 else:
                     self.range_type = "DEAD"
                     self.cbdr_locked = False
-            else:
-                self.range_type = "CBDR"
 
         if sess == SessionPhase.LONDON:
             self._track_london(high, low)
