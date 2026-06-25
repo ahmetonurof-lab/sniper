@@ -1266,7 +1266,7 @@ class PaperTrader:
                 if sl_orders and tp_orders:
                     sl_price = self.rest.get_order_price(sl_orders[0])
                     tp_price = self.rest.get_order_price(tp_orders[0])
-                    risk_pts = abs(entry - sl_price) / 2
+                    risk_pts = abs(entry - sl_price)
                     sl_id = (
                         sl_orders[0].get("algoId") or sl_orders[0].get("orderId") or ""
                     )
