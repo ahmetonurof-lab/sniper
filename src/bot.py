@@ -1097,9 +1097,13 @@ class PaperTrader:
             except Exception as e:
                 log.warning("[CLOSE] %s exit temizleme hatasi: %s", sym, e)
 
-        # FIX #2: Retrade arm
+        # FIX #2: Retrade arm (Recovered pozisyonlar icin devre disi)
         ss = self.states[sym]
-        if trade.get("is_retrade", False):
+        if trade.get("is_recovered"):
+            log.info(
+                "[SKIP] %s retrade arm — recovered position, referans bar yok", sym
+            )
+        elif trade.get("is_retrade", False):
             log.info("[SKIP] %s retrade arm — bu trade zaten retrade", sym)
         elif ss.trades_today not in (0, 1):
             log.info(
@@ -1281,6 +1285,7 @@ class PaperTrader:
                         "initial_tp": tp_price,
                         "trailing_count": 0,
                         "risk_pts": risk_pts,
+                        "is_recovered": True,
                         "is_retrade": False,
                         "sl_order_id": sl_id,
                         "tp_order_id": tp_id,
@@ -1358,6 +1363,7 @@ class PaperTrader:
                         "initial_tp": tp,
                         "trailing_count": 0,
                         "risk_pts": risk_pts,
+                        "is_recovered": True,
                         "is_retrade": False,
                         "sl_order_id": sl_id,
                         "tp_order_id": tp_id,
