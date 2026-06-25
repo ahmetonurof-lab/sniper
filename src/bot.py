@@ -218,7 +218,7 @@ class PaperTrader:
             self._pl(
                 sym,
                 "st_swp",
-                f"\U0001f7e9 SWEEP: DETECTED | {si}{sd.upper()} | [{sl:.2f}] | CBDR: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}]",
+                f"\U0001f7e9 SWEEP: DETECTED | {si}{sd.upper()} | [{sl:.2f}] | CBDR: [{ss.cbdr_body_low:.4f}-{ss.cbdr_body_high:.4f}]",
                 force=True,
             )
         else:
@@ -236,10 +236,15 @@ class PaperTrader:
                 )
                 return
             rt = ss.range_type if ss.range_type in ("CBDR", "ASIA") else "CBDR"
+            cbdr_pct = (
+                ((ss.cbdr_body_high - ss.cbdr_body_low) / ss.cbdr_body_low * 100)
+                if ss.cbdr_body_low > 0
+                else 0
+            )
             self._pl(
                 sym,
                 "st_swp",
-                f"\U0001f7e8 SWEEP: BEKLENIYOR{bstr} | {rt}: [{ss.cbdr_body_low:.2f}-{ss.cbdr_body_high:.2f}] | {ts}",
+                f"\U0001f7e8 SWEEP: BEKLENIYOR{bstr} | {rt}: [{ss.cbdr_body_low:.4f}-{ss.cbdr_body_high:.4f}] | (%{cbdr_pct:.2f}) | {ts}",
                 force=True,
             )
             self._log_state.get(sym, {}).pop("st_fvg", None)
