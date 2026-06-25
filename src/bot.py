@@ -14,6 +14,7 @@ import os
 import sys
 import time
 import urllib.request
+from collections import deque
 from datetime import UTC, datetime, timezone, timedelta
 
 import config as cfg
@@ -95,8 +96,9 @@ class PaperTrader:
         self.rsms_retrade: dict[str, RetraceStateMachine] = {}
         self.cfgs: dict[str, dict] = {}
         self.active_trades: dict[str, dict] = {}
-        self.trades: list[dict] = []
+        self.trades: deque[dict] = deque(maxlen=1000)
         self._log_state: dict[str, dict] = {}
+        self._live = False
         self._stage: dict[str, dict] = {}
         self._balance = INITIAL_CAPITAL
 
@@ -500,6 +502,7 @@ class PaperTrader:
 
                 if trade["side"] == "long":
                     new_sl = fvg.bottom - buffer
+                    new_sl = await self.rest.apply_price_precision(sym, new_sl)
                     if new_sl > trade["sl"]:
                         min_move = trade["risk_pts"] * 0.2
                         if (new_sl - trade["sl"]) <= min_move:
@@ -518,6 +521,7 @@ class PaperTrader:
                         trailing_updated = True
                 else:
                     new_sl = fvg.top + buffer
+                    new_sl = await self.rest.apply_price_precision(sym, new_sl)
                     if new_sl < trade["sl"]:
                         min_move = trade["risk_pts"] * 0.2
                         if (trade["sl"] - new_sl) <= min_move:
