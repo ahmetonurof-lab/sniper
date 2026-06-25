@@ -45,6 +45,8 @@ class SessionState:
         self.retrade_side: Literal["long", "short"] | None = None
         self.retrade_sweep_level: float = 0.0
         self.retrade_entry_bar: int = 0
+        self.retrade_fvg_attempts: int = 0
+        self.retrade_mode: str = "fvg"
         # FIX #2: WS confirm bekleyen retrade arm (LIVE mod)
         self.pending_retrade_arm: bool = False
 
@@ -122,6 +124,8 @@ class SessionState:
         self.retrade_side = None
         self.retrade_sweep_level = 0.0
         self.retrade_entry_bar = 0
+        self.retrade_fvg_attempts = 0
+        self.retrade_mode = "fvg"
         # trades_today burada sıfırlanmalı: CBDR döngüsü 22:00'de başlar,
         # gece yarısı değil. last_date/today bloğu 22:00-00:00 arasında
         # eski günün sayısını taşıyarak retrade'i engelliyordu.

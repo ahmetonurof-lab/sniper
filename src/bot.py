@@ -393,6 +393,7 @@ class PaperTrader:
                     break
 
         if not sweep_found:
+            ss.retrade_fvg_attempts += 1
             log.info("[SKIP] %s retrade — sweep bulunamadi (%s)", sym, ss.retrade_side)
             return
 
@@ -428,8 +429,6 @@ class PaperTrader:
                 return
 
             # FIX #6b: Sweep, primary entry barından sonra oluşmuş olmalı.
-            # retrade_entry_bar kaydedildi ama hiç kontrol edilmiyordu;
-            # primary trade'den önceki sweep'e denk düşebiliyordu.
             if sweep_bar_idx <= (ss.retrade_entry_bar or 0):
                 log.info(
                     "[RETRADE] %s sweep (bar=%d) primary entry barından (bar=%d) önce — atlandı",
@@ -453,14 +452,121 @@ class PaperTrader:
                 cfg["MIN_FVG_SIZE"],
                 is_retrade=True,
             )
-            # FIX #6c: rsm_r.reset() eksikti — _try_entry başarısız olsa bile
-            # retrade_armed False yapılıyordu ama rsm_r TRIGGER_READY'de kalıyordu.
-            # _try_entry içinde reset() çağrılıyor ama is_retrade=True durumunda
-            # erken return'lerde çağrılmıyor; güvenlik için burada da sıfırlıyoruz.
             if sym not in self.active_trades:
                 ss.retrade_armed = False
                 clear_retrade_arm(sym)
             rsm_r.reset()
+        else:
+            ss.retrade_fvg_attempts += 1
+
+        # ── LHR fallback (FVG attempts exhausted) ──
+        LONDON_RETEST_PCT = 0.003
+        if ss.retrade_fvg_attempts >= 3 and sym not in self.active_trades:
+            ss.retrade_mode = "lhr"
+            lh = ss.london_high
+            ll = ss.london_low
+            if ss.retrade_side == "short" and lh > 0:
+                zone_bottom = lh * (1 - LONDON_RETEST_PCT)
+                zone_top = lh
+                if zone_bottom <= current.close <= zone_top:
+                    log.info(
+                        "🟨 LHR RETRADE | %s | zone: [%.4f-%.4f]",
+                        ss.retrade_side.upper(),
+                        zone_bottom,
+                        zone_top,
+                    )
+                    lhr_entry_price = current.close
+                    lhr_risk_pts = atr_val * 1.0
+                    lhr_sl = lh + lhr_risk_pts
+                    lhr_tp = (
+                        ss.london_low
+                        if ss.london_low < lhr_entry_price
+                        else lhr_entry_price - lhr_risk_pts * cfg["TP_RR"]
+                    )
+                    lhr_risk_dist = abs(lhr_sl - lhr_entry_price)
+                    lhr_min_risk_dist = atr_val * 0.1
+                    if lhr_risk_dist >= lhr_min_risk_dist:
+                        risk_map = cfg.SYMBOL_RISK_MAP.get(sym, {})
+                        risk_pct = risk_map.get("retrade", RISK_PER_TRADE)
+                        lhr_qty = (
+                            (self._balance * risk_pct) / lhr_risk_dist / cfg.LEVERAGE
+                            if lhr_risk_dist > 0
+                            else 0
+                        )
+                        if lhr_qty > 0:
+                            self.active_trades[sym] = {
+                                "entry_bar": current.index,
+                                "entry_price": lhr_entry_price,
+                                "sl": lhr_sl,
+                                "tp": lhr_tp,
+                                "qty": lhr_qty,
+                                "side": "short",
+                                "trigger_fvg": None,
+                                "initial_sl": lhr_sl,
+                                "initial_tp": lhr_tp,
+                                "trailing_count": 0,
+                                "is_retrade": True,
+                                "hybrid_mode": "lhr",
+                            }
+                            ss.trades_today += 1
+                            ss.retrade_armed = False
+                            clear_retrade_arm(sym)
+                            self._pl(
+                                sym,
+                                "lhr_entry",
+                                f"🟨 LHR ENTRY: SHORT @ {lhr_entry_price:.2f} sl={lhr_sl:.2f} tp={lhr_tp:.2f}",
+                            )
+            elif ss.retrade_side == "long" and ll < float("inf"):
+                zone_top = ll * (1 + LONDON_RETEST_PCT)
+                zone_bottom = ll
+                if zone_bottom <= current.close <= zone_top:
+                    log.info(
+                        "🟨 LHR RETRADE | %s | zone: [%.4f-%.4f]",
+                        ss.retrade_side.upper(),
+                        zone_bottom,
+                        zone_top,
+                    )
+                    lhr_entry_price = current.close
+                    lhr_risk_pts = atr_val * 1.0
+                    lhr_sl = ll - lhr_risk_pts
+                    lhr_tp = (
+                        ss.london_high
+                        if ss.london_high > lhr_entry_price
+                        else lhr_entry_price + lhr_risk_pts * cfg["TP_RR"]
+                    )
+                    lhr_risk_dist = abs(lhr_sl - lhr_entry_price)
+                    lhr_min_risk_dist = atr_val * 0.1
+                    if lhr_risk_dist >= lhr_min_risk_dist:
+                        risk_map = cfg.SYMBOL_RISK_MAP.get(sym, {})
+                        risk_pct = risk_map.get("retrade", RISK_PER_TRADE)
+                        lhr_qty = (
+                            (self._balance * risk_pct) / lhr_risk_dist / cfg.LEVERAGE
+                            if lhr_risk_dist > 0
+                            else 0
+                        )
+                        if lhr_qty > 0:
+                            self.active_trades[sym] = {
+                                "entry_bar": current.index,
+                                "entry_price": lhr_entry_price,
+                                "sl": lhr_sl,
+                                "tp": lhr_tp,
+                                "qty": lhr_qty,
+                                "side": "long",
+                                "trigger_fvg": None,
+                                "initial_sl": lhr_sl,
+                                "initial_tp": lhr_tp,
+                                "trailing_count": 0,
+                                "is_retrade": True,
+                                "hybrid_mode": "lhr",
+                            }
+                            ss.trades_today += 1
+                            ss.retrade_armed = False
+                            clear_retrade_arm(sym)
+                            self._pl(
+                                sym,
+                                "lhr_entry",
+                                f"🟨 LHR ENTRY: LONG @ {lhr_entry_price:.2f} sl={lhr_sl:.2f} tp={lhr_tp:.2f}",
+                            )
 
     # ── 1m: Trailing + Exit (hibrit izleme) ──
 
@@ -987,6 +1093,8 @@ class PaperTrader:
                 "entry_bar_index", trade.get("entry_bar", 0)
             )
             ss.retrade_armed = True
+            ss.retrade_fvg_attempts = 0
+            ss.retrade_mode = "fvg"
             save_retrade_arm(sym, ss.retrade_side, ss.retrade_entry_bar)
             self._pl(
                 sym,
@@ -1400,6 +1508,8 @@ class PaperTrader:
                 ra = load_retrade_arm(sym)
                 if ra:
                     self.states[sym].retrade_armed = True
+                    self.states[sym].retrade_fvg_attempts = 0
+                    self.states[sym].retrade_mode = "fvg"
                     self.states[sym].retrade_side = ra["side"]
                     self.states[sym].retrade_entry_bar = ra["entry_bar"]
                     log.info(
@@ -1483,6 +1593,8 @@ class PaperTrader:
                 ss = self.states.get(sym)
                 if ss and getattr(ss, "pending_retrade_arm", False):
                     ss.retrade_armed = True
+                    ss.retrade_fvg_attempts = 0
+                    ss.retrade_mode = "fvg"
                     ss.pending_retrade_arm = False
                     self._pl(
                         sym,
