@@ -1022,7 +1022,7 @@ class PaperTrader:
         )
 
         # FIX #5: Manuel kapanış emri kaldırıldı.
-        # SL/TP emirleri closePosition=True ile kurulduğundan Binance pozisyonu
+        # SL/TP emirleri reduceOnly=true ile kurulduğundan Binance pozisyonu
         # zaten kapattı. Buradan tekrar place_market_order göndermek, sıfır pozisyon
         # üzerine emir atarak ters yönde yeni pozisyon açıyordu.
         # Yapılması gereken: karşı taraftaki bekleyen emri iptal etmek.

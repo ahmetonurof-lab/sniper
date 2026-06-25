@@ -408,7 +408,7 @@ class BinanceRESTClient:
     ) -> dict:
         """
         STOP_MARKET emri — Algo endpoint (/fapi/v1/algoOrder) kullanir.
-        closePosition=True ile reduceOnly yerine yeni API.
+        reduceOnly=True ile closePosition yerine — birden fazla emre izin verir.
         """
         rounded_qty = await self.apply_amount_precision(symbol, qty)
         valid_qty = await self.validate_min_amount(symbol, rounded_qty)
@@ -426,7 +426,7 @@ class BinanceRESTClient:
             "workingType": "MARK_PRICE",
             "quantity": rounded_qty,
             "triggerPrice": str(rounded_price),
-            "closePosition": "true",
+            "reduceOnly": "true",
             "timeInForce": "GTE_GTC",
             "newClientOrderId": client_id or f"sl_{symbol}_{int(time.time())}",
         }
@@ -477,7 +477,7 @@ class BinanceRESTClient:
             "workingType": "MARK_PRICE",
             "quantity": rounded_qty,
             "triggerPrice": str(rounded_price),
-            "closePosition": "true",
+            "reduceOnly": "true",
             "timeInForce": "GTE_GTC",
             "newClientOrderId": client_id or f"tp_{symbol}_{int(time.time())}",
         }
