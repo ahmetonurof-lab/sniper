@@ -712,8 +712,6 @@ class PaperTrader:
             rsm.reset()
             return
 
-        self.active_trades[sym] = {"status": "PENDING"}
-
         side = "long" if sweep_dir == "bullish" else "short"
         entry_price = current.close
         risk_pts = atr_val * sl_atr
@@ -742,6 +740,7 @@ class PaperTrader:
                 else entry_price - risk_pts * tp_rr
             )
 
+        # ── 1. SENKRON VALİDASYONLAR (PENDING KİLİDİNDEN ÖNCE) ──
         risk_dist = abs(sl - entry_price)
         min_risk_dist = atr_val * 0.1
         if risk_dist < min_risk_dist:
@@ -752,7 +751,6 @@ class PaperTrader:
                 min_risk_dist,
                 atr_val,
             )
-            del self.active_trades[sym]
             rsm.reset()
             return
 
@@ -764,9 +762,11 @@ class PaperTrader:
         qty = (self._balance * risk_pct) / risk_dist / cfg.LEVERAGE
         if qty <= 0:
             log.warning("[SKIP] %s entry — qty=%.6f <= 0 (rsm reset)", sym, qty)
-            del self.active_trades[sym]
             rsm.reset()
             return
+
+        # ── 2. PENDING KİLİDİ (API ÇAĞRISINDAN HEMEN ÖNCE) ──
+        self.active_trades[sym] = {"status": "PENDING"}
 
         self._pl(
             sym,
@@ -801,104 +801,96 @@ class PaperTrader:
                     )
                     rsm.reset()
                     return
-                else:
-                    rounded_sl = await self.rest.apply_price_precision(sym, sl)
-                    rounded_tp = await self.rest.apply_price_precision(sym, tp)
 
+                rounded_sl = await self.rest.apply_price_precision(sym, sl)
+                rounded_tp = await self.rest.apply_price_precision(sym, tp)
+
+                mkt_resp = await self.rest.place_market_order(sym, mkt_side, valid_qty)
+                mkt_id = mkt_resp.get("orderId") or mkt_resp.get("id") or ""
+                if not mkt_id:
+                    self._pl(
+                        sym,
+                        "order_err",
+                        "\u274c ORDER: MARKET BASARISIZ \u2014 trade iptal",
+                    )
+                    log.warning(
+                        "[ORDER] %s MARKET entry BASARISIZ \u2014 trade kaydedilmedi",
+                        sym,
+                    )
+                    rsm.reset()
+                    return
+
+                self._pl(
+                    sym,
+                    "order_ok",
+                    f"\u2705 ORDER: MARKET {mkt_side} OK | ID: {mkt_id}",
+                )
+                log.info(
+                    "[ORDER] %s MARKET entry OK orderId=%s qty=%.8f",
+                    sym,
+                    mkt_id,
+                    valid_qty,
+                )
+
+                sl_resp = await self.rest.place_stop_order(
+                    sym, sl_side, valid_qty, rounded_sl
+                )
+                sl_id = (
+                    sl_resp.get("algoId")
+                    or sl_resp.get("orderId")
+                    or sl_resp.get("id")
+                    or ""
+                )
+                if not sl_id:
+                    log.critical(
+                        "[ORDER] %s SL BASARISIZ! Acil pozisyon kapatiliyor. resp=%s",
+                        sym,
+                        sl_resp,
+                    )
+                    opp_side = "SELL" if mkt_side == "BUY" else "BUY"
                     try:
-                        mkt_resp = await self.rest.place_market_order(
-                            sym, mkt_side, valid_qty
-                        )
+                        await self.rest.place_market_order(sym, opp_side, valid_qty)
                     except Exception as e:
-                        log.error("[ENTRY] %s market order hatası: %s", sym, e)
-                        del self.active_trades[sym]
-                        rsm.reset()
-                        return
-                    mkt_id = mkt_resp.get("orderId") or mkt_resp.get("id") or ""
-                    if mkt_id:
-                        self._pl(
+                        log.critical(
+                            "[ORDER] %s acil pozisyon kapatma emri basarisiz: %s",
                             sym,
-                            "order_ok",
-                            f"\u2705 ORDER: MARKET {mkt_side} OK | ID: {mkt_id}",
+                            e,
                         )
-                        log.info(
-                            "[ORDER] %s MARKET entry OK orderId=%s qty=%.8f",
-                            sym,
-                            mkt_id,
-                            valid_qty,
-                        )
+                    rsm.reset()
+                    return
 
-                        sl_resp = await self.rest.place_stop_order(
-                            sym, sl_side, valid_qty, rounded_sl
-                        )
-                        sl_id = (
-                            sl_resp.get("algoId")
-                            or sl_resp.get("orderId")
-                            or sl_resp.get("id")
-                            or ""
-                        )
-                        if sl_id:
-                            log.info("[ORDER] %s SL OK algoId=%s", sym, sl_id)
-                        else:
-                            log.critical(
-                                "[ORDER] %s SL BASARISIZ! Acil pozisyon kapatiliyor. resp=%s",
-                                sym,
-                                sl_resp,
-                            )
-                            # Acil pozisyon kapatma
-                            opp_side = "SELL" if mkt_side == "BUY" else "BUY"
-                            try:
-                                await self.rest.place_market_order(
-                                    sym, opp_side, valid_qty
-                                )
-                            except Exception as e:
-                                log.critical(
-                                    "[ORDER] %s acil pozisyon kapatma emri basarisiz: %s",
-                                    sym,
-                                    e,
-                                )
-                            del self.active_trades[sym]
-                            rsm.reset()
-                            return
+                log.info("[ORDER] %s SL OK algoId=%s", sym, sl_id)
 
-                        tp_resp = await self.rest.place_tp_order(
-                            sym, sl_side, valid_qty, rounded_tp
-                        )
-                        tp_id = (
-                            tp_resp.get("algoId")
-                            or tp_resp.get("orderId")
-                            or tp_resp.get("id")
-                            or ""
-                        )
-                        if tp_id:
-                            log.info("[ORDER] %s TP OK algoId=%s", sym, tp_id)
-                        else:
-                            log.warning(
-                                "[ORDER] %s TP BASARISIZ! resp=%s", sym, tp_resp
-                            )
-                    else:
-                        # FIX #2: Market emir başarısız olduysa trade kaydedilmemeli.
-                        # Eski kod buradan devam edip active_trades'e yazıyordu → hayalet pozisyon.
-                        self._pl(
-                            sym,
-                            "order_err",
-                            "\u274c ORDER: MARKET BASARISIZ \u2014 trade iptal",
-                        )
-                        log.warning(
-                            "[ORDER] %s MARKET entry BASARISIZ \u2014 trade kaydedilmedi",
-                            sym,
-                        )
-                        del self.active_trades[sym]
-                        rsm.reset()
-                        return
+                tp_resp = await self.rest.place_tp_order(
+                    sym, sl_side, valid_qty, rounded_tp
+                )
+                tp_id = (
+                    tp_resp.get("algoId")
+                    or tp_resp.get("orderId")
+                    or tp_resp.get("id")
+                    or ""
+                )
+                if tp_id:
+                    log.info("[ORDER] %s TP OK algoId=%s", sym, tp_id)
+                else:
+                    log.warning("[ORDER] %s TP BASARISIZ! resp=%s", sym, tp_resp)
+
             except Exception as e:
                 self._pl(sym, "order_err", f"\u274c ORDER: HATA \u2014 {e}")
                 log.exception("[ORDER] %s beklenmeyen hata", sym)
-                if sym in self.active_trades:
-                    del self.active_trades[sym]
                 rsm.reset()
                 return
+            finally:
+                if (
+                    sym in self.active_trades
+                    and self.active_trades[sym].get("status") == "PENDING"
+                ):
+                    del self.active_trades[sym]
+                    log.debug(
+                        "[CLEANUP] %s PENDING state temizlendi (erken dönüş)", sym
+                    )
 
+        # ── 3. BAŞARILI KAYIT (PENDING ÜZERİNE YAZ) ──
         self.active_trades[sym] = {
             "entry_bar_index": current.index,
             "entry_price": entry_price,
