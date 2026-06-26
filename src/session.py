@@ -497,6 +497,9 @@ class SessionState:
         if 2 <= h < 22 and not cbdr.locked and cbdr.body_high > 0:
             cbdr.lock()
 
+        if cbdr.locked and not cbdr.sweep_confirmed:
+            cbdr.check_sweep(high, low, close, atr)
+
         if h >= 8 and not rng.asia_checked and cbdr.locked:
             rng.asia_checked = True
             rng.evaluate_range_type(cbdr)
