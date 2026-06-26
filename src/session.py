@@ -63,12 +63,14 @@ class CBDRState:
         self.sweep_direction: Literal["bullish", "bearish"] | None = None
         self.sweep_level: float | None = None
 
-    def track_body(self, high: float, low: float) -> None:
-        """CBDR body aralığını genişlet."""
-        if high > self.body_high:
-            self.body_high = high
-        if low < self.body_low:
-            self.body_low = low
+    def track_body(self, open: float, close: float) -> None:
+        """CBDR body aralığını genişlet (open/close gövde range)."""
+        body_high = open if open > close else close
+        body_low = close if open > close else open
+        if body_high > self.body_high:
+            self.body_high = body_high
+        if body_low < self.body_low:
+            self.body_low = body_low
 
     def lock(self) -> None:
         """CBDR body'yi kilitle (artık genişlemez)."""
@@ -492,7 +494,7 @@ class SessionState:
             cbdr.day = cbdr_key
 
         if sess == SessionPhase.CBDR and not cbdr.locked:
-            cbdr.track_body(high, low)
+            cbdr.track_body(open, close)
 
         if 2 <= h < 22 and not cbdr.locked and cbdr.body_high > 0:
             cbdr.lock()
@@ -522,7 +524,7 @@ class SessionState:
         self, open: float, high: float, low: float, close: float
     ) -> None:
         """Eski API uyumluluğu için — CBDRState'e delegate."""
-        self._cbdr.track_body(high, low)
+        self._cbdr.track_body(open, close)
 
     def _track_asia(self, high: float, low: float) -> None:
         """Eski API uyumluluğu için — RangeTracker'a delegate."""

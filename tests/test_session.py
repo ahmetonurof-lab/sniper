@@ -71,20 +71,24 @@ class TestSessionState:
     def test_update_tracks_cbdr_high(self):
         ss = SessionState()
         ss.update(_dt(23), open=100, high=110, low=90, close=105)
-        assert ss.cbdr_body_high == 110
+        # body = max(open, close) = 105
+        assert ss.cbdr_body_high == 105
 
     def test_update_tracks_cbdr_low(self):
         ss = SessionState()
         ss.update(_dt(23), open=100, high=110, low=90, close=105)
-        assert ss.cbdr_body_low == 90
+        # body = min(open, close) = 100
+        assert ss.cbdr_body_low == 100
 
     def test_cbdr_locks_at_hour_2(self):
         ss = SessionState()
         ss.update(_dt(23, day=1), open=100, high=110, low=90, close=105)
         ss.update(_dt(2, day=2), open=101, high=111, low=91, close=106)
         assert ss.cbdr_locked is True
-        assert ss.cbdr_body_high == 110
-        assert ss.cbdr_body_low == 90
+        # body = max(100,105) = 105  (saat 2'de LONDON fazı, body genişlemez)
+        assert ss.cbdr_body_high == 105
+        # body = min(100,105) = 100
+        assert ss.cbdr_body_low == 100
 
     def test_cbdr_not_locked_before_hour_2(self):
         ss = SessionState()
@@ -120,8 +124,10 @@ class TestSessionState:
         ss.update(_dt(23, day=2), open=102, high=112, low=92, close=107)
         assert ss.trades_today == 0
         assert ss.retrade_armed is False
-        assert ss.cbdr_body_high == 112
-        assert ss.cbdr_body_low == 92
+        # body = max(102,107) = 107
+        assert ss.cbdr_body_high == 107
+        # body = min(102,107) = 102
+        assert ss.cbdr_body_low == 102
 
     def test_trades_today_increments(self):
         ss = SessionState()
