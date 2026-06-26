@@ -102,6 +102,7 @@ class TrailingManager:
             "risk_pts", abs(trade["initial_sl"] - trade["entry_price"])
         )
         trail_count = trade.get("trailing_count", 0)
+        updated = False
 
         for fvg in fvgs:
             if side == "long" and fvg.direction != "bullish":
@@ -118,19 +119,15 @@ class TrailingManager:
                     if (new_sl - current_sl) <= min_move:
                         continue
                     sl_diff = new_sl - current_sl
-                    new_tp = current_tp + sl_diff
+                    current_sl = new_sl
+                    current_tp += sl_diff
                     trail_count += 1
+                    updated = True
                     log.info(
                         "[TRAIL] trail#%d sl=%.2f tp=%.2f",
                         trail_count,
-                        new_sl,
-                        new_tp,
-                    )
-                    return TrailResult(
-                        updated=True,
-                        new_sl=new_sl,
-                        new_tp=new_tp,
-                        trail_count=trail_count,
+                        current_sl,
+                        current_tp,
                     )
             else:
                 new_sl = fvg.top + buffer
@@ -139,21 +136,24 @@ class TrailingManager:
                     if (current_sl - new_sl) <= min_move:
                         continue
                     sl_diff = current_sl - new_sl
-                    new_tp = current_tp - sl_diff
+                    current_sl = new_sl
+                    current_tp -= sl_diff
                     trail_count += 1
+                    updated = True
                     log.info(
                         "[TRAIL] trail#%d sl=%.2f tp=%.2f",
                         trail_count,
-                        new_sl,
-                        new_tp,
-                    )
-                    return TrailResult(
-                        updated=True,
-                        new_sl=new_sl,
-                        new_tp=new_tp,
-                        trail_count=trail_count,
+                        current_sl,
+                        current_tp,
                     )
 
+        if updated:
+            return TrailResult(
+                updated=True,
+                new_sl=current_sl,
+                new_tp=current_tp,
+                trail_count=trail_count,
+            )
         return TrailResult()
 
     # ── Exit Check ────────────────────────────────────────────
