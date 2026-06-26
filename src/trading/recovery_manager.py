@@ -16,6 +16,7 @@ import logging
 
 import config as cfg
 from bot_infra import extract_order_id
+from models import ActiveTrade
 
 log = logging.getLogger("sniper.recovery_manager")
 
@@ -105,23 +106,24 @@ class RecoveryManager:
                     risk_pts = abs(entry - sl_price)
                     sl_id = extract_order_id(sl_orders[0])
                     tp_id = extract_order_id(tp_orders[0])
-                    self._active_trades[sym] = {
-                        "entry_bar_index": 0,
-                        "entry_price": entry,
-                        "sl": sl_price,
-                        "tp": tp_price,
-                        "qty": abs(amt),
-                        "side": direction,
-                        "trigger_fvg": None,
-                        "initial_sl": sl_price,
-                        "initial_tp": tp_price,
-                        "trailing_count": 0,
-                        "risk_pts": risk_pts,
-                        "is_recovered": True,
-                        "is_retrade": False,
-                        "sl_order_id": sl_id,
-                        "tp_order_id": tp_id,
-                    }
+                    self._active_trades[sym] = ActiveTrade(
+                        symbol=sym,
+                        entry_bar_index=0,
+                        entry_price=entry,
+                        sl=sl_price,
+                        tp=tp_price,
+                        qty=abs(amt),
+                        side=direction,
+                        trigger_fvg=None,
+                        initial_sl=sl_price,
+                        initial_tp=tp_price,
+                        trailing_count=0,
+                        risk_pts=risk_pts,
+                        is_recovered=True,
+                        is_retrade=False,
+                        sl_order_id=sl_id,
+                        tp_order_id=tp_id,
+                    )
                     self._pl(
                         sym,
                         "recover",
@@ -173,23 +175,24 @@ class RecoveryManager:
                                 e,
                             )
 
-                    self._active_trades[sym] = {
-                        "entry_bar_index": 0,
-                        "entry_price": entry,
-                        "sl": sl,
-                        "tp": tp,
-                        "qty": abs(amt),
-                        "side": direction,
-                        "trigger_fvg": None,
-                        "initial_sl": sl,
-                        "initial_tp": tp,
-                        "trailing_count": 0,
-                        "risk_pts": risk_pts,
-                        "is_recovered": True,
-                        "is_retrade": False,
-                        "sl_order_id": sl_id,
-                        "tp_order_id": tp_id,
-                    }
+                    self._active_trades[sym] = ActiveTrade(
+                        symbol=sym,
+                        entry_bar_index=0,
+                        entry_price=entry,
+                        sl=sl,
+                        tp=tp,
+                        qty=abs(amt),
+                        side=direction,
+                        trigger_fvg=None,
+                        initial_sl=sl,
+                        initial_tp=tp,
+                        trailing_count=0,
+                        risk_pts=risk_pts,
+                        is_recovered=True,
+                        is_retrade=False,
+                        sl_order_id=sl_id,
+                        tp_order_id=tp_id,
+                    )
                     self._pl(
                         sym,
                         "recover",

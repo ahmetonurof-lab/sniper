@@ -79,13 +79,13 @@ class UserDataHandler:
                         if sym in _active_trades:
                             trade["exit_price"] = price
                             trade["result"] = "SL" if oid == s_id else "TP"
-                            await _exit_trade(sym, trade, None, int(time.time() * 1000))
+                            await _exit_trade(sym, trade, int(time.time() * 1000))
                     else:
                         # FIX #3: ID eşleşmiyor AMA reduceOnly FILLED geldi!
                         if is_reduce_only:
                             trade["exit_price"] = price
                             trade["result"] = "WS_FALLBACK"
-                            await _exit_trade(sym, trade, None, int(time.time() * 1000))
+                            await _exit_trade(sym, trade, int(time.time() * 1000))
                             # P8.5: Kritik durumu exception ile yukari firlat
                             # (hub callback wrapper log.exception ile yakalar)
                             raise WSFallbackError(sym, oid, s_id, t_id)

@@ -74,7 +74,7 @@ def _setup_logging() -> logging.Logger:
         if hasattr(sys.stderr, "reconfigure"):
             sys.stderr.reconfigure(encoding="utf-8")
     except Exception:
-        log.debug(
+        _log.debug(
             "stdout/stderr reconfigure atlandi (encoding zaten UTF-8 veya non-TTY)"
         )
 
@@ -116,7 +116,6 @@ class PaperTrader:
         self.trades: deque[dict] = deque(maxlen=1000)
         self.reporter = ConsoleReporter()
         self._live = False
-        self._stage: dict[str, dict] = {}
         self._balance = INITIAL_CAPITAL
 
         api_key = cfg.BINANCE_API_KEY or ""
@@ -208,14 +207,12 @@ class PaperTrader:
                 "\U0001f7e5 SESSION: ASIA | 22:00-02:00 UTC | trading kapali",
                 force=True,
             )
-            self._stage.pop(sym, None)
             return
 
         # ── Session/CBDR status display → ConsoleReporter (Faz 6.2) ──
         self.reporter.display_session_status(sym, session, hour, dt.minute, ss)
 
         if not ss.cbdr_locked:
-            self._stage.pop(sym, None)
             log.info("[SKIP] %s CBDR henuz kilitlenmedi — sinyal taranmadi", sym)
             return
 
@@ -403,7 +400,6 @@ class PaperTrader:
 
                 success = await self.order_manager.update_trail_orders(sym, trade)
                 if not success:
-                    # FIX #2: Binance emri reddetti → in-memory state'i geri al
                     log.warning(
                         "[TRAIL] %s UPDATE FAIL -> in-memory SL/TP rollback yapiliyor",
                         sym,
@@ -411,7 +407,6 @@ class PaperTrader:
                     trade["sl"] = old_sl
                     trade["tp"] = old_tp
                     trade["trailing_count"] = old_trailing_count
-                return
 
         # ── Exit kontrolü → TrailingManager ──
         exit_decision = TrailingManager.check_exit(current, trade)
@@ -420,7 +415,7 @@ class PaperTrader:
             trade["exit_bar"] = current.index
             trade["exit_timestamp"] = current.timestamp
             trade["result"] = exit_decision.result
-            await self._exit_trade(sym, trade, current, current.timestamp)
+            await self._exit_trade(sym, trade, current.timestamp)
 
     # ── Entry ──
 
@@ -526,8 +521,11 @@ class PaperTrader:
                     f"\u2705 ORDER: MARKET {mkt_side} OK | ID: (live)",
                 )
 
-            lock.commit()  # PENDING korunur, asagida gercek trade ile ezilecek
+            lock.commit()  # PENDING korunur
 
+        # NOTE: lock.commit() ile ActiveTrade ataması arasında await yok —
+        # şu an race condition teorik. Eğer ActiveTrade.__init__ asenkron
+        # olursa bu window kapatılmalı (PendingLock atomic blok genişletilmeli).
         # ── 3. BAŞARILI KAYIT (PENDING ÜZERİNE YAZ) ──
         self.active_trades[sym] = ActiveTrade(
             symbol=sym,
@@ -557,7 +555,7 @@ class PaperTrader:
         ss.trades_today += 1
         rsm.reset()
 
-    async def _exit_trade(self, sym, trade, current, exit_timestamp: int):
+    async def _exit_trade(self, sym, trade, exit_timestamp: int):
         diff = (
             (trade["exit_price"] - trade["entry_price"])
             if trade["side"] == "long"
