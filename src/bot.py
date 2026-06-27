@@ -593,6 +593,11 @@ class PaperTrader:
         # FIX #2: Retrade arm → RetradeEngine (Faz 6.1)
         RetradeEngine.arm_retrade(sym, trade, self.states[sym], self._pl)
 
+        chart_file = export_chart(sym, trade, pnl, self.states[sym])
+        if chart_file:
+            trade["chart_file"] = chart_file
+        export_trade(sym, trade, pnl, self.states[sym])
+
         self.trades.append(
             {
                 **trade,
@@ -602,10 +607,6 @@ class PaperTrader:
                 "close_time": exit_timestamp,
             }
         )
-        export_trade(sym, trade, pnl, self.states[sym])
-        chart_file = export_chart(sym, trade, pnl, self.states[sym])
-        if chart_file:
-            trade["chart_file"] = chart_file
         del self.active_trades[sym]
         mark_trade_closed(sym)
 
