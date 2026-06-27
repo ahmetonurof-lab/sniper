@@ -19,6 +19,7 @@
 | 5 | `a6a9999` | **state_writer.py**: Her 15m kapanışında `output/live_state.json` yazar — dashboard ve chart_export için. |
 | 6 | `38436b7` | **availableBalance**: `get_balance()` artık walletBalance değil availableBalance döndürür. |
 | 7 | `270ea7f` | **Formül düzeltmesi**: `qty = (balance × risk_pct) / risk_dist / leverage` → `qty = (balance × risk_pct) / risk_dist`. Margin leverage ile ayarlanır, qty'yi etkilemez. LEVERAGE 1→5. |
+| 8 | `658e7f6` | **state_writer.py**: `fvg_ready` (sweep sonrası FVG bulundu mu) ve `upnl` (anlık kâr/zarar) alanları eklendi. |
 
 ## Aktif Kararlar
 
