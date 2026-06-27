@@ -567,7 +567,7 @@ class BinanceRESTClient:
             "quantity": rounded_qty,
             "triggerPrice": str(rounded_price),
             "reduceOnly": "true",
-            "timeInForce": "GTE_GTC",
+            "timeInForce": "GTC",
             "newClientOrderId": client_id or f"sl_{symbol}_{int(time.time())}",
         }
         r = await self.post("/fapi/v1/algoOrder", params)
@@ -617,7 +617,7 @@ class BinanceRESTClient:
             "quantity": rounded_qty,
             "triggerPrice": str(rounded_price),
             "reduceOnly": "true",
-            "timeInForce": "GTE_GTC",
+            "timeInForce": "GTC",
             "newClientOrderId": client_id or f"tp_{symbol}_{int(time.time())}",
         }
         r = await self.post("/fapi/v1/algoOrder", params)
