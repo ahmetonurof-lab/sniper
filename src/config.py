@@ -13,7 +13,7 @@ else:
     load_dotenv()  # fallback: mevcut dizinde ara
 
 INITIAL_BALANCE = 10000.0
-RISK_PER_TRADE = 0.01
+RISK_PER_TRADE = 0.001
 LEVERAGE = 1
 LOG_LEVEL = "INFO"
 
