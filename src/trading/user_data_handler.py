@@ -78,12 +78,14 @@ class UserDataHandler:
                         # Trade'i kapat (eğer henüz _on_1m_close kapatmadıysa)
                         if sym in _active_trades:
                             trade["exit_price"] = price
+                            trade["exit_timestamp"] = int(time.time() * 1000)
                             trade["result"] = "SL" if oid == s_id else "TP"
                             await _exit_trade(sym, trade, int(time.time() * 1000))
                     else:
                         # FIX #3: ID eşleşmiyor AMA reduceOnly FILLED geldi!
                         if is_reduce_only:
                             trade["exit_price"] = price
+                            trade["exit_timestamp"] = int(time.time() * 1000)
                             trade["result"] = "WS_FALLBACK"
                             await _exit_trade(sym, trade, int(time.time() * 1000))
                             # P8.5: Kritik durumu exception ile yukari firlat

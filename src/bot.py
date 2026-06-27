@@ -598,7 +598,7 @@ class PaperTrader:
                 **trade,
                 "sym": sym,
                 "pnl": pnl,
-                "exit_bar": trade["exit_bar"],
+                "exit_bar": trade.get("exit_bar", 0),
                 "close_time": exit_timestamp,
             }
         )
