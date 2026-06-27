@@ -287,6 +287,7 @@ class SessionState:
         self._cbdr = CBDRState()
         self._range = RangeTracker()
         self._trade = TradeDayState()
+        self.fvg_ready: bool = False
 
     # ── CBDRState delegation (8 attribute) ──────────────────
 

@@ -75,6 +75,8 @@ class SignalEngine:
         if self.rsm.state_name == "SWEEP_DETECTED":
             self.rsm.on_sweep_confirmed(bars_15m, current)
 
+        ss.fvg_ready = self.rsm.state_name == "TRIGGER_READY"
+
     # ── Blok 10: Trigger check + filtreler ─────────────────────
 
     def evaluate_trigger(self, current: Bar, ss: SessionState) -> EvalResult:
