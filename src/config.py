@@ -14,7 +14,7 @@ else:
 
 INITIAL_BALANCE = 10000.0
 RISK_PER_TRADE = 0.01
-LEVERAGE = 3
+LEVERAGE = 1
 LOG_LEVEL = "INFO"
 
 # ── Per-symbol risk map (primary entry / retrade) ─────────────
@@ -71,7 +71,7 @@ FVG_SIZE_MAP: dict[str, float] = {
 # ── Risk parametreleri ─────────────────────────────────────────
 SL_ATR_MULT = 1.5
 TP_RR = 2.0
-FVG_BUFFER_MULT = 0.25
+FVG_BUFFER_MULT = 0.50
 
 # ── Magic Numbers (Faz 1.2) ────────────────────────────────────
 LHR_RETEST_PCT = 0.003  # LHR zone genişliği (eskiden LONDON_RETEST_PCT)
