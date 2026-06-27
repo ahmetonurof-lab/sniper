@@ -102,6 +102,7 @@ class TrailingManager:
             "risk_pts", abs(trade["initial_sl"] - trade["entry_price"])
         )
         trail_count = trade.get("trailing_count", 0)
+        trail_steps = trade.get("trail_steps")
         updated = False
 
         for fvg in fvgs:
@@ -123,6 +124,16 @@ class TrailingManager:
                     current_tp += sl_diff
                     trail_count += 1
                     updated = True
+                    trail_steps.append(
+                        {
+                            "sl": round(new_sl, 6),
+                            "tp": round(current_tp, 6),
+                            "fvg_top": round(fvg.top, 6),
+                            "fvg_bot": round(fvg.bottom, 6),
+                            "bar": fvg.real_index,
+                        }
+                    )
+                    trade["trail_steps"] = trail_steps
                     log.info(
                         "[TRAIL] trail#%d sl=%.2f tp=%.2f",
                         trail_count,
@@ -140,6 +151,16 @@ class TrailingManager:
                     current_tp -= sl_diff
                     trail_count += 1
                     updated = True
+                    trail_steps.append(
+                        {
+                            "sl": round(new_sl, 6),
+                            "tp": round(current_tp, 6),
+                            "fvg_top": round(fvg.top, 6),
+                            "fvg_bot": round(fvg.bottom, 6),
+                            "bar": fvg.real_index,
+                        }
+                    )
+                    trade["trail_steps"] = trail_steps
                     log.info(
                         "[TRAIL] trail#%d sl=%.2f tp=%.2f",
                         trail_count,

@@ -328,6 +328,7 @@ class ActiveTrade:
     initial_tp: float = 0.0
     risk_pts: float = 0.0
     trailing_count: int = 0
+    trail_steps: list = field(default_factory=list)
     is_retrade: bool = False
     is_recovered: bool = False
     hybrid_mode: str | None = None
