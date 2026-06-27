@@ -5,7 +5,7 @@
 - **Bot çalışıyor mu?**: Testnet'te, canlı emir gönderimi aktif.
 - **Testnet bakiyesi**: ~5,000 USDT
 - **Sembol sayısı**: 13 (BTC/ETH/BNB/SOL/AVAX/LINK/XRP/ATOM/ADA/SUI/APT/DOT/NEAR)
-- **Kaldıraç**: 1x (kaldıraçsız)
+- **Kaldıraç**: 5x
 - **Strateji**: CBDR → Sweep → FVG Wick Rejection → Entry → Trailing → Exit → Retrade
 
 ## Kritik Yapılan Değişiklikler (2026-06-27)
@@ -16,11 +16,12 @@
 | 2 | `d1cebaf` | **Risk tuning**: LINK 1.5/1.0 → 1.0/0.8 (%10 DD hedefi), DOT 1.5/1.0 → 1.2/0.9 (%12 DD hedefi). |
 | 3 | `15910cf` | **Qty balance cap**: 1x leverage'da notional > balance → `max_qty = balance / entry_price` ile tavanlanır, Binance -2019 hatası önlenir. |
 | 4 | `a6a9999` | **state_writer.py**: Her 15m kapanışında `output/live_state.json` yazar — dashboard ve chart_export için. |
+| 5 | `38436b7` | **availableBalance**: `get_balance()` artık walletBalance değil availableBalance döndürür. |
+| 6 | `270ea7f` | **Formül düzeltmesi**: `qty = (balance × risk_pct) / risk_dist / leverage` → `qty = (balance × risk_pct) / risk_dist`. Margin leverage ile ayarlanır, qty'yi etkilemez. LEVERAGE 1→5. |
 
 ## Aktif Kararlar
 
-- **LEVERAGE=1**: Geri dönülemez karar. Tüm pozisyon büyüklükleri buna göre.
-- **``kaldıraçsız strateji``**: Ethos — kaldıraç kullanılmaz.
+- **LEVERAGE=5**: 5x kaldıraç, margin = notional / 5. Formülde `/leverage` yok — qty = balance × risk_pct / risk_dist.
 - **RSM (RetraceStateMachine)**: IDLE → SWEEP_DETECTED → TRIGGER_READY. Sadece 3 state.
 - **Max 1 primary + 1 retrade/gün/sembol**: trade_state.json ile korunur.
 - **ASIA kapalı**: 22:00-02:00 UTC'de trade alınmaz.
@@ -30,7 +31,6 @@
 ## Sıradaki / Açık Konular
 
 - LINK WR %52.7 — yapısal sorun mu yoksa Q1 2026'ya özel mi? Multi-period backtest gerekebilir.
-- BTC/ETH geniş SL mesafesi → qty cap sık yiyebilir, risk düşürme gerekebilir.
 - `LOG_LEVEL` — canlıda DEBUG mi INFO mu kararı.
 - Pre-commit hooks çalışıyor (ruff, vulture). Yeni dosyalarda mypy eklenebilir.
 

@@ -34,7 +34,6 @@
 
 | Sorun | Durum |
 |-------|-------|
-| Geniş SL mesafeli coinler (BTC) qty cap yiyebilir | 🟢 Monitor — gerekirse risk düşürülür |
 | FVG_BUFFER_MULT canlı/backtest farkı (0.50 vs 0.25) | 🟡 Bilinçli fark, analiz yaparken dikkat |
 
 ## Test Sonuçları (Backtest — All Coin 2026 Q2)

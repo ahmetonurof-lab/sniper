@@ -93,4 +93,4 @@ Price sweeps BELOW CBDR.low + close above CBDR.low
 3. **Faz bazlı risk**: SYMBOL_RISK_MAP ile her sembole özel primary/retrade risk.
 4. **Restart-proof**: trade_state.json (açık trade, retrade arm, günlük count).
 5. **Önce yeni order, sonra eski cancel**: Trailing güncellemesinde order kaybı önlenir.
-6. **1x leverage**: Pozisyon notional'ı balance ile tavanlanır (−2019 hatası önlenir).
+6. **5x leverage**: Margin = notional / 5. Formülde `/leverage` yok — qty sadece risk+bakiye bazlı.

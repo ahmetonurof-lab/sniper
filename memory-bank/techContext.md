@@ -66,7 +66,7 @@ TESTNET=True
 
 | Param | Value | Açıklama |
 |-------|-------|----------|
-| LEVERAGE | 1 | Kaldıraçsız (1x) |
+| LEVERAGE | 5 | 5x kaldıraç (margin = notional / 5) |
 | RISK_PER_TRADE | 0.001 | Fallback risk (%0.1) |
 | SL_ATR_MULT | 1.5 | SL = ATR × 1.5 |
 | TP_RR | 2.0 | Risk/ödül oranı |
@@ -80,7 +80,7 @@ BTC, ETH, BNB, SOL, AVAX, LINK, XRP, ATOM, ADA, SUI, APT, DOT, NEAR — tümü U
 ## Risk Haritası
 | Sembol | Primary | Retrade | Özel Not |
 |--------|---------|---------|----------|
-| BTCUSDT | 1.2% | 1.0% | Geniş SL → qty cap yiyebilir |
+| BTCUSDT | 1.2% | 1.0% | — |
 | LINKUSDT | 1.0% | 0.8% | DD %13.6, WR %52.7 |
 | DOTUSDT | 1.2% | 0.9% | DD %12.0, WR %70.2 |
 | AVAXUSDT | 1.5% | 1.0% | En yüksek risk katsayısı |
