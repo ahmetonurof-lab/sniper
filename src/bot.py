@@ -29,6 +29,7 @@ from state_manager import (
     clear_retrade_arm,
 )
 from state_writer import write_state
+from trade_exporter import export_trade
 from trading import (
     SignalEngine,
     EntryManager,
@@ -594,11 +595,13 @@ class PaperTrader:
         self.trades.append(
             {
                 **trade,
+                "sym": sym,
                 "pnl": pnl,
                 "exit_bar": trade["exit_bar"],
                 "close_time": exit_timestamp,
             }
         )
+        export_trade(sym, trade, pnl, self.states[sym])
         del self.active_trades[sym]
         mark_trade_closed(sym)
 
