@@ -28,6 +28,7 @@ from state_manager import (
     load_retrade_arm,
     clear_retrade_arm,
 )
+from state_writer import write_state
 from trading import (
     SignalEngine,
     EntryManager,
@@ -262,6 +263,9 @@ class PaperTrader:
             return
 
         await self._check_retrade(sym, bars_15m, current, atr_val, ss)
+
+        # State writer — dashboard için
+        write_state(self.states, self.active_trades, self._balance, self.symbols)
 
     # ── Retrade: trailing sweep + FVG + 2. entry (analyzer.py #8) ──
 
