@@ -133,22 +133,16 @@ class EntryManager:
                 if trigger_fvg
                 else (entry_price - risk_pts * 2)
             )
-            tp = (
-                london_high
-                if london_high > entry_price
-                else entry_price + risk_pts * tp_rr
-            )
+            risk_dist = abs(sl - entry_price)
+            tp = entry_price + risk_dist * tp_rr
         else:
             sl = (
                 (trigger_fvg.top + (risk_pts * fvg_buf))
                 if trigger_fvg
                 else (entry_price + risk_pts * 2)
             )
-            tp = (
-                london_low
-                if london_low < entry_price
-                else entry_price - risk_pts * tp_rr
-            )
+            risk_dist = abs(sl - entry_price)
+            tp = entry_price - risk_dist * tp_rr
         return sl, tp
 
     # ── 3. Canlı emir yerleştirme ────────────────────────────
