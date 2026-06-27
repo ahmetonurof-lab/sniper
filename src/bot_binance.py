@@ -485,7 +485,7 @@ class BinanceRESTClient:
             return 0.0
         for asset in r.value.get("assets", []):
             if asset.get("asset") == "USDT":
-                return float(asset.get("walletBalance", 0))
+                return float(asset.get("availableBalance", 0))
         return 0.0
 
     async def get_positions(self) -> list[dict]:

@@ -101,7 +101,7 @@ class EntryManager:
             return 0.0
         qty = (balance * risk_pct) / risk_dist / leverage
         if leverage == 1 and entry_price > 0:
-            max_qty = balance / entry_price
+            max_qty = balance * 0.95 / entry_price
             if qty > max_qty:
                 log.info(
                     "[QTY] qty capped: risk-based=%.4f → balance-based=%.4f "
