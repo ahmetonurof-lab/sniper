@@ -14,7 +14,7 @@ else:
 
 INITIAL_BALANCE = 10000.0
 RISK_PER_TRADE = 0.001
-LEVERAGE = 1
+LEVERAGE = 5
 LOG_LEVEL = "INFO"
 
 # ── Per-symbol risk map (primary entry / retrade) ─────────────

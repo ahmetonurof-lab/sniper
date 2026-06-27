@@ -3,7 +3,7 @@ entry_manager.py — Entry validation + order placement.
 
 PaperTrader._try_entry() içindeki 3 mekanik işlemi kapsar:
   1. Risk mesafesi validasyonu (min_risk_dist kontrolü)
-  2. Pozisyon büyüklüğü hesaplama (qty = balance * risk / dist / leverage)
+   2. Pozisyon büyüklüğü hesaplama (qty = balance * risk / dist)
   3. Canlı emir yerleştirme (market + SL + TP Binance API çağrıları)
 
 Kırmızı çizgiler:
@@ -90,29 +90,13 @@ class EntryManager:
     ) -> float:
         """Risk bazlı pozisyon büyüklüğü hesapla.
 
-        Orijinal _try_entry() qty formülü ile birebir aynı:
-          qty = (balance * risk_pct) / risk_dist / leverage
+        qty = (balance × risk_pct) / risk_dist
 
-        1x kaldıraçta pozisyon notional'ı bakiyeyi aşmasın diye
-        entry_price verilmişse max qty = balance / entry_price ile
-        tavanlanır — böylece Binance -2019 hatası önlenir.
+        leverage parametresi margin hesabı içindir, qty'yi etkilemez.
         """
         if risk_dist <= 0:
             return 0.0
-        qty = (balance * risk_pct) / risk_dist / leverage
-        if leverage == 1 and entry_price > 0:
-            max_qty = balance * 0.95 / entry_price
-            if qty > max_qty:
-                log.info(
-                    "[QTY] qty capped: risk-based=%.4f → balance-based=%.4f "
-                    "(balance=%.2f, entry=%.2f, leverage=%d)",
-                    qty,
-                    max_qty,
-                    balance,
-                    entry_price,
-                    leverage,
-                )
-                qty = max_qty
+        qty = (balance * risk_pct) / risk_dist
         return qty
 
     # ── 2.5 SL/TP hesaplama ──────────────────────────────────
