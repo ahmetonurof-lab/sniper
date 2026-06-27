@@ -39,18 +39,29 @@ log = logging.getLogger("nexus.live")
 # ─────────────────────────────────────────────────────────────────
 
 
+def _get_precision_places(value: float) -> int:
+    """Bir sayının ondalık hassasiyetini (kaç sıfır olduğunu) döner."""
+    s = f"{value:.8f}".rstrip("0")
+    if "." not in s:
+        return 0
+    return len(s) - s.index(".") - 1
+
+
 def _round_to_tick(value: float, tick: float) -> float:
     """Değeri tick size'a yuvarla."""
     if tick <= 0:
         return value
-    return round(round(value / tick) * tick, 8)
+    decimals = max(_get_precision_places(tick), 8)
+    return round(round(value / tick) * tick, decimals)
 
 
 def _round_step(value: float, step: float) -> float:
     """Değeri step size'a göre aşağı yuvarla (lot hesapları için)."""
     if step <= 0:
         return value
-    return round((value // step) * step, 8)
+    decimals = max(_get_precision_places(step), 8)
+    result = round((value // step) * step, decimals)
+    return result
 
 
 class BinanceRESTClient:
@@ -506,17 +517,24 @@ class BinanceRESTClient:
         MARKET emri gonderir (pozisyon acmak/kapatmak icin).
         Precision uygular, demo API fallback yapar.
         """
+        step = await self.get_step_size(symbol)
         rounded_qty = await self.apply_amount_precision(symbol, qty)
         valid_qty = await self.validate_min_amount(symbol, rounded_qty)
         if valid_qty <= 0:
             log.warning("[MARKET] %s qty=%.8f minQty altinda, iptal", symbol, qty)
             return {}
 
+        decimals = max(_get_precision_places(step), 8)
+        qty_str = f"{valid_qty:.{decimals}f}".rstrip("0").rstrip(".")
+        if not qty_str or qty_str == "0":
+            log.warning("[MARKET] %s qty format hatasi: %s", symbol, qty_str)
+            return {}
+
         params = {
             "symbol": symbol,
             "side": side.upper(),
             "type": "MARKET",
-            "quantity": rounded_qty,
+            "quantity": qty_str,
         }
         if reduce_only:
             params["reduceOnly"] = "true"
@@ -550,6 +568,7 @@ class BinanceRESTClient:
         STOP_MARKET emri — Algo endpoint (/fapi/v1/algoOrder) kullanir.
         reduceOnly=True ile closePosition yerine — birden fazla emre izin verir.
         """
+        step = await self.get_step_size(symbol)
         rounded_qty = await self.apply_amount_precision(symbol, qty)
         valid_qty = await self.validate_min_amount(symbol, rounded_qty)
         if valid_qty <= 0:
@@ -557,6 +576,8 @@ class BinanceRESTClient:
             return {}
 
         rounded_price = await self.apply_price_precision(symbol, stop_price)
+        decimals = max(_get_precision_places(step), 8)
+        qty_str = f"{valid_qty:.{decimals}f}".rstrip("0").rstrip(".")
 
         params = {
             "symbol": symbol,
@@ -564,7 +585,7 @@ class BinanceRESTClient:
             "type": "STOP_MARKET",
             "algoType": "CONDITIONAL",
             "workingType": "MARK_PRICE",
-            "quantity": rounded_qty,
+            "quantity": qty_str,
             "triggerPrice": str(rounded_price),
             "reduceOnly": "true",
             "timeInForce": "GTC",
@@ -600,6 +621,7 @@ class BinanceRESTClient:
         """
         TAKE_PROFIT_MARKET emri — Algo endpoint (/fapi/v1/algoOrder) kullanir.
         """
+        step = await self.get_step_size(symbol)
         rounded_qty = await self.apply_amount_precision(symbol, qty)
         valid_qty = await self.validate_min_amount(symbol, rounded_qty)
         if valid_qty <= 0:
@@ -607,6 +629,8 @@ class BinanceRESTClient:
             return {}
 
         rounded_price = await self.apply_price_precision(symbol, stop_price)
+        decimals = max(_get_precision_places(step), 8)
+        qty_str = f"{valid_qty:.{decimals}f}".rstrip("0").rstrip(".")
 
         params = {
             "symbol": symbol,
@@ -614,7 +638,7 @@ class BinanceRESTClient:
             "type": "TAKE_PROFIT_MARKET",
             "algoType": "CONDITIONAL",
             "workingType": "MARK_PRICE",
-            "quantity": rounded_qty,
+            "quantity": qty_str,
             "triggerPrice": str(rounded_price),
             "reduceOnly": "true",
             "timeInForce": "GTC",
