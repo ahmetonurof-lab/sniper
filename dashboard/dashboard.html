@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d0d0d;padding:16px;font-family:'JetBrains Mono',monospace;color:#e0e0e0;font-size:12px}
+
+/* TOPBAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #1e1e1e}
+.logo{font-size:18px;font-weight:700;color:#7ecfb0;letter-spacing:2px}
+.badge-live{background:#0d2018;color:#7ecfb0;border:1px solid #7ecfb0;font-size:10px;padding:2px 8px;border-radius:3px;letter-spacing:1px}
+.updated{font-size:11px;color:#444;display:flex;align-items:center;gap:5px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+.live-dot{width:6px;height:6px;border-radius:50%;background:#7ecfb0;animation:pulse 2s infinite;flex-shrink:0}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.stat{background:#111;border:1px solid #1e1e1e;border-radius:6px;padding:10px 14px}
+.stat-label{font-size:10px;color:#555;letter-spacing:1px;margin-bottom:4px}
+.stat-value{font-size:18px;font-weight:700}
+.c-green{color:#7ecfb0}
+.c-yellow{color:#c9a84c}
+.c-red{color:#c97a7a}
+.c-white{color:#e0e0e0}
+.c-muted{color:#555}
+.c-mid{color:#888}
+.c-bear{color:#c97a7a}
+.c-bull{color:#7ecfb0}
+.c-hl{color:#c9a84c}
+.c-purple{color:#b088cc}
+
+/* GRID */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+
+/* COIN CARD */
+.coin-card{
+  background:#111;
+  border:1px solid #1e1e1e;
+  border-radius:6px;
+  padding:10px 12px;
+  border-left:3px solid #1e1e1e;
+}
+/* border-left renkleri */
+.coin-card.bl-red    {border-left-color:#c97a7a}
+.coin-card.bl-green  {border-left-color:#7ecfb0}
+.coin-card.bl-purple {border-left-color:#b088cc}
+.coin-card.bl-yellow {border-left-color:#c9a84c}
+.coin-card.bl-dark   {border-left-color:#2a2a2a}
+
+.coin-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.coin-name{font-size:12px;font-weight:700;color:#e0e0e0}
+
+/* STATE BADGES */
+.badge{font-size:9px;padding:2px 6px;border-radius:3px;letter-spacing:.5px;font-weight:700}
+.b-open-s {background:#1e1010;color:#c97a7a;border:1px solid #c97a7a}
+.b-open-l {background:#0e1a14;color:#7ecfb0;border:1px solid #7ecfb0}
+.b-sweep  {background:#150e1a;color:#b088cc;border:1px solid #b088cc}
+.b-armed  {background:#150e1a;color:#b088cc;border:1px solid #b088cc}
+.b-entry  {background:#1a1810;color:#c9a84c;border:1px solid #c9a84c}
+.b-idle   {background:#1a1a1a;color:#555;border:1px solid #2a2a2a}
+
+/* ROWS */
+.row{display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px;align-items:baseline}
+.key{color:#555;min-width:44px;flex-shrink:0;letter-spacing:.3px}
+.val{color:#aaa;text-align:right}
+
+.sep{border-top:1px solid #1a1a1a;margin:6px 0}
+
+.entry-row{display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px}
+.entry-val{color:#e0e0e0;font-weight:700}
+.sl-val{color:#c97a7a;font-weight:700}
+.tp-val{color:#7ecfb0;font-weight:700}
+
+.tag-row{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;min-height:14px}
+.tag{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700}
+.tag-trail{background:#1a1800;color:#c9a84c;border:1px solid #3a3010}
+.tag-armed{background:#180e1e;color:#b088cc;border:1px solid #4a2860}
+
+.cbdr-bar{margin-top:8px;height:2px;background:#1e1e1e;border-radius:2px;position:relative}
+.cbdr-dot{width:6px;height:6px;border-radius:50%;background:#c9a84c;position:absolute;top:-2px;transform:translateX(-50%)}
+
+/* OPEN POSITIONS */
+.active-panel{background:#111;border:1px solid #1e1e1e;border-radius:6px;padding:12px 14px}
+.panel-title{font-size:10px;color:#555;letter-spacing:1px;margin-bottom:10px}
+.trade-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #1a1a1a}
+.trade-row:last-child{border-bottom:none}
+.trade-side{font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;min-width:44px;text-align:center;flex-shrink:0}
+.side-short{background:#1e1010;color:#c97a7a;border:1px solid #c97a7a}
+.side-long{background:#0e1a14;color:#7ecfb0;border:1px solid #7ecfb0}
+.trade-sym{font-size:11px;font-weight:700;color:#e0e0e0;min-width:80px;flex-shrink:0}
+.trade-detail{font-size:10px;flex:1;display:flex;flex-direction:column;gap:2px}
+.trade-entry{color:#e0e0e0;font-weight:600}
+.trade-sltp{display:flex;gap:10px}
+.trade-sl{color:#c97a7a}
+.trade-tp{color:#7ecfb0}
+.trade-tags{display:flex;gap:4px;margin-top:2px}
+.trade-pnl{font-size:11px;font-weight:700;min-width:64px;text-align:right;flex-shrink:0}
+.empty-msg{color:#444;font-size:11px;padding:12px 0;text-align:center}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="logo">NEXUS</span>
+    <span class="badge-live">CANLI</span>
+  </div>
+  <div class="updated" id="updatedAt">
+    <div class="live-dot"></div>
+    <span>Son güncelleme: —</span>
+  </div>
+</div>
+
+<div class="stats-row">
+  <div class="stat"><div class="stat-label">BALANCE</div><div class="stat-value c-green" id="sBalance">—</div></div>
+  <div class="stat"><div class="stat-label">AÇIK POZİSYON</div><div class="stat-value c-yellow" id="sOpen">—</div></div>
+  <div class="stat"><div class="stat-label">BUGÜN İŞLEM</div><div class="stat-value c-white" id="sTrades">—</div></div>
+  <div class="stat"><div class="stat-label">UPNL</div><div class="stat-value c-green" id="sUpnl">—</div></div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="active-panel">
+  <div class="panel-title">AÇIK POZİSYONLAR</div>
+  <div id="positions"><div class="empty-msg">Açık pozisyon yok</div></div>
+</div>
+
+<script>
+const URL_STATE = '../output/live_state.json';
+const INTERVAL  = 30000;
+
+/* ── format ── */
+function fp(v) {
+  if (v === null || v === undefined) return '—';
+  const n = Number(v);
+  if (n >= 10000) return n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if (n >= 1000)  return n.toFixed(2);
+  if (n >= 100)   return n.toFixed(3);
+  if (n >= 1)     return n.toFixed(4);
+  return n.toFixed(5);
+}
+
+function pct(hi, lo) {
+  if (!hi || !lo || lo === 0) return null;
+  return ((hi - lo) / lo * 100).toFixed(2);
+}
+
+function timeFromIso(iso) {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    const h = String(d.getUTCHours()).padStart(2,'0');
+    const m = String(d.getUTCMinutes()).padStart(2,'0');
+    const s = String(d.getUTCSeconds()).padStart(2,'0');
+    return `${h}:${m}:${s}`;
+  } catch { return '—'; }
+}
+
+/*
+  BADGE + BORDER MANTIĞI (görsele göre):
+  ─────────────────────────────────────
+  active_trade && side=short  → OPEN SHORT   (kırmızı)
+  active_trade && side=long   → OPEN LONG    (yeşil)
+  retrade_armed               → RETRADE ARMED (mor)
+  sweep_confirmed=true        → SWEEP DETECTED (mor)
+  cbdr_locked=true, sweep yok → ENTRY BEKLİYOR (sarı)
+  diğer                       → CBDR KİLİTLİ  (gri)
+*/
+function cardMeta(ss) {
+  const t = ss.active_trade;
+  if (t) {
+    return t.side === 'short'
+      ? {bl:'bl-red',    badgeCls:'b-open-s', label:'OPEN SHORT'}
+      : {bl:'bl-green',  badgeCls:'b-open-l', label:'OPEN LONG'};
+  }
+  if (ss.retrade_armed) {
+    return {bl:'bl-purple', badgeCls:'b-armed', label:'RETRADE ARMED'};
+  }
+  if (ss.sweep_confirmed && ss.sweep_direction) {
+    return {bl:'bl-purple', badgeCls:'b-sweep', label:'SWEEP DETECTED'};
+  }
+  if (ss.cbdr_locked) {
+    return {bl:'bl-yellow', badgeCls:'b-entry', label:'ENTRY BEKLİYOR'};
+  }
+  return {bl:'bl-dark', badgeCls:'b-idle', label:'CBDR KİLİTLİ'};
+}
+
+function buildCard(sym, ss) {
+  const {bl, badgeCls, label} = cardMeta(ss);
+  const trade = ss.active_trade;
+
+  /* CBDR — high önce, low sonra (görsele göre) */
+  const p = pct(ss.cbdr_high, ss.cbdr_low);
+  const cbdrTx = p
+    ? `${fp(ss.cbdr_high)} – ${fp(ss.cbdr_low)} <span class="c-hl">(%${p})</span>`
+    : `${fp(ss.cbdr_high)} – ${fp(ss.cbdr_low)}`;
+
+  /* SWEEP */
+  let sweepTx;
+  if (ss.sweep_confirmed && ss.sweep_level && ss.sweep_direction) {
+    const c = ss.sweep_direction === 'bearish' ? 'c-bear' : 'c-bull';
+    sweepTx = `<span class="${c}">${ss.sweep_direction.toUpperCase()} @ ${fp(ss.sweep_level)}</span>`;
+  } else {
+    sweepTx = `<span class="c-muted">BEKLENIYOR</span>`;
+  }
+
+  /* FVG */
+  let fvgTx;
+  if (trade && trade.fvg_top && trade.fvg_bottom) {
+    fvgTx = `${fp(trade.fvg_top)} – ${fp(trade.fvg_bottom)}`;
+  } else if (ss.sweep_confirmed) {
+    fvgTx = `<span class="c-muted">TARANIYOR</span>`;
+  } else {
+    fvgTx = `<span class="c-muted">—</span>`;
+  }
+
+  /* BIAS */
+  const biasCol = ss.bias === 'BEARISH' ? 'c-bear' : ss.bias === 'BULLISH' ? 'c-bull' : 'c-muted';
+  const biasTx  = `<span class="${biasCol}">${ss.bias || 'NEUTRAL'}</span>`;
+
+  /* alt blok: trade varsa ENTRY/SL/TP, yoksa BIAS */
+  let bottomBlock;
+  if (trade) {
+    const tc = trade.trailing_count ?? 0;
+    bottomBlock = `
+      <div class="sep"></div>
+      <div class="entry-row"><span class="key">ENTRY</span><span class="entry-val">${fp(trade.entry)}</span></div>
+      <div class="entry-row"><span class="key">SL</span><span class="sl-val">${fp(trade.sl)}</span></div>
+      <div class="entry-row"><span class="key">TP</span><span class="tp-val">${fp(trade.tp)}</span></div>
+      <div class="tag-row">
+        <span class="tag tag-trail">TRAIL: ${tc}</span>
+        ${ss.retrade_armed ? '<span class="tag tag-armed">RETRADE ARMED</span>' : ''}
+      </div>`;
+  } else {
+    bottomBlock = `
+      <div class="sep"></div>
+      <div class="row">
+        <span class="key c-muted">BIAS</span>
+        <span class="val">${biasTx}</span>
+      </div>
+      <div class="tag-row">
+        ${ss.retrade_armed ? '<span class="tag tag-armed">RETRADE ARMED</span>' : ''}
+      </div>`;
+  }
+
+  /* dot pozisyonu: sweep level'ın CBDR içindeki yeri */
+  let dot = 50;
+  if (ss.sweep_level && ss.cbdr_high && ss.cbdr_low) {
+    const range = ss.cbdr_high - ss.cbdr_low;
+    if (range > 0) {
+      const raw = (ss.sweep_level - ss.cbdr_low) / range * 100;
+      dot = Math.min(95, Math.max(5, raw));
+    }
+  }
+
+  return `
+    <div class="coin-card ${bl}">
+      <div class="coin-header">
+        <span class="coin-name">${sym}</span>
+        <span class="badge ${badgeCls}">${label}</span>
+      </div>
+      <div class="row"><span class="key">CBDR</span><span class="val">${cbdrTx}</span></div>
+      <div class="row"><span class="key">SWEEP</span><span class="val">${sweepTx}</span></div>
+      <div class="row"><span class="key">FVG</span><span class="val">${fvgTx}</span></div>
+      ${bottomBlock}
+      <div class="cbdr-bar"><div class="cbdr-dot" style="left:${dot}%"></div></div>
+    </div>`;
+}
+
+/* ── pozisyonlar ── */
+function buildPositions(entries) {
+  const open = entries.filter(([,ss]) => ss.active_trade);
+  if (!open.length) return '<div class="empty-msg">Açık pozisyon yok</div>';
+
+  return open.map(([sym, ss]) => {
+    const t    = ss.active_trade;
+    const side = t.side || 'long';
+    const tc   = t.trailing_count ?? 0;
+    const pnl  = t.unrealized_pnl;
+    const pnlTx = (pnl !== undefined && pnl !== null)
+      ? (pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`)
+      : '+$—';
+    const pnlCls = (pnl !== undefined && pnl !== null && pnl < 0) ? 'c-red' : 'c-green';
+
+    return `
+      <div class="trade-row">
+        <span class="trade-side side-${side}">${side.toUpperCase()}</span>
+        <span class="trade-sym">${sym}</span>
+        <div class="trade-detail">
+          <span class="trade-entry">ENTRY ${fp(t.entry)}</span>
+          <div class="trade-sltp">
+            <span class="trade-sl">SL ${fp(t.sl)}</span>
+            <span class="trade-tp">TP ${fp(t.tp)}</span>
+          </div>
+          <div class="trade-tags">
+            <span class="tag tag-trail">TRAIL: ${tc}</span>
+            ${ss.retrade_armed ? '<span class="tag tag-armed">RETRADE ARMED</span>' : ''}
+          </div>
+        </div>
+        <span class="trade-pnl ${pnlCls}">${pnlTx}</span>
+      </div>`;
+  }).join('');
+}
+
+/* ── render ── */
+async function render() {
+  let data;
+  try {
+    const r = await fetch(URL_STATE + '?_=' + Date.now());
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch(e) {
+    document.querySelector('#updatedAt span').textContent = 'Bağlantı hatası: ' + e.message;
+    document.querySelector('.live-dot').style.background = '#c97a7a';
+    return;
+  }
+
+  document.querySelector('#updatedAt span').textContent =
+    `Son güncelleme: ${timeFromIso(data.updated_at)} · 15m`;
+
+  const syms    = data.symbols || {};
+  const entries = Object.entries(syms);
+  const openCnt = entries.filter(([,ss]) => ss.active_trade).length;
+  const tradeCnt= entries.reduce((a,[,ss]) => a + (ss.trades_today || 0), 0);
+  const upnl    = entries.reduce((a,[,ss]) => {
+    const p = ss.active_trade?.unrealized_pnl;
+    return a + (typeof p === 'number' ? p : 0);
+  }, 0);
+
+  document.getElementById('sBalance').textContent =
+    '$' + Number(data.balance).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
+  document.getElementById('sOpen').textContent    = openCnt;
+  document.getElementById('sTrades').textContent  = tradeCnt;
+
+  const upnlEl = document.getElementById('sUpnl');
+  upnlEl.textContent = (upnl >= 0 ? '+$' : '-$') + Math.abs(upnl).toFixed(2);
+  upnlEl.className   = 'stat-value ' + (upnl >= 0 ? 'c-green' : 'c-red');
+
+  document.getElementById('grid').innerHTML =
+    entries.map(([s,ss]) => buildCard(s,ss)).join('') ||
+    '<div class="empty-msg" style="grid-column:1/-1">Sembol yok</div>';
+
+  document.getElementById('positions').innerHTML = buildPositions(entries);
+}
+
+render();
+setInterval(render, INTERVAL);
+</script>
+</body>
+</html>

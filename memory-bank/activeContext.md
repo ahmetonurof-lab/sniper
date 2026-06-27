@@ -12,12 +12,13 @@
 
 | # | Commit | Açıklama |
 |---|--------|----------|
-| 1 | `fd21f66` | **ICT sweep fix**: Yukarı sweep (`sweep_direction=bearish`) → SHORT; aşağı sweep (`sweep_direction=bullish`) → LONG. Eskiden aynı yönlüydü (bullish→LONG), ICT gereği ters olmalı. |
-| 2 | `d1cebaf` | **Risk tuning**: LINK 1.5/1.0 → 1.0/0.8 (%10 DD hedefi), DOT 1.5/1.0 → 1.2/0.9 (%12 DD hedefi). |
-| 3 | `15910cf` | **Qty balance cap**: 1x leverage'da notional > balance → `max_qty = balance / entry_price` ile tavanlanır, Binance -2019 hatası önlenir. |
-| 4 | `a6a9999` | **state_writer.py**: Her 15m kapanışında `output/live_state.json` yazar — dashboard ve chart_export için. |
-| 5 | `38436b7` | **availableBalance**: `get_balance()` artık walletBalance değil availableBalance döndürür. |
-| 6 | `270ea7f` | **Formül düzeltmesi**: `qty = (balance × risk_pct) / risk_dist / leverage` → `qty = (balance × risk_pct) / risk_dist`. Margin leverage ile ayarlanır, qty'yi etkilemez. LEVERAGE 1→5. |
+| 1 | `d6a8955` | **Quantity precision fix**: `place_market_order`, `place_stop_order`, `place_tp_order` fonksiyonlarında quantity string formatında gönderiliyor. `_get_precision_places()` ile dinamik decimal places hesaplanıyor. BTCUSDT/AVAXUSDT HTTP -1111 hataları çözüldü. |
+| 2 | `fd21f66` | **ICT sweep fix**: Yukarı sweep (`sweep_direction=bearish`) → SHORT; aşağı sweep (`sweep_direction=bullish`) → LONG. Eskiden aynı yönlüydü (bullish→LONG), ICT gereği ters olmalı. |
+| 3 | `d1cebaf` | **Risk tuning**: LINK 1.5/1.0 → 1.0/0.8 (%10 DD hedefi), DOT 1.5/1.0 → 1.2/0.9 (%12 DD hedefi). |
+| 4 | `15910cf` | **Qty balance cap**: 1x leverage'da notional > balance → `max_qty = balance / entry_price` ile tavanlanır, Binance -2019 hatası önlenir. |
+| 5 | `a6a9999` | **state_writer.py**: Her 15m kapanışında `output/live_state.json` yazar — dashboard ve chart_export için. |
+| 6 | `38436b7` | **availableBalance**: `get_balance()` artık walletBalance değil availableBalance döndürür. |
+| 7 | `270ea7f` | **Formül düzeltmesi**: `qty = (balance × risk_pct) / risk_dist / leverage` → `qty = (balance × risk_pct) / risk_dist`. Margin leverage ile ayarlanır, qty'yi etkilemez. LEVERAGE 1→5. |
 
 ## Aktif Kararlar
 
@@ -30,6 +31,7 @@
 
 ## Sıradaki / Açık Konular
 
+- **HTTP -4130** ("An open stop or take profit order with GTE and closePosition in the direction is existing"): Precision fix sonrası emirler başarılı açılacak, trailing sırasında eski emirler iptal edilebilir. Gözlemlenmeli.
 - LINK WR %52.7 — yapısal sorun mu yoksa Q1 2026'ya özel mi? Multi-period backtest gerekebilir.
 - `LOG_LEVEL` — canlıda DEBUG mi INFO mu kararı.
 - Pre-commit hooks çalışıyor (ruff, vulture). Yeni dosyalarda mypy eklenebilir.

@@ -94,3 +94,4 @@ Price sweeps BELOW CBDR.low + close above CBDR.low
 4. **Restart-proof**: trade_state.json (açık trade, retrade arm, günlük count).
 5. **Önce yeni order, sonra eski cancel**: Trailing güncellemesinde order kaybı önlenir.
 6. **5x leverage**: Margin = notional / 5. Formülde `/leverage` yok — qty sadece risk+bakiye bazlı.
+7. **Quantity string format**: Binance API'ye quantity string olarak gönderilir (`f"{qty:.{decimals}f}"`), float precision hatası önlenir.

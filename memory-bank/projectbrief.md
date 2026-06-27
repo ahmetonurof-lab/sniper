@@ -7,7 +7,7 @@ Binance Futures Testnet üzerinde çalışan, ICT/SMC tabanlı otonom trading bo
 1. **Tam otonom trade**: Sinyal üretimi → emir gönderimi → pozisyon yönetimi → trailing → exit → retrade, tamamen insansız.
 2. **ICT tabanlı sinyal**: CBDR likidite seviyesi → sweep → FVG wick rejection → entry.
 3. **Multi-symbol**: 13 USDT-margined futures sembolü eşzamanlı.
-4. **1x leverage**: Kaldıraçsız strateji, pozisyon notional'ı bakiyeyle sınırlı.
+4. **5x leverage**: Kaldıraçlı strateji, margin = notional / 5.
 5. **Restart-proof**: Disk-persistent state (trade_state.json) + Binance pozisyon recovery.
 
 ## Proje Kapsamı

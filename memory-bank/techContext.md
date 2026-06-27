@@ -53,7 +53,7 @@ python bot.py
 - aiohttp, python-dotenv, numpy
 
 ## Harici Servisler
-- Binance Futures Testnet: `wss://testnet.binancefuture.com` / `https://testnet.binancefuture.com`
+- Binance Futures Testnet: `wss://fstream.binancefuture.com` / `https://demo-fapi.binance.com`
 
 ## Ortam Değişkenleri (.env)
 ```
