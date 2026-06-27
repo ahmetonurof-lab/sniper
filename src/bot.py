@@ -467,7 +467,7 @@ class PaperTrader:
         else:
             risk_pct = risk_map.get("primary", RISK_PER_TRADE)
         qty = EntryManager.calculate_qty(
-            self._balance, risk_pct, risk_dist, cfg.LEVERAGE
+            self._balance, risk_pct, risk_dist, cfg.LEVERAGE, entry_price
         )
         if qty <= 0:
             log.warning("[SKIP] %s entry — qty=%.6f <= 0 (rsm reset)", sym, qty)

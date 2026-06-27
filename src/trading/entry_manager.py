@@ -86,15 +86,34 @@ class EntryManager:
         risk_pct: float,
         risk_dist: float,
         leverage: int,
+        entry_price: float = 0.0,
     ) -> float:
         """Risk bazlı pozisyon büyüklüğü hesapla.
 
         Orijinal _try_entry() qty formülü ile birebir aynı:
           qty = (balance * risk_pct) / risk_dist / leverage
+
+        1x kaldıraçta pozisyon notional'ı bakiyeyi aşmasın diye
+        entry_price verilmişse max qty = balance / entry_price ile
+        tavanlanır — böylece Binance -2019 hatası önlenir.
         """
         if risk_dist <= 0:
             return 0.0
-        return (balance * risk_pct) / risk_dist / leverage
+        qty = (balance * risk_pct) / risk_dist / leverage
+        if leverage == 1 and entry_price > 0:
+            max_qty = balance / entry_price
+            if qty > max_qty:
+                log.info(
+                    "[QTY] qty capped: risk-based=%.4f → balance-based=%.4f "
+                    "(balance=%.2f, entry=%.2f, leverage=%d)",
+                    qty,
+                    max_qty,
+                    balance,
+                    entry_price,
+                    leverage,
+                )
+                qty = max_qty
+        return qty
 
     # ── 2.5 SL/TP hesaplama ──────────────────────────────────
 
