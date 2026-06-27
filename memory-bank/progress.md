@@ -18,6 +18,7 @@
 | RetraceStateMachine (IDLE→SWEEP→TRIGGER) | ✅ Sweep dedup (restart-proof) |
 | state_manager (disk-persistent state) | ✅ trade_state.json |
 | state_writer (dashboard JSON) | ✅ live_state.json, her 15m güncellenir |
+| trade_exporter (trade geçmişi) | ✅ trades_history.jsonl, bot okumaz |
 | ConsoleReporter (TR time, dedup) | ✅ Şeffaf console çıktısı |
 | Pre-commit hooks | ✅ ruff (linter + formatter), vulture |
 

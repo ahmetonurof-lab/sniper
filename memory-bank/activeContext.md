@@ -20,6 +20,7 @@
 | 6 | `38436b7` | **availableBalance**: `get_balance()` artık walletBalance değil availableBalance döndürür. |
 | 7 | `270ea7f` | **Formül düzeltmesi**: `qty = (balance × risk_pct) / risk_dist / leverage` → `qty = (balance × risk_pct) / risk_dist`. Margin leverage ile ayarlanır, qty'yi etkilemez. LEVERAGE 1→5. |
 | 8 | `658e7f6` | **state_writer.py**: `fvg_ready` (sweep sonrası FVG bulundu mu) ve `upnl` (anlık kâr/zarar) alanları eklendi. |
+| 9 | `c661283` | **trade_exporter.py**: Kapanan her trade `output/trades_history.jsonl`'a yazılır. Bot okumaz, sadece append eder. İçerik: sym, side, entry/exit, SL/TP, exit_reason, trailing_count, PnL, CBDR, sweep, FVG, timestamp. |
 
 ## Aktif Kararlar
 
