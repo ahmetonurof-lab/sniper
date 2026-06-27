@@ -37,6 +37,7 @@ def write_state(
             "sweep_confirmed": ss.sweep_confirmed,
             "sweep_direction": ss.sweep_direction,
             "sweep_level": round(ss.sweep_level, 6) if ss.sweep_level else None,
+            "fvg_ready": ss.fvg_ready,
             "bias": ss.daily_bias.value,
             "range_type": ss.range_type,
             "london_high": round(ss.london_high, 6),
@@ -60,6 +61,7 @@ def write_state(
                 else None,
                 "trailing_count": trade.get("trailing_count", 0),
                 "is_retrade": trade.get("is_retrade", False),
+                "upnl": trade.get("upnl"),
             }
             if trade
             else None,
