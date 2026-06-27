@@ -30,6 +30,7 @@ from state_manager import (
 )
 from state_writer import write_state
 from trade_exporter import export_trade
+from chart_export import export_chart
 from trading import (
     SignalEngine,
     EntryManager,
@@ -602,6 +603,9 @@ class PaperTrader:
             }
         )
         export_trade(sym, trade, pnl, self.states[sym])
+        chart_file = export_chart(sym, trade, pnl, self.states[sym])
+        if chart_file:
+            trade["chart_file"] = chart_file
         del self.active_trades[sym]
         mark_trade_closed(sym)
 

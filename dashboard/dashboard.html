@@ -79,6 +79,7 @@ body{background:#0d0d0d;padding:16px;font-family:'JetBrains Mono',monospace;colo
 .tag{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700}
 .tag-trail{background:#1a1800;color:#c9a84c;border:1px solid #3a3010}
 .tag-armed{background:#180e1e;color:#b088cc;border:1px solid #4a2860}
+.tag-chart{background:#0e1a1e;color:#7ecfb0;border:1px solid #1a4a3a;text-decoration:none}
 
 .cbdr-bar{margin-top:8px;height:2px;background:#1e1e1e;border-radius:2px;position:relative}
 .cbdr-dot{width:6px;height:6px;border-radius:50%;background:#c9a84c;position:absolute;top:-2px;transform:translateX(-50%)}
@@ -129,8 +130,14 @@ body{background:#0d0d0d;padding:16px;font-family:'JetBrains Mono',monospace;colo
   <div id="positions"><div class="empty-msg">Açık pozisyon yok</div></div>
 </div>
 
+<div class="active-panel" style="margin-top:8px">
+  <div class="panel-title">GEÇMİŞ TRADELER</div>
+  <div id="history"><div class="empty-msg">Yükleniyor...</div></div>
+</div>
+
 <script>
 const URL_STATE = '../output/live_state.json';
+const URL_HIST  = '../output/trades_history.jsonl';
 const INTERVAL  = 30000;
 
 /* ── format ── */
@@ -306,6 +313,49 @@ function buildPositions(entries) {
   }).join('');
 }
 
+/* ── Geçmiş Tradeler ── */
+async function buildHistory() {
+  try {
+    const r = await fetch(URL_HIST + '?_=' + Date.now());
+    if (!r.ok) return '<div class="empty-msg">Geçmiş yüklenemedi</div>';
+    const txt = await r.text();
+    const lines = txt.split('\n').filter(Boolean);
+    if (!lines.length) return '<div class="empty-msg">Henüz trade yok</div>';
+
+    const last = lines.slice(-20).reverse();
+    return last.map(line => {
+      try {
+        const t = JSON.parse(line);
+        const sideCls = t.side === 'short' ? 'side-short' : 'side-long';
+        const pnlCls  = (t.pnl || 0) >= 0 ? 'c-green' : 'c-red';
+        const pnlTx   = (t.pnl >= 0 ? '+$' : '-$') + Math.abs(t.pnl).toFixed(2);
+        const chartLink = t.chart_file
+          ? `<a href="charts/${t.chart_file}" target="_blank" class="tag tag-chart">CHART</a>`
+          : '';
+        const dt = t.timestamp
+          ? new Date(t.timestamp).toISOString().slice(11,16)+'UTC' : '';
+        return `<div class="trade-row">
+          <span class="trade-side ${sideCls}">${t.side.toUpperCase()}</span>
+          <span class="trade-sym">${t.sym}</span>
+          <div class="trade-detail">
+            <span class="trade-entry">${fp(t.entry)} → ${fp(t.exit)}</span>
+            <div class="trade-sltp">
+              <span class="trade-sl">SL ${fp(t.sl)}</span>
+              <span class="trade-tp">TP ${fp(t.tp)}</span>
+              <span class="c-mid">· ${t.exit_reason}</span>
+              <span class="c-muted">· trail:${t.trailing_count}</span>
+            </div>
+            <div class="trade-tags">${chartLink}</div>
+          </div>
+          <span class="trade-pnl ${pnlCls}">${pnlTx}</span>
+        </div>`;
+      } catch { return ''; }
+    }).join('') || '<div class="empty-msg">Geçmiş yüklenemedi</div>';
+  } catch {
+    return '<div class="empty-msg">Geçmiş yüklenemedi</div>';
+  }
+}
+
 /* ── render ── */
 async function render() {
   let data;
@@ -345,6 +395,8 @@ async function render() {
     '<div class="empty-msg" style="grid-column:1/-1">Sembol yok</div>';
 
   document.getElementById('positions').innerHTML = buildPositions(entries);
+
+  document.getElementById('history').innerHTML = await buildHistory();
 }
 
 render();

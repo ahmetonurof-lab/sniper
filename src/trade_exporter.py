@@ -33,6 +33,7 @@ def export_trade(sym: str, trade: dict, pnl: float, ss) -> None:
         "fvg_top": round(fvg.top, 6) if fvg else None,
         "fvg_bottom": round(fvg.bottom, 6) if fvg else None,
         "is_retrade": trade.get("is_retrade", False),
+        "chart_file": trade.get("chart_file"),
         "timestamp": trade.get("exit_timestamp") or trade.get("close_time", 0),
     }
     os.makedirs(_OUTPUT_DIR, exist_ok=True)
