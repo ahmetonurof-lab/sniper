@@ -22,7 +22,9 @@
 | 8 | `658e7f6` | **state_writer.py**: `fvg_ready` (sweep sonrası FVG bulundu mu) ve `upnl` (anlık kâr/zarar) alanları eklendi. |
 | 9 | `c661283` | **trade_exporter.py**: Kapanan her trade `output/trades_history.jsonl`'a yazılır. Bot okumaz, sadece append eder. İçerik: sym, side, entry/exit, SL/TP, exit_reason, trailing_count, PnL, CBDR, sweep, FVG, timestamp. |
 | 10 | `9c01c0a` | **1:2 R:R fix**: `calculate_sl_tp`'de London high/low TP override kaldırıldı. TP artık `risk_dist × tp_rr (2.0)` ile hesaplanır. Trailing'de SL kaydıkça TP aynı orantıda kayar (zaten vardı). |
-| 11 | `9d0932b` | **chart_export.py**: Her kapanan trade için `dashboard/charts/SYM_YYYY-MM-DD_HHMM.html` Plotly chart basar. Dashboard'a "Geçmiş Tradeler" paneli eklendi — son 20 trade + CHART linki. |
+| 11 | `9d0932b` | **chart_export.py**: Her kapanan trade için `dashboard/charts/SYM_YYYY-MM-DD_HHMM.html` Plotly chart basar — CBDR box, sweep mum, FVG+CE, trail adımları, session damgası. Dashboard'a "Geçmiş Tradeler" paneli + CHART linki. |
+| 12 | `f30760f` | **trail_steps kaydı**: Her trailing adımı `trade["trail_steps"]`'e eklenir: `{sl, tp, fvg_top, fvg_bot, bar}`. `trail_steps` field'da `field(default_factory=list)` — hiç `None` dönmez. |
+| 13 | `ddd8367` | **chart_export sıralaması**: `_exit_trade`'de `export_chart` → `trade["chart_file"]` → `export_trade` (JSONL chart_file içerir). `exit_bar` `.get("exit_bar", 0)` ile güvenli erişim. WS handler'da `trade["exit_timestamp"]` set edilir. |
 
 ## Aktif Kararlar
 

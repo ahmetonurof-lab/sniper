@@ -88,15 +88,14 @@ class EntryManager:
         leverage: int,
         entry_price: float = 0.0,
     ) -> float:
-        """Risk bazlı pozisyon büyüklüğü hesapla.
-
-        qty = (balance × risk_pct) / risk_dist
-
-        leverage parametresi margin hesabı içindir, qty'yi etkilemez.
-        """
+        """Risk bazlı pozisyon büyüklüğü hesapla + buying power tavanı."""
         if risk_dist <= 0:
             return 0.0
         qty = (balance * risk_pct) / risk_dist
+        if entry_price > 0 and leverage > 0:
+            max_qty = (balance * leverage) / entry_price
+            if qty > max_qty:
+                qty = max_qty
         return qty
 
     # ── 2.5 SL/TP hesaplama ──────────────────────────────────

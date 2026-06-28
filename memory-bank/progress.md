@@ -19,7 +19,8 @@
 | state_manager (disk-persistent state) | ✅ trade_state.json |
 | state_writer (dashboard JSON) | ✅ live_state.json, her 15m güncellenir |
 | trade_exporter (trade geçmişi) | ✅ trades_history.jsonl, bot okumaz |
-| chart_export (Plotly HTML chart) | ✅ dashboard/charts/SYM_tarih.html |
+| chart_export (Plotly HTML chart) | ✅ CBDR box, sweep mum, FVG+CE, trail adimlari, session damgasi |
+| trail_steps kaydi | ✅ Her trailing adimi trade dict’ine {sl, tp, fvg_top, fvg_bot, bar} |
 | ConsoleReporter (TR time, dedup) | ✅ Şeffaf console çıktısı |
 | Pre-commit hooks | ✅ ruff (linter + formatter), vulture |
 
