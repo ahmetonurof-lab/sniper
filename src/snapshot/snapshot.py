@@ -4,8 +4,6 @@ snapshot.py — High-fidelity trading snapshot (Lightweight Charts + Playwright)
 Retrospektif: trade kapandiktan sonra calisir, trading loop'a dokunmaz.
 """
 
-from __future__ import annotations
-
 import json
 import logging
 import os
@@ -19,7 +17,7 @@ from playwright.sync_api import sync_playwright
 log = logging.getLogger("sniper.snapshot")
 
 _SNAPSHOTS_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "..", "output", "chats"
+    os.path.dirname(os.path.abspath(__file__)), "..", "..", "output", "charts"
 )
 _BINANCE_BASE = "https://fapi.binance.com/fapi/v1/klines"
 _TEMPLATE_PATH = os.path.join(
@@ -77,15 +75,11 @@ def _fetch_ohlc(sym: str, limit: int = 80) -> list[dict] | None:
     ]
 
 
-def _entry_bar_index(candles: list[dict], entry_price: float, side: str) -> int:
+def _find_bar(candles: list[dict], price: float) -> int:
     for i, c in enumerate(candles):
-        if side == "long":
-            if c["low"] <= entry_price <= c["high"]:
-                return i
-        else:
-            if c["low"] <= entry_price <= c["high"]:
-                return i
-    return len(candles) // 2
+        if c["low"] <= price <= c["high"]:
+            return i
+    return len(candles) - 1
 
 
 def capture_snapshot(
@@ -107,16 +101,25 @@ def capture_snapshot(
 
     ts_ms = trade.get("exit_timestamp") or trade.get("close_time", 0)
 
-    # FVG direction & formation bar approx
+    entry_bar = _find_bar(candles, entry_price)
+    exit_bar = _find_bar(candles, exit_price)
+
+    # Trim candles to balanced window around trade
+    PAD = 8
+    start = max(0, entry_bar - PAD)
+    end = min(len(candles), exit_bar + PAD + 1)
+    candles = candles[start:end]
+    entry_bar -= start
+    exit_bar -= start
+
+    # FVG direction & formation bar approx (after trim)
     fvg_direction = None
     fvg_bar_index = -1
     if fvg:
         fvg_direction = fvg.direction
-        fvg_bar_index = max(0, _entry_bar_index(candles, entry_price, side) - 3)
+        fvg_bar_index = max(0, entry_bar - 3)
 
-    entry_bar = _entry_bar_index(candles, entry_price, side)
-
-    # Map trail step bar indices to our candle window
+    # Map trail step bar indices to trimmed window
     entry_bar_idx_abs = trade.get("entry_bar_index", 0)
     mapped_steps = []
     for step in trade.get("trail_steps", []):
@@ -142,6 +145,7 @@ def capture_snapshot(
             "fvgDirection": fvg_direction,
             "fvgBarIndex": fvg_bar_index,
             "entryBar": entry_bar,
+            "exitBar": exit_bar,
             "trailSteps": mapped_steps,
         }
     )
