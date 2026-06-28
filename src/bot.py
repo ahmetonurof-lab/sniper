@@ -522,7 +522,7 @@ class PaperTrader:
 
                 assert self.entry_manager is not None
                 exec_result = await self.entry_manager.execute_live_entry(
-                    sym, side, qty, sl, tp
+                    sym, side, qty, sl, tp, entry_price
                 )
 
                 if not exec_result.success:

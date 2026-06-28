@@ -255,6 +255,44 @@ class BinanceRESTClient:
             return 0.0
         return amount
 
+    async def get_min_notional(self, symbol: str) -> float:
+        """Sembolün minimum notional değerini döner (USDT cinsinden)."""
+        info = await self.get_symbol_info(symbol)
+        if not info:
+            return 5.0
+        for f in info.get("filters", []):
+            if f["filterType"] == "MIN_NOTIONAL":
+                return float(f.get("notional", 5.0))
+        return 5.0
+
+    async def validate_min_notional(
+        self, symbol: str, amount: float, price: float
+    ) -> float:
+        """amount × price >= minNotional kontrolü. Geçemezse 0.0 döner."""
+        if amount <= 0 or price <= 0:
+            return 0.0
+        notional = amount * price
+        min_notional = await self.get_min_notional(symbol)
+        if notional < min_notional:
+            log.warning(
+                "[MINNOTIONAL] %s notional=%.2f < min_notional=%.2f "
+                "(amount=%.8f, price=%.2f)",
+                symbol,
+                notional,
+                min_notional,
+                amount,
+                price,
+            )
+            return 0.0
+        return amount
+
+    async def estimate_market_price(self, symbol: str) -> float:
+        """MARKET emri için tahmini işlem fiyatı (mark price)."""
+        r = await self.get(f"/fapi/v1/ticker/price?symbol={symbol}")
+        if r.is_err:
+            return 0.0
+        return float(r.value.get("price", 0))
+
     # ─────────────────────────────────────────────────────────────
     # Transport katmanı (P9.2: aiohttp + P9.3: Result[dict])
     # ─────────────────────────────────────────────────────────────
@@ -515,13 +553,20 @@ class BinanceRESTClient:
     ) -> dict:
         """
         MARKET emri gonderir (pozisyon acmak/kapatmak icin).
-        Precision uygular, demo API fallback yapar.
+        Precision uygular, filtrelerden gecer, demo API fallback yapar.
         """
         step = await self.get_step_size(symbol)
         rounded_qty = await self.apply_amount_precision(symbol, qty)
         valid_qty = await self.validate_min_amount(symbol, rounded_qty)
         if valid_qty <= 0:
             log.warning("[MARKET] %s qty=%.8f minQty altinda, iptal", symbol, qty)
+            return {}
+
+        # MIN_NOTIONAL kontrolü — rounding sonrasi qty çok küçük kalabilir
+        est_price = await self._estimate_price(symbol, side)
+        valid_qty = await self.validate_min_notional(symbol, valid_qty, est_price)
+        if valid_qty <= 0:
+            log.warning("[MARKET] %s qty=%.8f minNotional altinda, iptal", symbol, qty)
             return {}
 
         decimals = max(_get_precision_places(step), 8)
@@ -576,6 +621,10 @@ class BinanceRESTClient:
             return {}
 
         rounded_price = await self.apply_price_precision(symbol, stop_price)
+        valid_qty = await self.validate_min_notional(symbol, valid_qty, rounded_price)
+        if valid_qty <= 0:
+            log.warning("[SL] %s qty=%.8f minNotional altinda, iptal", symbol, qty)
+            return {}
         decimals = max(_get_precision_places(step), 8)
         qty_str = f"{valid_qty:.{decimals}f}".rstrip("0").rstrip(".")
 
@@ -629,6 +678,10 @@ class BinanceRESTClient:
             return {}
 
         rounded_price = await self.apply_price_precision(symbol, stop_price)
+        valid_qty = await self.validate_min_notional(symbol, valid_qty, rounded_price)
+        if valid_qty <= 0:
+            log.warning("[TP] %s qty=%.8f minNotional altinda, iptal", symbol, qty)
+            return {}
         decimals = max(_get_precision_places(step), 8)
         qty_str = f"{valid_qty:.{decimals}f}".rstrip("0").rstrip(".")
 

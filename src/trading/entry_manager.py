@@ -150,12 +150,22 @@ class EntryManager:
     # ── 3. Canlı emir yerleştirme ────────────────────────────
 
     async def execute_live_entry(
-        self, sym: str, side: str, qty: float, sl: float, tp: float
+        self,
+        sym: str,
+        side: str,
+        qty: float,
+        sl: float,
+        tp: float,
+        entry_price: float | None = None,
     ) -> EntryExecutionResult:
         """Binance üzerinde market + SL + TP emirlerini yerleştir.
 
         Orijinal _try_entry() içindeki "if cfg.BINANCE_API_KEY and live" bloğu
         ile birebir aynı mantık. Hata durumunda acil pozisyon kapatma dahil.
+
+        Args:
+            entry_price: MIN_NOTIONAL kontrolü için tahmini giriş fiyatı.
+                         None ise REST'ten anlık mark price alınır.
 
         Returns:
             EntryExecutionResult — başarılıysa success=True ve order ID'leri dolu.
@@ -172,6 +182,16 @@ class EntryManager:
         if valid_qty <= 0:
             return EntryExecutionResult(
                 success=False, error=f"qty={qty:.6f} minQty altinda"
+            )
+
+        # MIN_NOTIONAL kontrolü
+        min_notional_price = entry_price or await self._rest.estimate_market_price(sym)
+        valid_qty = await self._rest.validate_min_notional(
+            sym, valid_qty, min_notional_price
+        )
+        if valid_qty <= 0:
+            return EntryExecutionResult(
+                success=False, error=f"qty={qty:.6f} minNotional altinda"
             )
 
         # ── Market entry ──
