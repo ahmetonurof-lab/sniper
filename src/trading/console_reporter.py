@@ -186,7 +186,7 @@ class ConsoleReporter:
             self.emit(
                 sym,
                 "st_fvg",
-                f"\U0001f7e9 FVG_SCAN | MIN_SIZE: {min_fvg} | \u2705 FVG HAZIR",
+                f"\U0001f7e9 FVG_SCAN | MIN_SIZE: {min_fvg} | FVG:[{tfvg.bottom:.2f} - {tfvg.top:.2f}] | \u2705 HAZIR",
                 force=True,
             )
             self.emit(
