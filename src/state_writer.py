@@ -14,12 +14,14 @@ _STATE_FILE = os.path.join(_OUTPUT_DIR, "live_state.json")
 def write_state(
     states: dict,  # PaperTrader.states — sym → SessionState
     active_trades: dict,  # PaperTrader.active_trades — sym → ActiveTrade
-    balance: float,
+    available_balance: float,
+    wallet_balance: float,
     symbols: list[str],
 ) -> None:
     out = {
         "updated_at": datetime.now(UTC).isoformat(),
-        "balance": round(balance, 2),
+        "available_balance": round(available_balance, 2),
+        "wallet_balance": round(wallet_balance, 2),
         "symbols": {},
     }
     for sym in symbols:

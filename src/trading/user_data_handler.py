@@ -25,7 +25,7 @@ class UserDataHandler:
     PaperTrader'dan DI ile alır:
       - active_trades: dict — trade'lere erişim
       - pl_callback: callable — _pl() delegesi
-      - balance_callback: callable — _balance setter
+      - wallet_callback: callable — _wallet_balance setter (sadece görüntüleme)
       - order_manager: OrderManager — repair_protection() için
       - exit_callback: async callable — _exit_trade() delegesi
     """
@@ -34,13 +34,13 @@ class UserDataHandler:
         self,
         active_trades: dict[str, Any],
         pl_callback: Callable[[str, str, str], None],
-        balance_callback: Callable[[float], None],
+        wallet_callback: Callable[[float], None],
         order_manager: Any,
         exit_callback: Callable[..., Any],  # async
     ):
         self._active_trades = active_trades
         self._pl = pl_callback
-        self._set_balance = balance_callback
+        self._set_wallet = wallet_callback
         self._order_manager = order_manager
         self._exit_trade = exit_callback
 
@@ -127,11 +127,11 @@ class UserDataHandler:
             ud = msg.get("a", {})
             for bal in ud.get("B", []):
                 if bal.get("a") in ("USDT", "FDUSD", "USDC"):
-                    _set_balance(float(bal.get("wb", 0)))
+                    _set_wallet(float(bal.get("wb", 0)))
 
         # Closure değişkenlerini yakala
         _active_trades = self._active_trades
         _pl = self._pl
-        _set_balance = self._set_balance
+        _set_wallet = self._set_wallet
         _order_manager = self._order_manager
         _exit_trade = self._exit_trade

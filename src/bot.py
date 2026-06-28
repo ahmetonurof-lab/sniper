@@ -119,7 +119,10 @@ class PaperTrader:
         self.trades: deque[dict] = deque(maxlen=1000)
         self.reporter = ConsoleReporter()
         self._live = False
-        self._balance = INITIAL_CAPITAL
+        self._wallet_balance: float = INITIAL_CAPITAL  # WS'den gelen wb (görüntüleme)
+        self._available_balance: float = (
+            INITIAL_CAPITAL  # REST availableBalance (position sizing)
+        )
 
         api_key = cfg.BINANCE_API_KEY or ""
         api_secret = cfg.BINANCE_API_SECRET or ""
@@ -267,7 +270,13 @@ class PaperTrader:
         await self._check_retrade(sym, bars_15m, current, atr_val, ss)
 
         # State writer — dashboard için
-        write_state(self.states, self.active_trades, self._balance, self.symbols)
+        write_state(
+            self.states,
+            self.active_trades,
+            self._available_balance,
+            self._wallet_balance,
+            self.symbols,
+        )
 
     # ── Retrade: trailing sweep + FVG + 2. entry (analyzer.py #8) ──
 
@@ -366,7 +375,7 @@ class PaperTrader:
                     sl=lhr_result.sl,
                     tp=lhr_result.tp,
                     ss=ss,
-                    balance=self._balance,
+                    balance=self._available_balance,
                     risk_pct=risk_pct,
                     leverage=cfg.LEVERAGE,
                     zone_bottom=lhr_result.zone_bottom,
@@ -467,13 +476,22 @@ class PaperTrader:
             rsm.reset()
             return
 
+        # Entry öncesi taze availableBalance (position sizing için)
+        if cfg.BINANCE_API_KEY:
+            try:
+                fresh_bal = await self.rest.get_balance()
+                if fresh_bal > 0:
+                    self._available_balance = fresh_bal
+            except Exception:
+                pass
+
         risk_map = cfg.SYMBOL_RISK_MAP.get(sym, {})
         if is_retrade:
             risk_pct = risk_map.get("retrade", RISK_PER_TRADE)
         else:
             risk_pct = risk_map.get("primary", RISK_PER_TRADE)
         qty = EntryManager.calculate_qty(
-            self._balance, risk_pct, risk_dist, cfg.LEVERAGE, entry_price
+            self._available_balance, risk_pct, risk_dist, cfg.LEVERAGE, entry_price
         )
         if qty <= 0:
             log.warning("[SKIP] %s entry — qty=%.6f <= 0 (rsm reset)", sym, qty)
@@ -568,19 +586,19 @@ class PaperTrader:
             else (trade["entry_price"] - trade["exit_price"])
         )
         pnl = round(diff * trade["qty"], 2)
-        self._balance += pnl
+        self._available_balance += pnl
         self._pl(
             sym,
             f"exit_{exit_timestamp}",
-            f"\U0001f7e5 EXIT: {trade['result']} | PRICE: {trade['exit_price']:.2f} | PNL: {pnl:+.2f} | BALANCE: {self._balance:.2f} | TRAIL: {trade['trailing_count']}",
+            f"\U0001f7e5 EXIT: {trade['result']} | PRICE: {trade['exit_price']:.2f} | PNL: {pnl:+.2f} | AVL: {self._available_balance:.2f} | WAL: {self._wallet_balance:.2f} | TRAIL: {trade['trailing_count']}",
         )
         log.info(
-            "[PAPER] %s %s exit=%s pnl=%.2f balance=%.2f",
+            "[PAPER] %s %s exit=%s pnl=%.2f available=%.2f",
             sym,
             trade["result"],
             trade["exit_price"],
             pnl,
-            self._balance,
+            self._available_balance,
         )
 
         # FIX #5: Manuel kapanış emri kaldırıldı.
@@ -705,11 +723,12 @@ class PaperTrader:
             try:
                 bal = await self.rest.get_balance()
                 if bal > 0:
-                    self._balance = bal
+                    self._available_balance = bal
+                    self._wallet_balance = bal
                     self._pl(
                         "SYSTEM",
                         "balance",
-                        f"\U0001f4b0 BALANCE: {self._balance:.2f} USDT ({net})",
+                        f"\U0001f4b0 AVL: {self._available_balance:.2f} | WAL: {self._wallet_balance:.2f} USDT ({net})",
                     )
                 else:
                     self._pl(
@@ -803,7 +822,7 @@ class PaperTrader:
                     udh = UserDataHandler(
                         active_trades=self.active_trades,
                         pl_callback=self._pl,
-                        balance_callback=lambda v: setattr(self, "_balance", v),
+                        wallet_callback=lambda v: setattr(self, "_wallet_balance", v),
                         order_manager=self.order_manager,
                         exit_callback=self._exit_trade,
                     )
