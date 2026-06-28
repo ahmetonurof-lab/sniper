@@ -14,18 +14,13 @@ const ch=LightweightCharts.createChart(document.getElementById('c'),{
  handleScroll:false,handleScale:false
 });
 function ls(p,c,s){let l=ch.addLineSeries({color:c,lineWidth:1,lineStyle:s||LightweightCharts.LineStyle.Solid,lastValueVisible:false,priceFormat:{type:'custom',formatter:()=>''}});l.setData([{time:c0,value:p},{time:cE,value:p}]);return l}
-
-
 const ms=ch.addCandlestickSeries({upColor:'#089981',downColor:'#f23645',borderUpColor:'#089981',borderDownColor:'#f23645',wickUpColor:'#089981',wickDownColor:'#f23645'});
 ms.setData(C);
 const eT=C[D.entryBar].time;
-
-// CBDR
 if(D.cbdrHigh!=null&&D.cbdrLow!=null&&D.cbdrHigh>D.cbdrLow){
  ls(D.cbdrHigh,'#c9a84c',LightweightCharts.LineStyle.Dashed);
  ls(D.cbdrLow,'#c9a84c',LightweightCharts.LineStyle.Dashed);
 }
-// FVG — rays from fvgBarIndex to right
 if(D.fvgTop!=null&&D.fvgBottom!=null&&D.fvgBarIndex>=0&&D.fvgBarIndex<C.length){
  let fc=D.fvgDirection==='bearish'?'#f23645':'#089981';
  let lbl=D.fvgDirection==='bearish'?'FVG ↓':'FVG ↑';
@@ -38,32 +33,22 @@ if(D.fvgTop!=null&&D.fvgBottom!=null&&D.fvgBarIndex>=0&&D.fvgBarIndex<C.length){
  fvgBotLine.setData([{time:fvgStart,value:D.fvgBottom},{time:fvgEnd,value:D.fvgBottom}]);
  ms.createPriceLine({price:fm,color:'transparent',lineWidth:0,axisLabelVisible:true,title:lbl});
 }
-
-// Markers
 let markers=[];
-// Initial SL/TP at entry bar
-if(D.initialSlPrice!=null){
- let p=D.side==='long'?'belowBar':'aboveBar';
- markers.push({time:eT,position:p,color:'#f23645',shape:p==='belowBar'?'arrowDown':'arrowUp',text:'SL '+D.initialSlPrice.toFixed(1),size:1});
-}
-if(D.initialTpPrice!=null){
- let p=D.side==='long'?'aboveBar':'belowBar';
- markers.push({time:eT,position:p,color:'#089981',shape:p==='aboveBar'?'arrowUp':'arrowDown',text:'TP '+D.initialTpPrice.toFixed(1),size:1});
-}
+let etExit=null,epExit=null;
+if(D.exitPrice!=null&&D.exitBar>=0&&D.exitBar<C.length){etExit=C[D.exitBar].time;epExit=D.side==='long'?'aboveBar':'belowBar';}
+let epEntry=D.side==='long'?'belowBar':'aboveBar';
+markers.push({time:eT,position:epEntry,color:'#ffffff',shape:'arrowUp',text:D.entryPrice.toFixed(1),size:2});
+if(D.initialSlPrice!=null){markers.push({time:eT,position:'inBar',color:'#f23645',shape:'square',text:'SL '+D.initialSlPrice.toFixed(1),size:1});}
+if(D.initialTpPrice!=null){let tp=D.side==='long'?'aboveBar':'belowBar';markers.push({time:eT,position:tp,color:'#089981',shape:tp==='aboveBar'?'arrowUp':'arrowDown',text:'TP '+D.initialTpPrice.toFixed(1),size:1});}
 (D.trailSteps||[]).forEach(function(s){
  if(s.bar<0||s.bar>=C.length)return;
  let t=C[s.bar].time,side=s.sl<D.entryPrice?'belowBar':'aboveBar';
- markers.push({time:t,position:side,color:'#c9a84c',shape:side==='belowBar'?'arrowDown':'arrowUp',text:'→'+s.sl.toFixed(1),size:1});
+ if(t===etExit&&side===epExit)side='inBar';
+ markers.push({time:t,position:side,color:'#c9a84c',shape:side==='belowBar'?'arrowDown':side==='aboveBar'?'arrowUp':'square',text:'→'+s.sl.toFixed(1),size:1});
 });
-markers.push({time:eT,position:D.side==='long'?'belowBar':'aboveBar',color:'#ffffff',shape:'arrowUp',text:D.entryPrice.toFixed(1),size:2});
-if(D.exitPrice!=null)markers.push({time:cE,position:'inBar',color:D.exitReason==='SL'?'#f23645':'#089981',shape:'circle',text:'X '+D.exitPrice.toFixed(1),size:1.5});
+if(etExit!=null){markers.push({time:etExit,position:epExit,color:D.exitReason==='SL'?'#f23645':'#089981',shape:'diamond',text:'EXIT '+D.exitPrice.toFixed(1),size:2});}
 ms.setMarkers(markers);
-
-// Auto-pan: fit then add 4 bars right padding
 ch.timeScale().fitContent();
-let vr=ch.timeScale().getVisibleLogicalRange();
-if(vr)ch.timeScale().setVisibleLogicalRange({from:vr.from,to:vr.to+4});
-
 document.getElementById('c').setAttribute('data-rendered','1');
 </script>
 </html>
