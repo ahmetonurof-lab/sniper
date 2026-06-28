@@ -19,6 +19,8 @@
 | state_manager (disk-persistent state) | ✅ trade_state.json |
 | state_writer (dashboard JSON) | ✅ live_state.json, her 15m güncellenir |
 | trade_exporter (trade geçmişi) | ✅ trades_history.jsonl, bot okumaz |
+| trades_history.jsonl yazma | ✅ `_exit_trade`'de append + `_load_history()` restart yükleme |
+| Hybrid SL buffer | ✅ `FVG_BUFFER_MIN_FACTOR` aktif, `MAX_SL_DIST_MULT` tavanı |
 | chart_export (Plotly HTML chart) | ✅ CBDR box, sweep mum, FVG+CE, trail adimlari, session damgasi |
 | trail_steps kaydi | ✅ Her trailing adimi trade dict’ine {sl, tp, fvg_top, fvg_bot, bar} |
 | ConsoleReporter (TR time, dedup) | ✅ Şeffaf console çıktısı |
@@ -28,6 +30,7 @@
 
 | Görev | Öncelik | Açıklama |
 |-------|---------|----------|
+| Backtest hybrid SL buffer | 🟡 Orta | WR/PF değişimi bekleniyor |
 | LINK multi-period backtest | 🟡 Orta | WR %52.7 — yapısal/Q1 2026 farkı |
 | Mainnet canlı test | 🟢 Düşük | URL + API key değişikliği |
 | Performance benchmark | 🟢 Düşük | CPU/memory profil |

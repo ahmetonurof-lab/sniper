@@ -8,7 +8,7 @@
 - **Kaldıraç**: 5x
 - **Strateji**: CBDR → Sweep → FVG Wick Rejection → Entry → Trailing → Exit → Retrade
 
-## Kritik Yapılan Değişiklikler (2026-06-27)
+## Kritik Yapılan Değişiklikler (2026-06-29)
 
 | # | Commit | Açıklama |
 |---|--------|----------|
@@ -25,6 +25,8 @@
 | 11 | `9d0932b` | **chart_export.py**: Her kapanan trade için `dashboard/charts/SYM_YYYY-MM-DD_HHMM.html` Plotly chart basar — CBDR box, sweep mum, FVG+CE, trail adımları, session damgası. Dashboard'a "Geçmiş Tradeler" paneli + CHART linki. |
 | 12 | `f30760f` | **trail_steps kaydı**: Her trailing adımı `trade["trail_steps"]`'e eklenir: `{sl, tp, fvg_top, fvg_bot, bar}`. `trail_steps` field'da `field(default_factory=list)` — hiç `None` dönmez. |
 | 13 | `ddd8367` | **chart_export sıralaması**: `_exit_trade`'de `export_chart` → `trade["chart_file"]` → `export_trade` (JSONL chart_file içerir). `exit_bar` `.get("exit_bar", 0)` ile güvenli erişim. WS handler'da `trade["exit_timestamp"]` set edilir. |
+| 14 | HEAD | **fix: trades_history.jsonl yazma**: `_exit_trade`'de trade deque'e append ediliyor ama diske yazılmıyordu. `jsonl`'e append + `_load_history()` eklendi. |
+| 15 | HEAD | **Hybrid SL buffer**: `FVG_BUFFER_MIN_FACTOR=0.10` artık kullanılıyor. Formül: `adaptive_buf = max(fvg_height × 0.10, min(fvg_height × 0.25, risk_pts × 0.5))`. `MAX_SL_DIST_MULT=2.0` tavanı eklendi. |
 
 ## Aktif Kararlar
 
@@ -32,7 +34,8 @@
 - **RSM (RetraceStateMachine)**: IDLE → SWEEP_DETECTED → TRIGGER_READY. Sadece 3 state.
 - **Max 1 primary + 1 retrade/gün/sembol**: trade_state.json ile korunur.
 - **ASIA kapalı**: 22:00-02:00 UTC'de trade alınmaz.
-- **FVG_BUFFER_MULT=0.50**: Canlıda 0.50, backtest'te 0.25 (fark bilinçli — canlı daha geniş bant).
+- **FVG_BUFFER_MULT=0.50**: Canlıda 0.50, backtest'te 0.25 (fark bilinçli — canlı daha geniş bant). Hybrid formülde `min(fvg_height × 0.25, risk_pts × fvg_buf)` ile kullanılır.
+- **MAX_SL_DIST_MULT=2.0**: FVG bazlı SL max `risk_pts × 2` (~3 ATR) ile tavanlanır. Aşarsa fallback SL'ye düşer.
 - **CBDR gövde bazlı (open/close)**: High/low değil, gövde kullanılır.
 
 ## Sıradaki / Açık Konular
