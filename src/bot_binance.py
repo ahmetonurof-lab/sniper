@@ -563,7 +563,7 @@ class BinanceRESTClient:
             return {}
 
         # MIN_NOTIONAL kontrolü — rounding sonrasi qty çok küçük kalabilir
-        est_price = await self._estimate_price(symbol, side)
+        est_price = await self.estimate_market_price(symbol)
         valid_qty = await self.validate_min_notional(symbol, valid_qty, est_price)
         if valid_qty <= 0:
             log.warning("[MARKET] %s qty=%.8f minNotional altinda, iptal", symbol, qty)

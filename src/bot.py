@@ -29,7 +29,6 @@ from state_manager import (
     clear_retrade_arm,
 )
 from state_writer import write_state
-from trade_exporter import export_trade
 from snapshot.snapshot import capture_snapshot
 from trading import (
     SignalEngine,
@@ -610,8 +609,6 @@ class PaperTrader:
 
         # FIX #2: Retrade arm → RetradeEngine (Faz 6.1)
         RetradeEngine.arm_retrade(sym, trade, self.states[sym], self._pl)
-
-        export_trade(sym, trade, pnl, self.states[sym])
 
         try:
             snap = capture_snapshot(sym, trade, pnl, self.states[sym])
