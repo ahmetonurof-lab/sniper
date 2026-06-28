@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import logging.handlers
+import json
 import os
 import sys
 from collections import deque
@@ -176,6 +177,22 @@ class PaperTrader:
         elif 2 <= hour < 13:
             return "LONDON"
         return "NEWYORK"
+
+    def _load_history(self):
+        trades_file = os.path.join(_OUTPUT_DIR, "trades_history.jsonl")
+        if not os.path.exists(trades_file):
+            return
+        try:
+            count = 0
+            with open(trades_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        self.trades.append(json.loads(line))
+                        count += 1
+            log.info("[HISTORY] %d trade gecmisten yuklendi", count)
+        except Exception as e:
+            log.warning("[HISTORY] yukleme hatasi (devam): %s", e)
 
     # ── 15m: Sinyal kurulumu (CBDR, Sweep, FVG, Entry, Retrade) ──
 
@@ -617,15 +634,20 @@ class PaperTrader:
         except Exception:
             log.warning("[SNAPSHOT] %s snapshot alinamadi", sym)
 
-        self.trades.append(
-            {
-                **trade,
-                "sym": sym,
-                "pnl": pnl,
-                "exit_bar": trade.get("exit_bar", 0),
-                "close_time": exit_timestamp,
-            }
-        )
+        record = {
+            **trade,
+            "sym": sym,
+            "pnl": pnl,
+            "exit_bar": trade.get("exit_bar", 0),
+            "close_time": exit_timestamp,
+        }
+        self.trades.append(record)
+        try:
+            trades_file = os.path.join(_OUTPUT_DIR, "trades_history.jsonl")
+            with open(trades_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+        except Exception:
+            log.warning("[TRADES] %s jsonl yazma hatasi", sym)
         del self.active_trades[sym]
         mark_trade_closed(sym)
 
@@ -712,6 +734,8 @@ class PaperTrader:
         for sym in self.symbols:
             self.hub.register_callback(sym, "15m", lambda b, s=sym: self.on_15m(s, b))
             self.hub.register_callback(sym, "1m", lambda b, s=sym: self.on_1m(s, b))
+
+        self._load_history()
 
         net = "TESTNET" if self.testnet else "MAINNET"
         self._pl(

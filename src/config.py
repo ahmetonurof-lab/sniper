@@ -82,6 +82,7 @@ ASIA_DEAD_THRESHOLD_PCT = 0.3  # Asya range dead eşiği (% olarak)
 TRAIL_MIN_MOVE_MULT = 0.2  # Min trailing hareket çarpanı
 RETRADE_FVG_MAX_ATTEMPTS = 3  # Retrade FVG max deneme sayısı
 MIN_RISK_DIST_ATR_MULT = 0.1  # Min risk mesafesi ATR çarpanı
+MAX_SL_DIST_MULT = 2.0  # FVG bazlı SL max risk_pts çarpanı (aşarsa fallback)
 DEFAULT_ATR_FALLBACK_PCT = 0.0001  # Varsayılan ATR fallback (%)
 LHR_RISK_ATR_MULT = 1.0  # LHR risk ATR çarpanı
 CBDR_SWEEP_ATR_TOLERANCE_MULT = 0.5  # CBDR sweep toleransı ATR çarpanı

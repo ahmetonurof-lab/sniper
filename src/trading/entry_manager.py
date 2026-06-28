@@ -129,21 +129,36 @@ class EntryManager:
         Returns:
             (sl, tp) tuple
         """
+        max_risk_dist = risk_pts * cfg.MAX_SL_DIST_MULT
         if side == "long":
-            sl = (
-                (trigger_fvg.bottom - (risk_pts * fvg_buf))
-                if trigger_fvg
-                else (entry_price - risk_pts * 2)
-            )
+            if trigger_fvg:
+                fvg_height = trigger_fvg.top - trigger_fvg.bottom
+                adaptive_buf = max(
+                    fvg_height * cfg.FVG_BUFFER_MIN_FACTOR,
+                    min(fvg_height * 0.25, risk_pts * fvg_buf),
+                )
+                sl = trigger_fvg.bottom - adaptive_buf
+            else:
+                sl = entry_price - risk_pts * 2
             risk_dist = abs(sl - entry_price)
+            if trigger_fvg and risk_dist > max_risk_dist:
+                sl = entry_price - risk_pts * 2
+                risk_dist = abs(sl - entry_price)
             tp = entry_price + risk_dist * tp_rr
         else:
-            sl = (
-                (trigger_fvg.top + (risk_pts * fvg_buf))
-                if trigger_fvg
-                else (entry_price + risk_pts * 2)
-            )
+            if trigger_fvg:
+                fvg_height = trigger_fvg.top - trigger_fvg.bottom
+                adaptive_buf = max(
+                    fvg_height * cfg.FVG_BUFFER_MIN_FACTOR,
+                    min(fvg_height * 0.25, risk_pts * fvg_buf),
+                )
+                sl = trigger_fvg.top + adaptive_buf
+            else:
+                sl = entry_price + risk_pts * 2
             risk_dist = abs(sl - entry_price)
+            if trigger_fvg and risk_dist > max_risk_dist:
+                sl = entry_price + risk_pts * 2
+                risk_dist = abs(sl - entry_price)
             tp = entry_price - risk_dist * tp_rr
         return sl, tp
 
