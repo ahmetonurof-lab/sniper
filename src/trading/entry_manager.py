@@ -48,6 +48,9 @@ class EntryExecutionResult:
     error: str = ""
 
 
+SAFETY_MARGIN = 0.95  # buying power tavaninda %5 emniyet payi (açık emir, ücret, marj)
+
+
 class EntryManager:
     """Entry validasyonu ve emir yerleştirme.
 
@@ -93,7 +96,7 @@ class EntryManager:
             return 0.0
         qty = (balance * risk_pct) / risk_dist
         if entry_price > 0 and leverage > 0:
-            max_qty = (balance * leverage) / entry_price
+            max_qty = (balance * leverage * SAFETY_MARGIN) / entry_price
             if qty > max_qty:
                 qty = max_qty
         return qty
