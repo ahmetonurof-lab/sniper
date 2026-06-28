@@ -25,13 +25,14 @@ _TEMPLATE_PATH = os.path.join(
 )
 
 
-def _fetch_ohlc(sym: str, limit: int = 80) -> list[dict] | None:
+# ── FIX #1: endTime parametresi + limit=120 ──────────────────────────────────
+def _fetch_ohlc(sym: str, limit: int = 120, end_time_ms: int | None = None) -> list[dict] | None:
+    params: dict = {"symbol": sym, "interval": "15m", "limit": limit}
+    if end_time_ms:
+        # Exit'ten 2 bar (30dk) sonrasını endTime yap; entry her zaman pencerede kalır
+        params["endTime"] = end_time_ms + 2 * 900_000
     try:
-        r = requests.get(
-            _BINANCE_BASE,
-            params={"symbol": sym, "interval": "15m", "limit": limit},
-            timeout=15,
-        )
+        r = requests.get(_BINANCE_BASE, params=params, timeout=15)
         r.raise_for_status()
         data = r.json()
     except Exception as e:
@@ -40,20 +41,7 @@ def _fetch_ohlc(sym: str, limit: int = 80) -> list[dict] | None:
 
     df = pd.DataFrame(
         data,
-        columns=[
-            "ts",
-            "Open",
-            "High",
-            "Low",
-            "Close",
-            "v",
-            "_1",
-            "_2",
-            "_3",
-            "_4",
-            "_5",
-            "_6",
-        ],
+        columns=["ts", "Open", "High", "Low", "Close", "v", "_1", "_2", "_3", "_4", "_5", "_6"],
     )
     df = df[["ts", "Open", "High", "Low", "Close"]].astype(
         {"Open": float, "High": float, "Low": float, "Close": float}
@@ -61,6 +49,7 @@ def _fetch_ohlc(sym: str, limit: int = 80) -> list[dict] | None:
     df["ts"] = pd.to_datetime(df["ts"], unit="ms")
     df.dropna(inplace=True)
     if df.empty:
+        log.warning("[SNAPSHOT] %s OHLC response bos (limit=%s)", sym, limit)
         return None
 
     return [
@@ -75,11 +64,17 @@ def _fetch_ohlc(sym: str, limit: int = 80) -> list[dict] | None:
     ]
 
 
+# ── FIX #1: _find_bar — fiyat hiçbir bara denk gelmezse en yakın low/high'a bak
 def _find_bar(candles: list[dict], price: float) -> int:
+    # Önce tam überlap ara
     for i, c in enumerate(candles):
         if c["low"] <= price <= c["high"]:
             return i
-    return len(candles) - 1
+    # Bulamazsan en yakın bar (mesafe = min(|high-price|, |low-price|))
+    best = min(range(len(candles)), key=lambda i: min(
+        abs(candles[i]["high"] - price), abs(candles[i]["low"] - price)
+    ))
+    return best
 
 
 def capture_snapshot(
@@ -88,7 +83,10 @@ def capture_snapshot(
     pnl: float,
     session_state,
 ) -> str | None:
-    candles = _fetch_ohlc(sym)
+    ts_ms = trade.get("exit_timestamp") or trade.get("close_time", 0)
+
+    # FIX #1: endTime ile fetch → entry barı her zaman pencerede
+    candles = _fetch_ohlc(sym, end_time_ms=ts_ms if ts_ms else None)
     if not candles:
         return None
 
@@ -99,24 +97,23 @@ def capture_snapshot(
     sl_price = trade["sl"]
     tp_price = trade["tp"]
 
-    ts_ms = trade.get("exit_timestamp") or trade.get("close_time", 0)
-
     entry_bar = _find_bar(candles, entry_price)
-    exit_bar = _find_bar(candles, exit_price)
+    exit_bar  = _find_bar(candles, exit_price)
 
     # Trim candles to balanced window around trade
     PAD = 8
     start = max(0, entry_bar - PAD)
-    end = min(len(candles), exit_bar + PAD + 1)
-    candles = candles[start:end]
+    end   = min(len(candles), exit_bar + PAD + 1)
+    candles   = candles[start:end]
     entry_bar -= start
-    exit_bar -= start
+    exit_bar  -= start
 
-    # FVG direction & formation bar approx (after trim)
+    # FVG direction & formation bar (after trim)
     fvg_direction = None
     fvg_bar_index = -1
     if fvg:
         fvg_direction = fvg.direction
+        # FVG barını trimlenmiş listede bul; fallback entry'den 3 önce
         fvg_bar_index = max(0, entry_bar - 3)
 
     # Map trail step bar indices to trimmed window
@@ -127,26 +124,52 @@ def capture_snapshot(
         if 0 <= rel < len(candles):
             mapped_steps.append({"bar": rel, "sl": step["sl"], "tp": step.get("tp", 0)})
 
+    # ── FIX #4: priceMin/priceMax — tüm overlay seviyelerini kapsa ───────────
+    all_levels = [
+        v for v in [
+            sl_price, tp_price,
+            trade.get("initial_sl"), trade.get("initial_tp"),
+            entry_price, exit_price,
+            getattr(session_state, "cbdr_body_high", None),
+            getattr(session_state, "cbdr_body_low", None),
+            fvg.top if fvg else None,
+            fvg.bottom if fvg else None,
+        ] + [s["sl"] for s in mapped_steps]
+        if v is not None
+    ]
+    candle_lows  = [c["low"]  for c in candles]
+    candle_highs = [c["high"] for c in candles]
+    price_min = min(candle_lows  + all_levels)
+    price_max = max(candle_highs + all_levels)
+
     payload = json.dumps(
         {
-            "candles": candles,
-            "entryPrice": entry_price,
-            "exitPrice": exit_price,
-            "slPrice": sl_price,
-            "tpPrice": tp_price,
+            "candles":        candles,
+            "entryPrice":     entry_price,
+            "exitPrice":      exit_price,
+            "slPrice":        sl_price,
+            "tpPrice":        tp_price,
             "initialSlPrice": trade.get("initial_sl"),
             "initialTpPrice": trade.get("initial_tp"),
-            "side": side,
-            "exitReason": trade.get("result"),
-            "cbdrHigh": getattr(session_state, "cbdr_body_high", None),
-            "cbdrLow": getattr(session_state, "cbdr_body_low", None),
-            "fvgTop": fvg.top if fvg else None,
-            "fvgBottom": fvg.bottom if fvg else None,
-            "fvgDirection": fvg_direction,
-            "fvgBarIndex": fvg_bar_index,
-            "entryBar": entry_bar,
-            "exitBar": exit_bar,
-            "trailSteps": mapped_steps,
+            "side":           side,
+            "exitReason":     trade.get("result"),
+            "cbdrHigh":       getattr(session_state, "cbdr_body_high", None),
+            "cbdrLow":        getattr(session_state, "cbdr_body_low", None),
+            "fvgTop":         fvg.top if fvg else None,
+            "fvgBottom":      fvg.bottom if fvg else None,
+            "fvgDirection":   fvg_direction,
+            "fvgBarIndex":    fvg_bar_index,
+            "sweepLevel":     trade.get("sweep_level", None),
+            "entryBar":       entry_bar,
+            "exitBar":        exit_bar,
+            "trailSteps":     mapped_steps,
+            "pnl":            pnl,
+            "sym":            sym,
+            "trailingCount":  len(mapped_steps),
+            "isRetrade":      trade.get("is_retrade", False),
+            # FIX #4: Python'da hesaplanan tam scale sınırları
+            "priceMin":       price_min,
+            "priceMax":       price_max,
         }
     )
 
@@ -165,7 +188,15 @@ def capture_snapshot(
         else datetime.now(timezone.utc)
     )
     filename = f"{sym}_{dt.strftime('%Y-%m-%d_%H%M%S')}.png"
-    outpath = os.path.join(_SNAPSHOTS_DIR, filename)
+    outpath  = os.path.join(_SNAPSHOTS_DIR, filename)
+
+    # HTML debug dosyası (opsiyonel, canlıda kaldırılabilir)
+    debug_html = outpath.replace(".png", ".html")
+    try:
+        with open(debug_html, "w", encoding="utf-8") as fh:
+            fh.write(html)
+    except Exception:
+        pass
 
     try:
         _render_png(html, outpath)
