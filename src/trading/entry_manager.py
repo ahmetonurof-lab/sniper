@@ -90,24 +90,15 @@ class EntryManager:
         risk_dist: float,
         leverage: int,
         entry_price: float = 0.0,
-        min_notional: float = 0.0,
     ) -> float:
-        """Risk bazlı pozisyon büyüklüğü + buying power cap + minNotional floor."""
+        """Risk bazlı pozisyon büyüklüğü hesapla + buying power tavanı."""
         if risk_dist <= 0:
             return 0.0
-
         qty = (balance * risk_pct) / risk_dist
-
         if entry_price > 0 and leverage > 0:
             max_qty = (balance * leverage * SAFETY_MARGIN) / entry_price
             if qty > max_qty:
                 qty = max_qty
-
-        if entry_price > 0 and min_notional > 0:
-            min_qty = (min_notional * 1.05) / entry_price
-            if qty < min_qty:
-                qty = min_qty
-
         return qty
 
     # ── 2.5 SL/TP hesaplama ──────────────────────────────────
@@ -173,8 +164,8 @@ class EntryManager:
         ile birebir aynı mantık. Hata durumunda acil pozisyon kapatma dahil.
 
         Args:
-            entry_price: minNotional floor için giriş fiyatı.
-                         None ise compute edilemez ve floor atlanır.
+            entry_price: MIN_NOTIONAL kontrolü için tahmini giriş fiyatı.
+                         None ise REST'ten anlık mark price alınır.
 
         Returns:
             EntryExecutionResult — başarılıysa success=True ve order ID'leri dolu.
@@ -185,13 +176,6 @@ class EntryManager:
         mkt_side = "BUY" if side == "long" else "SELL"
         sl_side = "SELL" if side == "long" else "BUY"
 
-        # ── minNotional floor ──
-        min_notional = await self._rest.get_min_notional(sym)
-        if entry_price and entry_price > 0 and min_notional > 0:
-            min_qty = (min_notional * 1.05) / entry_price
-            if qty < min_qty:
-                qty = min_qty
-
         # ── Miktar precision ──
         rounded_qty = await self._rest.apply_amount_precision(sym, qty)
         valid_qty = await self._rest.validate_min_amount(sym, rounded_qty)
@@ -200,14 +184,22 @@ class EntryManager:
                 success=False, error=f"qty={qty:.6f} minQty altinda"
             )
 
+        # MIN_NOTIONAL kontrolü
+        min_notional_price = entry_price or await self._rest.estimate_market_price(sym)
+        valid_qty = await self._rest.validate_min_notional(
+            sym, valid_qty, min_notional_price
+        )
+        if valid_qty <= 0:
+            return EntryExecutionResult(
+                success=False, error=f"qty={qty:.6f} minNotional altinda"
+            )
+
         # ── Market entry ──
         mkt_resp = await self._rest.place_market_order(sym, mkt_side, valid_qty)
         mkt_id = extract_order_id(mkt_resp)
-        mkt_err = mkt_resp.get("error", "") if isinstance(mkt_resp, dict) else ""
         if not mkt_id:
-            err_msg = mkt_err or "MARKET BASARISIZ"
             return EntryExecutionResult(
-                success=False, error=f"MARKET: {err_msg}"
+                success=False, error="MARKET BASARISIZ — trade iptal"
             )
 
         log.info(
@@ -218,12 +210,11 @@ class EntryManager:
         rounded_sl = await self._rest.apply_price_precision(sym, sl)
         sl_resp = await self._rest.place_stop_order(sym, sl_side, valid_qty, rounded_sl)
         sl_id = extract_order_id(sl_resp)
-        sl_err = sl_resp.get("error", "") if isinstance(sl_resp, dict) else ""
         if not sl_id:
             log.critical(
                 "[ORDER] %s SL BASARISIZ! Acil pozisyon kapatiliyor. resp=%s",
                 sym,
-                sl_err or sl_resp,
+                sl_resp,
             )
             opp_side = "SELL" if mkt_side == "BUY" else "BUY"
             try:
@@ -298,9 +289,7 @@ class EntryManager:
         if not valid:
             return False
 
-        qty = EntryManager.calculate_qty(
-            balance, risk_pct, risk_dist, leverage, min_notional=0.0,
-        )
+        qty = EntryManager.calculate_qty(balance, risk_pct, risk_dist, leverage)
         if qty <= 0:
             return False
 

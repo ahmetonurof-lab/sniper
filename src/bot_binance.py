@@ -549,7 +549,7 @@ class BinanceRESTClient:
         ]
 
     async def place_market_order(
-        self, symbol: str, side: str, qty: float, reduce_only: bool = False,
+        self, symbol: str, side: str, qty: float, reduce_only: bool = False
     ) -> dict:
         """
         MARKET emri gonderir (pozisyon acmak/kapatmak icin).
@@ -559,16 +559,21 @@ class BinanceRESTClient:
         rounded_qty = await self.apply_amount_precision(symbol, qty)
         valid_qty = await self.validate_min_amount(symbol, rounded_qty)
         if valid_qty <= 0:
-            msg = f"qty={qty:.8f} minQty altinda"
-            log.warning("[MARKET] %s %s, iptal", symbol, msg)
-            return {"error": msg}
+            log.warning("[MARKET] %s qty=%.8f minQty altinda, iptal", symbol, qty)
+            return {}
+
+        # MIN_NOTIONAL kontrolü — rounding sonrasi qty çok küçük kalabilir
+        est_price = await self.estimate_market_price(symbol)
+        valid_qty = await self.validate_min_notional(symbol, valid_qty, est_price)
+        if valid_qty <= 0:
+            log.warning("[MARKET] %s qty=%.8f minNotional altinda, iptal", symbol, qty)
+            return {}
 
         decimals = max(_get_precision_places(step), 8)
         qty_str = f"{valid_qty:.{decimals}f}".rstrip("0").rstrip(".")
         if not qty_str or qty_str == "0":
-            msg = f"qty format hatasi: {qty_str}"
-            log.warning("[MARKET] %s %s", symbol, msg)
-            return {"error": msg}
+            log.warning("[MARKET] %s qty format hatasi: %s", symbol, qty_str)
+            return {}
 
         params = {
             "symbol": symbol,
@@ -582,7 +587,7 @@ class BinanceRESTClient:
         r = await self.post("/fapi/v1/order", params)
         if r.is_err:
             log.warning("[MARKET] %s MARKET hatasi: %s", symbol, r.error)
-            return {"error": r.error}
+            return {}
         result = r.value
         if result.get("orderId") or result.get("id"):
             return result

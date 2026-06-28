@@ -186,26 +186,6 @@ class OrderManager:
             return
 
         try:
-            # WS_FALLBACK: hangi emrin tetiklendigini bilmiyoruz → ikisini de iptal et
-            if result == "WS_FALLBACK":
-                for rid in [trade.get("sl_order_id"), trade.get("tp_order_id")]:
-                    if rid:
-                        try:
-                            await self._rest.cancel_order(
-                                rid, sym, reason="exit_close", is_algo=True
-                            )
-                            log.info(
-                                "[CANCEL] %s WS_FALLBACK emir iptal edildi (id=%s)",
-                                sym, rid,
-                            )
-                        except Exception as e:
-                            log.warning(
-                                "[CANCEL] %s WS_FALLBACK iptal hatasi (id=%s): %s",
-                                sym, rid, e,
-                            )
-                return
-
-            # Normal akis: sadece karsi koruma emrini iptal et
             remaining_id = (
                 trade.get("tp_order_id") if result == "SL" else trade.get("sl_order_id")
             )
@@ -227,6 +207,8 @@ class OrderManager:
                         e,
                     )
 
+            # Eger tetiklenen yonun Binance emri yoksa (örn: kurtarilmis/sentetik/unprotected pozisyon)
+            # pozisyonun acik kalmamasi icin piyasa fiyatindan manuel kapatiyoruz.
             trigger_id = (
                 trade.get("sl_order_id") if result == "SL" else trade.get("tp_order_id")
             )

@@ -25,11 +25,6 @@
 | 11 | `9d0932b` | **chart_export.py**: Her kapanan trade için `dashboard/charts/SYM_YYYY-MM-DD_HHMM.html` Plotly chart basar — CBDR box, sweep mum, FVG+CE, trail adımları, session damgası. Dashboard'a "Geçmiş Tradeler" paneli + CHART linki. |
 | 12 | `f30760f` | **trail_steps kaydı**: Her trailing adımı `trade["trail_steps"]`'e eklenir: `{sl, tp, fvg_top, fvg_bot, bar}`. `trail_steps` field'da `field(default_factory=list)` — hiç `None` dönmez. |
 | 13 | `ddd8367` | **chart_export sıralaması**: `_exit_trade`'de `export_chart` → `trade["chart_file"]` → `export_trade` (JSONL chart_file içerir). `exit_bar` `.get("exit_bar", 0)` ile güvenli erişim. WS handler'da `trade["exit_timestamp"]` set edilir. |
-| 14 | `83127a7` | **Buying power tavanı**: `calculate_qty` artık `max_qty = balance × leverage / entry_price` ile tavanlanır — market order "insufficient balance" hatası önlenir. |
-| 15 | `90f1b39` | **%5 emniyet payı**: `max_qty = balance × leverage × 0.95 / entry_price`. `SAFETY_MARGIN=0.95` — açık emir, ücret, marj farklarına karşı buffer. |
-| 16 | `02ce89a` | **Balance ayırımı**: `wallet_balance` (WS'den gelen wb, sadece görüntüleme) ve `available_balance` (REST availableBalance, position sizing). Entry öncesi REST'ten taze `availableBalance` çekilir. WS handler sadece `wallet_balance`'ı günceller, sizing'i etkilemez. |
-| 17 | `7c94eca` | **minNotional validation**: `get_min_notional()`, `validate_min_notional()`, `estimate_market_price()` eklendi. Tüm order fonksiyonlarında (market/stop/tp) cap → round → minQty → minNotional → send_order akışı. `execute_live_entry()`'de de erken uyarı için kontrol. |
-| 18 | *uncommitted* | **minNotional floor refactor**: `calculate_qty()`'ye `min_notional` parametresi (varsayılan 0.0). `execute_live_entry()` REST'ten min_notional çeker, floor uygular `(min_notional × 1.05 / entry_price)`, eski `validate_min_notional()` çağrısı silindi. `place_market_order()`'dan da minNotional kontrolü kaldırıldı — tekil sorumluluk. |
 
 ## Aktif Kararlar
 
@@ -39,13 +34,13 @@
 - **ASIA kapalı**: 22:00-02:00 UTC'de trade alınmaz.
 - **FVG_BUFFER_MULT=0.50**: Canlıda 0.50, backtest'te 0.25 (fark bilinçli — canlı daha geniş bant).
 - **CBDR gövde bazlı (open/close)**: High/low değil, gövde kullanılır.
-- **minNotional floor `execute_live_entry`'de**: REST'ten min_notional çekilip qty'ye floor atılır. `place_market_order` artık minNotional kontrolü yapmaz — tekil sorumluluk.
 
 ## Sıradaki / Açık Konular
 
-- **minNotional edge case**: Floor sonrası qty'nin minQty'nin altında kalması durumu canlıda gözlemlenmeli (ör: aşırı düşük fiyatlı coin).
+- **HTTP -4130** ("An open stop or take profit order with GTE and closePosition in the direction is existing"): Precision fix sonrası emirler başarılı açılacak, trailing sırasında eski emirler iptal edilebilir. Gözlemlenmeli.
 - LINK WR %52.7 — yapısal sorun mu yoksa Q1 2026'ya özel mi? Multi-period backtest gerekebilir.
 - `LOG_LEVEL` — canlıda DEBUG mi INFO mu kararı.
+- Pre-commit hooks çalışıyor (ruff, vulture). Yeni dosyalarda mypy eklenebilir.
 
 ## Hatırlatmalar
 

@@ -579,8 +579,6 @@ class PaperTrader:
         rsm.reset()
 
     async def _exit_trade(self, sym, trade, exit_timestamp: int):
-        if sym not in self.active_trades:
-            return
         diff = (
             (trade["exit_price"] - trade["entry_price"])
             if trade["side"] == "long"
