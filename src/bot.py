@@ -30,7 +30,7 @@ from state_manager import (
 )
 from state_writer import write_state
 from trade_exporter import export_trade
-from chart_export import export_chart
+from snapshot.snapshot import capture_snapshot
 from trading import (
     SignalEngine,
     EntryManager,
@@ -611,10 +611,14 @@ class PaperTrader:
         # FIX #2: Retrade arm → RetradeEngine (Faz 6.1)
         RetradeEngine.arm_retrade(sym, trade, self.states[sym], self._pl)
 
-        chart_file = export_chart(sym, trade, pnl, self.states[sym])
-        if chart_file:
-            trade["chart_file"] = chart_file
         export_trade(sym, trade, pnl, self.states[sym])
+
+        try:
+            snap = capture_snapshot(sym, trade, pnl, self.states[sym])
+            if snap:
+                trade["snapshot_file"] = snap
+        except Exception:
+            log.warning("[SNAPSHOT] %s snapshot alinamadi", sym)
 
         self.trades.append(
             {
