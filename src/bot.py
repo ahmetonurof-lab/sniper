@@ -442,9 +442,9 @@ class PaperTrader:
             return
 
         sym_cfg = self.cfgs[sym]
-        fvg_buf = sym_cfg["FVG_BUFFER_MULT"]
         min_fvg = sym_cfg["MIN_FVG_SIZE"]
         current = bars_1m[-1]
+        atr_val = max(current.range, current.close * cfg.DEFAULT_ATR_FALLBACK_PCT)
 
         # ── Break-Even (trail_count=0 iken SL->entry) ──
         be_result = TrailingManager.evaluate_break_even(current, trade)
@@ -461,11 +461,11 @@ class PaperTrader:
                 trade["tp"] = old_tp
                 trade["trailing_count"] = old_tc
 
-        # ── FVG Trailing → TrailingManager ──
+        # ── FVG Trailing → TrailingManager (ATR bazlı buffer) ──
         bars_15m = self.hub.get_bars(sym, "15m")
         if bars_15m:
             trail_result = TrailingManager.evaluate_trail(
-                bars_15m, trade, fvg_buf, min_fvg
+                bars_15m, trade, atr_val, min_fvg
             )
 
             if trail_result.updated:

@@ -1,16 +1,3 @@
-"""
-trailing_manager.py — 1m FVG trailing + exit kontrolü.
-
-PaperTrader._on_1m_close() içindeki iki mantıksal bloğu kapsar:
-  1. FVG Trailing: 15m FVG'ler üzerinden SL/TP güncelleme
-  2. Exit Check: 1m barında SL/TP tetiklenme kontrolü
-
-Kırmızı çizgiler:
-  - Strateji mantığında sıfır değişiklik
-  - _pl() formatına dokunulmaz (PaperTrader'da kalır)
-  - Import yolları kırılmayacak
-"""
-
 from __future__ import annotations
 
 import logging
@@ -26,15 +13,6 @@ log = logging.getLogger("sniper.trailing_manager")
 
 @dataclass
 class TrailResult:
-    """FVG trailing sonucu.
-
-    Attributes:
-        updated: Yeni SL/TP değerleri hesaplandı mı?
-        new_sl: Yeni stop-loss seviyesi
-        new_tp: Yeni take-profit seviyesi
-        trail_count: Toplam trailing sayısı (1 artırılmış)
-    """
-
     updated: bool = False
     new_sl: float = 0.0
     new_tp: float = 0.0
@@ -43,46 +21,49 @@ class TrailResult:
 
 @dataclass
 class ExitDecision:
-    """Exit kontrolü sonucu.
-
-    Attributes:
-        triggered: SL veya TP tetiklendi mi?
-        result: "SL" veya "TP" (sadece triggered=True ise)
-        exit_price: Çıkış fiyatı
-    """
-
     triggered: bool = False
     result: Literal["SL", "TP"] | None = None
     exit_price: float = 0.0
 
 
 class TrailingManager:
-    """1m barında FVG trailing + exit kontrolü.
-
-    Tüm metodlar statik/saf — PaperTrader state'ine erişmez.
-    Test edilebilirlik: Mock gerektirmez.
-    """
-
-    # ── FVG Trailing ──────────────────────────────────────────
+    @staticmethod
+    def evaluate_break_even(current: Bar, trade: dict) -> TrailResult:
+        if trade.get("trailing_count", 0) > 0:
+            return TrailResult()
+        side = trade["side"]
+        entry = trade["entry_price"]
+        risk_pts = abs(trade["sl"] - entry)
+        threshold = risk_pts * cfg.BE_RISK_MULT
+        spread = cfg.BE_SPREAD_PTS
+        be_sl = entry + spread if side == "long" else entry - spread
+        if side == "long":
+            if current.high < entry + threshold or trade["sl"] >= be_sl:
+                return TrailResult()
+        else:
+            if current.low > entry - threshold or trade["sl"] <= be_sl:
+                return TrailResult()
+        trade.setdefault("trail_steps", []).append(
+            {
+                "sl": round(be_sl, 6),
+                "tp": round(trade["tp"], 6),
+                "fvg_top": None,
+                "fvg_bot": None,
+                "bar": current.index,
+            }
+        )
+        log.info("[BE] %s SL->%.2f (1R=%.4f)", side, be_sl, threshold)
+        return TrailResult(
+            updated=True, new_sl=be_sl, new_tp=trade["tp"], trail_count=1
+        )
 
     @staticmethod
     def evaluate_trail(
         bars_15m: list[Bar],
         trade: dict,
-        fvg_buffer_mult: float,
+        atr_val: float,
         min_fvg_size: float,
     ) -> TrailResult:
-        """15m FVG'lere göre SL trailing uygula.
-
-        Orijinal _on_1m_close() FVG trailing döngüsü ile birebir aynı mantık:
-          - Long: bullish FVG bottom - buffer > mevcut SL → trail
-          - Short: bearish FVG top + buffer < mevcut SL → trail
-          - Min move filtresi: risk_pts * 0.2
-          - TP de SL kadar kaydırılır (RR korunur)
-
-        Returns:
-            TrailResult — updated=True ise yeni SL/TP değerleri dolu.
-        """
         if not bars_15m or len(bars_15m) <= 1:
             return TrailResult()
 
@@ -94,7 +75,6 @@ class TrailingManager:
             min_fvg_size=min_fvg_size,
         )
 
-        buffer = abs(trade["initial_sl"] - trade["entry_price"]) * fvg_buffer_mult
         side = trade["side"]
         current_sl = trade["sl"]
         current_tp = trade["tp"]
@@ -103,7 +83,11 @@ class TrailingManager:
         )
         trail_count = trade.get("trailing_count", 0)
         trail_steps = trade.get("trail_steps")
+        if trail_steps is None:
+            trail_steps = []
+            trade["trail_steps"] = trail_steps
         updated = False
+        atr_buffer = atr_val * cfg.ATR_TRAIL_MULT
 
         for fvg in fvgs:
             if side == "long" and fvg.direction != "bullish":
@@ -114,59 +98,44 @@ class TrailingManager:
                 continue
 
             if side == "long":
-                new_sl = fvg.bottom - buffer
-                if new_sl > current_sl:
-                    min_move = risk_pts * cfg.TRAIL_MIN_MOVE_MULT
-                    if (new_sl - current_sl) <= min_move:
-                        continue
+                new_sl = fvg.bottom - atr_buffer
+                if (
+                    new_sl > current_sl
+                    and (new_sl - current_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
+                ):
                     sl_diff = new_sl - current_sl
                     current_sl = new_sl
                     current_tp += sl_diff
                     trail_count += 1
                     updated = True
-                    trail_steps.append(
-                        {
-                            "sl": round(new_sl, 6),
-                            "tp": round(current_tp, 6),
-                            "fvg_top": round(fvg.top, 6),
-                            "fvg_bot": round(fvg.bottom, 6),
-                            "bar": fvg.real_index,
-                        }
-                    )
-                    trade["trail_steps"] = trail_steps
-                    log.info(
-                        "[TRAIL] trail#%d sl=%.2f tp=%.2f",
-                        trail_count,
-                        current_sl,
-                        current_tp,
-                    )
             else:
-                new_sl = fvg.top + buffer
-                if new_sl < current_sl:
-                    min_move = risk_pts * cfg.TRAIL_MIN_MOVE_MULT
-                    if (current_sl - new_sl) <= min_move:
-                        continue
+                new_sl = fvg.top + atr_buffer
+                if (
+                    new_sl < current_sl
+                    and (current_sl - new_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
+                ):
                     sl_diff = current_sl - new_sl
                     current_sl = new_sl
                     current_tp -= sl_diff
                     trail_count += 1
                     updated = True
-                    trail_steps.append(
-                        {
-                            "sl": round(new_sl, 6),
-                            "tp": round(current_tp, 6),
-                            "fvg_top": round(fvg.top, 6),
-                            "fvg_bot": round(fvg.bottom, 6),
-                            "bar": fvg.real_index,
-                        }
-                    )
-                    trade["trail_steps"] = trail_steps
-                    log.info(
-                        "[TRAIL] trail#%d sl=%.2f tp=%.2f",
-                        trail_count,
-                        current_sl,
-                        current_tp,
-                    )
+
+            if updated:
+                trail_steps.append(
+                    {
+                        "sl": round(new_sl, 6),
+                        "tp": round(current_tp, 6),
+                        "fvg_top": round(fvg.top, 6),
+                        "fvg_bot": round(fvg.bottom, 6),
+                        "bar": fvg.real_index,
+                    }
+                )
+                log.info(
+                    "[TRAIL] trail#%d sl=%.2f tp=%.2f",
+                    trail_count,
+                    current_sl,
+                    current_tp,
+                )
 
         if updated:
             return TrailResult(
@@ -177,74 +146,11 @@ class TrailingManager:
             )
         return TrailResult()
 
-    # ── Break-Even ──────────────────────────────────────────────
-
-    @staticmethod
-    def evaluate_break_even(current: Bar, trade: dict) -> TrailResult:
-        if trade.get("trailing_count", 0) > 0:
-            return TrailResult()
-        side = trade["side"]
-        entry = trade["entry_price"]
-        risk_pts = abs(trade["sl"] - entry)
-        threshold = risk_pts * cfg.BREAK_EVEN_TRIGGER
-        if side == "long":
-            if current.high < entry + threshold or trade["sl"] >= entry:
-                return TrailResult()
-            trail_steps = trade.get("trail_steps", [])
-            trail_steps.append(
-                {
-                    "sl": round(entry, 6),
-                    "tp": round(trade["tp"], 6),
-                    "fvg_top": None,
-                    "fvg_bot": None,
-                    "bar": current.index,
-                }
-            )
-            trade["trail_steps"] = trail_steps
-            log.info(
-                "[BE] %s break-even SL=%.2f (thresh=%.4f high=%.4f)",
-                side,
-                entry,
-                threshold,
-                current.high,
-            )
-        else:
-            if current.low > entry - threshold or trade["sl"] <= entry:
-                return TrailResult()
-            trail_steps = trade.get("trail_steps", [])
-            trail_steps.append(
-                {
-                    "sl": round(entry, 6),
-                    "tp": round(trade["tp"], 6),
-                    "fvg_top": None,
-                    "fvg_bot": None,
-                    "bar": current.index,
-                }
-            )
-            trade["trail_steps"] = trail_steps
-            log.info(
-                "[BE] %s break-even SL=%.2f (thresh=%.4f low=%.4f)",
-                side,
-                entry,
-                threshold,
-                current.low,
-            )
-        return TrailResult(
-            updated=True, new_sl=entry, new_tp=trade["tp"], trail_count=1
-        )
-
     @staticmethod
     def check_exit(current: Bar, trade: dict) -> ExitDecision:
-        """1m barında SL veya TP tetiklendi mi?
-
-        Orijinal _on_1m_close() exit kontrolü ile birebir aynı mantık:
-          - Long: low <= sl → SL, high >= tp → TP
-          - Short: high >= sl → SL, low <= tp → TP
-        """
         side = trade["side"]
         sl = trade["sl"]
         tp = trade["tp"]
-
         if side == "long":
             if current.low <= sl:
                 return ExitDecision(triggered=True, result="SL", exit_price=sl)
@@ -255,5 +161,4 @@ class TrailingManager:
                 return ExitDecision(triggered=True, result="SL", exit_price=sl)
             elif current.low <= tp:
                 return ExitDecision(triggered=True, result="TP", exit_price=tp)
-
         return ExitDecision()
