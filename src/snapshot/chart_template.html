@@ -61,7 +61,7 @@ body{background:#0d1117;font-family:'Courier New',monospace;color:#c9d1d9;overfl
 const DATA = __DATA__;
 
 // ── Yardımcılar ──────────────────────────────────────────────────────────
-const fmt    = n => n == null ? '—' : Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt    = n => n == null ? '—' : Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4});
 const pnlFmt = n => (n >= 0 ? '+' : '') + Number(n).toFixed(2) + '%';
 const isWin  = (DATA.pnl ?? 0) >= 0;
 const side   = (DATA.side || 'long').toUpperCase();
@@ -76,7 +76,7 @@ const dtStr       = exitTs
   : '';
 
 document.getElementById('header').innerHTML = `
-  <span class="sym">${DATA.sym||'BTCUSDT'}</span>
+  <span class="sym">${DATA.sym||'UNKNOWN'}</span>
   <span class="badge ${sideClass}">${side}</span>
   <span class="badge ${reasonClass}">${reason||'EXIT'}</span>
   <span class="sep">│</span><span class="meta">15m</span>
@@ -111,80 +111,103 @@ document.getElementById('legend').innerHTML = `
 const badge = document.getElementById('tradebadge');
 badge.className = isWin ? 'win' : 'loss';
 badge.innerHTML = `
-  <div class="tb-sym">${DATA.sym||'BTCUSDT'} · ${side} · 15m</div>
+  <div class="tb-sym">${DATA.sym||'UNKNOWN'} · ${side} · 15m</div>
   <div class="tb-pnl">${pnlFmt(DATA.pnl??0)}</div>
   <div class="tb-reason">${reason==='SL'?'Stop Loss Hit':reason==='TP'?'Take Profit Hit':reason||'Exit'}</div>
 `;
 
+// ── Price range hesapla (TÜM seviyeleri kapsayacak şekilde) ──────────────
+// autoscaleInfoProvider LWC 4.2'de applyOptions ile çalışmıyor.
+// Bunun yerine: autoScale:false + setVisiblePriceRange() kullanıyoruz.
+function calcPriceRange() {
+  const prices = [];
+  DATA.candles.forEach(c => { prices.push(c.high, c.low); });
+  [DATA.entryPrice, DATA.exitPrice, DATA.slPrice,
+   DATA.cbdrHigh, DATA.cbdrLow, DATA.fvgTop, DATA.fvgBottom,
+   DATA.sweepLevel].forEach(v => { if (v != null) prices.push(v); });
+  // TP'yi dahil et ama sadece mum range'inin %50 dışındaysa sınırla
+  const rawMin = Math.min(...prices);
+  const rawMax = Math.max(...prices);
+  if (DATA.tpPrice != null) {
+    const range = rawMax - rawMin;
+    if (Math.abs(DATA.tpPrice - rawMin) < range * 3) prices.push(DATA.tpPrice);
+  }
+  const lo  = Math.min(...prices);
+  const hi  = Math.max(...prices);
+  const pad = (hi - lo) * 0.12;
+  return { from: lo - pad, to: hi + pad };
+}
+
 // ── Chart ─────────────────────────────────────────────────────────────────
-const chart = LightweightCharts.createChart(document.getElementById('chart'),{
-  width:1280, height:680,
-  layout:{background:{color:'#0d1117'},textColor:'#8b949e'},
-  grid:{vertLines:{color:'#161b22'},horzLines:{color:'#161b22'}},
-  crosshair:{mode:LightweightCharts.CrosshairMode.Normal,
+const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+  width:  1280,
+  height: 680,
+  layout: { background:{color:'#0d1117'}, textColor:'#8b949e' },
+  grid:   { vertLines:{color:'#161b22'}, horzLines:{color:'#161b22'} },
+  crosshair: {
+    mode: LightweightCharts.CrosshairMode.Normal,
     vertLine:{color:'#3d444d',width:1,style:0},
-    horzLine:{color:'#3d444d',width:1,style:0}},
-  rightPriceScale:{borderColor:'#21262d',scaleMargins:{top:0.08,bottom:0.06}},
-  timeScale:{borderColor:'#21262d',timeVisible:true,secondsVisible:false,
-    tickMarkFormatter:(t)=>{
-      const d=new Date(t*1000);
-      return d.getUTCHours().toString().padStart(2,'0')+':'+
+    horzLine:{color:'#3d444d',width:1,style:0},
+  },
+  rightPriceScale: {
+    borderColor: '#21262d',
+    autoScale:   false,          // ← kritik: elle kontrol edeceğiz
+    scaleMargins: {top:0.08, bottom:0.06},
+  },
+  timeScale: {
+    borderColor: '#21262d',
+    timeVisible: true,
+    secondsVisible: false,
+    tickMarkFormatter: (t) => {
+      const d = new Date(t * 1000);
+      return d.getUTCHours().toString().padStart(2,'0') + ':' +
              d.getUTCMinutes().toString().padStart(2,'0');
-    }
+    },
   },
 });
 
-// Mum serisi
+// ── Mum serisi ────────────────────────────────────────────────────────────
 const cs = chart.addCandlestickSeries({
-  upColor:'#3fb950',   downColor:'#f85149',
-  borderUpColor:'#3fb950', borderDownColor:'#f85149',
-  wickUpColor:'#57a64a',   wickDownColor:'#c0392b',
+  upColor:       '#3fb950', downColor:       '#f85149',
+  borderUpColor: '#3fb950', borderDownColor: '#f85149',
+  wickUpColor:   '#57a64a', wickDownColor:   '#c0392b',
 });
 cs.setData(DATA.candles);
 
-// ── FIX #5: price scale — Python'dan gelen priceMin/priceMax kullan ──────
-cs.applyOptions({
-  autoscaleInfoProvider: () => ({
-    priceRange: {
-      minValue: DATA.priceMin ?? (Math.min(...DATA.candles.map(c=>c.low))  - 50),
-      maxValue: DATA.priceMax ?? (Math.max(...DATA.candles.map(c=>c.high)) + 50),
-    },
-    margins: {above:0.08, below:0.08},
-  }),
-});
+// ── Price range uygula (data yüklendikten hemen sonra) ───────────────────
+const priceRange = calcPriceRange();
+chart.priceScale('right').setVisiblePriceRange(priceRange);
 
-// ── Yardımcı: timestamp dizisi ve sabit-değer çizgisi ────────────────────
-const allTs = DATA.candles.map(c => c.time);
-const flat  = val => allTs.map(t => ({time:t, value:val}));
-
-// Sadece belirli bar aralığında veri döndür (FIX #3: kısa çizgiler)
+// ── Yardımcı fonksiyonlar ─────────────────────────────────────────────────
+const allTs   = DATA.candles.map(c => c.time);
+const flat    = val => allTs.map(t => ({time:t, value:val}));
 const rangeTs = (val, fromBar, toBar) => {
   const s = Math.max(0, fromBar);
-  const e = Math.min(DATA.candles.length-1, toBar);
-  return DATA.candles.slice(s, e+1).map(c => ({time:c.time, value:val}));
+  const e = Math.min(DATA.candles.length - 1, toBar);
+  return DATA.candles.slice(s, e + 1).map(c => ({time:c.time, value:val}));
 };
 
-// ── CBDR bant — tam grafik boyunca ───────────────────────────────────────
+// ── CBDR bant ─────────────────────────────────────────────────────────────
 if (DATA.cbdrHigh != null) {
   const s = chart.addLineSeries({color:'rgba(210,168,255,0.6)',lineWidth:1,lineStyle:2,
-    priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false,title:'CBDR High'});
+    priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false,title:'CBDR H'});
   s.setData(flat(DATA.cbdrHigh));
 }
 if (DATA.cbdrLow != null) {
   const s = chart.addLineSeries({color:'rgba(210,168,255,0.6)',lineWidth:1,lineStyle:2,
-    priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false,title:'CBDR Low'});
+    priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false,title:'CBDR L'});
   s.setData(flat(DATA.cbdrLow));
 }
 
-// ── FVG bant — tam grafik boyunca ────────────────────────────────────────
+// ── FVG bant ──────────────────────────────────────────────────────────────
 if (DATA.fvgTop != null) {
   const s = chart.addLineSeries({color:'rgba(255,166,87,0.7)',lineWidth:1,lineStyle:2,
-    priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false,title:'FVG Top'});
+    priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false,title:'FVG T'});
   s.setData(flat(DATA.fvgTop));
 }
 if (DATA.fvgBottom != null) {
   const s = chart.addLineSeries({color:'rgba(255,166,87,0.7)',lineWidth:1,lineStyle:2,
-    priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false,title:'FVG Bot'});
+    priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false,title:'FVG B'});
   s.setData(flat(DATA.fvgBottom));
 }
 
@@ -195,56 +218,54 @@ if (DATA.sweepLevel != null) {
   s.setData(flat(DATA.sweepLevel));
 }
 
-// ── FIX #3: SL çizgisi — sadece entry→exit arası ─────────────────────────
+// ── SL çizgisi — sadece entry→exit arası ─────────────────────────────────
 if (DATA.slPrice != null && DATA.entryBar != null && DATA.exitBar != null) {
-  const slSeries = chart.addLineSeries({
-    color:'rgba(248,81,73,0.85)', lineWidth:1.5, lineStyle:2,
+  const slS = chart.addLineSeries({
+    color:'rgba(248,81,73,0.9)', lineWidth:1.5, lineStyle:2,
     priceLineVisible:true, lastValueVisible:true,
     crosshairMarkerVisible:false, title:'SL',
   });
-  slSeries.setData(rangeTs(DATA.slPrice, DATA.entryBar, DATA.exitBar));
+  slS.setData(rangeTs(DATA.slPrice, DATA.entryBar, DATA.exitBar));
 }
 
-// ── FIX #3: TP çizgisi — sadece entry→exit arası ─────────────────────────
+// ── TP çizgisi — sadece entry→exit arası ─────────────────────────────────
 if (DATA.tpPrice != null && DATA.entryBar != null && DATA.exitBar != null) {
-  const tpSeries = chart.addLineSeries({
-    color:'rgba(63,185,80,0.8)', lineWidth:1, lineStyle:2,
+  const tpS = chart.addLineSeries({
+    color:'rgba(63,185,80,0.85)', lineWidth:1, lineStyle:2,
     priceLineVisible:true, lastValueVisible:true,
     crosshairMarkerVisible:false, title:'TP',
   });
-  tpSeries.setData(rangeTs(DATA.tpPrice, DATA.entryBar, DATA.exitBar));
+  tpS.setData(rangeTs(DATA.tpPrice, DATA.entryBar, DATA.exitBar));
 }
 
-// ── Entry fiyatı — tam grafik, solid ─────────────────────────────────────
+// ── Entry price line — tam grafik, solid ─────────────────────────────────
 cs.createPriceLine({
-  price:DATA.entryPrice, color:'#58a6ff', lineWidth:1.5, lineStyle:0,
-  axisLabelVisible:true, title:'Entry',
+  price: DATA.entryPrice, color:'#58a6ff',
+  lineWidth:1.5, lineStyle:0, axisLabelVisible:true, title:'Entry',
 });
 
-// ── Initial SL/TP (varsa, soluk) ─────────────────────────────────────────
+// ── Initial SL/TP (soluk, varsa) ─────────────────────────────────────────
 if (DATA.initialSlPrice != null)
-  cs.createPriceLine({price:DATA.initialSlPrice,color:'rgba(248,81,73,0.3)',
-    lineWidth:1,lineStyle:3,axisLabelVisible:false,title:'Init SL'});
+  cs.createPriceLine({price:DATA.initialSlPrice, color:'rgba(248,81,73,0.3)',
+    lineWidth:1, lineStyle:3, axisLabelVisible:false, title:'iSL'});
 if (DATA.initialTpPrice != null)
-  cs.createPriceLine({price:DATA.initialTpPrice,color:'rgba(63,185,80,0.3)',
-    lineWidth:1,lineStyle:3,axisLabelVisible:false,title:'Init TP'});
+  cs.createPriceLine({price:DATA.initialTpPrice, color:'rgba(63,185,80,0.3)',
+    lineWidth:1, lineStyle:3, axisLabelVisible:false, title:'iTP'});
 
 // ── Trail adımları ────────────────────────────────────────────────────────
-(DATA.trailSteps||[]).forEach((step,i) => {
-  if (step.sl) {
-    const ts = chart.addLineSeries({
-      color:'rgba(248,81,73,0.4)',lineWidth:1,lineStyle:3,
-      priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,
-      title:`T${i+1}`,
-    });
-    ts.setData(rangeTs(step.sl, step.bar, DATA.exitBar));
-  }
+(DATA.trailSteps || []).forEach((step, i) => {
+  if (!step.sl) return;
+  const ts = chart.addLineSeries({
+    color:'rgba(248,81,73,0.4)', lineWidth:1, lineStyle:3,
+    priceLineVisible:false, lastValueVisible:false,
+    crosshairMarkerVisible:false, title:`T${i+1}`,
+  });
+  ts.setData(rangeTs(step.sl, step.bar, DATA.exitBar));
 });
 
 // ── Marker'lar ────────────────────────────────────────────────────────────
 const markers = [];
 
-// FIX #4: FVG oluşum barı işareti
 if (DATA.fvgBarIndex >= 0 && DATA.candles[DATA.fvgBarIndex]) {
   markers.push({
     time:     DATA.candles[DATA.fvgBarIndex].time,
@@ -256,19 +277,17 @@ if (DATA.fvgBarIndex >= 0 && DATA.candles[DATA.fvgBarIndex]) {
   });
 }
 
-// Entry marker
 if (DATA.entryBar != null && DATA.candles[DATA.entryBar]) {
   markers.push({
     time:     DATA.candles[DATA.entryBar].time,
     position: side === 'SHORT' ? 'aboveBar' : 'belowBar',
     color:    '#58a6ff',
     shape:    side === 'SHORT' ? 'arrowDown' : 'arrowUp',
-    text:     `▲ ${side}  ${fmt(DATA.entryPrice)}`,
+    text:     `${side === 'SHORT' ? '▼' : '▲'} ${side}  ${fmt(DATA.entryPrice)}`,
     size:     2,
   });
 }
 
-// Exit marker
 if (DATA.exitBar != null && DATA.candles[DATA.exitBar]) {
   markers.push({
     time:     DATA.candles[DATA.exitBar].time,
@@ -280,13 +299,16 @@ if (DATA.exitBar != null && DATA.candles[DATA.exitBar]) {
   });
 }
 
-// Marker'ları zamana göre sırala (LWC gereksinimi)
-markers.sort((a,b) => a.time - b.time);
+markers.sort((a, b) => a.time - b.time);
 cs.setMarkers(markers);
 
+// ── Time scale fit + price range son kez uygula ───────────────────────────
+// fitContent() sonrası LWC bazen autoScale'i resetliyor;
+// setVisiblePriceRange'i tekrar çağırarak kilitleriz.
 chart.timeScale().fitContent();
+chart.priceScale('right').setVisiblePriceRange(priceRange);
 
-// Playwright render sinyali
+// ── Playwright render sinyali ─────────────────────────────────────────────
 document.getElementById('header').dataset.rendered = '1';
 </script>
 </body>
