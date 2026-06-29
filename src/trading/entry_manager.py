@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import math
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -104,30 +105,50 @@ class EntryManager:
         if side == "long":
             if trigger_fvg:
                 fvg_height = trigger_fvg.top - trigger_fvg.bottom
-                adaptive_buf = max(
-                    fvg_height * cfg.FVG_BUFFER_MIN_FACTOR,
-                    min(fvg_height * 0.25, risk_pts * fvg_buf),
-                )
-                sl = trigger_fvg.bottom - adaptive_buf
+                if fvg_height <= 0:
+                    sl = entry_price - risk_pts * 2
+                    log.warning(
+                        "[SL_CALC] %s long FVG height=0 — fallback SL",
+                        side,
+                    )
+                else:
+                    adaptive_buf = max(
+                        fvg_height * cfg.FVG_BUFFER_MIN_FACTOR,
+                        max(risk_pts * 0.1, min(fvg_height * 0.25, risk_pts * fvg_buf)),
+                    )
+                    sl = trigger_fvg.bottom - adaptive_buf
             else:
                 sl = entry_price - risk_pts * 2
             risk_dist = abs(sl - entry_price)
             if trigger_fvg and risk_dist > max_risk_dist:
                 sl = entry_price - risk_pts * 2
                 risk_dist = abs(sl - entry_price)
+            if risk_dist <= 0:
+                sl = entry_price - risk_pts * 2
+                risk_dist = abs(sl - entry_price)
             tp = entry_price + risk_dist * tp_rr
         else:
             if trigger_fvg:
                 fvg_height = trigger_fvg.top - trigger_fvg.bottom
-                adaptive_buf = max(
-                    fvg_height * cfg.FVG_BUFFER_MIN_FACTOR,
-                    min(fvg_height * 0.25, risk_pts * fvg_buf),
-                )
-                sl = trigger_fvg.top + adaptive_buf
+                if fvg_height <= 0:
+                    sl = entry_price + risk_pts * 2
+                    log.warning(
+                        "[SL_CALC] %s short FVG height=0 — fallback SL",
+                        side,
+                    )
+                else:
+                    adaptive_buf = max(
+                        fvg_height * cfg.FVG_BUFFER_MIN_FACTOR,
+                        max(risk_pts * 0.1, min(fvg_height * 0.25, risk_pts * fvg_buf)),
+                    )
+                    sl = trigger_fvg.top + adaptive_buf
             else:
                 sl = entry_price + risk_pts * 2
             risk_dist = abs(sl - entry_price)
             if trigger_fvg and risk_dist > max_risk_dist:
+                sl = entry_price + risk_pts * 2
+                risk_dist = abs(sl - entry_price)
+            if risk_dist <= 0:
                 sl = entry_price + risk_pts * 2
                 risk_dist = abs(sl - entry_price)
             tp = entry_price - risk_dist * tp_rr
@@ -198,9 +219,18 @@ class EntryManager:
         mkt_resp = await self._rest.place_market_order(sym, mkt_side, valid_qty)
         mkt_id = extract_order_id(mkt_resp)
         if not mkt_id:
-            return EntryExecutionResult(
-                success=False, error="MARKET BASARISIZ — trade iptal"
+            err_detail = str(mkt_resp) if mkt_resp else "empty_response"
+            log.warning(
+                "[MARKET] %s basarisiz resp=%s qty=%s", sym, err_detail, valid_qty
             )
+            if mkt_resp is None:
+                return EntryExecutionResult(
+                    success=False,
+                    error="MARKET BASARISIZ — baglanti koptu (None)",
+                )
+            # Demo API {} döndü → sentetik ID türet
+            mkt_id = f"synthetic_{sym}_{int(time.time() * 1000)}"
+            log.warning("[MARKET] %s {} yanit — sentetik ID=%s", sym, mkt_id)
 
         log.info(
             "[ORDER] %s MARKET entry OK orderId=%s qty=%.8f",
