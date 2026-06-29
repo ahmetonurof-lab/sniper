@@ -1,0 +1,163 @@
+{
+  "_used_sweeps": {
+    "bearish_525": {
+      "date": "2026-06-29"
+    },
+    "bearish_526": {
+      "date": "2026-06-29"
+    },
+    "bearish_527": {
+      "date": "2026-06-29"
+    },
+    "bearish_528": {
+      "date": "2026-06-29"
+    },
+    "bearish_529": {
+      "date": "2026-06-29"
+    },
+    "bearish_530": {
+      "date": "2026-06-29"
+    },
+    "bearish_531": {
+      "date": "2026-06-29"
+    },
+    "bearish_499": {
+      "date": "2026-06-29"
+    },
+    "bearish_501": {
+      "date": "2026-06-29"
+    },
+    "bearish_502": {
+      "date": "2026-06-29"
+    },
+    "bearish_503": {
+      "date": "2026-06-29"
+    },
+    "bearish_504": {
+      "date": "2026-06-29"
+    },
+    "bearish_507": {
+      "date": "2026-06-29"
+    },
+    "bearish_508": {
+      "date": "2026-06-29"
+    },
+    "bearish_509": {
+      "date": "2026-06-29"
+    },
+    "bearish_510": {
+      "date": "2026-06-29"
+    },
+    "bearish_511": {
+      "date": "2026-06-29"
+    },
+    "bearish_512": {
+      "date": "2026-06-29"
+    },
+    "bearish_513": {
+      "date": "2026-06-29"
+    },
+    "bearish_515": {
+      "date": "2026-06-29"
+    }
+  },
+  "AVAXUSDT": {
+    "date": "2026-06-29",
+    "count": 1,
+    "entry_price": 6.605,
+    "open": false,
+    "retrade_armed": true,
+    "retrade_side": "long",
+    "retrade_entry_bar": 509
+  },
+  "APTUSDT": {
+    "date": "2026-06-29",
+    "count": 1,
+    "entry_price": 0.5794,
+    "open": false,
+    "retrade_armed": true,
+    "retrade_side": "long",
+    "retrade_entry_bar": 508
+  },
+  "SOLUSDT": {
+    "date": "2026-06-27",
+    "count": 1,
+    "entry_price": 72.02,
+    "open": false,
+    "retrade_armed": true,
+    "retrade_side": "long",
+    "retrade_entry_bar": 509
+  },
+  "BTCUSDT": {
+    "date": "2026-06-28",
+    "count": 1,
+    "entry_price": 60110.0,
+    "open": false,
+    "retrade_armed": true,
+    "retrade_side": "short",
+    "retrade_entry_bar": 534
+  },
+  "SUIUSDT": {
+    "date": "2026-06-29",
+    "count": 1,
+    "entry_price": 0.6886,
+    "open": false,
+    "retrade_armed": true,
+    "retrade_side": "long",
+    "retrade_entry_bar": 511
+  },
+  "NEARUSDT": {
+    "date": "2026-06-29",
+    "count": 1,
+    "entry_price": 1.839,
+    "open": false,
+    "retrade_armed": true,
+    "retrade_side": "long",
+    "retrade_entry_bar": 504
+  },
+  "ATOMUSDT": {
+    "date": "2026-06-29",
+    "count": 1,
+    "entry_price": 1.54,
+    "open": false,
+    "retrade_armed": true,
+    "retrade_side": "long",
+    "retrade_entry_bar": 515
+  },
+  "ADAUSDT": {
+    "date": "2026-06-29",
+    "count": 1,
+    "entry_price": 0.1446,
+    "open": false,
+    "retrade_armed": true,
+    "retrade_side": "long",
+    "retrade_entry_bar": 510
+  },
+  "ETHUSDT": {
+    "date": "2026-06-29",
+    "count": 1,
+    "entry_price": 1574.88,
+    "open": false,
+    "retrade_armed": true,
+    "retrade_side": "long",
+    "retrade_entry_bar": 507
+  },
+  "BNBUSDT": {
+    "date": "2026-06-29",
+    "count": 1,
+    "entry_price": 550.93,
+    "open": false,
+    "retrade_armed": true,
+    "retrade_side": "long",
+    "retrade_entry_bar": 512
+  },
+  "LINKUSDT": {
+    "date": "2026-06-29",
+    "count": 1,
+    "entry_price": 7.223,
+    "open": false,
+    "retrade_armed": true,
+    "retrade_side": "long",
+    "retrade_entry_bar": 513
+  }
+}
