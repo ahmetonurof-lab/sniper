@@ -514,7 +514,24 @@ class PaperTrader:
             rsm.reset()
             return
 
-        # ── 2. PENDING KİLİDİ (API ÇAĞRISINDAN HEMEN ÖNCE) ──
+        sl_id = ""
+        tp_id = ""
+        if cfg.BINANCE_API_KEY and getattr(self, "_live", False):
+            assert self.entry_manager is not None
+            exec_result = await self.entry_manager.execute_live_entry(
+                sym, side, qty, sl, tp, entry_price
+            )
+            if not exec_result.success:
+                self._pl(sym, "order_err", f"\u274c ORDER: {exec_result.error}")
+                log.warning(
+                    "[ORDER] %s %s — trade kaydedilmedi", sym, exec_result.error
+                )
+                rsm.reset()
+                return
+            sl_id = exec_result.sl_order_id
+            tp_id = exec_result.tp_order_id
+            _binance_qty = exec_result.qty
+
         with PendingLock(self.active_trades, sym, logger=log) as lock:
             self._pl(
                 sym,
@@ -530,36 +547,6 @@ class PaperTrader:
                 tp,
                 qty,
             )
-
-            sl_id = ""
-            tp_id = ""
-            if cfg.BINANCE_API_KEY and getattr(self, "_live", False):
-                mkt_side = "BUY" if side == "long" else "SELL"
-
-                assert self.entry_manager is not None
-                exec_result = await self.entry_manager.execute_live_entry(
-                    sym, side, qty, sl, tp, entry_price
-                )
-
-                if not exec_result.success:
-                    self._pl(sym, "order_err", f"\u274c ORDER: {exec_result.error}")
-                    log.warning(
-                        "[ORDER] %s %s — trade kaydedilmedi", sym, exec_result.error
-                    )
-                    rsm.reset()
-                    return
-
-                sl_id = exec_result.sl_order_id
-                tp_id = exec_result.tp_order_id
-                _binance_qty = (
-                    exec_result.qty
-                )  # Binance onayli miktar (precision sonrasi)
-
-                self._pl(
-                    sym,
-                    "order_ok",
-                    f"\u2705 ORDER: MARKET {mkt_side} OK | ID: (live)",
-                )
 
             lock.commit()  # PENDING korunur
 
@@ -774,8 +761,6 @@ class PaperTrader:
                 f"\U0001f4b0 BALANCE: varsayilan {INITIAL_CAPITAL:.2f} USDT (API key yok)",
             )
 
-        self._live = True
-
         # Leverage: her sembol için config'deki değeri set et
         if cfg.BINANCE_API_KEY:
             async with asyncio.TaskGroup() as tg:
@@ -859,6 +844,8 @@ class PaperTrader:
                     "[USER_DATA] Listen key alinamadi (devam ediliyor, WS kullanici verisi devre disi): %s",
                     e,
                 )
+
+        self._live = True
 
         # Gecmis barlari yukle (15m + 1m)
         async with asyncio.TaskGroup() as tg:

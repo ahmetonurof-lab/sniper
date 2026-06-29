@@ -1,54 +1,293 @@
-<!DOCTYPE html><html lang="en"><meta charset="UTF-8">
-<title>TS</title>
-<script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
-<style>html,body{margin:0;overflow:hidden;background:#131722;width:1920px;height:1080px}#c{width:1920px;height:1080px}</style>
-<div id=c></div>
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"/>
+<title>Snapshot</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d1117;font-family:'Courier New',monospace;color:#c9d1d9;overflow:hidden}
+#wrap{width:1280px;height:720px;position:relative;background:#0d1117}
+#chart{position:absolute;top:40px;left:0;right:0;bottom:0}
+
+#header{position:absolute;top:0;left:0;right:0;height:40px;
+  background:#0d1117;border-bottom:1px solid #21262d;
+  display:flex;align-items:center;padding:0 14px;gap:14px;z-index:20}
+.sym{font-size:14px;font-weight:700;color:#f0f6fc;letter-spacing:.5px}
+.badge{font-size:10px;padding:2px 7px;border-radius:3px;font-weight:700;letter-spacing:.4px}
+.b-long   {background:#0f2d0f;color:#3fb950;border:1px solid #238636}
+.b-short  {background:#2d1a0f;color:#ffa657;border:1px solid #d29922}
+.b-sl     {background:#2d0f0f;color:#f85149;border:1px solid #da3633}
+.b-tp     {background:#0f2d0f;color:#3fb950;border:1px solid #238636}
+.b-timeout{background:#1a1a2d;color:#79c0ff;border:1px solid #388bfd}
+.sep{color:#30363d;font-size:10px}
+.meta{color:#8b949e;font-size:11px}
+.pnl-pos{color:#3fb950;font-size:12px;font-weight:700}
+.pnl-neg{color:#f85149;font-size:12px;font-weight:700}
+
+#legend{position:absolute;bottom:14px;left:14px;
+  background:rgba(13,17,23,0.93);border:1px solid #21262d;
+  border-radius:6px;padding:10px 13px;z-index:20;min-width:210px}
+.leg-row{display:flex;justify-content:space-between;align-items:center;
+  gap:20px;font-size:10.5px;padding:2.5px 0}
+.leg-label{color:#8b949e}
+.leg-val{font-weight:700;font-family:'Courier New',monospace;text-align:right}
+.leg-div{border-top:1px solid #21262d;margin:5px 0}
+.c-entry{color:#58a6ff} .c-exit{color:#f85149}
+.c-sl{color:#f85149}    .c-tp{color:#3fb950}
+.c-cbdr{color:#d2a8ff}  .c-fvg{color:#ffa657}
+.c-sweep{color:#79c0ff}
+
+#tradebadge{position:absolute;bottom:14px;right:14px;
+  border-radius:6px;padding:8px 14px;z-index:20;text-align:right}
+#tradebadge.loss{background:#2d0f0f;border:1px solid #da3633}
+#tradebadge.win {background:#0f2d0f;border:1px solid #238636}
+#tradebadge .tb-sym{font-size:11px;color:#8b949e;margin-bottom:2px}
+#tradebadge .tb-pnl{font-size:16px;font-weight:700}
+#tradebadge .tb-reason{font-size:10px;opacity:.75;margin-top:1px}
+.loss .tb-pnl,.loss .tb-reason{color:#f85149}
+.win  .tb-pnl,.win  .tb-reason{color:#3fb950}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="header" data-rendered="0"></div>
+  <div id="chart"></div>
+  <div id="legend"></div>
+  <div id="tradebadge"></div>
+</div>
+
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <script>
-const D=__DATA__,C=D.candles,c0=C[0].time,cE=C[C.length-1].time;
-const ch=LightweightCharts.createChart(document.getElementById('c'),{
- layout:{background:{color:'#131722'},textColor:'#d1d4dc',fontSize:12},
- width:1920,height:1080,
- grid:{vertLines:{color:'#1e222d'},horzLines:{color:'#1e222d'}},
- timeScale:{borderColor:'#2a2e39',timeVisible:true,secondsVisible:false},
- rightPriceScale:{borderColor:'#2a2e39',scaleMargins:{top:.05,bottom:.08}},
- handleScroll:false,handleScale:false
+const DATA = __DATA__;
+
+// ── Yardımcılar ──────────────────────────────────────────────────────────
+const fmt    = n => n == null ? '—' : Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const pnlFmt = n => (n >= 0 ? '+' : '') + Number(n).toFixed(2) + '%';
+const isWin  = (DATA.pnl ?? 0) >= 0;
+const side   = (DATA.side || 'long').toUpperCase();
+const reason = (DATA.exitReason || '').toUpperCase();
+
+// ── Header ────────────────────────────────────────────────────────────────
+const reasonClass = reason === 'SL' ? 'b-sl' : reason === 'TP' ? 'b-tp' : 'b-timeout';
+const sideClass   = side === 'SHORT' ? 'b-short' : 'b-long';
+const exitTs      = DATA.candles?.[DATA.exitBar]?.time;
+const dtStr       = exitTs
+  ? new Date(exitTs*1000).toISOString().replace('T',' ').slice(0,16)+' UTC'
+  : '';
+
+document.getElementById('header').innerHTML = `
+  <span class="sym">${DATA.sym||'BTCUSDT'}</span>
+  <span class="badge ${sideClass}">${side}</span>
+  <span class="badge ${reasonClass}">${reason||'EXIT'}</span>
+  <span class="sep">│</span><span class="meta">15m</span>
+  <span class="sep">·</span><span class="meta">${dtStr}</span>
+  <span class="sep">│</span><span class="meta">PnL:</span>
+  <span class="${isWin?'pnl-pos':'pnl-neg'}">${pnlFmt(DATA.pnl??0)}</span>
+  <span class="sep">│</span>
+  <span class="meta">Trailing: ${DATA.trailingCount??0}</span>
+  <span class="sep">·</span>
+  <span class="meta">Sweep: ${DATA.fvgDirection
+    ? DATA.fvgDirection.charAt(0).toUpperCase()+DATA.fvgDirection.slice(1)
+    : '—'}</span>
+`;
+
+// ── Legend ────────────────────────────────────────────────────────────────
+document.getElementById('legend').innerHTML = `
+  <div class="leg-row"><span class="leg-label">Entry</span>      <span class="leg-val c-entry">${fmt(DATA.entryPrice)}</span></div>
+  <div class="leg-row"><span class="leg-label">Exit</span>       <span class="leg-val c-exit">${fmt(DATA.exitPrice)}</span></div>
+  <div class="leg-row"><span class="leg-label">SL</span>         <span class="leg-val c-sl">${fmt(DATA.slPrice)}</span></div>
+  <div class="leg-row"><span class="leg-label">TP</span>         <span class="leg-val c-tp">${fmt(DATA.tpPrice)}</span></div>
+  <div class="leg-div"></div>
+  <div class="leg-row"><span class="leg-label">CBDR High</span>  <span class="leg-val c-cbdr">${fmt(DATA.cbdrHigh)}</span></div>
+  <div class="leg-row"><span class="leg-label">CBDR Low</span>   <span class="leg-val c-cbdr">${fmt(DATA.cbdrLow)}</span></div>
+  <div class="leg-div"></div>
+  <div class="leg-row"><span class="leg-label">FVG Top</span>    <span class="leg-val c-fvg">${fmt(DATA.fvgTop)}</span></div>
+  <div class="leg-row"><span class="leg-label">FVG Bottom</span> <span class="leg-val c-fvg">${fmt(DATA.fvgBottom)}</span></div>
+  <div class="leg-div"></div>
+  <div class="leg-row"><span class="leg-label">Sweep Level</span><span class="leg-val c-sweep">${fmt(DATA.sweepLevel)}</span></div>
+`;
+
+// ── Trade badge ───────────────────────────────────────────────────────────
+const badge = document.getElementById('tradebadge');
+badge.className = isWin ? 'win' : 'loss';
+badge.innerHTML = `
+  <div class="tb-sym">${DATA.sym||'BTCUSDT'} · ${side} · 15m</div>
+  <div class="tb-pnl">${pnlFmt(DATA.pnl??0)}</div>
+  <div class="tb-reason">${reason==='SL'?'Stop Loss Hit':reason==='TP'?'Take Profit Hit':reason||'Exit'}</div>
+`;
+
+// ── Chart ─────────────────────────────────────────────────────────────────
+const chart = LightweightCharts.createChart(document.getElementById('chart'),{
+  width:1280, height:680,
+  layout:{background:{color:'#0d1117'},textColor:'#8b949e'},
+  grid:{vertLines:{color:'#161b22'},horzLines:{color:'#161b22'}},
+  crosshair:{mode:LightweightCharts.CrosshairMode.Normal,
+    vertLine:{color:'#3d444d',width:1,style:0},
+    horzLine:{color:'#3d444d',width:1,style:0}},
+  rightPriceScale:{borderColor:'#21262d',scaleMargins:{top:0.08,bottom:0.06}},
+  timeScale:{borderColor:'#21262d',timeVisible:true,secondsVisible:false,
+    tickMarkFormatter:(t)=>{
+      const d=new Date(t*1000);
+      return d.getUTCHours().toString().padStart(2,'0')+':'+
+             d.getUTCMinutes().toString().padStart(2,'0');
+    }
+  },
 });
-function ls(p,c,s){let l=ch.addLineSeries({color:c,lineWidth:1,lineStyle:s||LightweightCharts.LineStyle.Solid,lastValueVisible:false,priceFormat:{type:'custom',formatter:()=>''}});l.setData([{time:c0,value:p},{time:cE,value:p}]);return l}
-const ms=ch.addCandlestickSeries({upColor:'#089981',downColor:'#f23645',borderUpColor:'#089981',borderDownColor:'#f23645',wickUpColor:'#089981',wickDownColor:'#f23645'});
-ms.setData(C);
-const eT=C[D.entryBar].time;
-if(D.cbdrHigh!=null&&D.cbdrLow!=null&&D.cbdrHigh>D.cbdrLow){
- ls(D.cbdrHigh,'#c9a84c',LightweightCharts.LineStyle.Dashed);
- ls(D.cbdrLow,'#c9a84c',LightweightCharts.LineStyle.Dashed);
-}
-if(D.fvgTop!=null&&D.fvgBottom!=null&&D.fvgBarIndex>=0&&D.fvgBarIndex<C.length){
- let fc=D.fvgDirection==='bearish'?'#f23645':'#089981';
- let lbl=D.fvgDirection==='bearish'?'FVG ↓':'FVG ↑';
- let fm=(D.fvgTop+D.fvgBottom)/2;
- let fvgStart=C[D.fvgBarIndex].time;
- let fvgEnd=C[C.length-1].time;
- let fvgTopLine=ch.addLineSeries({color:fc,lineWidth:1,lineStyle:LightweightCharts.LineStyle.Dashed,lastValueVisible:false,priceFormat:{type:'custom',formatter:()=>''}});
- fvgTopLine.setData([{time:fvgStart,value:D.fvgTop},{time:fvgEnd,value:D.fvgTop}]);
- let fvgBotLine=ch.addLineSeries({color:fc,lineWidth:1,lineStyle:LightweightCharts.LineStyle.Dashed,lastValueVisible:false,priceFormat:{type:'custom',formatter:()=>''}});
- fvgBotLine.setData([{time:fvgStart,value:D.fvgBottom},{time:fvgEnd,value:D.fvgBottom}]);
- ms.createPriceLine({price:fm,color:'transparent',lineWidth:0,axisLabelVisible:true,title:lbl});
-}
-let markers=[];
-let etExit=null,epExit=null;
-if(D.exitPrice!=null&&D.exitBar>=0&&D.exitBar<C.length){etExit=C[D.exitBar].time;epExit=D.side==='long'?'aboveBar':'belowBar';}
-let epEntry=D.side==='long'?'belowBar':'aboveBar';
-markers.push({time:eT,position:epEntry,color:'#ffffff',shape:'arrowUp',text:D.entryPrice.toFixed(1),size:2});
-if(D.initialSlPrice!=null){markers.push({time:eT,position:'inBar',color:'#f23645',shape:'square',text:'SL '+D.initialSlPrice.toFixed(1),size:1});}
-if(D.initialTpPrice!=null){let tp=D.side==='long'?'aboveBar':'belowBar';markers.push({time:eT,position:tp,color:'#089981',shape:tp==='aboveBar'?'arrowUp':'arrowDown',text:'TP '+D.initialTpPrice.toFixed(1),size:1});}
-(D.trailSteps||[]).forEach(function(s){
- if(s.bar<0||s.bar>=C.length)return;
- let t=C[s.bar].time,side=s.sl<D.entryPrice?'belowBar':'aboveBar';
- if(t===etExit&&side===epExit)side='inBar';
- markers.push({time:t,position:side,color:'#c9a84c',shape:side==='belowBar'?'arrowDown':side==='aboveBar'?'arrowUp':'square',text:'→'+s.sl.toFixed(1),size:1});
+
+// Mum serisi
+const cs = chart.addCandlestickSeries({
+  upColor:'#3fb950',   downColor:'#f85149',
+  borderUpColor:'#3fb950', borderDownColor:'#f85149',
+  wickUpColor:'#57a64a',   wickDownColor:'#c0392b',
 });
-if(etExit!=null){markers.push({time:etExit,position:epExit,color:D.exitReason==='SL'?'#f23645':'#089981',shape:'diamond',text:'EXIT '+D.exitPrice.toFixed(1),size:2});}
-ms.setMarkers(markers);
-ch.timeScale().fitContent();
-document.getElementById('c').setAttribute('data-rendered','1');
+cs.setData(DATA.candles);
+
+// ── FIX #5: price scale — Python'dan gelen priceMin/priceMax kullan ──────
+cs.applyOptions({
+  autoscaleInfoProvider: () => ({
+    priceRange: {
+      minValue: DATA.priceMin ?? (Math.min(...DATA.candles.map(c=>c.low))  - 50),
+      maxValue: DATA.priceMax ?? (Math.max(...DATA.candles.map(c=>c.high)) + 50),
+    },
+    margins: {above:0.08, below:0.08},
+  }),
+});
+
+// ── Yardımcı: timestamp dizisi ve sabit-değer çizgisi ────────────────────
+const allTs = DATA.candles.map(c => c.time);
+const flat  = val => allTs.map(t => ({time:t, value:val}));
+
+// Sadece belirli bar aralığında veri döndür (FIX #3: kısa çizgiler)
+const rangeTs = (val, fromBar, toBar) => {
+  const s = Math.max(0, fromBar);
+  const e = Math.min(DATA.candles.length-1, toBar);
+  return DATA.candles.slice(s, e+1).map(c => ({time:c.time, value:val}));
+};
+
+// ── CBDR bant — tam grafik boyunca ───────────────────────────────────────
+if (DATA.cbdrHigh != null) {
+  const s = chart.addLineSeries({color:'rgba(210,168,255,0.6)',lineWidth:1,lineStyle:2,
+    priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false,title:'CBDR High'});
+  s.setData(flat(DATA.cbdrHigh));
+}
+if (DATA.cbdrLow != null) {
+  const s = chart.addLineSeries({color:'rgba(210,168,255,0.6)',lineWidth:1,lineStyle:2,
+    priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false,title:'CBDR Low'});
+  s.setData(flat(DATA.cbdrLow));
+}
+
+// ── FVG bant — tam grafik boyunca ────────────────────────────────────────
+if (DATA.fvgTop != null) {
+  const s = chart.addLineSeries({color:'rgba(255,166,87,0.7)',lineWidth:1,lineStyle:2,
+    priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false,title:'FVG Top'});
+  s.setData(flat(DATA.fvgTop));
+}
+if (DATA.fvgBottom != null) {
+  const s = chart.addLineSeries({color:'rgba(255,166,87,0.7)',lineWidth:1,lineStyle:2,
+    priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false,title:'FVG Bot'});
+  s.setData(flat(DATA.fvgBottom));
+}
+
+// ── Sweep level ───────────────────────────────────────────────────────────
+if (DATA.sweepLevel != null) {
+  const s = chart.addLineSeries({color:'rgba(121,192,255,0.5)',lineWidth:1,lineStyle:4,
+    priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false,title:'Sweep'});
+  s.setData(flat(DATA.sweepLevel));
+}
+
+// ── FIX #3: SL çizgisi — sadece entry→exit arası ─────────────────────────
+if (DATA.slPrice != null && DATA.entryBar != null && DATA.exitBar != null) {
+  const slSeries = chart.addLineSeries({
+    color:'rgba(248,81,73,0.85)', lineWidth:1.5, lineStyle:2,
+    priceLineVisible:true, lastValueVisible:true,
+    crosshairMarkerVisible:false, title:'SL',
+  });
+  slSeries.setData(rangeTs(DATA.slPrice, DATA.entryBar, DATA.exitBar));
+}
+
+// ── FIX #3: TP çizgisi — sadece entry→exit arası ─────────────────────────
+if (DATA.tpPrice != null && DATA.entryBar != null && DATA.exitBar != null) {
+  const tpSeries = chart.addLineSeries({
+    color:'rgba(63,185,80,0.8)', lineWidth:1, lineStyle:2,
+    priceLineVisible:true, lastValueVisible:true,
+    crosshairMarkerVisible:false, title:'TP',
+  });
+  tpSeries.setData(rangeTs(DATA.tpPrice, DATA.entryBar, DATA.exitBar));
+}
+
+// ── Entry fiyatı — tam grafik, solid ─────────────────────────────────────
+cs.createPriceLine({
+  price:DATA.entryPrice, color:'#58a6ff', lineWidth:1.5, lineStyle:0,
+  axisLabelVisible:true, title:'Entry',
+});
+
+// ── Initial SL/TP (varsa, soluk) ─────────────────────────────────────────
+if (DATA.initialSlPrice != null)
+  cs.createPriceLine({price:DATA.initialSlPrice,color:'rgba(248,81,73,0.3)',
+    lineWidth:1,lineStyle:3,axisLabelVisible:false,title:'Init SL'});
+if (DATA.initialTpPrice != null)
+  cs.createPriceLine({price:DATA.initialTpPrice,color:'rgba(63,185,80,0.3)',
+    lineWidth:1,lineStyle:3,axisLabelVisible:false,title:'Init TP'});
+
+// ── Trail adımları ────────────────────────────────────────────────────────
+(DATA.trailSteps||[]).forEach((step,i) => {
+  if (step.sl) {
+    const ts = chart.addLineSeries({
+      color:'rgba(248,81,73,0.4)',lineWidth:1,lineStyle:3,
+      priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,
+      title:`T${i+1}`,
+    });
+    ts.setData(rangeTs(step.sl, step.bar, DATA.exitBar));
+  }
+});
+
+// ── Marker'lar ────────────────────────────────────────────────────────────
+const markers = [];
+
+// FIX #4: FVG oluşum barı işareti
+if (DATA.fvgBarIndex >= 0 && DATA.candles[DATA.fvgBarIndex]) {
+  markers.push({
+    time:     DATA.candles[DATA.fvgBarIndex].time,
+    position: 'aboveBar',
+    color:    '#ffa657',
+    shape:    'circle',
+    text:     'FVG',
+    size:     1,
+  });
+}
+
+// Entry marker
+if (DATA.entryBar != null && DATA.candles[DATA.entryBar]) {
+  markers.push({
+    time:     DATA.candles[DATA.entryBar].time,
+    position: side === 'SHORT' ? 'aboveBar' : 'belowBar',
+    color:    '#58a6ff',
+    shape:    side === 'SHORT' ? 'arrowDown' : 'arrowUp',
+    text:     `▲ ${side}  ${fmt(DATA.entryPrice)}`,
+    size:     2,
+  });
+}
+
+// Exit marker
+if (DATA.exitBar != null && DATA.candles[DATA.exitBar]) {
+  markers.push({
+    time:     DATA.candles[DATA.exitBar].time,
+    position: side === 'SHORT' ? 'belowBar' : 'aboveBar',
+    color:    isWin ? '#3fb950' : '#f85149',
+    shape:    side === 'SHORT' ? 'arrowUp' : 'arrowDown',
+    text:     `✕ ${reason}  ${fmt(DATA.exitPrice)}`,
+    size:     2,
+  });
+}
+
+// Marker'ları zamana göre sırala (LWC gereksinimi)
+markers.sort((a,b) => a.time - b.time);
+cs.setMarkers(markers);
+
+chart.timeScale().fitContent();
+
+// Playwright render sinyali
+document.getElementById('header').dataset.rendered = '1';
 </script>
+</body>
 </html>

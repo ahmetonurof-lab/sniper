@@ -591,19 +591,31 @@ class BinanceRESTClient:
         result = r.value
         if result.get("orderId") or result.get("id"):
             return result
-        # Demo API: orderId dönmezse GET ile bul
-        await asyncio.sleep(0.5)
-        try:
-            orders = await self.get_open_orders(symbol)
-            for o in orders if isinstance(orders, list) else []:
-                if (
-                    o.get("symbol") == symbol
-                    and o.get("side", "").upper() == side.upper()
-                    and o.get("type", "").upper() == "MARKET"
-                ):
-                    return o
-        except Exception:
-            pass
+        # Demo API: responder bazen orderId dönmez, 1 sn bekle sonra dene
+        for attempt in range(2):
+            await asyncio.sleep(0.5)
+            try:
+                orders = await self.get_open_orders(symbol)
+                for o in orders if isinstance(orders, list) else []:
+                    if (
+                        o.get("symbol") == symbol
+                        and o.get("side", "").upper() == side.upper()
+                    ):
+                        if o.get("type", "").upper() == "MARKET":
+                            return o
+                        if o.get("origType", "").upper() == "MARKET":
+                            return o
+            except Exception:
+                pass
+        log.warning(
+            "[MARKET] %s POST OK fakat orderId bulunamadi — demo API gecikmesi. resp=%s",
+            symbol,
+            {
+                k: v
+                for k, v in result.items()
+                if k in ("clientOrderId", "status", "executedQty")
+            },
+        )
         return result
 
     async def place_stop_order(

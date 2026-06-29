@@ -133,30 +133,42 @@ class EntryManager:
         if side == "long":
             if trigger_fvg:
                 fvg_height = trigger_fvg.top - trigger_fvg.bottom
-                adaptive_buf = max(
-                    fvg_height * cfg.FVG_BUFFER_MIN_FACTOR,
-                    min(fvg_height * 0.25, risk_pts * fvg_buf),
-                )
-                sl = trigger_fvg.bottom - adaptive_buf
+                if fvg_height <= 0:
+                    sl = entry_price - risk_pts * 2
+                else:
+                    adaptive_buf = max(
+                        fvg_height * cfg.FVG_BUFFER_MIN_FACTOR,
+                        min(fvg_height * 0.25, risk_pts * fvg_buf),
+                    )
+                    sl = trigger_fvg.bottom - adaptive_buf
             else:
                 sl = entry_price - risk_pts * 2
             risk_dist = abs(sl - entry_price)
             if trigger_fvg and risk_dist > max_risk_dist:
                 sl = entry_price - risk_pts * 2
                 risk_dist = abs(sl - entry_price)
+            if risk_dist <= 0:
+                sl = entry_price - risk_pts * 2
+                risk_dist = abs(sl - entry_price)
             tp = entry_price + risk_dist * tp_rr
         else:
             if trigger_fvg:
                 fvg_height = trigger_fvg.top - trigger_fvg.bottom
-                adaptive_buf = max(
-                    fvg_height * cfg.FVG_BUFFER_MIN_FACTOR,
-                    min(fvg_height * 0.25, risk_pts * fvg_buf),
-                )
-                sl = trigger_fvg.top + adaptive_buf
+                if fvg_height <= 0:
+                    sl = entry_price + risk_pts * 2
+                else:
+                    adaptive_buf = max(
+                        fvg_height * cfg.FVG_BUFFER_MIN_FACTOR,
+                        min(fvg_height * 0.25, risk_pts * fvg_buf),
+                    )
+                    sl = trigger_fvg.top + adaptive_buf
             else:
                 sl = entry_price + risk_pts * 2
             risk_dist = abs(sl - entry_price)
             if trigger_fvg and risk_dist > max_risk_dist:
+                sl = entry_price + risk_pts * 2
+                risk_dist = abs(sl - entry_price)
+            if risk_dist <= 0:
                 sl = entry_price + risk_pts * 2
                 risk_dist = abs(sl - entry_price)
             tp = entry_price - risk_dist * tp_rr
@@ -213,8 +225,16 @@ class EntryManager:
         mkt_resp = await self._rest.place_market_order(sym, mkt_side, valid_qty)
         mkt_id = extract_order_id(mkt_resp)
         if not mkt_id:
+            err_detail = mkt_resp if mkt_resp else "empty_response"
+            log.warning(
+                "[MARKET] %s basarisiz resp=%s qty=%s", sym, err_detail, valid_qty
+            )
+            if not mkt_resp:
+                return EntryExecutionResult(
+                    success=False, error="MARKET BASARISIZ — bos yanit"
+                )
             return EntryExecutionResult(
-                success=False, error="MARKET BASARISIZ — trade iptal"
+                success=False, error=f"MARKET BASARISIZ — {err_detail}"
             )
 
         log.info(
