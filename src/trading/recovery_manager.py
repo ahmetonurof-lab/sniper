@@ -284,3 +284,50 @@ class RecoveryManager:
                     )
             except Exception as e:
                 log.warning("[GHOST] %s sorgu hatasi: %s", sym, e)
+
+    async def reconcile_orphan_orders(self) -> None:
+        """Binance'teki acik STOP/TP emirlerini tara, bot'un bildigi
+        trade'lere ait olmayanlari iptal et (crash sonrasi birikme onlenir)."""
+        if not cfg.BINANCE_API_KEY:
+            return
+
+        known_ids: set[str] = set()
+        for t in self._active_trades.values():
+            for k in ("sl_order_id", "tp_order_id"):
+                oid = t.get(k)
+                if oid:
+                    known_ids.add(str(oid))
+
+        for sym in self._symbols:
+            try:
+                orders = await self._rest.get_all_orders(sym)
+            except Exception:
+                continue
+            for o in orders:
+                oid = str(o.get("orderId") or o.get("algoId") or "")
+                if not oid or oid in known_ids:
+                    continue
+                otype = self._rest.get_order_type(o)
+                if otype not in (
+                    "STOP_MARKET",
+                    "STOP",
+                    "STOP_LIMIT",
+                    "TAKE_PROFIT_MARKET",
+                    "TAKE_PROFIT",
+                    "TAKE_PROFIT_LIMIT",
+                ):
+                    continue
+                is_algo = "algoId" in o
+                cancel_id = o.get("algoId") or o.get("orderId")
+                try:
+                    await self._rest.cancel_order(
+                        cancel_id, sym, reason="orphan_sweep", is_algo=is_algo
+                    )
+                    log.info(
+                        "[ORPHAN] %s emir iptal edildi (id=%s, type=%s)",
+                        sym,
+                        oid,
+                        otype,
+                    )
+                except Exception:
+                    pass

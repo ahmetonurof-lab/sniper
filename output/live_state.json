@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-06-29T18:15:00.986008+00:00",
+  "updated_at": "2026-06-29T18:30:00.352524+00:00",
   "balance": 3273.9,
   "available_balance": 3273.9,
   "wallet_balance": 4873.77,
@@ -117,7 +117,7 @@
       "fvg_ready": false,
       "bias": "BEARISH",
       "range_type": "CBDR",
-      "london_high": 1.0687,
+      "london_high": 1.0691,
       "london_low": 1.034,
       "trades_today": 0,
       "retrade_armed": false,

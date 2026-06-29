@@ -897,6 +897,9 @@ class PaperTrader:
         # FIX #8'den SONRA çalışmalı (trades_today sıfırlaması FIX #8'i ezmesin).
         await self.recovery_manager.reconcile_ghost_positions()
 
+        # Orphan emir temizliği — Binance'te asılı kalmış STOP/TP emirlerini iptal et
+        await self.recovery_manager.reconcile_orphan_orders()
+
         # FIX #10: Retrade state'ini diskten geri yükle (restart-proof).
         for sym in self.symbols:
             try:
