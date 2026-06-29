@@ -519,7 +519,14 @@ class PaperTrader:
         if cfg.BINANCE_API_KEY and getattr(self, "_live", False):
             assert self.entry_manager is not None
             exec_result = await self.entry_manager.execute_live_entry(
-                sym, side, qty, sl, tp, entry_price
+                sym,
+                side,
+                qty,
+                sl,
+                tp,
+                entry_price,
+                balance=self._available_balance,
+                leverage=cfg.LEVERAGE,
             )
             if not exec_result.success:
                 self._pl(sym, "order_err", f"\u274c ORDER: {exec_result.error}")
