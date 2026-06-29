@@ -16,7 +16,6 @@ output/*
 !output/active_fvg.json
 !output/live_state.json
 !output/nexus_dashboard.html
-!output/paper_trade.log
 !output/trade_state.json
 !output/trades_history.jsonl
 
