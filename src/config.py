@@ -80,6 +80,7 @@ RETRADE_FVG_SIZE_MULT = 0.3  # Retrade min_fvg çarpanı
 CBDR_DEAD_THRESHOLD_PCT = 0.5  # CBDR dead eşiği (% olarak)
 ASIA_DEAD_THRESHOLD_PCT = 0.3  # Asya range dead eşiği (% olarak)
 TRAIL_MIN_MOVE_MULT = 0.2  # Min trailing hareket çarpanı
+BREAK_EVEN_TRIGGER = 0.5  # SL->entry kac risk_pts uzaklikta tetiklensin
 RETRADE_FVG_MAX_ATTEMPTS = 3  # Retrade FVG max deneme sayısı
 MIN_RISK_DIST_ATR_MULT = 0.1  # Min risk mesafesi ATR çarpanı
 MAX_SL_DIST_MULT = 2.0  # FVG bazlı SL max risk_pts çarpanı (aşarsa fallback)

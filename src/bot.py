@@ -446,6 +446,21 @@ class PaperTrader:
         min_fvg = sym_cfg["MIN_FVG_SIZE"]
         current = bars_1m[-1]
 
+        # ── Break-Even (trail_count=0 iken SL->entry) ──
+        be_result = TrailingManager.evaluate_break_even(current, trade)
+        if be_result.updated:
+            old_sl = trade["sl"]
+            old_tp = trade["tp"]
+            old_tc = trade["trailing_count"]
+            trade["sl"] = be_result.new_sl
+            trade["tp"] = be_result.new_tp
+            trade["trailing_count"] = be_result.trail_count
+            success = await self.order_manager.update_trail_orders(sym, trade)
+            if not success:
+                trade["sl"] = old_sl
+                trade["tp"] = old_tp
+                trade["trailing_count"] = old_tc
+
         # ── FVG Trailing → TrailingManager ──
         bars_15m = self.hub.get_bars(sym, "15m")
         if bars_15m:

@@ -177,7 +177,61 @@ class TrailingManager:
             )
         return TrailResult()
 
-    # ── Exit Check ────────────────────────────────────────────
+    # ── Break-Even ──────────────────────────────────────────────
+
+    @staticmethod
+    def evaluate_break_even(current: Bar, trade: dict) -> TrailResult:
+        if trade.get("trailing_count", 0) > 0:
+            return TrailResult()
+        side = trade["side"]
+        entry = trade["entry_price"]
+        risk_pts = abs(trade["sl"] - entry)
+        threshold = risk_pts * cfg.BREAK_EVEN_TRIGGER
+        if side == "long":
+            if current.high < entry + threshold or trade["sl"] >= entry:
+                return TrailResult()
+            trail_steps = trade.get("trail_steps", [])
+            trail_steps.append(
+                {
+                    "sl": round(entry, 6),
+                    "tp": round(trade["tp"], 6),
+                    "fvg_top": None,
+                    "fvg_bot": None,
+                    "bar": current.index,
+                }
+            )
+            trade["trail_steps"] = trail_steps
+            log.info(
+                "[BE] %s break-even SL=%.2f (thresh=%.4f high=%.4f)",
+                side,
+                entry,
+                threshold,
+                current.high,
+            )
+        else:
+            if current.low > entry - threshold or trade["sl"] <= entry:
+                return TrailResult()
+            trail_steps = trade.get("trail_steps", [])
+            trail_steps.append(
+                {
+                    "sl": round(entry, 6),
+                    "tp": round(trade["tp"], 6),
+                    "fvg_top": None,
+                    "fvg_bot": None,
+                    "bar": current.index,
+                }
+            )
+            trade["trail_steps"] = trail_steps
+            log.info(
+                "[BE] %s break-even SL=%.2f (thresh=%.4f low=%.4f)",
+                side,
+                entry,
+                threshold,
+                current.low,
+            )
+        return TrailResult(
+            updated=True, new_sl=entry, new_tp=trade["tp"], trail_count=1
+        )
 
     @staticmethod
     def check_exit(current: Bar, trade: dict) -> ExitDecision:
