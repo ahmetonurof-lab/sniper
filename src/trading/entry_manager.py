@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import logging
 import math
-import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -223,14 +222,9 @@ class EntryManager:
             log.warning(
                 "[MARKET] %s basarisiz resp=%s qty=%s", sym, err_detail, valid_qty
             )
-            if mkt_resp is None:
-                return EntryExecutionResult(
-                    success=False,
-                    error="MARKET BASARISIZ — baglanti koptu (None)",
-                )
-            # Demo API {} döndü → sentetik ID türet
-            mkt_id = f"synthetic_{sym}_{int(time.time() * 1000)}"
-            log.warning("[MARKET] %s {} yanit — sentetik ID=%s", sym, mkt_id)
+            return EntryExecutionResult(
+                success=False, error=f"MARKET BASARISIZ — {err_detail}"
+            )
 
         log.info(
             "[ORDER] %s MARKET entry OK orderId=%s qty=%.8f",

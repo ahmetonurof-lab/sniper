@@ -562,12 +562,9 @@ class BinanceRESTClient:
             log.warning("[MARKET] %s qty=%.8f minQty altinda, iptal", symbol, qty)
             return {}
 
-        # MIN_NOTIONAL kontrolü — rounding sonrasi qty çok küçük kalabilir
-        est_price = await self.estimate_market_price(symbol)
-        valid_qty = await self.validate_min_notional(symbol, valid_qty, est_price)
-        if valid_qty <= 0:
-            log.warning("[MARKET] %s qty=%.8f minNotional altinda, iptal", symbol, qty)
-            return {}
+        # MIN_NOTIONAL kontrolü entry_manager._bump_to_min_notional() tarafından
+        # yapılıyor. Burada tekrar kontrol etmek farklı anlık fiyat nedeniyle
+        # yanlış {} dönmesine sebep oluyordu — emir hiç gitmiyordu.
 
         decimals = max(_get_precision_places(step), 8)
         qty_str = f"{valid_qty:.{decimals}f}".rstrip("0").rstrip(".")
