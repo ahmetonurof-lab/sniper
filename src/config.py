@@ -83,6 +83,8 @@ TRAIL_MIN_MOVE_MULT = 0.2  # Min trailing hareket çarpanı
 BE_RISK_MULT = 1.0  # Break-even: 1R kârda SL->entry
 BE_SPREAD_PTS = 0.0  # Break-even spread/komisyon offseti
 ATR_TRAIL_MULT = 0.25  # Trailing buffer = ATR * 0.25
+MIN_STOP_DIST_PCT = 0.006  # Min SL mesafesi (entry %0.6)
+MAX_MARGIN_PCT = 0.20  # Tek pozisyonda max marjin (%20)
 RETRADE_FVG_MAX_ATTEMPTS = 3  # Retrade FVG max deneme sayısı
 MIN_RISK_DIST_ATR_MULT = 0.1  # Min risk mesafesi ATR çarpanı
 MAX_SL_DIST_MULT = 2.0  # FVG bazlı SL max risk_pts çarpanı (aşarsa fallback)

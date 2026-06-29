@@ -59,6 +59,9 @@
     },
     "bearish_515": {
       "date": "2026-06-29"
+    },
+    "bearish_505": {
+      "date": "2026-06-29"
     }
   },
   "AVAXUSDT": {
@@ -118,11 +121,8 @@
   "ATOMUSDT": {
     "date": "2026-06-29",
     "count": 1,
-    "entry_price": 1.54,
-    "open": false,
-    "retrade_armed": true,
-    "retrade_side": "long",
-    "retrade_entry_bar": 515
+    "entry_price": 1.537,
+    "open": true
   },
   "ADAUSDT": {
     "date": "2026-06-29",

@@ -1,9 +1,9 @@
 {
-  "updated_at": "2026-06-29T19:45:00.443101+00:00",
-  "balance": 4873.77,
-  "available_balance": 4873.77,
-  "wallet_balance": 4873.77,
-  "total_upnl": null,
+  "updated_at": "2026-06-29T21:29:02.507933+00:00",
+  "balance": 255.7,
+  "available_balance": 255.7,
+  "wallet_balance": 255.7,
+  "total_upnl": 15.06,
   "symbols": {
     "BTCUSDT": {
       "cbdr_high": 59700.1,
@@ -117,7 +117,7 @@
       "fvg_ready": false,
       "bias": "BEARISH",
       "range_type": "CBDR",
-      "london_high": 1.0748,
+      "london_high": 1.0758,
       "london_low": 1.034,
       "trades_today": 0,
       "retrade_armed": false,
@@ -139,7 +139,18 @@
       "trades_today": 0,
       "retrade_armed": false,
       "retrade_side": null,
-      "active_trade": null
+      "active_trade": {
+        "side": "short",
+        "entry": 1.536,
+        "sl": 1.538038,
+        "tp": 1.530038,
+        "qty": 15062.06,
+        "fvg_top": 1.538,
+        "fvg_bottom": 1.532,
+        "trailing_count": 1,
+        "is_retrade": false,
+        "upnl": 15.062060000001685
+      }
     },
     "ADAUSDT": {
       "cbdr_high": 0.144,

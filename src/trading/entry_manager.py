@@ -48,9 +48,6 @@ class EntryExecutionResult:
     entry_log_msg: str = ""
 
 
-SAFETY_MARGIN = 0.95  # buying power tavanında %5 emniyet payı
-
-
 class EntryManager:
     def __init__(self, rest_client, is_live: bool = False):
         self._rest = rest_client
@@ -78,11 +75,14 @@ class EntryManager:
         leverage: int,
         entry_price: float = 0.0,
     ) -> float:
-        if risk_dist <= 0:
+        if risk_dist <= 0 or entry_price <= 0:
             return 0.0
+        min_stop = entry_price * cfg.MIN_STOP_DIST_PCT
+        risk_dist = max(risk_dist, min_stop)
         qty = (balance * risk_pct) / risk_dist
-        if entry_price > 0 and leverage > 0:
-            max_qty = (balance * leverage * SAFETY_MARGIN) / entry_price
+        if leverage > 0:
+            max_margin = balance * cfg.MAX_MARGIN_PCT
+            max_qty = (max_margin * leverage) / entry_price
             if qty > max_qty:
                 qty = max_qty
         return qty
@@ -315,7 +315,7 @@ class EntryManager:
 
         # Buying power tavanı
         if balance > 0 and leverage > 0 and price > 0:
-            max_qty = (balance * leverage * SAFETY_MARGIN) / price
+            max_qty = (balance * cfg.MAX_MARGIN_PCT * leverage) / price
             if bumped > max_qty:
                 log.warning(
                     "[MINNOTIONAL] %s bump=%.8f > buying_power=%.8f "
