@@ -45,6 +45,7 @@ class EntryExecutionResult:
     sl_order_id: str = ""
     tp_order_id: str = ""
     error: str = ""
+    entry_log_msg: str = ""
 
 
 SAFETY_MARGIN = 0.95  # buying power tavanında %5 emniyet payı
@@ -157,7 +158,16 @@ class EntryManager:
             leverage: Kaldıraç — buying power tavanı için.
         """
         if not self._is_live:
-            return EntryExecutionResult(success=True, qty=qty)
+            return EntryExecutionResult(
+                success=True,
+                qty=qty,
+                entry_log_msg=(
+                    f"\U0001f7e8 ENTRY: {side.upper()} | "
+                    f"PRICE: {entry_price or 0:.2f} | "
+                    f"SL: {sl:.2f} | TP: {tp:.2f} | "
+                    f"QTY: {qty:.4f}"
+                ),
+            )
 
         mkt_side = "BUY" if side == "long" else "SELL"
         sl_side = "SELL" if side == "long" else "BUY"
@@ -236,6 +246,12 @@ class EntryManager:
             qty=valid_qty,
             sl_order_id=sl_id,
             tp_order_id=tp_id,
+            entry_log_msg=(
+                f"\U0001f7e8 ENTRY: {side.upper()} | "
+                f"PRICE: {est_price:.2f} | "
+                f"SL: {sl:.2f} | TP: {tp:.2f} | "
+                f"QTY: {valid_qty:.4f}"
+            ),
         )
 
     # ── minNotional bump yardımcısı (YENİ) ───────────────────────

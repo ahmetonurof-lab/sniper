@@ -537,14 +537,18 @@ class PaperTrader:
                 return
             sl_id = exec_result.sl_order_id
             tp_id = exec_result.tp_order_id
-            _binance_qty = exec_result.qty
+            qty = exec_result.qty
+            if exec_result.entry_log_msg:
+                self._pl(sym, "entry", exec_result.entry_log_msg)
+        else:
+            assert self.entry_manager is not None
+            paper_result = await self.entry_manager.execute_live_entry(
+                sym, side, qty, sl, tp, entry_price
+            )
+            if paper_result.entry_log_msg:
+                self._pl(sym, "entry", paper_result.entry_log_msg)
 
         with PendingLock(self.active_trades, sym, logger=log) as lock:
-            self._pl(
-                sym,
-                "entry",
-                f"\U0001f7e8 ENTRY: {side.upper()} | PRICE: {entry_price:.2f} | SL: {sl:.2f} | TP: {tp:.2f} | QTY: {qty:.4f}",
-            )
             log.info(
                 "[PAPER] %s %s @ %.2f sl=%.2f tp=%.2f qty=%.4f",
                 sym,
