@@ -339,8 +339,12 @@ class ActiveTrade:
     exit_bar: int | None = None
     exit_timestamp: int = 0
     result: str | None = None
-    trigger_fvg: object | None = None  # HTFFVG
-    # PENDING kilidi için:
+    trigger_fvg: object | None = None
+    fvg_top: float | None = None
+    fvg_bottom: float | None = None
+    fvg_direction: str | None = None
+    fvg_bar_index: int = -1
+    upnl: float | None = None
     status: str = ""
 
     # ── Dict uyumluluğu ───────────────────────────────────────

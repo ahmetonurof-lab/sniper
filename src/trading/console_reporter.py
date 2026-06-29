@@ -66,6 +66,14 @@ class ConsoleReporter:
         """
         self.clear_state(sym, "st_fvg")
         self.clear_state(sym, "st_wck")
+        fvg_top = trade.get("fvg_top")
+        fvg_bottom = trade.get("fvg_bottom")
+        fvg_dir = trade.get("fvg_direction", "")
+        if fvg_top is not None and fvg_bottom is not None:
+            fvg_label = f"FVG: {fvg_dir} {fvg_top:.5f}-{fvg_bottom:.5f}"
+        else:
+            fvg_label = "FVG: ISLEMDE"
+        self.emit(sym, "st_fvg", f"\U0001f7e9 {fvg_label}", force=True)
         side_icon = "\U0001f7e9" if trade["side"] == "long" else "\U0001f7e5"
         ts = f"{hour:02d}:{minute:02d}"
         self.emit(

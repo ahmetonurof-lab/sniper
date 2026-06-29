@@ -1,8 +1,3 @@
-"""
-state_writer.py — Her 15m kapanışında live_state.json yazar.
-Dashboard ve chart_export.py bu dosyayı okur.
-"""
-
 import json
 import os
 from datetime import UTC, datetime
@@ -12,16 +7,22 @@ _STATE_FILE = os.path.join(_OUTPUT_DIR, "live_state.json")
 
 
 def write_state(
-    states: dict,  # PaperTrader.states — sym → SessionState
-    active_trades: dict,  # PaperTrader.active_trades — sym → ActiveTrade
+    states: dict,
+    active_trades: dict,
     available_balance: float,
     wallet_balance: float,
     symbols: list[str],
 ) -> None:
     out = {
         "updated_at": datetime.now(UTC).isoformat(),
+        "balance": round(available_balance, 2),
         "available_balance": round(available_balance, 2),
         "wallet_balance": round(wallet_balance, 2),
+        "total_upnl": round(
+            sum(t.upnl for t in active_trades.values() if t.upnl is not None), 2
+        )
+        if any(t.upnl is not None for t in active_trades.values())
+        else None,
         "symbols": {},
     }
     for sym in symbols:
@@ -29,7 +30,6 @@ def write_state(
         trade = active_trades.get(sym)
         if ss is None:
             continue
-
         out["symbols"][sym] = {
             "cbdr_high": round(ss.cbdr_body_high, 6),
             "cbdr_low": round(ss.cbdr_body_low, 6)
@@ -55,12 +55,8 @@ def write_state(
                 "sl": round(trade["sl"], 6),
                 "tp": round(trade["tp"], 6),
                 "qty": round(trade["qty"], 6),
-                "fvg_top": round(trade["trigger_fvg"].top, 6)
-                if trade.get("trigger_fvg")
-                else None,
-                "fvg_bottom": round(trade["trigger_fvg"].bottom, 6)
-                if trade.get("trigger_fvg")
-                else None,
+                "fvg_top": trade.get("fvg_top"),
+                "fvg_bottom": trade.get("fvg_bottom"),
                 "trailing_count": trade.get("trailing_count", 0),
                 "is_retrade": trade.get("is_retrade", False),
                 "upnl": trade.get("upnl"),
@@ -68,7 +64,6 @@ def write_state(
             if trade
             else None,
         }
-
     os.makedirs(_OUTPUT_DIR, exist_ok=True)
     with open(_STATE_FILE, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=2)

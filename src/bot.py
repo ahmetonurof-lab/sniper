@@ -50,6 +50,32 @@ _OUTPUT_DIR = os.path.join(_SCRIPT_DIR, "..", "output")
 os.makedirs(_OUTPUT_DIR, exist_ok=True)
 
 _log_file = os.path.join(_OUTPUT_DIR, "paper_trade.log")
+_FVG_STATE_FILE = os.path.join(_OUTPUT_DIR, "active_fvg.json")
+
+
+def _save_fvg_state(sym: str, fvg_data: dict) -> None:
+    """FVG verisini diske yaz (recovery'de kaybolmasin diye)."""
+    try:
+        data = {}
+        if os.path.exists(_FVG_STATE_FILE):
+            with open(_FVG_STATE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        data[sym] = fvg_data
+        with open(_FVG_STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+def _load_fvg_state(sym: str) -> dict:
+    """Diskten FVG verisini oku."""
+    try:
+        if os.path.exists(_FVG_STATE_FILE):
+            with open(_FVG_STATE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f).get(sym, {})
+    except Exception:
+        pass
+    return {}
 
 
 def _setup_logging() -> logging.Logger:
@@ -285,7 +311,15 @@ class PaperTrader:
 
         await self._check_retrade(sym, bars_15m, current, atr_val, ss)
 
-        # State writer — dashboard için
+        # UPNL hesapla — dashboard için (sadece bu sembolün trade'i)
+        trade = self.active_trades.get(sym)
+        if trade:
+            trade.upnl = (
+                (current.close - trade.entry_price) * trade.qty
+                if trade.side == "long"
+                else (trade.entry_price - current.close) * trade.qty
+            )
+
         write_state(
             self.states,
             self.active_trades,
@@ -448,6 +482,22 @@ class PaperTrader:
             trade["result"] = exit_decision.result
             await self._exit_trade(sym, trade, current.timestamp)
 
+        # UPNL + state writer — her 1m bar'da güncellenir
+        trade = self.active_trades.get(sym)
+        if trade:
+            trade.upnl = (
+                (current.close - trade.entry_price) * trade.qty
+                if trade.side == "long"
+                else (trade.entry_price - current.close) * trade.qty
+            )
+        write_state(
+            self.states,
+            self.active_trades,
+            self._available_balance,
+            self._wallet_balance,
+            self.symbols,
+        )
+
     # ── Entry ──
 
     async def _try_entry(
@@ -565,6 +615,8 @@ class PaperTrader:
         # şu an race condition teorik. Eğer ActiveTrade.__init__ asenkron
         # olursa bu window kapatılmalı (PendingLock atomic blok genişletilmeli).
         # ── 3. BAŞARILI KAYIT (PENDING ÜZERİNE YAZ) ──
+        fvg = rsm.trigger_fvg
+
         self.active_trades[sym] = ActiveTrade(
             symbol=sym,
             side=side,
@@ -578,13 +630,28 @@ class PaperTrader:
             risk_pts=risk_pts,
             trailing_count=0,
             is_retrade=is_retrade,
-            trigger_fvg=rsm.trigger_fvg,
+            trigger_fvg=fvg,
+            fvg_top=getattr(fvg, "top", None) if fvg else None,
+            fvg_bottom=getattr(fvg, "bottom", None) if fvg else None,
+            fvg_direction=getattr(fvg, "direction", None) if fvg else None,
+            fvg_bar_index=max(0, current.index - 3) if fvg else -1,
             sl_order_id=sl_id
             if (cfg.BINANCE_API_KEY and getattr(self, "_live", False))
             else "",
             tp_order_id=tp_id
             if (cfg.BINANCE_API_KEY and getattr(self, "_live", False))
             else "",
+        )
+
+        # FVG verisini diske yaz — recovery'de kaybolmasin
+        _save_fvg_state(
+            sym,
+            {
+                "fvg_top": getattr(fvg, "top", None) if fvg else None,
+                "fvg_bottom": getattr(fvg, "bottom", None) if fvg else None,
+                "fvg_direction": getattr(fvg, "direction", None) if fvg else None,
+                "fvg_bar_index": max(0, current.index - 3) if fvg else -1,
+            },
         )
         if is_retrade:
             clear_retrade_arm(sym)
@@ -621,6 +688,17 @@ class PaperTrader:
         # üzerine emir atarak ters yönde yeni pozisyon açıyordu.
         # Yapılması gereken: karşı taraftaki bekleyen emri iptal etmek.
         await self.order_manager.cleanup_on_exit(sym, trade, trade["result"])
+
+        # FVG state dosyasini temizle
+        try:
+            if os.path.exists(_FVG_STATE_FILE):
+                data = json.loads(open(_FVG_STATE_FILE, "r", encoding="utf-8").read())
+                data.pop(sym, None)
+                open(_FVG_STATE_FILE, "w", encoding="utf-8").write(
+                    json.dumps(data, ensure_ascii=False)
+                )
+        except Exception:
+            pass
 
         # FIX #2: Retrade arm → RetradeEngine (Faz 6.1)
         RetradeEngine.arm_retrade(sym, trade, self.states[sym], self._pl)
@@ -785,6 +863,15 @@ class PaperTrader:
 
         await self.recovery_manager.recover_positions()
         reconcile_from_active(self.active_trades)
+
+        # Recovery sonrasi FVG verisini geri yukle
+        for sym in list(self.active_trades):
+            fvg_data = _load_fvg_state(sym)
+            if fvg_data:
+                trade = self.active_trades[sym]
+                for k in ("fvg_top", "fvg_bottom", "fvg_direction", "fvg_bar_index"):
+                    if k in fvg_data and fvg_data[k] is not None:
+                        trade[k] = fvg_data[k]
 
         # FIX #8: Restart sonrası trades_today senkronizasyonu.
         # ÖNCE disk'teki count'u oku, SONRA ghost recovery sıfırlasın.
