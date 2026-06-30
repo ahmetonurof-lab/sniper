@@ -16,6 +16,7 @@ import logging
 
 import config as cfg
 from bot_infra import extract_order_id
+from event_log import log_event
 from models import ActiveTrade
 
 log = logging.getLogger("sniper.recovery_manager")
@@ -253,6 +254,14 @@ class RecoveryManager:
                         for o in open_orders
                     )
                     if not has_sl or not has_tp:
+                        log_event(
+                            "ghost_missing_sltp",
+                            sym,
+                            side=direction,
+                            entry=entry,
+                            has_sl=has_sl,
+                            has_tp=has_tp,
+                        )
                         log.warning(
                             "[GHOST] %s SL/TP eksik (sl=%s tp=%s) — trade hatasi olabilir",
                             sym,
@@ -265,6 +274,7 @@ class RecoveryManager:
                             f"\u26a0\ufe0f GHOST: {direction.upper()} @ {entry:.2f} | SL={has_sl} TP={has_tp} eksik",
                         )
                     else:
+                        log_event("ghost_ok", sym, side=direction, entry=entry)
                         self._pl(
                             sym,
                             "ghost_ok",
@@ -273,6 +283,7 @@ class RecoveryManager:
                 else:
                     mark_trade_closed(sym)
                     self._states[sym].trades_today = 0
+                    log_event("ghost_cleaned", sym)
                     log.info(
                         "[GHOST] %s pozisyon kapali, state temizlendi — trades_today sifirlandi",
                         sym,
@@ -323,6 +334,7 @@ class RecoveryManager:
                     await self._rest.cancel_order(
                         cancel_id, sym, reason="orphan_sweep", is_algo=is_algo
                     )
+                    log_event("orphan_cleaned", sym, order_id=oid, order_type=otype)
                     log.info(
                         "[ORPHAN] %s emir iptal edildi (id=%s, type=%s)",
                         sym,

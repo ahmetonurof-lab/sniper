@@ -31,6 +31,7 @@ from state_manager import (
 )
 from state_writer import write_state
 from snapshot.snapshot import capture_snapshot
+from event_log import cleanup_old_event_logs, log_event
 from trading import (
     SignalEngine,
     EntryManager,
@@ -110,7 +111,7 @@ def _setup_logging() -> logging.Logger:
         _log_file,
         when="midnight",
         interval=1,
-        backupCount=7,
+        backupCount=14,
         encoding="utf-8",
     )
     handler.setFormatter(
@@ -655,6 +656,17 @@ class PaperTrader:
 
             lock.commit()  # PENDING korunur
 
+        log_event(
+            "entry",
+            sym,
+            side=side,
+            entry_price=entry_price,
+            sl=sl,
+            tp=tp,
+            qty=qty,
+            is_retrade=is_retrade,
+        )
+
         # NOTE: lock.commit() ile ActiveTrade ataması arasında await yok —
         # şu an race condition teorik. Eğer ActiveTrade.__init__ asenkron
         # olursa bu window kapatılmalı (PendingLock atomic blok genişletilmeli).
@@ -763,6 +775,13 @@ class PaperTrader:
                         sym, mkt_side, trade["qty"], reduce_only=True
                     )
                     if close_resp and close_resp.get("orderId"):
+                        log_event(
+                            "force_close",
+                            sym,
+                            side=trade["side"],
+                            qty=trade["qty"],
+                            success=True,
+                        )
                         log.critical(
                             "[CRITICAL] %s reduceOnly market BASARILI. Cleanup devam.",
                             sym,
@@ -774,6 +793,13 @@ class PaperTrader:
                             force=True,
                         )
                     else:
+                        log_event(
+                            "force_close",
+                            sym,
+                            side=trade["side"],
+                            qty=trade["qty"],
+                            success=False,
+                        )
                         log.critical(
                             "[CRITICAL] %s reduceOnly market BASARISIZ. "
                             "Cleanup atlaniyor, SL/TP korunuyor.",
@@ -789,6 +815,17 @@ class PaperTrader:
                     )
                     return
 
+        log_event(
+            "exit",
+            sym,
+            side=trade["side"],
+            entry_price=trade["entry_price"],
+            exit_price=trade["exit_price"],
+            qty=trade["qty"],
+            pnl=pnl,
+            result=trade["result"],
+            trailing_count=trade["trailing_count"],
+        )
         await self.order_manager.cleanup_on_exit(sym, trade, trade["result"])
 
         # FVG state dosyasini temizle
@@ -1081,6 +1118,7 @@ class PaperTrader:
 def main():
     """Bot giriş noktası."""
     _setup_logging()
+    cleanup_old_event_logs()
     bot = PaperTrader(sys.argv[1:] if len(sys.argv) > 1 else None)
     try:
         asyncio.run(bot.run())

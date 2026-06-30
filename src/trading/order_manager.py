@@ -16,6 +16,7 @@ import time
 
 import config as cfg
 from bot_infra import extract_order_id
+from event_log import log_event
 
 log = logging.getLogger("sniper.order_manager")
 
@@ -65,6 +66,13 @@ class OrderManager:
             if new_sl_id:
                 sl_ok = True
             else:
+                log_event(
+                    "sl_reject",
+                    sym,
+                    side=trade["side"],
+                    sl_price=trade["sl"],
+                    old_id=old_sl_id,
+                )
                 log.warning(
                     "[TRAIL] %s SL reject (yeni emir alinamadi) -> eski SL korunuyor",
                     sym,
@@ -81,6 +89,13 @@ class OrderManager:
             if new_tp_id:
                 tp_ok = True
             else:
+                log_event(
+                    "tp_reject",
+                    sym,
+                    side=trade["side"],
+                    tp_price=trade["tp"],
+                    old_id=old_tp_id,
+                )
                 log.warning("[TRAIL] %s TP reject -> eski TP korunuyor", sym)
         except Exception as e:
             log.warning("[TRAIL] %s TP place hatasi: %s -> eski TP korunuyor", sym, e)
