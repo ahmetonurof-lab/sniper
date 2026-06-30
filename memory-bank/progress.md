@@ -25,6 +25,9 @@
 | trail_steps kaydi | ✅ Her trailing adimi trade dict’ine {sl, tp, fvg_top, fvg_bot, bar} |
 | ConsoleReporter (TR time, dedup) | ✅ Şeffaf console çıktısı |
 | Pre-commit hooks | ✅ ruff (linter + formatter), vulture |
+| event_log (yapısal JSONL log) | ✅ `src/event_log.py` — `log_event()` + `cleanup_old_event_logs()` |
+| backupCount=7→14 | ✅ `TimedRotatingFileHandler`'da 14 gün saklama |
+| event log noktaları | ✅ entry/exit/force_close (bot.py), orphan/ghost (recovery_manager.py), sl_reject/tp_reject (order_manager.py) |
 
 ## Kalan İşler 🔧
 

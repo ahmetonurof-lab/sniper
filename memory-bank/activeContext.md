@@ -27,6 +27,7 @@
 | 13 | `ddd8367` | **chart_export sıralaması**: `_exit_trade`'de `export_chart` → `trade["chart_file"]` → `export_trade` (JSONL chart_file içerir). `exit_bar` `.get("exit_bar", 0)` ile güvenli erişim. WS handler'da `trade["exit_timestamp"]` set edilir. |
 | 14 | HEAD | **fix: trades_history.jsonl yazma**: `_exit_trade`'de trade deque'e append ediliyor ama diske yazılmıyordu. `jsonl`'e append + `_load_history()` eklendi. |
 | 15 | HEAD | **Hybrid SL buffer**: `FVG_BUFFER_MIN_FACTOR=0.10` artık kullanılıyor. Formül: `adaptive_buf = max(fvg_height × 0.10, min(fvg_height × 0.25, risk_pts × 0.5))`. `MAX_SL_DIST_MULT=2.0` tavanı eklendi. |
+| 16 | `051b4aa` | **event_log modülü**: `src/event_log.py` — `log_event()` yapısal JSONL log (`output/events_YYYY-MM-DD.jsonl`), `cleanup_old_event_logs()` 14 günden eski dosyaları temizler. Entry/exit/force_close/orphan/ghost/sl_reject/tp_reject noktaları eklendi. `backupCount=7→14`. Pre-commit'dan geçti, pushlandı. |
 
 ## Aktif Kararlar
 
