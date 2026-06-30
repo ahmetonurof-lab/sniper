@@ -79,23 +79,47 @@ def _load_fvg_state(sym: str) -> dict:
 
 
 def _setup_logging() -> logging.Logger:
-    """Logger yapılandırması: TR saat dilimi, UTF-8, dosya."""
+    """Logger yapılandırması: TR saat dilimi, UTF-8, dosya, günlük rotate.
+
+    Sadece main() içinde çağrılır — modül import'unda tetiklenmez,
+    böylece test'ler production log'una yazmaz.
+    """
     logging.Formatter.converter = staticmethod(
         lambda ts: datetime.fromtimestamp(ts, TR_TZ).timetuple()
     )
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s \u2014 %(message)s",
-        handlers=[logging.FileHandler(_log_file, mode="a", encoding="utf-8-sig")],
-        force=True,
+    # Eski log'u arşivle
+    if os.path.exists(_log_file):
+        import shutil
+
+        archive_name = (
+            _log_file + "." + datetime.now(TR_TZ).strftime("%Y%m%d_%H%M%S") + ".bak"
+        )
+        try:
+            shutil.copy2(_log_file, archive_name)
+            os.remove(_log_file)
+        except Exception:
+            pass
+
+    root = logging.getLogger()
+    for h in root.handlers[:]:
+        root.removeHandler(h)
+    root.setLevel(logging.INFO)
+
+    handler = logging.handlers.TimedRotatingFileHandler(
+        _log_file,
+        when="midnight",
+        interval=1,
+        backupCount=7,
+        encoding="utf-8",
     )
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s [%(levelname)s] %(name)s \u2014 %(message)s")
+    )
+    root.addHandler(handler)
 
     _log = logging.getLogger("sniper.paper")
     _log.setLevel(logging.INFO)
-    _log.propagate = False
-    _fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s \u2014 %(message)s")
-    _log.addHandler(logging.FileHandler(_log_file, mode="a", encoding="utf-8-sig"))
 
     try:
         if hasattr(sys.stdout, "reconfigure"):
@@ -110,7 +134,7 @@ def _setup_logging() -> logging.Logger:
     return _log
 
 
-log = _setup_logging()
+log = logging.getLogger("sniper.paper")
 
 INITIAL_CAPITAL = cfg.INITIAL_BALANCE
 RISK_PER_TRADE = cfg.RISK_PER_TRADE
@@ -1056,6 +1080,7 @@ class PaperTrader:
 
 def main():
     """Bot giriş noktası."""
+    _setup_logging()
     bot = PaperTrader(sys.argv[1:] if len(sys.argv) > 1 else None)
     try:
         asyncio.run(bot.run())
