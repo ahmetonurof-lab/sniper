@@ -22,9 +22,6 @@ output/*
 # Cache
 .ruff_cache/
 
-# Leftovers
-memory-bank/
-
 # Byte-compiled
 __pycache__/
 *.py[cod]
