@@ -121,7 +121,6 @@ class RecoveryManager:
                         trailing_count=0,
                         risk_pts=risk_pts,
                         is_recovered=True,
-                        is_retrade=False,
                         sl_order_id=sl_id,
                         tp_order_id=tp_id,
                     )
@@ -190,7 +189,6 @@ class RecoveryManager:
                         trailing_count=0,
                         risk_pts=risk_pts,
                         is_recovered=True,
-                        is_retrade=False,
                         sl_order_id=sl_id,
                         tp_order_id=tp_id,
                     )
@@ -297,7 +295,7 @@ class RecoveryManager:
                 log.warning("[GHOST] %s sorgu hatasi: %s", sym, e)
 
     async def reconcile_orphan_orders(self) -> None:
-        """Binance'teki acik STOP/TP emirlerini tara, bot'un bildigi
+        """Binance'teki acik tum emirleri tara, bot'un bildigi
         trade'lere ait olmayanlari iptal et (crash sonrasi birikme onlenir)."""
         if not cfg.BINANCE_API_KEY:
             return
@@ -318,18 +316,9 @@ class RecoveryManager:
                 oid = str(o.get("orderId") or o.get("algoId") or "")
                 if not oid or oid in known_ids:
                     continue
-                otype = self._rest.get_order_type(o)
-                if otype not in (
-                    "STOP_MARKET",
-                    "STOP",
-                    "STOP_LIMIT",
-                    "TAKE_PROFIT_MARKET",
-                    "TAKE_PROFIT",
-                    "TAKE_PROFIT_LIMIT",
-                ):
-                    continue
                 is_algo = "algoId" in o
                 cancel_id = o.get("algoId") or o.get("orderId")
+                otype = self._rest.get_order_type(o)
                 try:
                     await self._rest.cancel_order(
                         cancel_id, sym, reason="orphan_sweep", is_algo=is_algo

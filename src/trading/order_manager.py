@@ -186,6 +186,28 @@ class OrderManager:
             )
         log.info("[REPAIR] %s onarim tamam", sym)
 
+    # ── Tüm açık emirleri iptal et (exit öncesi) ──────────────
+
+    async def cancel_all_open_orders(self, sym: str) -> None:
+        """Semboldeki tüm açık emirleri iptal et."""
+        if not cfg.BINANCE_API_KEY or not self._is_live:
+            return
+        try:
+            orders = await self._rest.get_all_orders(sym)
+            for o in orders:
+                oid = o.get("algoId") or o.get("orderId")
+                if oid:
+                    try:
+                        is_algo = "algoId" in o
+                        await self._rest.cancel_order(
+                            oid, sym, reason="exit_cancel_all", is_algo=is_algo
+                        )
+                    except Exception:
+                        pass
+            log.info("[CANCEL] %s tum acik emirler iptal edildi", sym)
+        except Exception as e:
+            log.warning("[CANCEL] %s cancel_all hatasi: %s", sym, e)
+
     # ── Exit temizliği ─────────────────────────────────────────
 
     async def cleanup_on_exit(self, sym: str, trade: dict, result: str) -> None:

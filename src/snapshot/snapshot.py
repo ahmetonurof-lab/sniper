@@ -301,7 +301,6 @@ def capture_snapshot(
             "pnl": pnl,
             "sym": sym,
             "trailingCount": trade.get("trailing_count", 0),
-            "isRetrade": trade.get("is_retrade", False),
             # FIX #5: JS'e hazır scale sınırları
             "priceMin": price_min - price_pad,
             "priceMax": price_max + price_pad,

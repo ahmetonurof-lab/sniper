@@ -4,11 +4,12 @@
 <meta charset="UTF-8"/>
 <title>Snapshot</title>
 <style>
+html,body{width:100%;height:100%}
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0d1117;font-family:'Courier New',monospace;color:#c9d1d9;overflow:hidden}
-#wrap{width:1280px;height:720px;position:relative;background:#0d1117}
+body{background:#0d1117;font-family:'Courier New',monospace;color:#c9d1d9;overflow:auto}
+#wrap{width:100%;max-width:1280px;aspect-ratio:1280/720;min-height:360px;position:relative;background:#0d1117;margin:0 auto}
 #chart{position:absolute;top:40px;left:0;right:0;bottom:0}
-#overlay-canvas{position:absolute;top:40px;left:0;pointer-events:none;z-index:10}
+#overlay-canvas{position:absolute;top:40px;left:0;width:100%;height:calc(100% - 40px);pointer-events:none;z-index:10}
 
 #header{position:absolute;top:0;left:0;right:0;height:40px;
   background:#0d1117;border-bottom:1px solid #21262d;
@@ -68,6 +69,7 @@ const pnlFmt = n => (n >= 0 ? '+' : '') + Number(n).toFixed(2) + '%';
 const isWin  = (DATA.pnl ?? 0) >= 0;
 const side   = (DATA.side || 'long').toUpperCase();
 const reason = (DATA.exitReason || '').toUpperCase();
+const isBullFvg = d => d.fvgDirection === 'bullish';
 
 // ── Header ────────────────────────────────────────────────────────────────
 const reasonClass = reason === 'SL' ? 'b-sl' : reason === 'TP' ? 'b-tp' : 'b-timeout';
@@ -119,8 +121,15 @@ badge.innerHTML = `
 `;
 
 // ── Chart kurulum ─────────────────────────────────────────────────────────
-const CHART_W = 1280;
-const CHART_H = 680;
+const wrapEl = document.getElementById('wrap');
+const chartEl = document.getElementById('chart');
+const canvasEl = document.getElementById('overlay-canvas');
+
+function getChartSize() {
+  const r = chartEl.getBoundingClientRect();
+  return { w: Math.max(1, Math.round(r.width)), h: Math.max(1, Math.round(r.height)) };
+}
+let { w: CHART_W, h: CHART_H } = getChartSize();
 
 const chart = LightweightCharts.createChart(document.getElementById('chart'), {
   width: CHART_W,
@@ -135,7 +144,7 @@ const chart = LightweightCharts.createChart(document.getElementById('chart'), {
   rightPriceScale: {
     borderColor: '#21262d',
     scaleMargins: {top:0.06, bottom:0.06},
-    autoScale: DATA.priceMin == null || DATA.priceMax == null,
+    autoScale: true,
   },
   timeScale: {
     borderColor: '#21262d',
@@ -147,8 +156,8 @@ const chart = LightweightCharts.createChart(document.getElementById('chart'), {
              d.getUTCMinutes().toString().padStart(2,'0');
     },
   },
-  handleScroll: false,
-  handleScale: false,
+  handleScroll: true,
+  handleScale: true,
 });
 
 // ── Candlestick ───────────────────────────────────────────────────────────
@@ -161,10 +170,14 @@ cs.setData(DATA.candles);
 
 // Python tarafında hesaplanan priceMin/priceMax varsa, sabit range kullan
 // (CBDR/FVG/Sweep gibi tüm seviyeleri garantili kapsar)
+// NOT: lightweight-charts'ta chart.priceScale().setVisiblePriceRange() DİYE BİR API YOK
+// (bu sadece TradingView'in ayrı/ücretli Charting Library ürününde var).
+// Doğru yöntem: autoScale açık kalır, autoscaleInfoProvider sabit min/max döndürür.
 if (DATA.priceMin != null && DATA.priceMax != null) {
-  chart.priceScale('right').setVisiblePriceRange({
-    from: DATA.priceMin,
-    to: DATA.priceMax,
+  cs.applyOptions({
+    autoscaleInfoProvider: () => ({
+      priceRange: { minValue: DATA.priceMin, maxValue: DATA.priceMax },
+    }),
   });
 }
 
@@ -179,9 +192,34 @@ const markers = [];
 if (DATA.fvgBarIndex != null && DATA.fvgBarIndex >= 0 && DATA.candles[DATA.fvgBarIndex]) {
   markers.push({
     time: DATA.candles[DATA.fvgBarIndex].time,
-    position:'aboveBar', color:'#ffa657', shape:'circle', text:'FVG', size:1,
+    position: isBullFvg(DATA) ? 'belowBar' : 'aboveBar',
+    color:'#ffa657', shape:'circle',
+    text:`FVG ${isBullFvg(DATA)?'▲':'▼'}`, size:2,
   });
 }
+
+// Sweep bar: snapshot.py bar index göndermiyor, bu yüzden sweepLevel'a
+// ilk değen barı candle verisinden buluyoruz (high/low aralığı sweepLevel'ı kapsayan ilk bar).
+function findSweepBarIndex(candles, sweepLevel) {
+  if (sweepLevel == null) return -1;
+  for (let i = 0; i < candles.length; i++) {
+    const c = candles[i];
+    if (c.low <= sweepLevel && sweepLevel <= c.high) return i;
+  }
+  return -1;
+}
+const sweepBarIndex = findSweepBarIndex(DATA.candles, DATA.sweepLevel);
+if (sweepBarIndex >= 0 && DATA.candles[sweepBarIndex]) {
+  const sweepBull = DATA.fvgDirection === 'bullish';
+  markers.push({
+    time: DATA.candles[sweepBarIndex].time,
+    position: sweepBull ? 'belowBar' : 'aboveBar',
+    color:'#79c0ff',
+    shape: sweepBull ? 'arrowUp' : 'arrowDown',
+    text:`Sweep ${fmt(DATA.sweepLevel)}`, size:2,
+  });
+}
+
 if (DATA.entryBar != null && DATA.candles[DATA.entryBar]) {
   markers.push({
     time: DATA.candles[DATA.entryBar].time,
@@ -211,9 +249,24 @@ chart.timeScale().fitContent();
 // LWC'nin iç coordinate API'sini kullanarak price ve time → pixel koordinatına çeviriyoruz.
 // Bu yöntem LWC 4.2'de garanti çalışır.
 
-function drawOverlays() {
+function sizeCanvas() {
+  const r = chartEl.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvasEl.width  = Math.max(1, Math.round(r.width * dpr));
+  canvasEl.height = Math.max(1, Math.round(r.height * dpr));
+  const ctx0 = canvasEl.getContext('2d');
+  ctx0.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+sizeCanvas();
+
+function drawOverlays(retryCount) {
+  retryCount = retryCount || 0;
   const canvas = document.getElementById('overlay-canvas');
   const ctx    = canvas.getContext('2d');
+  const sizeNow = getChartSize();
+  CHART_W = sizeNow.w; CHART_H = sizeNow.h;
+  // canvas.width/height are physical pixels (already scaled by DPR in sizeCanvas).
+  // ctx currently has the DPR transform applied — clear in CSS-pixel space using that same transform.
   ctx.clearRect(0, 0, CHART_W, CHART_H);
 
   // LWC'den koordinat dönüşümü
@@ -230,10 +283,20 @@ function drawOverlays() {
   const x0 = timeToX(firstTime);
   const x1 = timeToX(lastTime);
 
-  if (x0 == null || x1 == null) return;
+  console.log('[NEXUS overlay] try', retryCount, 'CHART_W', CHART_W, 'CHART_H', CHART_H, 'x0', x0, 'x1', x1,
+    'cbdrY-high', priceToY(DATA.cbdrHigh), 'cbdrY-low', priceToY(DATA.cbdrLow));
 
-  // ── Yardımcı: yatay çizgi ────────────────────────────────────────────
-  function hLine(price, color, lineWidth, dash, label) {
+  if (x0 == null || x1 == null) {
+    if (retryCount < 10) {
+      setTimeout(() => drawOverlays(retryCount + 1), 100);
+    } else {
+      console.warn('[NEXUS overlay] gave up after 10 retries — timeToX kept returning null');
+    }
+    return;
+  }
+
+  // ── Yardımcı: yatay çizgi (etiketsiz — bilgi sabit legend panelinde) ──
+  function hLine(price, color, lineWidth, dash) {
     const y = priceToY(price);
     if (y == null || y < 0 || y > CHART_H) return;
     ctx.save();
@@ -245,46 +308,31 @@ function drawOverlays() {
     ctx.moveTo(x0, y);
     ctx.lineTo(x1, y);
     ctx.stroke();
-    if (label) {
-      ctx.fillStyle = color;
-      ctx.font      = 'bold 10px Courier New';
-      ctx.globalAlpha = 0.9;
-      ctx.fillText(label, x1 + 4, y + 4);
-    }
     ctx.restore();
   }
 
-  // ── Yardımcı: dolu bant ──────────────────────────────────────────────
-  function band(priceHigh, priceLow, fillColor, strokeColor, label) {
+  // ── Yardımcı: dolu bant (etiketsiz) ──────────────────────────────────
+  function band(priceHigh, priceLow, fillColor, strokeColor) {
     const yH = priceToY(priceHigh);
     const yL = priceToY(priceLow);
     if (yH == null || yL == null) return;
     const top    = Math.min(yH, yL);
     const bottom = Math.max(yH, yL);
     ctx.save();
-    // Fill
     ctx.fillStyle   = fillColor;
     ctx.globalAlpha = 1;
     ctx.fillRect(x0, top, x1 - x0, bottom - top);
-    // Border top
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth   = 1.5;
     ctx.setLineDash([]);
     ctx.globalAlpha = 1;
     ctx.beginPath(); ctx.moveTo(x0, yH); ctx.lineTo(x1, yH); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(x0, yL); ctx.lineTo(x1, yL); ctx.stroke();
-    // Label
-    if (label) {
-      ctx.fillStyle   = strokeColor;
-      ctx.font        = 'bold 10px Courier New';
-      ctx.globalAlpha = 0.9;
-      ctx.fillText(label, x0 + 4, yH - 3);
-    }
     ctx.restore();
   }
 
-  // ── Yardımcı: entry→exit arası yatay çizgi ──────────────────────────
-  function rangedHLine(price, fromBar, toBar, color, lineWidth, dash, label) {
+  // ── Yardımcı: belirli bar aralığında yatay çizgi (etiketsiz) ─────────
+  function rangedHLine(price, fromBar, toBar, color, lineWidth, dash) {
     const y   = priceToY(price);
     if (y == null || y < 0 || y > CHART_H) return;
     const xA  = timeToX(DATA.candles[Math.max(0, fromBar)].time);
@@ -299,12 +347,6 @@ function drawOverlays() {
     ctx.moveTo(xA, y);
     ctx.lineTo(xB, y);
     ctx.stroke();
-    if (label) {
-      ctx.fillStyle   = color;
-      ctx.font        = 'bold 10px Courier New';
-      ctx.globalAlpha = 0.9;
-      ctx.fillText(label, xB + 4, y + 4);
-    }
     ctx.restore();
   }
 
@@ -312,13 +354,8 @@ function drawOverlays() {
   // 1. CBDR BAND
   // ════════════════════════════════════════════════════════════════
   if (DATA.cbdrHigh != null && DATA.cbdrLow != null) {
-    band(
-      DATA.cbdrHigh,
-      DATA.cbdrLow,
-      'rgba(210,168,255,0.10)',   // fill
-      'rgba(210,168,255,0.85)',   // border
-      `CBDR  ${fmt(DATA.cbdrHigh)} / ${fmt(DATA.cbdrLow)}`
-    );
+    band(DATA.cbdrHigh, DATA.cbdrLow,
+      'rgba(210,168,255,0.10)', 'rgba(210,168,255,0.85)');
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -328,57 +365,74 @@ function drawOverlays() {
     const isBull   = DATA.fvgDirection === 'bullish';
     const fvgFill  = isBull ? 'rgba(63,185,80,0.12)' : 'rgba(255,166,87,0.12)';
     const fvgStroke= isBull ? 'rgba(63,185,80,0.9)'  : 'rgba(255,166,87,0.9)';
-    const fvgLabel = `FVG ${isBull?'▲':'▼'}  ${fmt(DATA.fvgTop)} / ${fmt(DATA.fvgBottom)}`;
-    band(DATA.fvgTop, DATA.fvgBottom, fvgFill, fvgStroke, fvgLabel);
+    band(DATA.fvgTop, DATA.fvgBottom, fvgFill, fvgStroke);
 
     // CE — Consequent Encroachment (orta nokta)
     const ce = (DATA.fvgTop + DATA.fvgBottom) / 2;
-    hLine(ce, isBull ? 'rgba(63,185,80,0.4)' : 'rgba(255,166,87,0.4)', 1, [4,4], 'CE');
+    hLine(ce, isBull ? 'rgba(63,185,80,0.4)' : 'rgba(255,166,87,0.4)', 1, [4,4]);
   }
 
   // ════════════════════════════════════════════════════════════════
   // 3. SWEEP LEVEL
   // ════════════════════════════════════════════════════════════════
   if (DATA.sweepLevel != null) {
-    hLine(DATA.sweepLevel, 'rgba(121,192,255,0.9)', 2, [6,3], `Sweep  ${fmt(DATA.sweepLevel)}`);
+    hLine(DATA.sweepLevel, 'rgba(121,192,255,0.9)', 2, [6,3]);
   }
 
   // ════════════════════════════════════════════════════════════════
-  // 4. SL — entry→exit arası
+  // 4. SL — entry'den itibaren 4 mumluk kısa çizgi
   // ════════════════════════════════════════════════════════════════
-  if (DATA.slPrice != null && DATA.entryBar != null && DATA.exitBar != null) {
-    rangedHLine(DATA.slPrice, DATA.entryBar, DATA.exitBar,
-      'rgba(248,81,73,1)', 2, [6,4], `SL  ${fmt(DATA.slPrice)}`);
+  const SL_TP_BAR_SPAN = 4;
+  if (DATA.slPrice != null && DATA.entryBar != null) {
+    rangedHLine(DATA.slPrice, DATA.entryBar, DATA.entryBar + SL_TP_BAR_SPAN,
+      'rgba(248,81,73,1)', 2, [6,4]);
   }
 
   // ════════════════════════════════════════════════════════════════
-  // 5. TP — entry→exit arası
+  // 5. TP — entry'den itibaren 4 mumluk kısa çizgi
   // ════════════════════════════════════════════════════════════════
-  if (DATA.tpPrice != null && DATA.entryBar != null && DATA.exitBar != null) {
-    rangedHLine(DATA.tpPrice, DATA.entryBar, DATA.exitBar,
-      'rgba(63,185,80,1)', 2, [6,4], `TP  ${fmt(DATA.tpPrice)}`);
+  if (DATA.tpPrice != null && DATA.entryBar != null) {
+    rangedHLine(DATA.tpPrice, DATA.entryBar, DATA.entryBar + SL_TP_BAR_SPAN,
+      'rgba(63,185,80,1)', 2, [6,4]);
   }
 
   // ════════════════════════════════════════════════════════════════
   // 6. TRAIL STEPS
   // ════════════════════════════════════════════════════════════════
-  (DATA.trailSteps || []).forEach((step, i) => {
+  (DATA.trailSteps || []).forEach((step) => {
     if (!step.sl) return;
-    rangedHLine(step.sl, step.bar, DATA.exitBar,
-      'rgba(248,81,73,0.45)', 1, [3,3], `T${i+1}`);
+    rangedHLine(step.sl, step.bar, step.bar + SL_TP_BAR_SPAN,
+      'rgba(248,81,73,0.45)', 1, [3,3]);
   });
 }
 
 // ── fitContent sonrası kısa gecikmeyle çiz ────────────────────────────────
 // LWC koordinatları ancak render tamamlandıktan sonra hazır olur.
 chart.timeScale().fitContent();
-if (DATA.priceMin != null && DATA.priceMax != null) {
-  chart.priceScale('right').setVisiblePriceRange({
-    from: DATA.priceMin,
-    to: DATA.priceMax,
-  });
-}
 setTimeout(drawOverlays, 150);
+
+// ── Responsive: konteyner boyutu değişince chart + overlay yeniden çiz ────
+let resizeTimer = null;
+function handleResize() {
+  const { w, h } = getChartSize();
+  if (w < 10 || h < 10) return;
+  chart.resize(w, h);
+  sizeCanvas();
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(drawOverlays, 60);
+}
+if (window.ResizeObserver) {
+  new ResizeObserver(handleResize).observe(wrapEl);
+} else {
+  window.addEventListener('resize', handleResize);
+}
+
+// ── Pan/Zoom: kullanıcı mouse wheel veya sürükleme ile grafiği hareket
+// ettirdiğinde konteyner boyutu DEĞİŞMEZ, bu yüzden ResizeObserver tetiklenmez.
+// LWC'nin kendi visible-range event'lerine abone olup overlay'i SENKRON yeniden
+// çiziyoruz (requestAnimationFrame ile geciktirmek görünür "esneme/zıplama" yaratıyordu).
+chart.timeScale().subscribeVisibleTimeRangeChange(() => drawOverlays());
+chart.timeScale().subscribeVisibleLogicalRangeChange(() => drawOverlays());
 
 // ── Playwright render sinyali ─────────────────────────────────────────────
 setTimeout(() => {

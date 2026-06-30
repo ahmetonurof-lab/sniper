@@ -124,7 +124,7 @@ class ConsoleReporter:
 
         Returns:
             "detected" — sweep bulundu, sinyal akışına devam
-            "waiting"  — sweep bekleniyor, _check_retrade + return
+            "waiting"  — sweep bekleniyor, return (retrade kaldirildi)
             "dead"     — CBDR/ASIA dead, return
         """
         from session import DailyBias

@@ -330,8 +330,7 @@ class TestCanTrigger:
 
 
 class TestReset:
-    @patch("state_manager.unmark_sweep_used")
-    def test_reset_clears_all_fields(self, mock_unmark):
+    def test_reset_clears_all_fields(self):
         rsm = RetraceStateMachine()
         rsm.state = RetraceState.TRIGGER_READY
         rsm.direction = "bullish"
@@ -346,7 +345,6 @@ class TestReset:
         assert rsm.sweep_level is None
         assert rsm.trigger_fvg is None
         assert rsm._pending_sweep_id is None
-        mock_unmark.assert_called_once_with("bullish_42")
 
     def test_reset_no_pending_sweep(self):
         rsm = RetraceStateMachine()
@@ -357,17 +355,6 @@ class TestReset:
 
         assert rsm.state == RetraceState.IDLE
         assert rsm.direction is None
-
-    @patch("state_manager.unmark_sweep_used")
-    def test_reset_handles_unmark_error_gracefully(self, mock_unmark):
-        mock_unmark.side_effect = Exception("disk error")
-        rsm = RetraceStateMachine()
-        rsm._pending_sweep_id = "bullish_42"
-        rsm.state = RetraceState.TRIGGER_READY
-
-        # Should not raise
-        rsm.reset()
-        assert rsm.state == RetraceState.IDLE
 
 
 class TestMarkSweepUsed:
@@ -427,8 +414,7 @@ class TestFullFlow:
         assert rsm.can_trigger() is True
 
         # Reset
-        with patch("state_manager.unmark_sweep_used"):
-            rsm.reset()
+        rsm.reset()
         assert rsm.state == RetraceState.IDLE
         assert rsm.can_trigger() is False
 

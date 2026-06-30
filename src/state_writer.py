@@ -47,8 +47,6 @@ def write_state(
             if ss.london_low != float("inf")
             else 0,
             "trades_today": ss.trades_today,
-            "retrade_armed": ss.retrade_armed,
-            "retrade_side": ss.retrade_side,
             "active_trade": {
                 "side": trade["side"],
                 "entry": round(trade["entry_price"], 6),
@@ -58,7 +56,6 @@ def write_state(
                 "fvg_top": trade.get("fvg_top"),
                 "fvg_bottom": trade.get("fvg_bottom"),
                 "trailing_count": trade.get("trailing_count", 0),
-                "is_retrade": trade.get("is_retrade", False),
                 "upnl": trade.get("upnl"),
             }
             if trade

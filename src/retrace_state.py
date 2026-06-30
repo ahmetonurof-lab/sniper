@@ -78,13 +78,6 @@ class RetraceStateMachine:
             self._pending_sweep_id = None
 
     def reset(self):
-        if self._pending_sweep_id is not None:
-            try:
-                from state_manager import unmark_sweep_used
-
-                unmark_sweep_used(self._pending_sweep_id)
-            except Exception:
-                pass
         self.state = RetraceState.IDLE
         self.direction = None
         self.sweep_level = None

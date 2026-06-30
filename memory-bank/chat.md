@@ -33,3 +33,12 @@
 - **WS handler değişti:** `balance_callback` → `wallet_callback`. Sadece `_wallet_balance`'ı günceller.
 - **state_writer.py:** `balance` alanı ikiye ayrıldı: `available_balance` + `wallet_balance`.
 - **Kullanım akışı:** WS → `_wallet_balance` | REST → `_available_balance` → `calculate_qty()` → `max_qty = (available_balance × leverage × 0.95) / entry_price`
+
+## 2026-06-30 — V3 Architecture Upgrade
+
+- **Retrade/LHR tamamen kaldırıldı:** `RetradeEngine`, `_check_retrade()`, `execute_lhr_entry()`, `SYMBOL_RISK_MAP` ve tüm retrade/LHR/save_retrade_arm fonksiyonları silindi. `is_retrade` field'ı `ActiveTrade`'den kaldırıldı. `session.py`: 7 retrade alanı temizlendi, `TradeDayState` tek alana (`trades_today`) düştü.
+- **Sweep infinite loop fix:** `unmark_sweep_used()` `retrace_state.py`'den silindi (sweep tetiklendiğinde kalıcı işaretlenir). `state_manager.py`'ye `mark_sweep_consumed()` + `is_sweep_consumed()` (level-based ID: `f"{direction}_{level:.4f}"`) eklendi. Token/level artık JSON lock file ile restart-proof.
+- **`_exit_trade()` rewrite:** Sıra: `cancel_all_open_orders()` → `reduceOnly=True` market exit → 5-attempt `positionAmt==0` verify loop → `mark_sweep_consumed()` + `rsm.reset()`. `progress_rsm.reset()` → `self.rsms[sym].reset()`.
+- **Double exit guard:** `_exit_trade()` başına `if sym not in self.active_trades: return` eklendi. `del` → `pop(sym, None)`.
+- **Orphan cleanup genişletildi:** `reconcile_orphan_orders()` artık tüm order türlerini temizler (LIMIT dahil), sadece STOP/TP değil.
+- **FVG trailing close teyidi:** `_fvg_close_confirmed()` metodu — trailing sadece 15m mumu FVG içinde kapanmış (close between bottom-top) FVG'leri kullanır. Sadece fitil (wick) yetmez, gövde kapanışı şart. Close ters tarafta kapandıysa FVG geçersiz sayılır.

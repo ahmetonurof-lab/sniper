@@ -27,11 +27,9 @@ from typing import TYPE_CHECKING
 
 import config as cfg
 from bot_infra import extract_order_id
-from models import ActiveTrade
 
 if TYPE_CHECKING:
     from models import FVG
-    from session import SessionState
 
 log = logging.getLogger("sniper.entry_manager")
 
@@ -337,66 +335,3 @@ class EntryManager:
             bumped * price,
         )
         return bumped
-
-    # ── LHR entry (Faz 7) ────────────────────────────────────────
-
-    @staticmethod
-    def execute_lhr_entry(
-        sym: str,
-        side: str,
-        current,
-        atr_val: float,
-        sl: float,
-        tp: float,
-        ss: "SessionState",
-        balance: float,
-        risk_pct: float,
-        leverage: int,
-        zone_bottom: float,
-        zone_top: float,
-        active_trades: dict,
-        pl_callback,
-    ) -> bool:
-        entry_price = current.close
-        risk_dist = abs(sl - entry_price)
-
-        valid, _ = EntryManager.validate_risk(risk_dist, atr_val)
-        if not valid:
-            return False
-
-        qty = EntryManager.calculate_qty(balance, risk_pct, risk_dist, leverage)
-        if qty <= 0:
-            return False
-
-        log.info(
-            "🟨 LHR RETRADE | %s | zone: [%.4f-%.4f]",
-            side.upper(),
-            zone_bottom,
-            zone_top,
-        )
-
-        from state_manager import clear_retrade_arm
-
-        active_trades[sym] = ActiveTrade(
-            symbol=sym,
-            side=side,
-            entry_price=entry_price,
-            entry_bar_index=current.index,
-            sl=sl,
-            tp=tp,
-            qty=qty,
-            initial_sl=sl,
-            initial_tp=tp,
-            trailing_count=0,
-            is_retrade=True,
-            hybrid_mode="lhr",
-        )
-        ss.trades_today += 1
-        ss.retrade_armed = False
-        clear_retrade_arm(sym)
-        pl_callback(
-            sym,
-            "lhr_entry",
-            f"🟨 LHR ENTRY: {side.upper()} @ {entry_price:.2f} sl={sl:.2f} tp={tp:.2f}",
-        )
-        return True

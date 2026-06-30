@@ -1,6 +1,6 @@
 """
 test_entry_manager.py — EntryManager: risk validation, position sizing,
-SL/TP calc, live order execution, LHR entry.
+SL/TP calc, live order execution.
 """
 
 import pytest
@@ -41,7 +41,6 @@ def _mock_ss():
     """Create a minimal SessionState mock."""
     ss = MagicMock()
     ss.trades_today = 0
-    ss.retrade_armed = False
     return ss
 
 
@@ -392,135 +391,3 @@ class TestExecuteLiveEntry:
         assert result.success is True
         assert result.sl_order_id == "sl_001"
         assert result.tp_order_id == ""  # TP failed, but still success
-
-
-# ═══════════════════════════════════════════════════════════════════
-# execute_lhr_entry tests
-# ═══════════════════════════════════════════════════════════════════
-
-
-class TestExecuteLhrEntry:
-    @patch("trading.entry_manager.cfg")
-    @patch("state_manager.clear_retrade_arm")
-    def test_lhr_entry_success_long(self, mock_clear_arm, mock_cfg):
-        mock_cfg.MIN_RISK_DIST_ATR_MULT = 0.1
-        ss = _mock_ss()
-        active_trades = {}
-        pl_calls = []
-
-        current = _bar(20, 108, 110, 106, 109)  # close=109
-
-        result = EntryManager.execute_lhr_entry(
-            sym="BTCUSDT",
-            side="long",
-            current=current,
-            atr_val=3.0,
-            sl=105.0,
-            tp=115.0,
-            ss=ss,
-            balance=1000.0,
-            risk_pct=0.01,
-            leverage=10,
-            zone_bottom=107.0,
-            zone_top=111.0,
-            active_trades=active_trades,
-            pl_callback=lambda s, k, m: pl_calls.append((s, k, m)),
-        )
-
-        assert result is True
-        assert "BTCUSDT" in active_trades
-        trade = active_trades["BTCUSDT"]
-        assert trade.side == "long"
-        assert trade.entry_price == 109.0
-        assert trade.sl == 105.0
-        assert trade.tp == 115.0
-        assert trade.is_retrade is True
-        assert trade.hybrid_mode == "lhr"
-        assert ss.trades_today == 1
-        assert ss.retrade_armed is False
-        assert len(pl_calls) == 1
-        mock_clear_arm.assert_called_once_with("BTCUSDT")
-
-    @patch("trading.entry_manager.cfg")
-    def test_lhr_entry_short(self, mock_cfg):
-        mock_cfg.MIN_RISK_DIST_ATR_MULT = 0.1
-        ss = _mock_ss()
-        active_trades = {}
-
-        current = _bar(20, 95, 97, 93, 94)  # close=94
-
-        result = EntryManager.execute_lhr_entry(
-            sym="ETHUSDT",
-            side="short",
-            current=current,
-            atr_val=3.0,
-            sl=98.0,
-            tp=88.0,
-            ss=ss,
-            balance=2000.0,
-            risk_pct=0.02,
-            leverage=20,
-            zone_bottom=92.0,
-            zone_top=98.0,
-            active_trades=active_trades,
-            pl_callback=lambda s, k, m: None,
-        )
-
-        assert result is True
-        assert active_trades["ETHUSDT"].side == "short"
-        assert active_trades["ETHUSDT"].entry_price == 94.0
-
-    @patch("trading.entry_manager.cfg")
-    def test_lhr_entry_fails_risk_validation(self, mock_cfg):
-        """Risk too small → returns False."""
-        mock_cfg.MIN_RISK_DIST_ATR_MULT = 10.0  # Very high threshold
-        ss = _mock_ss()
-        active_trades = {}
-
-        current = _bar(20, 108, 110, 106, 109)
-
-        result = EntryManager.execute_lhr_entry(
-            sym="BTCUSDT",
-            side="long",
-            current=current,
-            atr_val=100.0,
-            sl=105.0,
-            tp=115.0,
-            ss=ss,
-            balance=1000.0,
-            risk_pct=0.01,
-            leverage=10,
-            zone_bottom=107.0,
-            zone_top=111.0,
-            active_trades=active_trades,
-            pl_callback=lambda s, k, m: None,
-        )
-        assert result is False
-        assert len(active_trades) == 0
-
-    @patch("trading.entry_manager.cfg")
-    def test_lhr_entry_fails_zero_qty(self, mock_cfg):
-        """Zero balance → qty=0 → returns False."""
-        mock_cfg.MIN_RISK_DIST_ATR_MULT = 0.1
-        ss = _mock_ss()
-        active_trades = {}
-
-        current = _bar(20, 108, 110, 106, 109)
-
-        result = EntryManager.execute_lhr_entry(
-            sym="BTCUSDT",
-            side="long",
-            current=current,
-            atr_val=3.0,
-            sl=105.0,
-            tp=115.0,
-            ss=ss,
-            balance=0.0,
-            risk_pct=0.01,
-            leverage=10,
-            zone_bottom=107.0,
-            zone_top=111.0,
-            active_trades=active_trades,
-            pl_callback=lambda s, k, m: None,
-        )
-        assert result is False

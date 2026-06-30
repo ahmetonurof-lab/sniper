@@ -66,7 +66,7 @@ class TestSessionState:
         assert ss.cbdr_day == ""
         assert ss.daily_bias == DailyBias.NEUTRAL
         assert ss.trades_today == 0
-        assert ss.retrade_armed is False
+        assert ss.trades_today == 0
 
     def test_update_tracks_cbdr_high(self):
         ss = SessionState()
@@ -119,11 +119,8 @@ class TestSessionState:
         ss.update(_dt(23, day=1), open=100, high=110, low=90, close=105)
         ss.update(_dt(1, day=2), open=101, high=111, low=91, close=106)
         ss.trades_today = 3
-        ss.retrade_armed = True
-        ss.retrade_side = "long"
         ss.update(_dt(23, day=2), open=102, high=112, low=92, close=107)
         assert ss.trades_today == 0
-        assert ss.retrade_armed is False
         # body = max(102,107) = 107
         assert ss.cbdr_body_high == 107
         # body = min(102,107) = 102

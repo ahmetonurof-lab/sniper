@@ -85,10 +85,7 @@ class TestPaperTraderInit:
         mock_cfg.RISK_PER_TRADE = 0.01
         mock_cfg.BINANCE_API_KEY = ""
         mock_cfg.BINANCE_API_SECRET = ""
-        mock_cfg.RETRADE_FVG_SIZE_MULT = 0.8
         mock_cfg.LEVERAGE = 10
-        mock_cfg.SYMBOL_RISK_MAP = {}
-        mock_cfg.RETRADE_FVG_MAX_ATTEMPTS = 3
         mock_cfg.CBDR_SWEEP_ATR_TOLERANCE_MULT = 0.3
         mock_cfg.CBDR_SWEEP_DEFAULT_TOLERANCE = 5.0
         mock_cfg.CBDR_DEAD_THRESHOLD_PCT = 0.5
@@ -226,7 +223,6 @@ class TestTryEntry:
                 tp_rr=2.0,
                 fvg_buf=0.3,
                 min_fvg=0.5,
-                is_retrade=False,
             )
         )
         assert rsm.state == RetraceState.IDLE  # Reset called
@@ -236,7 +232,6 @@ class TestTryEntry:
     @patch("bot.cfg", autospec=True)
     def test_calculates_sl_tp_long(self, mock_cfg, mock_hub_cls, mock_rest_cls):
         _setup_minimal_cfg(mock_cfg)
-        mock_cfg.SYMBOL_RISK_MAP = {}
 
         from bot import PaperTrader
 
@@ -266,7 +261,6 @@ class TestTryEntry:
                 tp_rr=2.0,
                 fvg_buf=0.3,
                 min_fvg=0.5,
-                is_retrade=False,
             )
         )
         # After a successful entry, active_trades should have BTCUSDT
@@ -280,7 +274,6 @@ class TestTryEntry:
     @patch("bot.cfg", autospec=True)
     def test_calculates_sl_tp_short(self, mock_cfg, mock_hub_cls, mock_rest_cls):
         _setup_minimal_cfg(mock_cfg)
-        mock_cfg.SYMBOL_RISK_MAP = {}
 
         from bot import PaperTrader
 
@@ -309,7 +302,6 @@ class TestTryEntry:
                 tp_rr=2.0,
                 fvg_buf=0.3,
                 min_fvg=0.5,
-                is_retrade=False,
             )
         )
         assert "BTCUSDT" in bot.active_trades
@@ -326,8 +318,6 @@ class TestTryEntry:
         self, mock_entry_mgr, mock_log, mock_cfg, mock_hub_cls, mock_rest_cls
     ):
         _setup_minimal_cfg(mock_cfg)
-        mock_cfg.SYMBOL_RISK_MAP = {}
-
         # Mock EntryManager to return valid sl/tp but zero qty
         mock_entry_mgr.calculate_sl_tp.return_value = (100.0, 118.0)
         mock_entry_mgr.calculate_qty.return_value = 0.0
@@ -355,7 +345,6 @@ class TestTryEntry:
                 tp_rr=2.0,
                 fvg_buf=0.3,
                 min_fvg=0.5,
-                is_retrade=False,
             )
         )
         # Should skip because qty <= 0
@@ -469,12 +458,10 @@ class TestExitTrade:
     @patch("bot.BinanceRESTClient")
     @patch("bot.BinanceWSHub")
     @patch("bot.cfg", autospec=True)
-    @patch("bot.RetradeEngine")
     @patch("bot.mark_trade_closed")
     def test_pnl_calc_long(
         self,
         mock_mark_closed,
-        mock_retrade_engine,
         mock_cfg,
         mock_hub_cls,
         mock_rest_cls,
@@ -509,12 +496,10 @@ class TestExitTrade:
     @patch("bot.BinanceRESTClient")
     @patch("bot.BinanceWSHub")
     @patch("bot.cfg", autospec=True)
-    @patch("bot.RetradeEngine")
     @patch("bot.mark_trade_closed")
     def test_pnl_calc_short(
         self,
         mock_mark_closed,
-        mock_retrade_engine,
         mock_cfg,
         mock_hub_cls,
         mock_rest_cls,
@@ -547,12 +532,10 @@ class TestExitTrade:
     @patch("bot.BinanceRESTClient")
     @patch("bot.BinanceWSHub")
     @patch("bot.cfg", autospec=True)
-    @patch("bot.RetradeEngine")
     @patch("bot.mark_trade_closed")
     def test_trade_appended_to_history(
         self,
         mock_mark_closed,
-        mock_retrade_engine,
         mock_cfg,
         mock_hub_cls,
         mock_rest_cls,
@@ -580,66 +563,6 @@ class TestExitTrade:
 
         assert len(bot.trades) == 1
         assert bot.trades[0]["pnl"] == 100.0
-
-
-# ═══════════════════════════════════════════════════════════════════
-# _check_retrade tests
-# ═══════════════════════════════════════════════════════════════════
-
-
-class TestCheckRetrade:
-    @patch("bot.BinanceRESTClient")
-    @patch("bot.BinanceWSHub")
-    @patch("bot.cfg", autospec=True)
-    def test_skips_when_not_armed(self, mock_cfg, mock_hub_cls, mock_rest_cls):
-        _setup_minimal_cfg(mock_cfg)
-        from bot import PaperTrader
-
-        bot = PaperTrader(symbols=["BTCUSDT"])
-        ss = bot.states["BTCUSDT"]
-        ss.retrade_armed = False
-
-        bars = [_bar(i, 100, 102, 98, 101) for i in range(20)]
-        current = _bar(19, 100, 102, 98, 101)
-        asyncio.run(bot._check_retrade("BTCUSDT", bars, current, 3.0, ss))
-        # Should just return
-
-    @patch("bot.BinanceRESTClient")
-    @patch("bot.BinanceWSHub")
-    @patch("bot.cfg", autospec=True)
-    def test_skips_when_trades_today_not_1(self, mock_cfg, mock_hub_cls, mock_rest_cls):
-        _setup_minimal_cfg(mock_cfg)
-        from bot import PaperTrader
-
-        bot = PaperTrader(symbols=["BTCUSDT"])
-        ss = bot.states["BTCUSDT"]
-        ss.retrade_armed = True
-        ss.trades_today = 0
-
-        bars = [_bar(i, 100, 102, 98, 101) for i in range(20)]
-        current = _bar(19, 100, 102, 98, 101)
-        asyncio.run(bot._check_retrade("BTCUSDT", bars, current, 3.0, ss))
-        # Should skip
-
-    @patch("bot.BinanceRESTClient")
-    @patch("bot.BinanceWSHub")
-    @patch("bot.cfg", autospec=True)
-    def test_skips_when_active_trade_exists(
-        self, mock_cfg, mock_hub_cls, mock_rest_cls
-    ):
-        _setup_minimal_cfg(mock_cfg)
-        from bot import PaperTrader
-
-        bot = PaperTrader(symbols=["BTCUSDT"])
-        ss = bot.states["BTCUSDT"]
-        ss.retrade_armed = True
-        ss.trades_today = 1
-        bot.active_trades["BTCUSDT"] = ActiveTrade(side="long")
-
-        bars = [_bar(i, 100, 102, 98, 101) for i in range(20)]
-        current = _bar(19, 100, 102, 98, 101)
-        asyncio.run(bot._check_retrade("BTCUSDT", bars, current, 3.0, ss))
-        # Should skip
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -822,10 +745,7 @@ def _setup_minimal_cfg(mock_cfg, balance=1000.0, symbols=None):
     mock_cfg.RISK_PER_TRADE = 0.01
     mock_cfg.BINANCE_API_KEY = ""
     mock_cfg.BINANCE_API_SECRET = ""
-    mock_cfg.RETRADE_FVG_SIZE_MULT = 0.8
     mock_cfg.LEVERAGE = 10
-    mock_cfg.SYMBOL_RISK_MAP = {}
-    mock_cfg.RETRADE_FVG_MAX_ATTEMPTS = 3
     mock_cfg.CBDR_SWEEP_ATR_TOLERANCE_MULT = 0.3
     mock_cfg.CBDR_SWEEP_DEFAULT_TOLERANCE = 5.0
     mock_cfg.CBDR_DEAD_THRESHOLD_PCT = 0.5

@@ -5,7 +5,7 @@ AM/PM ayrımı kaldırıldı. Tek NEWYORK seansı: 13:00-22:00 UTC.
 Faz 4.2: SessionState → 3 sınıfa ayrıldı:
   - CBDRState: body tracking + bias + sweep (8 alan)
   - RangeTracker: asia/london/NY range + range_type (6 alan)
-  - TradeDayState: trade counting + retrade armed state (9 alan)
+  - TradeDayState: trade counting (1 alan)
 
 Geriye dönük uyumluluk: SessionState tüm eski API'yi korur,
 içeride 3 sınıfa delegate eder.
@@ -208,66 +208,27 @@ class RangeTracker:
 
 
 class TradeDayState:
-    """Günlük trade sayısı + retrade armed state.
+    """Günlük trade sayısı.
 
-    9 alan — tek sorumluluk: trade counting ve retrade yönetimi.
+    Tek sorumluluk: trade counting.
     """
 
-    __slots__ = (
-        "trades_today",
-        "retrade_armed",
-        "retrade_side",
-        "retrade_sweep_level",
-        "retrade_entry_bar",
-        "retrade_fvg_attempts",
-        "retrade_mode",
-        "pending_retrade_arm",
-    )
+    __slots__ = ("trades_today",)
 
     def __init__(self):
         self.trades_today: int = 0
-        # Retrade state — pivot bazlı LBS/SBS sweep sonrası 2. entry için.
-        self.retrade_armed: bool = False
-        self.retrade_side: Literal["long", "short"] | None = None
-        self.retrade_sweep_level: float = 0.0
-        self.retrade_entry_bar: int = 0
-        self.retrade_fvg_attempts: int = 0
-        self.retrade_mode: str = "fvg"
-        # FIX #2: WS confirm bekleyen retrade arm (LIVE mod)
-        self.pending_retrade_arm: bool = False
 
     def increment_trade(self) -> None:
         """Trade sayısını 1 artır."""
         self.trades_today += 1
 
-    def arm_retrade(self, side: str, entry_bar: int) -> None:
-        """Retrade kolunu aktifleştir."""
-        self.retrade_armed = True
-        self.retrade_side = side
-        self.retrade_entry_bar = entry_bar
-        self.retrade_fvg_attempts = 0
-        self.retrade_mode = "fvg"
-        self.retrade_sweep_level = 0.0
-
-    def disarm_retrade(self) -> None:
-        """Retrade kolunu devre dışı bırak."""
-        self.retrade_armed = False
-        self.pending_retrade_arm = False
-        self.retrade_side = None
-        self.retrade_sweep_level = 0.0
-        self.retrade_entry_bar = 0
-        self.retrade_fvg_attempts = 0
-        self.retrade_mode = "fvg"
-
     def reset_for_new_cycle(self) -> None:
-        """Yeni CBDR döngüsünde trade/retrade state'ini sıfırla.
+        """Yeni CBDR döngüsünde trade state'ini sıfırla.
 
         trades_today burada sıfırlanmalı: CBDR döngüsü 22:00'de başlar,
-        gece yarısı değil. last_date/today bloğu 22:00-00:00 arasında
-        eski günün sayısını taşıyarak retrade'i engelliyordu.
+        gece yarısı değil.
         """
         self.trades_today = 0
-        self.disarm_retrade()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -280,7 +241,7 @@ class SessionState:
 
     Faz 4.2: İçeride CBDRState, RangeTracker, TradeDayState kullanır.
     Tüm eski attribute'ları ve metot imzalarını korur —
-    bot.py, signal_engine.py, retrade_engine.py'de değişiklik gerekmez.
+    bot.py, signal_engine.py'de değişiklik gerekmez.
     """
 
     def __init__(self):
@@ -405,7 +366,7 @@ class SessionState:
     def asia_checked(self, v: bool) -> None:
         self._range.asia_checked = v
 
-    # ── TradeDayState delegation (9 attribute) ──────────────
+    # ── TradeDayState delegation (1 attribute) ──────────────
 
     @property
     def trades_today(self) -> int:
@@ -414,62 +375,6 @@ class SessionState:
     @trades_today.setter
     def trades_today(self, v: int) -> None:
         self._trade.trades_today = v
-
-    @property
-    def retrade_armed(self) -> bool:
-        return self._trade.retrade_armed
-
-    @retrade_armed.setter
-    def retrade_armed(self, v: bool) -> None:
-        self._trade.retrade_armed = v
-
-    @property
-    def retrade_side(self):
-        return self._trade.retrade_side
-
-    @retrade_side.setter
-    def retrade_side(self, v) -> None:
-        self._trade.retrade_side = v
-
-    @property
-    def retrade_sweep_level(self) -> float:
-        return self._trade.retrade_sweep_level
-
-    @retrade_sweep_level.setter
-    def retrade_sweep_level(self, v: float) -> None:
-        self._trade.retrade_sweep_level = v
-
-    @property
-    def retrade_entry_bar(self) -> int:
-        return self._trade.retrade_entry_bar
-
-    @retrade_entry_bar.setter
-    def retrade_entry_bar(self, v: int) -> None:
-        self._trade.retrade_entry_bar = v
-
-    @property
-    def retrade_fvg_attempts(self) -> int:
-        return self._trade.retrade_fvg_attempts
-
-    @retrade_fvg_attempts.setter
-    def retrade_fvg_attempts(self, v: int) -> None:
-        self._trade.retrade_fvg_attempts = v
-
-    @property
-    def retrade_mode(self) -> str:
-        return self._trade.retrade_mode
-
-    @retrade_mode.setter
-    def retrade_mode(self, v: str) -> None:
-        self._trade.retrade_mode = v
-
-    @property
-    def pending_retrade_arm(self) -> bool:
-        return self._trade.pending_retrade_arm
-
-    @pending_retrade_arm.setter
-    def pending_retrade_arm(self, v: bool) -> None:
-        self._trade.pending_retrade_arm = v
 
     # ── Public methods (orijinal API birebir korunur) ───────
 

@@ -4,7 +4,7 @@ trading — sniper strategy modules.
 SignalEngine: CBDR → Sweep → FVG → Trigger decision (Faz 2)
 EntryManager: entry validation + order placement (Faz 2)
 TrailingManager: 1m FVG trailing + exit kontrolü (Faz 3)
-RetradeEngine: retrade sweep + LHR fallback + retrade arm (Faz 3, 6.1)
+(retrade kaldirildi - V3)
 OrderManager: Binance SL/TP emir yönetimi (Faz 4.1)
 RecoveryManager: Binance pozisyon kurtarma + ghost temizliği (Faz 5.1)
 ConsoleReporter: display formatlama + state dedup (Faz 1.3, 6.2)
@@ -14,12 +14,6 @@ UserDataHandler: Binance User Data Stream callback'leri (Faz 6.3)
 from trading.signal_engine import SignalEngine, EvalResult
 from trading.entry_manager import EntryManager, EntryExecutionResult
 from trading.trailing_manager import TrailingManager, TrailResult, ExitDecision
-from trading.retrade_engine import (
-    RetradeEngine,
-    RetradeSweepResult,
-    RetradeDecision,
-    LHRFallbackResult,
-)
 from trading.order_manager import OrderManager
 from trading.recovery_manager import RecoveryManager  # Faz 5.1
 from trading.console_reporter import ConsoleReporter  # Faz 1.3
@@ -34,10 +28,6 @@ __all__ = [
     "TrailingManager",
     "TrailResult",
     "ExitDecision",
-    "RetradeEngine",
-    "RetradeSweepResult",
-    "RetradeDecision",
-    "LHRFallbackResult",
     "OrderManager",
     "RecoveryManager",
     "ConsoleReporter",

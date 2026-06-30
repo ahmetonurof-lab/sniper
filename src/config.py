@@ -17,23 +17,6 @@ RISK_PER_TRADE = 0.001
 LEVERAGE = 5
 LOG_LEVEL = "INFO"
 
-# ── Per-symbol risk map (primary entry / retrade) ─────────────
-SYMBOL_RISK_MAP = {
-    "BTCUSDT": {"primary": 0.012, "retrade": 0.010},
-    "ETHUSDT": {"primary": 0.010, "retrade": 0.010},
-    "BNBUSDT": {"primary": 0.010, "retrade": 0.010},
-    "SOLUSDT": {"primary": 0.010, "retrade": 0.010},
-    "AVAXUSDT": {"primary": 0.015, "retrade": 0.010},
-    "LINKUSDT": {"primary": 0.010, "retrade": 0.008},
-    "XRPUSDT": {"primary": 0.010, "retrade": 0.010},
-    "ATOMUSDT": {"primary": 0.010, "retrade": 0.010},
-    "ADAUSDT": {"primary": 0.010, "retrade": 0.010},
-    "SUIUSDT": {"primary": 0.010, "retrade": 0.010},
-    "APTUSDT": {"primary": 0.010, "retrade": 0.010},
-    "DOTUSDT": {"primary": 0.012, "retrade": 0.009},
-    "NEARUSDT": {"primary": 0.012, "retrade": 0.010},
-}
-
 # ── Semboller (data dosyasi olanlar) ───────────────────────────
 SYMBOLS = [
     "BTCUSDT",
@@ -74,9 +57,6 @@ TP_RR = 2.0
 FVG_BUFFER_MULT = 0.50
 
 # ── Magic Numbers (Faz 1.2) ────────────────────────────────────
-LHR_RETEST_PCT = 0.003  # LHR zone genişliği (eskiden LONDON_RETEST_PCT)
-RETRADE_SWEEP_WINDOW = 500  # Retrade sweep arama penceresi (eskiden WINDOW_15M)
-RETRADE_FVG_SIZE_MULT = 0.3  # Retrade min_fvg çarpanı
 CBDR_DEAD_THRESHOLD_PCT = 0.5  # CBDR dead eşiği (% olarak)
 ASIA_DEAD_THRESHOLD_PCT = 0.3  # Asya range dead eşiği (% olarak)
 TRAIL_MIN_MOVE_MULT = 0.2  # Min trailing hareket çarpanı
@@ -85,11 +65,9 @@ BE_SPREAD_PTS = 0.0  # Break-even spread/komisyon offseti
 ATR_TRAIL_MULT = 0.25  # Trailing buffer = ATR * 0.25
 MIN_STOP_DIST_PCT = 0.006  # Min SL mesafesi (entry %0.6)
 MAX_MARGIN_PCT = 0.20  # Tek pozisyonda max marjin (%20)
-RETRADE_FVG_MAX_ATTEMPTS = 3  # Retrade FVG max deneme sayısı
 MIN_RISK_DIST_ATR_MULT = 0.1  # Min risk mesafesi ATR çarpanı
 MAX_SL_DIST_MULT = 2.0  # FVG bazlı SL max risk_pts çarpanı (aşarsa fallback)
 DEFAULT_ATR_FALLBACK_PCT = 0.0001  # Varsayılan ATR fallback (%)
-LHR_RISK_ATR_MULT = 1.0  # LHR risk ATR çarpanı
 CBDR_SWEEP_ATR_TOLERANCE_MULT = 0.5  # CBDR sweep toleransı ATR çarpanı
 CBDR_SWEEP_DEFAULT_TOLERANCE = 10.0  # CBDR sweep varsayılan tolerans (ATR=0 ise)
 FVG_BUFFER_MIN_FACTOR = 0.10  # FVG buffer minimum çarpanı (fvg.size * factor)

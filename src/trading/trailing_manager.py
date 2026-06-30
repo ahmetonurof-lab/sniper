@@ -6,7 +6,7 @@ from typing import Literal
 
 import config as cfg
 from fvg import detect_fvgs
-from models import Bar
+from models import Bar, FVG
 
 log = logging.getLogger("sniper.trailing_manager")
 
@@ -58,6 +58,28 @@ class TrailingManager:
         )
 
     @staticmethod
+    def _fvg_close_confirmed(fvg: FVG, bars: list[Bar]) -> bool:
+        """FVG olustuktan sonraki barlardan en az biri FVG icinde kapandi mi?
+        Sadece fitil degil, gövde kapanisi lazim — wick yetmez."""
+        scan_from = fvg.real_index + 2
+        for b in bars:
+            if b.index < scan_from:
+                continue
+            if not b.is_closed:
+                break
+            if fvg.direction == "bullish":
+                if b.close < fvg.bottom:
+                    return False
+                if fvg.bottom <= b.close <= fvg.top:
+                    return True
+            else:
+                if b.close > fvg.top:
+                    return False
+                if fvg.bottom <= b.close <= fvg.top:
+                    return True
+        return False
+
+    @staticmethod
     def evaluate_trail(
         bars_15m: list[Bar],
         trade: dict,
@@ -94,7 +116,8 @@ class TrailingManager:
                 continue
             if side == "short" and fvg.direction != "bearish":
                 continue
-            if fvg.filled or fvg.invalidated:
+            # Mitigation sarti: FVG icinde kapali 15m mumu olmali
+            if not TrailingManager._fvg_close_confirmed(fvg, chunk):
                 continue
 
             if side == "long":

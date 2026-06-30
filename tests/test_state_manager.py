@@ -16,11 +16,8 @@ from state_manager import (
     mark_trade_closed,
     is_sweep_used,
     mark_sweep_used,
-    unmark_sweep_used,
     reconcile_from_active,
     get_trade_count_today,
-    save_retrade_arm,
-    clear_retrade_arm,
     STATE_FILE,
     LOCK_FILE,
 )
@@ -183,15 +180,6 @@ class TestSweepDedup:
         _save({"_used_sweeps": {"bullish_42": {"date": "2020-01-01"}}})
         assert is_sweep_used("bullish_42") is False
 
-    def test_unmark_sweep_used(self, clean_state):
-        mark_sweep_used("bullish_42")
-        assert is_sweep_used("bullish_42") is True
-        unmark_sweep_used("bullish_42")
-        assert is_sweep_used("bullish_42") is False
-
-    def test_unmark_nonexistent_noop(self, clean_state):
-        unmark_sweep_used("nonexistent")  # Should not raise
-
     def test_mark_sweep_cleans_old_entries(self, clean_state):
         # Mark an old entry first
         _save({"_used_sweeps": {"old_sweep": {"date": "2020-01-01"}}})
@@ -271,41 +259,6 @@ class TestGetTradeCountToday:
     def test_returns_count_zero_when_no_count_field(self, clean_state):
         _save({"BTCUSDT": {"date": _today()}})
         assert get_trade_count_today("BTCUSDT") == 0
-
-
-# ═══════════════════════════════════════════════════════════════════
-# retrade arm tests
-# ═══════════════════════════════════════════════════════════════════
-
-
-class TestRetradeArm:
-    def test_save_and_check_retrade_arm(self, clean_state):
-        # Need a base entry first for save_retrade_arm to work
-        mark_trade_opened("BTCUSDT", entry_price=50000.0)
-        save_retrade_arm("BTCUSDT", "long", 42)
-        state = _load()
-        assert state["BTCUSDT"]["retrade_armed"] is True
-        assert state["BTCUSDT"]["retrade_side"] == "long"
-        assert state["BTCUSDT"]["retrade_entry_bar"] == 42
-
-    def test_clear_retrade_arm(self, clean_state):
-        mark_trade_opened("BTCUSDT", entry_price=50000.0)
-        save_retrade_arm("BTCUSDT", "long", 42)
-        clear_retrade_arm("BTCUSDT")
-        state = _load()
-        assert "retrade_armed" not in state["BTCUSDT"]
-        assert "retrade_side" not in state["BTCUSDT"]
-        assert "retrade_entry_bar" not in state["BTCUSDT"]
-        # Other fields preserved
-        assert state["BTCUSDT"]["count"] == 1
-
-    def test_clear_retrade_arm_unknown_symbol(self, clean_state):
-        clear_retrade_arm("UNKNOWN")  # Should not raise
-
-    def test_save_retrade_arm_unknown_symbol_noop(self, clean_state):
-        save_retrade_arm("UNKNOWN", "long", 42)
-        state = _load()
-        assert state == {}
 
 
 # ═══════════════════════════════════════════════════════════════════

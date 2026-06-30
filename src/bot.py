@@ -1,6 +1,6 @@
 """
 bot.py — sniper paper trade orchestrator
-CBDR -> Sweep -> FVG Wick Rejection -> Entry -> Trailing (1m) -> Exit (1m) -> Retrade
+CBDR -> Sweep -> FVG Wick Rejection -> Entry -> Trailing (1m) -> Exit (1m)
 Backtest (analyzer.py) ile birebir ayni performans.
 """
 
@@ -26,8 +26,7 @@ from state_manager import (
     mark_trade_closed,
     reconcile_from_active,
     get_trade_count_today,
-    load_retrade_arm,
-    clear_retrade_arm,
+    mark_sweep_consumed,
 )
 from state_writer import write_state
 from snapshot.snapshot import capture_snapshot
@@ -36,7 +35,6 @@ from trading import (
     SignalEngine,
     EntryManager,
     TrailingManager,
-    RetradeEngine,
     OrderManager,
     RecoveryManager,
     ConsoleReporter,
@@ -161,8 +159,6 @@ class PaperTrader:
         )
         self.states: dict[str, SessionState] = {}
         self.rsms: dict[str, RetraceStateMachine] = {}
-        self.rsms_retrade: dict[str, RetraceStateMachine] = {}
-        self.retrade_engines: dict[str, RetradeEngine] = {}
         self.signal_engines: dict[str, SignalEngine] = {}
         self.entry_manager: EntryManager | None = None
         self.cfgs: dict[str, dict] = {}
@@ -213,11 +209,7 @@ class PaperTrader:
             }
             self.states[sym] = SessionState()
             self.rsms[sym] = RetraceStateMachine(min_fvg_size=min_fvg)
-            self.rsms_retrade[sym] = RetraceStateMachine(
-                min_fvg_size=min_fvg * cfg.RETRADE_FVG_SIZE_MULT
-            )
             self.signal_engines[sym] = SignalEngine(self.rsms[sym])
-            self.retrade_engines[sym] = RetradeEngine(self.rsms_retrade[sym])
 
     def _pl(self, sym: str, key: str, msg: str, force: bool = False):
         """ConsoleReporter'a delegate et. Imza birebir aynı."""
@@ -292,20 +284,12 @@ class PaperTrader:
 
         # ── Sweep status display → ConsoleReporter (Faz 6.2) ──
         sweep_status = self.reporter.display_sweep_status(sym, ss, hour, dt.minute)
-        if sweep_status == "dead":
-            return
-        if sweep_status == "waiting":
-            await self._check_retrade(sym, bars_15m, current, atr_val, ss)
+        if sweep_status in ("dead", "waiting"):
             return
         # "detected": devam
 
         rsm = self.rsms[sym]
         engine = self.signal_engines[sym]
-
-        # FIX #9: Retrade armed → primary RSM'i atla, ölü döngüyü engelle.
-        if ss.retrade_armed:
-            await self._check_retrade(sym, bars_15m, current, atr_val, ss)
-            return
 
         # ── Blok 8: RSM state progression → SignalEngine ──
         engine.progress_rsm(bars_15m, current, ss)
@@ -328,14 +312,10 @@ class PaperTrader:
                 tp_rr,
                 fvg_buf,
                 min_fvg,
-                is_retrade=False,
             )
         elif result.decision == "SKIP":
             # Filtre reddetti → rsm zaten resetlendi, erken dönüş
-            # (orijinalde filter SKIP'lerinde return vardı, _check_retrade atlanırdı)
             return
-
-        await self._check_retrade(sym, bars_15m, current, atr_val, ss)
 
         # UPNL hesapla — dashboard için (sadece bu sembolün trade'i)
         trade = self.active_trades.get(sym)
@@ -353,112 +333,6 @@ class PaperTrader:
             self._wallet_balance,
             self.symbols,
         )
-
-    # ── Retrade: trailing sweep + FVG + 2. entry (analyzer.py #8) ──
-
-    async def _check_retrade(
-        self,
-        sym: str,
-        bars_15m: list[Bar],
-        current: Bar,
-        atr_val: float,
-        ss: SessionState,
-    ):
-        sym_cfg = self.cfgs[sym]
-        if not ss.retrade_armed:
-            return
-        if ss.trades_today != 1:
-            log.info(
-                "[SKIP] %s retrade — trades_today=%d (beklenen=1)", sym, ss.trades_today
-            )
-            return
-        if sym in self.active_trades:
-            log.info("[SKIP] %s retrade — aktif trade var, beklemede", sym)
-            return
-
-        # ── Sweep tespiti → RetradeEngine ──
-        sweep_result = RetradeEngine.detect_sweep(bars_15m, current, ss.retrade_side)
-
-        if not sweep_result.found:
-            ss.retrade_fvg_attempts += 1
-            log.info("[SKIP] %s retrade — sweep bulunamadi (%s)", sym, ss.retrade_side)
-            return
-
-        self._pl(
-            sym,
-            "rt_sweep",
-            f"\U0001f7e9 RETRADE SWEEP | {ss.retrade_side.upper()} yonunde sweep bulundu bar={sweep_result.sweep_bar_idx}",
-        )
-
-        # ── RSM progression → RetradeEngine ──
-        rsm_r = self.rsms_retrade[sym]
-        retrade_engine = self.retrade_engines[sym]
-        retrade_engine.progress_rsm(
-            bars_15m, sweep_result.sweep_bar_idx, sweep_result.sweep_dir
-        )
-
-        # ── Trigger check + filtreler → RetradeEngine ──
-        trigger_decision = retrade_engine.evaluate_trigger(
-            current, sweep_result.sweep_bar_idx, ss.retrade_entry_bar
-        )
-
-        if trigger_decision.decision == "TRIGGER":
-            await self._try_entry(
-                sym,
-                current,
-                atr_val,
-                rsm_r,
-                ss,
-                sweep_result.sweep_dir,
-                sym_cfg["SL_ATR_MULT"],
-                sym_cfg["TP_RR"],
-                sym_cfg["FVG_BUFFER_MULT"],
-                sym_cfg["MIN_FVG_SIZE"],
-                is_retrade=True,
-            )
-            if sym not in self.active_trades:
-                ss.retrade_armed = False
-                clear_retrade_arm(sym)
-            rsm_r.reset()
-        elif trigger_decision.decision == "SKIP":
-            # Filtre reddetti → rsm zaten resetlendi, erken dönüş
-            return
-        else:
-            ss.retrade_fvg_attempts += 1
-
-        # ── LHR fallback (FVG attempts exhausted) → RetradeEngine (Faz 4.3) ──
-        if (
-            ss.retrade_fvg_attempts >= cfg.RETRADE_FVG_MAX_ATTEMPTS
-            and sym not in self.active_trades
-        ):
-            ss.retrade_mode = "lhr"
-            lhr_result = RetradeEngine.try_lhr_fallback(
-                retrade_side=ss.retrade_side,
-                current_close=current.close,
-                atr_val=atr_val,
-                london_high=ss.london_high,
-                london_low=ss.london_low,
-                tp_rr=sym_cfg["TP_RR"],
-            )
-            if lhr_result.in_zone:
-                risk_map = cfg.SYMBOL_RISK_MAP.get(sym, {})
-                risk_pct = risk_map.get("retrade", RISK_PER_TRADE)
-                EntryManager.execute_lhr_entry(
-                    sym=sym,
-                    side=lhr_result.side,
-                    current=current,
-                    atr_val=atr_val,
-                    sl=lhr_result.sl,
-                    tp=lhr_result.tp,
-                    ss=ss,
-                    balance=self._available_balance,
-                    risk_pct=risk_pct,
-                    leverage=cfg.LEVERAGE,
-                    zone_bottom=lhr_result.zone_bottom,
-                    zone_top=lhr_result.zone_top,
-                    active_trades=self.active_trades,
-                    pl_callback=self._pl,
-                )
 
     # ── 1m: Trailing + Exit (hibrit izleme) ──
 
@@ -557,7 +431,6 @@ class PaperTrader:
         tp_rr,
         fvg_buf,
         min_fvg,
-        is_retrade=False,
     ):
         if sym in self.active_trades:
             log.info("[SKIP] %s entry — aktif trade var (rsm reset)", sym)
@@ -596,11 +469,7 @@ class PaperTrader:
             except Exception:
                 pass
 
-        risk_map = cfg.SYMBOL_RISK_MAP.get(sym, {})
-        if is_retrade:
-            risk_pct = risk_map.get("retrade", RISK_PER_TRADE)
-        else:
-            risk_pct = risk_map.get("primary", RISK_PER_TRADE)
+        risk_pct = RISK_PER_TRADE
         qty = EntryManager.calculate_qty(
             self._available_balance, risk_pct, risk_dist, cfg.LEVERAGE, entry_price
         )
@@ -664,7 +533,6 @@ class PaperTrader:
             sl=sl,
             tp=tp,
             qty=qty,
-            is_retrade=is_retrade,
         )
 
         # NOTE: lock.commit() ile ActiveTrade ataması arasında await yok —
@@ -685,7 +553,6 @@ class PaperTrader:
             initial_tp=tp,
             risk_pts=risk_pts,
             trailing_count=0,
-            is_retrade=is_retrade,
             trigger_fvg=fvg,
             fvg_top=getattr(fvg, "top", None) if fvg else None,
             fvg_bottom=getattr(fvg, "bottom", None) if fvg else None,
@@ -709,14 +576,15 @@ class PaperTrader:
                 "fvg_bar_index": max(0, current.index - 3) if fvg else -1,
             },
         )
-        if is_retrade:
-            clear_retrade_arm(sym)
-        else:
-            mark_trade_opened(sym, entry_price)
+        mark_trade_opened(sym, entry_price)
         ss.trades_today += 1
         rsm.reset()
 
     async def _exit_trade(self, sym, trade, exit_timestamp: int):
+        if sym not in self.active_trades:
+            log.warning("[EXIT] %s zaten kapali, ikinci exit engellendi", sym)
+            return
+
         diff = (
             (trade["exit_price"] - trade["entry_price"])
             if trade["side"] == "long"
@@ -738,82 +606,81 @@ class PaperTrader:
             self._available_balance,
         )
 
-        # FIX #6: Binance pozisyon doğrulaması — simülasyon SL/TP tetiklendiğini
-        # söylese bile Binance'te pozisyon açık kalabilir (ör: "Order would immediately
-        # trigger" hatası trailing SL'yi güncelleyemedi, orijinal SL hiç tetiklenmedi).
+        # ── Önce tüm açık emirleri iptal et (SL/TP çakışmasını önle) ──
         if cfg.BINANCE_API_KEY:
-            pos_open = False
             try:
-                for p in await self.rest.get_positions():
-                    if p["symbol"] == sym:
-                        pos_open = True
-                        break
+                await self.order_manager.cancel_all_open_orders(sym)
             except Exception as e:
-                log.critical(
-                    "[EXIT] %s pozisyon dogrulamasi basarisiz: %s",
-                    sym,
-                    e,
+                log.warning(
+                    "[EXIT] %s cancel_all_open_orders hatasi (devam): %s", sym, e
                 )
-                pos_open = True
 
-            if pos_open:
+        # ── Pozisyon kapatma (reduceOnly market) ──
+        if cfg.BINANCE_API_KEY:
+            mkt_side = "SELL" if trade["side"] == "long" else "BUY"
+            try:
+                close_resp = await self.rest.place_market_order(
+                    sym, mkt_side, trade["qty"], reduce_only=True
+                )
+                if close_resp and close_resp.get("orderId"):
+                    log_event(
+                        "force_close",
+                        sym,
+                        side=trade["side"],
+                        qty=trade["qty"],
+                        success=True,
+                    )
+                    log.info("[EXIT] %s reduceOnly market BASARILI", sym)
+                else:
+                    log_event(
+                        "force_close",
+                        sym,
+                        side=trade["side"],
+                        qty=trade["qty"],
+                        success=False,
+                    )
+                    log.warning(
+                        "[EXIT] %s reduceOnly market BASARISIZ — cleanup devam", sym
+                    )
+            except Exception as e:
+                log.warning("[EXIT] %s reduceOnly market HATASI (devam): %s", sym, e)
+
+            # ── Pozisyon doğrulama: 5 deneme, 200ms bekle, positionAmt == 0 ──
+            pos_closed = False
+            for attempt in range(5):
+                await asyncio.sleep(0.2)
+                try:
+                    positions = await self.rest.get_positions()
+                    for p in positions:
+                        if p["symbol"] == sym:
+                            amt = float(p.get("positionAmt", 0))
+                            if abs(amt) < 0.0001:
+                                pos_closed = True
+                            break
+                    else:
+                        pos_closed = True
+                except Exception:
+                    pass
+                if pos_closed:
+                    break
+                log.info(
+                    "[EXIT] %s verify attempt %d/5 — pozisyon hala acik",
+                    sym,
+                    attempt + 2,
+                )
+
+            if not pos_closed:
                 log.critical(
-                    "[CRITICAL] %s cleanup bloke: Binance pozisyonu hala acik! "
-                    "reduceOnly market kapatma deneniyor...",
+                    "[CRITICAL] %s pozisyon 5 denemede kapanmadi — manual müdahale gerekli",
                     sym,
                 )
                 self._pl(
                     sym,
                     f"critical_{sym}",
-                    f"\U0001f6a8 CRITICAL: {sym} pozisyonu acik kaldi! "
-                    f"reduceOnly kapatma deneniyor...",
+                    f"\U0001f6a8 CRITICAL: {sym} kapanmadi!",
                     force=True,
                 )
-                try:
-                    mkt_side = "SELL" if trade["side"] == "long" else "BUY"
-                    close_resp = await self.rest.place_market_order(
-                        sym, mkt_side, trade["qty"], reduce_only=True
-                    )
-                    if close_resp and close_resp.get("orderId"):
-                        log_event(
-                            "force_close",
-                            sym,
-                            side=trade["side"],
-                            qty=trade["qty"],
-                            success=True,
-                        )
-                        log.critical(
-                            "[CRITICAL] %s reduceOnly market BASARILI. Cleanup devam.",
-                            sym,
-                        )
-                        self._pl(
-                            sym,
-                            f"force_close_{sym}",
-                            f"\U0001f534 FORCE CLOSE: {sym} reduceOnly market ile kapatildi.",
-                            force=True,
-                        )
-                    else:
-                        log_event(
-                            "force_close",
-                            sym,
-                            side=trade["side"],
-                            qty=trade["qty"],
-                            success=False,
-                        )
-                        log.critical(
-                            "[CRITICAL] %s reduceOnly market BASARISIZ. "
-                            "Cleanup atlaniyor, SL/TP korunuyor.",
-                            sym,
-                        )
-                        return
-                except Exception as e:
-                    log.critical(
-                        "[CRITICAL] %s reduceOnly market HATASI: %s. "
-                        "Cleanup atlaniyor, SL/TP korunuyor.",
-                        sym,
-                        e,
-                    )
-                    return
+                return
 
         log_event(
             "exit",
@@ -839,9 +706,6 @@ class PaperTrader:
         except Exception:
             pass
 
-        # FIX #2: Retrade arm → RetradeEngine (Faz 6.1)
-        RetradeEngine.arm_retrade(sym, trade, self.states[sym], self._pl)
-
         try:
             snap = capture_snapshot(sym, trade, pnl, self.states[sym])
             if snap:
@@ -863,8 +727,17 @@ class PaperTrader:
                 f.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
         except Exception:
             log.warning("[TRADES] %s jsonl yazma hatasi", sym)
-        del self.active_trades[sym]
+        self.active_trades.pop(sym, None)
         mark_trade_closed(sym)
+
+        # ── Sweep consumption mark — aynı level sweep tekrar tetiklenmesin ──
+        rsm = self.rsms.get(sym)
+        if rsm and rsm.sweep_level is not None and rsm.direction is not None:
+            try:
+                mark_sweep_consumed(rsm.direction, rsm.sweep_level)
+            except Exception:
+                pass
+        rsm.reset()
 
     async def on_15m(self, sym: str, bars: list[Bar]):
         if len(bars) < 10:
@@ -1038,29 +911,6 @@ class PaperTrader:
 
         # Orphan emir temizliği — Binance'te asılı kalmış STOP/TP emirlerini iptal et
         await self.recovery_manager.reconcile_orphan_orders()
-
-        # FIX #10: Retrade state'ini diskten geri yükle (restart-proof).
-        for sym in self.symbols:
-            try:
-                ra = load_retrade_arm(sym)
-                if ra:
-                    self.states[sym].retrade_armed = True
-                    self.states[sym].retrade_fvg_attempts = 0
-                    self.states[sym].retrade_mode = "fvg"
-                    self.states[sym].retrade_side = ra["side"]
-                    self.states[sym].retrade_entry_bar = ra["entry_bar"]
-                    log.info(
-                        "[RETRADE] %s diskten restore: side=%s bar=%d",
-                        sym,
-                        ra["side"],
-                        ra["entry_bar"],
-                    )
-            except Exception as e:
-                log.warning(
-                    "[RETRADE] %s diskten restore hatasi (devam ediliyor, retrade state sifirlandi): %s",
-                    sym,
-                    e,
-                )
 
         # User Data Stream (WS Zirhi — REST polling yok)
         if cfg.BINANCE_API_KEY:

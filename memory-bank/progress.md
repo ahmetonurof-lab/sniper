@@ -7,16 +7,17 @@
 | PaperTrader orchestrator (`bot.py`) | ✅ Testnet emir gönderimi aktif |
 | CBDR → Sweep → FVG → Entry flow | ✅ ICT fix uygulandı |
 | SignalEngine (primary entry) | ✅ Bias + session filtresi ile |
-| RetradeEngine (retrade entry + LHR fallback) | ✅ Arm → sweep detect → FVG → LHR |
-| TrailingManager (1m FVG trailing) | ✅ Progressive FVG iteration |
+| ~~RetradeEngine (retrade entry + LHR fallback)~~ | ❌ Silindi (V3) |
+| TrailingManager (1m FVG trailing) | ✅ Close-teyitli FVG trailing |
 | EntryManager (live order placement) | ✅ Market + SL(StopMarket) + TP(TakeProfitMarket) |
 | OrderManager (trailing update + repair) | ✅ Önce yeni order, sonra eski cancel |
-| RecoveryManager (startup recovery) | ✅ Pozisyon import + ghost cleanup |
+| OrderManager (cancel_all_open_orders) | ✅ Exit öncesi tüm emirleri iptal |
+| RecoveryManager (startup recovery) | ✅ Pozisyon import + tüm türlerden orphan cleanup |
 | UserDataHandler (WS callbacks) | ✅ ORDER_TRADE_UPDATE + ACCOUNT_UPDATE |
 | BinanceWSHub (multi-symbol WS) | ✅ Auto-reconnect + heartbeat |
-| SessionState (CBDR + Range + TradeDay) | ✅ Gövde bazlı CBDR |
-| RetraceStateMachine (IDLE→SWEEP→TRIGGER) | ✅ Sweep dedup (restart-proof) |
-| state_manager (disk-persistent state) | ✅ trade_state.json |
+| SessionState (CBDR + Range + TradeDay) | ✅ Gövde bazlı CBDR, retrade alanları temizlendi |
+| RetraceStateMachine (IDLE→SWEEP→TRIGGER) | ✅ Sweep dedup (restart-proof), `unmark_sweep_used` silindi |
+| state_manager (disk-persistent state) | ✅ trade_state.json + sweep consumption lock |
 | state_writer (dashboard JSON) | ✅ live_state.json, her 15m güncellenir |
 | trade_exporter (trade geçmişi) | ✅ trades_history.jsonl, bot okumaz |
 | trades_history.jsonl yazma | ✅ `_exit_trade`'de append + `_load_history()` restart yükleme |
@@ -33,8 +34,8 @@
 
 | Görev | Öncelik | Açıklama |
 |-------|---------|----------|
-| Backtest hybrid SL buffer | 🟡 Orta | WR/PF değişimi bekleniyor |
-| LINK multi-period backtest | 🟡 Orta | WR %52.7 — yapısal/Q1 2026 farkı |
+| Canlı test: _exit_trade() flow | 🟠 Yüksek | cancel_all + reduceOnly + verify loop |
+| FVG trailing close teyidi WR etkisi | 🟡 Orta | Yeni `_fvg_close_confirmed()` sonrasi WR/PF |
 | Mainnet canlı test | 🟢 Düşük | URL + API key değişikliği |
 | Performance benchmark | 🟢 Düşük | CPU/memory profil |
 | README güncelleme | 🟢 Düşük | Sadece ihtiyaç halinde |
