@@ -407,6 +407,11 @@ class TestOn1mClose:
         mock_result.updated = False
         mock_trail_mgr.evaluate_trail.return_value = mock_result
 
+        # Mock TrailingManager.evaluate_break_even
+        mock_be = MagicMock()
+        mock_be.updated = False
+        mock_trail_mgr.evaluate_break_even.return_value = mock_be
+
         # Mock TrailingManager.check_exit
         mock_exit = MagicMock()
         mock_exit.triggered = False
@@ -416,6 +421,43 @@ class TestOn1mClose:
         asyncio.run(bot._on_1m_close("BTCUSDT", bars))
         mock_trail_mgr.evaluate_trail.assert_called_once()
         mock_trail_mgr.check_exit.assert_called_once()
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.TrailingManager")
+    def test_orphan_check_counter_triggers_every_5_calls(
+        self, mock_trail_mgr, mock_cfg, mock_hub_cls, mock_rest_cls
+    ):
+        _setup_minimal_cfg(mock_cfg)
+        from bot import PaperTrader
+
+        bot = PaperTrader(symbols=["BTCUSDT"])
+        bot.recovery_manager.reconcile_orphan_orders = AsyncMock()
+
+        trade = ActiveTrade(
+            symbol="BTCUSDT", side="long", entry_price=50000.0, sl=49000.0, tp=52000.0
+        )
+        bot.active_trades["BTCUSDT"] = trade
+        bot.hub.get_bars.return_value = [_bar(i, 100, 105, 95, 102) for i in range(20)]
+
+        mock_be = MagicMock()
+        mock_be.updated = False
+        mock_trail_mgr.evaluate_break_even.return_value = mock_be
+        mock_tr = MagicMock()
+        mock_tr.updated = False
+        mock_trail_mgr.evaluate_trail.return_value = mock_tr
+        mock_exit = MagicMock()
+        mock_exit.triggered = False
+        mock_trail_mgr.check_exit.return_value = mock_exit
+
+        bars = [_bar(i, 50010, 50020, 49980, 50015) for i in range(5)]
+        for _ in range(4):
+            asyncio.run(bot._on_1m_close("BTCUSDT", bars))
+        bot.recovery_manager.reconcile_orphan_orders.assert_not_called()
+
+        asyncio.run(bot._on_1m_close("BTCUSDT", bars))
+        bot.recovery_manager.reconcile_orphan_orders.assert_called_once()
 
 
 # ═══════════════════════════════════════════════════════════════════

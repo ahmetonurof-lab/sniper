@@ -383,9 +383,9 @@ class TestComputeBackoff:
         )
         # 10 çağrıda en az biri 1.0'dan farklı olmalı (jitter)
         values = [c._compute_backoff(0) for _ in range(20)]
-        assert any(
-            abs(v - 1.0) > 0.01 for v in values
-        ), f"Jitter yok gibi: {values[:5]}"
+        assert any(abs(v - 1.0) > 0.01 for v in values), (
+            f"Jitter yok gibi: {values[:5]}"
+        )
 
     def test_jitter_not_negative(self):
         """Jitter delay'i negatif yapamaz."""

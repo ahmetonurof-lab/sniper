@@ -176,6 +176,7 @@ class PaperTrader:
             pl_callback=self._pl,
             order_manager=self.order_manager,
         )
+        self._orphan_check_counter = 0
 
         for sym in self.symbols:
             min_fvg = cfg.FVG_SIZE_MAP.get(sym, 0.5)
@@ -446,6 +447,10 @@ class PaperTrader:
         current = bars_1m[-1]
         atr_val = max(current.range, current.close * cfg.DEFAULT_ATR_FALLBACK_PCT)
 
+        self._orphan_check_counter += 1
+        if self._orphan_check_counter % 5 == 0:
+            await self.recovery_manager.reconcile_orphan_orders()
+
         # ── Break-Even (trail_count=0 iken SL->entry) ──
         be_result = TrailingManager.evaluate_break_even(current, trade)
         if be_result.updated:
@@ -697,11 +702,69 @@ class PaperTrader:
             self._available_balance,
         )
 
-        # FIX #5: Manuel kapanış emri kaldırıldı.
-        # SL/TP emirleri reduceOnly=true ile kurulduğundan Binance pozisyonu
-        # zaten kapattı. Buradan tekrar place_market_order göndermek, sıfır pozisyon
-        # üzerine emir atarak ters yönde yeni pozisyon açıyordu.
-        # Yapılması gereken: karşı taraftaki bekleyen emri iptal etmek.
+        # FIX #6: Binance pozisyon doğrulaması — simülasyon SL/TP tetiklendiğini
+        # söylese bile Binance'te pozisyon açık kalabilir (ör: "Order would immediately
+        # trigger" hatası trailing SL'yi güncelleyemedi, orijinal SL hiç tetiklenmedi).
+        if cfg.BINANCE_API_KEY:
+            pos_open = False
+            try:
+                for p in await self.rest.get_positions():
+                    if p["symbol"] == sym:
+                        pos_open = True
+                        break
+            except Exception as e:
+                log.critical(
+                    "[EXIT] %s pozisyon dogrulamasi basarisiz: %s",
+                    sym,
+                    e,
+                )
+                pos_open = True
+
+            if pos_open:
+                log.critical(
+                    "[CRITICAL] %s cleanup bloke: Binance pozisyonu hala acik! "
+                    "reduceOnly market kapatma deneniyor...",
+                    sym,
+                )
+                self._pl(
+                    sym,
+                    f"critical_{sym}",
+                    f"\U0001f6a8 CRITICAL: {sym} pozisyonu acik kaldi! "
+                    f"reduceOnly kapatma deneniyor...",
+                    force=True,
+                )
+                try:
+                    mkt_side = "SELL" if trade["side"] == "long" else "BUY"
+                    close_resp = await self.rest.place_market_order(
+                        sym, mkt_side, trade["qty"], reduce_only=True
+                    )
+                    if close_resp and close_resp.get("orderId"):
+                        log.critical(
+                            "[CRITICAL] %s reduceOnly market BASARILI. Cleanup devam.",
+                            sym,
+                        )
+                        self._pl(
+                            sym,
+                            f"force_close_{sym}",
+                            f"\U0001f534 FORCE CLOSE: {sym} reduceOnly market ile kapatildi.",
+                            force=True,
+                        )
+                    else:
+                        log.critical(
+                            "[CRITICAL] %s reduceOnly market BASARISIZ. "
+                            "Cleanup atlaniyor, SL/TP korunuyor.",
+                            sym,
+                        )
+                        return
+                except Exception as e:
+                    log.critical(
+                        "[CRITICAL] %s reduceOnly market HATASI: %s. "
+                        "Cleanup atlaniyor, SL/TP korunuyor.",
+                        sym,
+                        e,
+                    )
+                    return
+
         await self.order_manager.cleanup_on_exit(sym, trade, trade["result"])
 
         # FVG state dosyasini temizle

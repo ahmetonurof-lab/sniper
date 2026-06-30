@@ -8,6 +8,7 @@
 body{background:#0d1117;font-family:'Courier New',monospace;color:#c9d1d9;overflow:hidden}
 #wrap{width:1280px;height:720px;position:relative;background:#0d1117}
 #chart{position:absolute;top:40px;left:0;right:0;bottom:0}
+#overlay-canvas{position:absolute;top:40px;left:0;pointer-events:none;z-index:10}
 
 #header{position:absolute;top:0;left:0;right:0;height:40px;
   background:#0d1117;border-bottom:1px solid #21262d;
@@ -32,9 +33,9 @@ body{background:#0d1117;font-family:'Courier New',monospace;color:#c9d1d9;overfl
 .leg-label{color:#8b949e}
 .leg-val{font-weight:700;font-family:'Courier New',monospace;text-align:right}
 .leg-div{border-top:1px solid #21262d;margin:5px 0}
-.c-entry{color:#58a6ff} .c-exit{color:#f85149}
-.c-sl{color:#f85149}    .c-tp{color:#3fb950}
-.c-cbdr{color:#d2a8ff}  .c-fvg{color:#ffa657}
+.c-entry{color:#58a6ff}.c-exit{color:#f85149}
+.c-sl{color:#f85149}.c-tp{color:#3fb950}
+.c-cbdr{color:#d2a8ff}.c-fvg{color:#ffa657}
 .c-sweep{color:#79c0ff}
 
 #tradebadge{position:absolute;bottom:14px;right:14px;
@@ -52,6 +53,7 @@ body{background:#0d1117;font-family:'Courier New',monospace;color:#c9d1d9;overfl
 <div id="wrap">
   <div id="header" data-rendered="0"></div>
   <div id="chart"></div>
+  <canvas id="overlay-canvas" width="1280" height="680"></canvas>
   <div id="legend"></div>
   <div id="tradebadge"></div>
 </div>
@@ -116,29 +118,13 @@ badge.innerHTML = `
   <div class="tb-reason">${reason==='SL'?'Stop Loss Hit':reason==='TP'?'Take Profit Hit':reason||'Exit'}</div>
 `;
 
-// ── Price range ───────────────────────────────────────────────────────────
-function calcPriceRange() {
-  const prices = [];
-  DATA.candles.forEach(c => { prices.push(c.high, c.low); });
-  [DATA.entryPrice, DATA.exitPrice, DATA.slPrice,
-   DATA.cbdrHigh, DATA.cbdrLow, DATA.fvgTop, DATA.fvgBottom,
-   DATA.sweepLevel].forEach(v => { if (v != null) prices.push(v); });
-  const rawMin = Math.min(...prices);
-  const rawMax = Math.max(...prices);
-  if (DATA.tpPrice != null) {
-    const range = rawMax - rawMin;
-    if (Math.abs(DATA.tpPrice - rawMin) < range * 3) prices.push(DATA.tpPrice);
-  }
-  const lo = Math.min(...prices);
-  const hi = Math.max(...prices);
-  const pad = (hi - lo) * 0.12;
-  return { from: lo - pad, to: hi + pad };
-}
+// ── Chart kurulum ─────────────────────────────────────────────────────────
+const CHART_W = 1280;
+const CHART_H = 680;
 
-// ── Chart ─────────────────────────────────────────────────────────────────
 const chart = LightweightCharts.createChart(document.getElementById('chart'), {
-  width: 1280,
-  height: 680,
+  width: CHART_W,
+  height: CHART_H,
   layout: { background:{color:'#0d1117'}, textColor:'#8b949e' },
   grid: { vertLines:{color:'#161b22'}, horzLines:{color:'#161b22'} },
   crosshair: {
@@ -148,8 +134,8 @@ const chart = LightweightCharts.createChart(document.getElementById('chart'), {
   },
   rightPriceScale: {
     borderColor: '#21262d',
-    autoScale: false,
-    scaleMargins: {top:0.08, bottom:0.06},
+    scaleMargins: {top:0.06, bottom:0.06},
+    autoScale: DATA.priceMin == null || DATA.priceMax == null,
   },
   timeScale: {
     borderColor: '#21262d',
@@ -161,9 +147,11 @@ const chart = LightweightCharts.createChart(document.getElementById('chart'), {
              d.getUTCMinutes().toString().padStart(2,'0');
     },
   },
+  handleScroll: false,
+  handleScale: false,
 });
 
-// ── Candlestick series ────────────────────────────────────────────────────
+// ── Candlestick ───────────────────────────────────────────────────────────
 const cs = chart.addCandlestickSeries({
   upColor: '#3fb950', downColor: '#f85149',
   borderUpColor: '#3fb950', borderDownColor: '#f85149',
@@ -171,196 +159,231 @@ const cs = chart.addCandlestickSeries({
 });
 cs.setData(DATA.candles);
 
-const priceRange = calcPriceRange();
-chart.priceScale('right').setVisiblePriceRange(priceRange);
-
-// ── Helpers ───────────────────────────────────────────────────────────────
-const allTs   = DATA.candles.map(c => c.time);
-const flat    = val => allTs.map(t => ({time:t, value:val}));
-const rangeTs = (val, fromBar, toBar) => {
-  const s = Math.max(0, fromBar);
-  const e = Math.min(DATA.candles.length - 1, toBar);
-  return DATA.candles.slice(s, e + 1).map(c => ({time:c.time, value:val}));
-};
-
-// ── CBDR Band (filled) ────────────────────────────────────────────────────
-// LWC 4.2'de gerçek band fill yok; üst ve alt çizgi + arka plan rengi trick
-if (DATA.cbdrHigh != null && DATA.cbdrLow != null) {
-  // Üst kenar
-  const cbdrH = chart.addLineSeries({
-    color:'rgba(210,168,255,0.85)', lineWidth:2, lineStyle:0,
-    priceLineVisible:false, lastValueVisible:true,
-    crosshairMarkerVisible:false, title:'CBDR H',
-    lastPriceAnimation: 0,
+// Python tarafında hesaplanan priceMin/priceMax varsa, sabit range kullan
+// (CBDR/FVG/Sweep gibi tüm seviyeleri garantili kapsar)
+if (DATA.priceMin != null && DATA.priceMax != null) {
+  chart.priceScale('right').setVisiblePriceRange({
+    from: DATA.priceMin,
+    to: DATA.priceMax,
   });
-  cbdrH.setData(flat(DATA.cbdrHigh));
-
-  // Alt kenar
-  const cbdrL = chart.addLineSeries({
-    color:'rgba(210,168,255,0.85)', lineWidth:2, lineStyle:0,
-    priceLineVisible:false, lastValueVisible:true,
-    crosshairMarkerVisible:false, title:'CBDR L',
-    lastPriceAnimation: 0,
-  });
-  cbdrL.setData(flat(DATA.cbdrLow));
-
-  // Band dolgusu için histogram serisi (CBDR High - Low fark)
-  // LWC 4.2: addHistogramSeries ile fill bölgesi simüle et
-  // Alternatif: iki line arasında fill yok, ama priceLines + opacity line yeterli
-  // Orta nokta referans çizgisi (ince, soluk)
-  const cbdrMid = (DATA.cbdrHigh + DATA.cbdrLow) / 2;
-  const cbdrMidS = chart.addLineSeries({
-    color:'rgba(210,168,255,0.25)', lineWidth:1, lineStyle:3,
-    priceLineVisible:false, lastValueVisible:false,
-    crosshairMarkerVisible:false,
-  });
-  cbdrMidS.setData(flat(cbdrMid));
 }
 
-// ── FVG Band (filled) ─────────────────────────────────────────────────────
-if (DATA.fvgTop != null && DATA.fvgBottom != null) {
-  const fvgColor = DATA.fvgDirection === 'bullish'
-    ? 'rgba(63,185,80,0.9)'
-    : 'rgba(255,166,87,0.9)';
-  const fvgColorDim = DATA.fvgDirection === 'bullish'
-    ? 'rgba(63,185,80,0.25)'
-    : 'rgba(255,166,87,0.25)';
-
-  // FVG Top
-  const fvgT = chart.addLineSeries({
-    color: fvgColor, lineWidth:2, lineStyle:0,
-    priceLineVisible:false, lastValueVisible:true,
-    crosshairMarkerVisible:false, title:'FVG T',
-    lastPriceAnimation: 0,
-  });
-  fvgT.setData(flat(DATA.fvgTop));
-
-  // FVG Bottom
-  const fvgB = chart.addLineSeries({
-    color: fvgColor, lineWidth:2, lineStyle:0,
-    priceLineVisible:false, lastValueVisible:true,
-    crosshairMarkerVisible:false, title:'FVG B',
-    lastPriceAnimation: 0,
-  });
-  fvgB.setData(flat(DATA.fvgBottom));
-
-  // CE (Consequent Encroachment) — FVG orta noktası
-  const ce = (DATA.fvgTop + DATA.fvgBottom) / 2;
-  const ceS = chart.addLineSeries({
-    color: fvgColorDim, lineWidth:1, lineStyle:1,
-    priceLineVisible:false, lastValueVisible:true,
-    crosshairMarkerVisible:false, title:'CE',
-    lastPriceAnimation: 0,
-  });
-  ceS.setData(flat(ce));
-}
-
-// ── Sweep level ───────────────────────────────────────────────────────────
-if (DATA.sweepLevel != null) {
-  const sw = chart.addLineSeries({
-    color:'rgba(121,192,255,0.9)', lineWidth:2, lineStyle:0,
-    priceLineVisible:false, lastValueVisible:true,
-    crosshairMarkerVisible:false, title:'Sweep',
-    lastPriceAnimation: 0,
-  });
-  sw.setData(flat(DATA.sweepLevel));
-}
-
-// ── SL line (entry → exit arası) ─────────────────────────────────────────
-if (DATA.slPrice != null && DATA.entryBar != null && DATA.exitBar != null) {
-  const slS = chart.addLineSeries({
-    color:'rgba(248,81,73,1)', lineWidth:2, lineStyle:2,
-    priceLineVisible:true, lastValueVisible:true,
-    crosshairMarkerVisible:false, title:'SL',
-    lastPriceAnimation: 0,
-  });
-  slS.setData(rangeTs(DATA.slPrice, DATA.entryBar, DATA.exitBar));
-}
-
-// ── TP line (entry → exit arası) ─────────────────────────────────────────
-if (DATA.tpPrice != null && DATA.entryBar != null && DATA.exitBar != null) {
-  const tpS = chart.addLineSeries({
-    color:'rgba(63,185,80,1)', lineWidth:2, lineStyle:2,
-    priceLineVisible:true, lastValueVisible:true,
-    crosshairMarkerVisible:false, title:'TP',
-    lastPriceAnimation: 0,
-  });
-  tpS.setData(rangeTs(DATA.tpPrice, DATA.entryBar, DATA.exitBar));
-}
-
-// ── Entry price line ──────────────────────────────────────────────────────
+// ── Entry price line (LWC native — her zaman çalışır) ────────────────────
 cs.createPriceLine({
   price: DATA.entryPrice, color:'#58a6ff',
   lineWidth:2, lineStyle:0, axisLabelVisible:true, title:'Entry',
 });
 
-// ── Initial SL/TP (soluk) ────────────────────────────────────────────────
-if (DATA.initialSlPrice != null && DATA.initialSlPrice !== DATA.slPrice)
-  cs.createPriceLine({price:DATA.initialSlPrice, color:'rgba(248,81,73,0.3)',
-    lineWidth:1, lineStyle:3, axisLabelVisible:false, title:'iSL'});
-if (DATA.initialTpPrice != null && DATA.initialTpPrice !== DATA.tpPrice)
-  cs.createPriceLine({price:DATA.initialTpPrice, color:'rgba(63,185,80,0.3)',
-    lineWidth:1, lineStyle:3, axisLabelVisible:false, title:'iTP'});
-
-// ── Trail steps ───────────────────────────────────────────────────────────
-(DATA.trailSteps || []).forEach((step, i) => {
-  if (!step.sl) return;
-  const ts = chart.addLineSeries({
-    color:'rgba(248,81,73,0.5)', lineWidth:1, lineStyle:3,
-    priceLineVisible:false, lastValueVisible:false,
-    crosshairMarkerVisible:false, title:`T${i+1}`,
-  });
-  ts.setData(rangeTs(step.sl, step.bar, DATA.exitBar));
-});
-
 // ── Markers ───────────────────────────────────────────────────────────────
 const markers = [];
-
-// FVG oluşum barı
 if (DATA.fvgBarIndex != null && DATA.fvgBarIndex >= 0 && DATA.candles[DATA.fvgBarIndex]) {
   markers.push({
-    time:     DATA.candles[DATA.fvgBarIndex].time,
-    position: 'aboveBar',
-    color:    '#ffa657',
-    shape:    'circle',
-    text:     'FVG',
-    size:     1,
+    time: DATA.candles[DATA.fvgBarIndex].time,
+    position:'aboveBar', color:'#ffa657', shape:'circle', text:'FVG', size:1,
   });
 }
-
-// Entry marker
 if (DATA.entryBar != null && DATA.candles[DATA.entryBar]) {
   markers.push({
-    time:     DATA.candles[DATA.entryBar].time,
-    position: side === 'SHORT' ? 'aboveBar' : 'belowBar',
-    color:    '#58a6ff',
-    shape:    side === 'SHORT' ? 'arrowDown' : 'arrowUp',
-    text:     `${side === 'SHORT' ? '▼' : '▲'} ${side}  ${fmt(DATA.entryPrice)}`,
-    size:     2,
+    time: DATA.candles[DATA.entryBar].time,
+    position: side==='SHORT'?'aboveBar':'belowBar',
+    color:'#58a6ff',
+    shape: side==='SHORT'?'arrowDown':'arrowUp',
+    text:`${side==='SHORT'?'▼':'▲'} ${side}  ${fmt(DATA.entryPrice)}`,
+    size:2,
   });
 }
-
-// Exit marker
 if (DATA.exitBar != null && DATA.candles[DATA.exitBar]) {
   markers.push({
-    time:     DATA.candles[DATA.exitBar].time,
-    position: side === 'SHORT' ? 'belowBar' : 'aboveBar',
-    color:    isWin ? '#3fb950' : '#f85149',
-    shape:    side === 'SHORT' ? 'arrowUp' : 'arrowDown',
-    text:     `✕ ${reason}  ${fmt(DATA.exitPrice)}`,
-    size:     2,
+    time: DATA.candles[DATA.exitBar].time,
+    position: side==='SHORT'?'belowBar':'aboveBar',
+    color: isWin?'#3fb950':'#f85149',
+    shape: side==='SHORT'?'arrowUp':'arrowDown',
+    text:`✕ ${reason}  ${fmt(DATA.exitPrice)}`,
+    size:2,
+  });
+}
+markers.sort((a,b) => a.time - b.time);
+cs.setMarkers(markers);
+
+chart.timeScale().fitContent();
+
+// ── CANVAS OVERLAY — price→pixel dönüşümü ────────────────────────────────
+// LWC'nin iç coordinate API'sini kullanarak price ve time → pixel koordinatına çeviriyoruz.
+// Bu yöntem LWC 4.2'de garanti çalışır.
+
+function drawOverlays() {
+  const canvas = document.getElementById('overlay-canvas');
+  const ctx    = canvas.getContext('2d');
+  ctx.clearRect(0, 0, CHART_W, CHART_H);
+
+  // LWC'den koordinat dönüşümü
+  const priceToY = price => {
+    try { return cs.priceToCoordinate(price); } catch(e) { return null; }
+  };
+  const timeToX = time => {
+    try { return chart.timeScale().timeToCoordinate(time); } catch(e) { return null; }
+  };
+
+  const firstTime = DATA.candles[0].time;
+  const lastTime  = DATA.candles[DATA.candles.length - 1].time;
+
+  const x0 = timeToX(firstTime);
+  const x1 = timeToX(lastTime);
+
+  if (x0 == null || x1 == null) return;
+
+  // ── Yardımcı: yatay çizgi ────────────────────────────────────────────
+  function hLine(price, color, lineWidth, dash, label) {
+    const y = priceToY(price);
+    if (y == null || y < 0 || y > CHART_H) return;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = lineWidth;
+    ctx.setLineDash(dash || []);
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.moveTo(x0, y);
+    ctx.lineTo(x1, y);
+    ctx.stroke();
+    if (label) {
+      ctx.fillStyle = color;
+      ctx.font      = 'bold 10px Courier New';
+      ctx.globalAlpha = 0.9;
+      ctx.fillText(label, x1 + 4, y + 4);
+    }
+    ctx.restore();
+  }
+
+  // ── Yardımcı: dolu bant ──────────────────────────────────────────────
+  function band(priceHigh, priceLow, fillColor, strokeColor, label) {
+    const yH = priceToY(priceHigh);
+    const yL = priceToY(priceLow);
+    if (yH == null || yL == null) return;
+    const top    = Math.min(yH, yL);
+    const bottom = Math.max(yH, yL);
+    ctx.save();
+    // Fill
+    ctx.fillStyle   = fillColor;
+    ctx.globalAlpha = 1;
+    ctx.fillRect(x0, top, x1 - x0, bottom - top);
+    // Border top
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth   = 1.5;
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.moveTo(x0, yH); ctx.lineTo(x1, yH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0, yL); ctx.lineTo(x1, yL); ctx.stroke();
+    // Label
+    if (label) {
+      ctx.fillStyle   = strokeColor;
+      ctx.font        = 'bold 10px Courier New';
+      ctx.globalAlpha = 0.9;
+      ctx.fillText(label, x0 + 4, yH - 3);
+    }
+    ctx.restore();
+  }
+
+  // ── Yardımcı: entry→exit arası yatay çizgi ──────────────────────────
+  function rangedHLine(price, fromBar, toBar, color, lineWidth, dash, label) {
+    const y   = priceToY(price);
+    if (y == null || y < 0 || y > CHART_H) return;
+    const xA  = timeToX(DATA.candles[Math.max(0, fromBar)].time);
+    const xB  = timeToX(DATA.candles[Math.min(DATA.candles.length-1, toBar)].time);
+    if (xA == null || xB == null) return;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = lineWidth;
+    ctx.setLineDash(dash || []);
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.moveTo(xA, y);
+    ctx.lineTo(xB, y);
+    ctx.stroke();
+    if (label) {
+      ctx.fillStyle   = color;
+      ctx.font        = 'bold 10px Courier New';
+      ctx.globalAlpha = 0.9;
+      ctx.fillText(label, xB + 4, y + 4);
+    }
+    ctx.restore();
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // 1. CBDR BAND
+  // ════════════════════════════════════════════════════════════════
+  if (DATA.cbdrHigh != null && DATA.cbdrLow != null) {
+    band(
+      DATA.cbdrHigh,
+      DATA.cbdrLow,
+      'rgba(210,168,255,0.10)',   // fill
+      'rgba(210,168,255,0.85)',   // border
+      `CBDR  ${fmt(DATA.cbdrHigh)} / ${fmt(DATA.cbdrLow)}`
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // 2. FVG BAND
+  // ════════════════════════════════════════════════════════════════
+  if (DATA.fvgTop != null && DATA.fvgBottom != null) {
+    const isBull   = DATA.fvgDirection === 'bullish';
+    const fvgFill  = isBull ? 'rgba(63,185,80,0.12)' : 'rgba(255,166,87,0.12)';
+    const fvgStroke= isBull ? 'rgba(63,185,80,0.9)'  : 'rgba(255,166,87,0.9)';
+    const fvgLabel = `FVG ${isBull?'▲':'▼'}  ${fmt(DATA.fvgTop)} / ${fmt(DATA.fvgBottom)}`;
+    band(DATA.fvgTop, DATA.fvgBottom, fvgFill, fvgStroke, fvgLabel);
+
+    // CE — Consequent Encroachment (orta nokta)
+    const ce = (DATA.fvgTop + DATA.fvgBottom) / 2;
+    hLine(ce, isBull ? 'rgba(63,185,80,0.4)' : 'rgba(255,166,87,0.4)', 1, [4,4], 'CE');
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // 3. SWEEP LEVEL
+  // ════════════════════════════════════════════════════════════════
+  if (DATA.sweepLevel != null) {
+    hLine(DATA.sweepLevel, 'rgba(121,192,255,0.9)', 2, [6,3], `Sweep  ${fmt(DATA.sweepLevel)}`);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // 4. SL — entry→exit arası
+  // ════════════════════════════════════════════════════════════════
+  if (DATA.slPrice != null && DATA.entryBar != null && DATA.exitBar != null) {
+    rangedHLine(DATA.slPrice, DATA.entryBar, DATA.exitBar,
+      'rgba(248,81,73,1)', 2, [6,4], `SL  ${fmt(DATA.slPrice)}`);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // 5. TP — entry→exit arası
+  // ════════════════════════════════════════════════════════════════
+  if (DATA.tpPrice != null && DATA.entryBar != null && DATA.exitBar != null) {
+    rangedHLine(DATA.tpPrice, DATA.entryBar, DATA.exitBar,
+      'rgba(63,185,80,1)', 2, [6,4], `TP  ${fmt(DATA.tpPrice)}`);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // 6. TRAIL STEPS
+  // ════════════════════════════════════════════════════════════════
+  (DATA.trailSteps || []).forEach((step, i) => {
+    if (!step.sl) return;
+    rangedHLine(step.sl, step.bar, DATA.exitBar,
+      'rgba(248,81,73,0.45)', 1, [3,3], `T${i+1}`);
   });
 }
 
-markers.sort((a, b) => a.time - b.time);
-cs.setMarkers(markers);
-
-// ── Fit + price range kilitle ─────────────────────────────────────────────
+// ── fitContent sonrası kısa gecikmeyle çiz ────────────────────────────────
+// LWC koordinatları ancak render tamamlandıktan sonra hazır olur.
 chart.timeScale().fitContent();
-chart.priceScale('right').setVisiblePriceRange(priceRange);
+if (DATA.priceMin != null && DATA.priceMax != null) {
+  chart.priceScale('right').setVisiblePriceRange({
+    from: DATA.priceMin,
+    to: DATA.priceMax,
+  });
+}
+setTimeout(drawOverlays, 150);
 
 // ── Playwright render sinyali ─────────────────────────────────────────────
-document.getElementById('header').dataset.rendered = '1';
+setTimeout(() => {
+  document.getElementById('header').dataset.rendered = '1';
+}, 300);
 </script>
 </body>
 </html>

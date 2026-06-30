@@ -122,33 +122,32 @@ class TestEvaluateTrail:
     def test_long_trail_on_bullish_fvg(self, mock_cfg):
         """Long trade: new SL = fvg.bottom - buffer > current SL → trail."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.2
+        mock_cfg.ATR_TRAIL_MULT = 0.25
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
 
-        # Craft bars with a bullish FVG whose bottom is well above current SL
+        # 4 bars → chunk has 3 → only i=1 checked → single bullish FVG (top=105, bottom=103)
         bars = [
             _bar(0, 100, 103, 99, 102),
             _bar(1, 103, 105, 102, 104),
-            _bar(2, 106, 110, 105, 108),  # bullish FVG: top=105, bottom=103
+            _bar(
+                2, 106, 110, 105, 108
+            ),  # bullish FVG: b_next.low=105 > b_prev.high=103
             _bar(3, 108, 112, 107, 110),
-            _bar(4, 110, 113, 109, 112),
         ]
 
-        # buffer = |initial_sl - entry_price| * fvg_buffer_mult = |97-100| * 0.3 = 0.9
+        # atr_buffer = 0.3 * 0.25 = 0.075, new_sl = 103 - 0.075 = 102.925
         result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
 
-        # FVG bottom=103, buffer=0.9 → new_sl = 103 - 0.9 = 102.1
-        # current_sl=97 → 102.1 > 97 → trail!
         assert result.updated is True
-        assert result.new_sl == pytest.approx(102.1)
-        assert result.new_tp == pytest.approx(
-            106.0 + (102.1 - 97.0)
-        )  # tp shifts by sl_diff
+        assert result.new_sl == pytest.approx(102.925)
+        assert result.new_tp == pytest.approx(106.0 + (102.925 - 97.0))
         assert result.trail_count == 1
 
     @patch("trading.trailing_manager.cfg")
     def test_no_trail_when_new_sl_not_better(self, mock_cfg):
         """Long trade: new_sl <= current_sl → no trail."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
+        mock_cfg.ATR_TRAIL_MULT = 0.25
         trade = _trade(side="long", entry_price=100.0, sl=102.0, tp=106.0, risk_pts=2.0)
 
         # Bullish FVG bottom below current SL — should NOT trail
@@ -158,8 +157,7 @@ class TestEvaluateTrail:
             _bar(2, 100, 103, 98, 102),  # bullish FVG: top=98, bottom=97
             _bar(3, 101, 104, 99, 103),
         ]
-        # FVG top=98, bottom=97 → buffer=0.6, new_sl=96.4
-        # current_sl=102 → 96.4 < 102 → NO trail
+        # atr_buffer=0.075, new_sl=96.925 < current_sl=102 → NO trail
         result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
         assert result.updated is False
 
@@ -184,34 +182,25 @@ class TestEvaluateTrail:
 
         # To block: need sl_diff <= min_move. Let me set min_move very high.
         mock_cfg.TRAIL_MIN_MOVE_MULT = 3.0  # min_move = 3.0 * 3.0 = 9.0
+        mock_cfg.ATR_TRAIL_MULT = 0.25
         result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
-        assert result.updated is False  # 5.1 < 9.0 → blocked
+        assert result.updated is False  # 5.925 < 9.0 → blocked
 
     @patch("trading.trailing_manager.cfg")
     def test_skips_filled_fvg(self, mock_cfg):
         """Filled/invalidated FVGs are skipped."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
+        mock_cfg.ATR_TRAIL_MULT = 0.25
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
 
-        # Create a FVG and then fill it with a later bar
+        # evaluate_trail only calls detect_fvgs, not update_fvg_states → filled is always False
         bars = [
             _bar(0, 100, 103, 99, 102),
             _bar(1, 103, 105, 102, 104),
-            _bar(2, 106, 110, 105, 108),  # bullish FVG at index 1
+            _bar(2, 106, 110, 105, 108),
             _bar(3, 108, 112, 107, 110),
-            _bar(4, 103, 105, 100, 103),  # Fills the FVG (close=103 <= bottom=103)
         ]
-
-        # detect_fvgs will find the FVG, update_fvg_states will mark it filled
-        # But evaluate_trail only calls detect_fvgs, not update_fvg_states
-        # The FVG will NOT be marked filled because evaluate_trail doesn't call update.
-        # This means the `fvg.filled` check will be False even after a fill bar.
-        # Actually the FVG dataclass is frozen, so filled is always False from detect_fvgs.
-        # The filled property is checked but always False when coming from detect_fvgs.
-        # So this test documents the current behavior: FVGs from detect_fvgs are never filled.
-
         result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
-        # Since detect_fvgs creates fresh FVGs that are not filled, it WILL trail
         assert result.updated is True
 
     def test_skips_wrong_direction_fvg_long(self):
@@ -265,6 +254,7 @@ class TestEvaluateTrail:
         # Will trail → trail_count should become 3
         with patch("trading.trailing_manager.cfg") as mock_cfg:
             mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
+            mock_cfg.ATR_TRAIL_MULT = 0.25
             result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
         assert result.trail_count == 3
 
@@ -410,10 +400,11 @@ class TestTrailAndExitSequence:
     def test_trail_then_exit_long(self, mock_cfg):
         """Trail SL up, then next bar hits the new SL."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
+        mock_cfg.ATR_TRAIL_MULT = 0.25
 
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
 
-        # Step 1: FVG trail — SL moves from 97 to 102.1
+        # Step 1: FVG trail — SL moves from 97 to 102.925
         bars_15m = [
             _bar(0, 100, 103, 99, 102),
             _bar(1, 103, 105, 102, 104),
@@ -430,8 +421,8 @@ class TestTrailAndExitSequence:
         trade["sl"] = new_sl
         trade["tp"] = new_tp
 
-        # Step 2: Next 1m bar hits the new SL
-        current = _bar(20, 102, 104, 101.5, 103)  # low=101.5 < new_sl=102.1
+        # Step 2: Next 1m bar hits the new SL (low=101.5 < 102.925)
+        current = _bar(20, 102, 104, 101.5, 103)
         exit_check = TrailingManager.check_exit(current, trade)
         assert exit_check.triggered is True
         assert exit_check.result == "SL"
@@ -440,6 +431,7 @@ class TestTrailAndExitSequence:
     def test_trail_then_tp_long(self, mock_cfg):
         """Trail SL up, then price shoots to new TP."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
+        mock_cfg.ATR_TRAIL_MULT = 0.25
 
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
 
@@ -454,8 +446,8 @@ class TestTrailAndExitSequence:
         trade["sl"] = trail.new_sl
         trade["tp"] = trail.new_tp
 
-        # Price surges to new TP
-        current = _bar(20, 108, 112, 107, 111)  # high=112 >= new_tp
+        # Price surges to new TP (high=112 >= 111.925)
+        current = _bar(20, 108, 112, 107, 111)
         exit_check = TrailingManager.check_exit(current, trade)
         assert exit_check.triggered is True
         assert exit_check.result == "TP"
@@ -464,6 +456,7 @@ class TestTrailAndExitSequence:
     def test_no_trail_then_sl_hit_long(self, mock_cfg):
         """Without FVG trail, original SL is hit."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
+        mock_cfg.ATR_TRAIL_MULT = 0.25
 
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
 
