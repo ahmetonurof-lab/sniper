@@ -67,7 +67,7 @@ TESTNET=True
 | Param | Value | Açıklama |
 |-------|-------|----------|
 | LEVERAGE | 5 | 5x kaldıraç (margin = notional / 5) |
-| RISK_PER_TRADE | 0.001 | Fallback risk (%0.1) |
+| RISK_PER_TRADE | 0.003 | Risk (%0.3) — elle güncellendi |
 | SL_ATR_MULT | 1.5 | SL = ATR × 1.5 |
 | TP_RR | 2.0 | Risk/ödül oranı |
 | FVG_BUFFER_MULT | 0.50 | FVG buffer çarpanı |

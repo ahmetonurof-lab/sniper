@@ -30,6 +30,11 @@
 | backupCount=7→14 | ✅ `TimedRotatingFileHandler`'da 14 gün saklama |
 | event log noktaları | ✅ entry/exit/force_close (bot.py), orphan/ghost (recovery_manager.py), sl_reject/tp_reject (order_manager.py) |
 | Backtest → live bot trailing portu | ✅ `_fvg_close_confirmed()`, ATR buffer, TRAIL_MIN_MOVE_MULT, break-even `analyzer_v3.py`'a eklendi |
+| FVG marker fix | ✅ `_save_fvg_state()` bar_index hatası düzeltildi |
+| BE chart bar index fix | ✅ evaluate_break_even 15m bar index kullanıyor |
+| Sweep level ActiveTrade | ✅ `sweep_level` field + `_try_entry()` beslemesi |
+| on_sweep_confirmed rewrite | ✅ sweep invalidation gate + no reset on no-FVG + no unconditional reset |
+| output/ gitignore | ✅ exception'lar kaldırıldı, indexten çıkarıldı |
 
 ## Kalan İşler 🔧
 
