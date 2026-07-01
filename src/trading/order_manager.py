@@ -102,6 +102,8 @@ class OrderManager:
 
         # ── 3. SADECE BAŞARILI OLANLARI STATE'E YAZ VE ESKİLERİ SİL (FIX #1) ──
         if sl_ok:
+            # Eski id'yi hemen silme — WS fill'i eski id ile gelebilir
+            trade["sl_order_id_prev"] = old_sl_id
             trade["sl_order_id"] = new_sl_id
             if old_sl_id:
                 try:
@@ -115,8 +117,12 @@ class OrderManager:
                         old_sl_id,
                         e,
                     )
+                finally:
+                    # İptal denemesi bitti (başarılı ya da başarısız), artık eski id devre dışı
+                    trade["sl_order_id_prev"] = ""
 
         if tp_ok:
+            trade["tp_order_id_prev"] = old_tp_id
             trade["tp_order_id"] = new_tp_id
             if old_tp_id:
                 try:
@@ -130,6 +136,8 @@ class OrderManager:
                         old_tp_id,
                         e,
                     )
+                finally:
+                    trade["tp_order_id_prev"] = ""
 
         if not (sl_ok and tp_ok):
             log.warning(

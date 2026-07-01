@@ -66,20 +66,23 @@ class UserDataHandler:
                 if trade:
                     s_id = str(trade.get("sl_order_id", ""))
                     t_id = str(trade.get("tp_order_id", ""))
+                    s_id_prev = str(trade.get("sl_order_id_prev", ""))
+                    t_id_prev = str(trade.get("tp_order_id_prev", ""))
 
-                    if oid in (s_id, t_id):
-                        # Normal akış: ID eşleşti
+                    if oid in (s_id, t_id, s_id_prev, t_id_prev):
+                        # Normal akış: ID eşleşti (güncel veya geçiş)
+                        result = "SL" if oid in (s_id, s_id_prev) else "TP"
                         _pl(
                             sym,
                             "filled_confirm",
-                            f"✅ BINANCE CONFIRMED: pozisyon kapatildi @ {price}",
+                            f"✅ BINANCE CONFIRMED: pozisyon kapatildi @ {price} ({result})",
                         )
 
                         # Trade'i kapat (eğer henüz _on_1m_close kapatmadıysa)
                         if sym in _active_trades:
                             trade["exit_price"] = price
                             trade["exit_timestamp"] = int(time.time() * 1000)
-                            trade["result"] = "SL" if oid == s_id else "TP"
+                            trade["result"] = result
                             await _exit_trade(sym, trade, int(time.time() * 1000))
                     else:
                         # FIX #3: ID eşleşmiyor AMA reduceOnly FILLED geldi!
@@ -109,6 +112,19 @@ class UserDataHandler:
                 return
             s_id = str(trade.get("sl_order_id", ""))
             t_id = str(trade.get("tp_order_id", ""))
+            s_id_prev = str(trade.get("sl_order_id_prev", ""))
+            t_id_prev = str(trade.get("tp_order_id_prev", ""))
+
+            # Geçiş penceresindeki eski emrin CANCELED bildirimi → sessizce yok say
+            if oid in (s_id_prev, t_id_prev) and oid:
+                log.info(
+                    "[WS-ORDER] %s eski %s emri iptal edildi (prev id=%s) — ignore",
+                    sym,
+                    "SL" if oid == s_id_prev else "TP",
+                    oid,
+                )
+                return
+
             if oid not in (s_id, t_id):
                 return
             label = "SL" if oid == s_id else "TP"

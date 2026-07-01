@@ -8,7 +8,7 @@
 - **Kaldıraç**: 5x
 - **Strateji**: CBDR → Sweep → FVG Wick Rejection → Primary Entry → Trailing → Exit (V3 — retrade/LHR kaldırıldı)
 
-## Kritik Yapılan Değişiklikler (2026-06-30 — V3)
+## Kritik Yapılan Değişiklikler
 
 | # | Değişiklik | Açıklama |
 |---|-----------|----------|
@@ -18,6 +18,7 @@
 | 4 | **Double exit guard** | `_exit_trade()` başında `if sym not in self.active_trades: return`. `del` → `pop(sym, None)`. |
 | 5 | **Orphan cleanup geniş** | `reconcile_orphan_orders()` tüm order türlerini temizler (LIMIT dahil). |
 | 6 | **FVG trailing close teyidi** | `_fvg_close_confirmed()` — trailing sadece 15m close'u FVG içinde olan FVG'leri kullanır. |
+| 7 | **Trail prev ID geçiş fix** | `update_trail_orders()` eski SL/TP id'sini `*_order_id_prev` olarak saklar, WS fill eşleşmesi hem güncel hem prev id'leri kontrol eder. CANCELED callback'te prev id'ler sessizce yok sayılır. — WS_FALLBACK sayısını azaltır. |
 
 ## Aktif Kararlar
 
@@ -34,9 +35,11 @@
 - Canlı testte `_exit_trade()` cancel_all + reduceOnly flow'un Binance ile çalışması gözlemlenecek.
 - FVG trailing close teyidi sonrası WR değişimi takip edilecek.
 - `output/` dizinindeki JSON/JSONL dosyaları `.gitignore` kontrolü.
+- WS_FALLBACK sayısı trail prev ID fix sonrası takip edilecek.
 
 ## Hatırlatmalar
 
 - sweep_direction mapping: yukarı sweep = bearish = SHORT, aşağı sweep = bullish = LONG.
 - `mark_sweep_consumed()` level-based ID kullanır — bar_index değil.
 - `rsm.reset()` artık `_exit_trade()` sonunda çağrılır, `_try_entry()` içinde değil.
+- Trailing güncellemede eski order id `*_order_id_prev` olarak saklanır, geçiş penceresinde WS fill'leri prev id ile de eşleşebilir.
