@@ -26,7 +26,7 @@ body{background:#0d1117;font-family:'Courier New',monospace;color:#c9d1d9;overfl
 .pnl-pos{color:#3fb950;font-size:12px;font-weight:700}
 .pnl-neg{color:#f85149;font-size:12px;font-weight:700}
 
-#legend{position:absolute;bottom:14px;left:14px;
+#legend{position:absolute;top:54px;left:14px;
   background:rgba(13,17,23,0.93);border:1px solid #21262d;
   border-radius:6px;padding:10px 13px;z-index:20;min-width:210px}
 .leg-row{display:flex;justify-content:space-between;align-items:center;
@@ -180,12 +180,6 @@ if (DATA.priceMin != null && DATA.priceMax != null) {
     }),
   });
 }
-
-// ── Entry price line (LWC native — her zaman çalışır) ────────────────────
-cs.createPriceLine({
-  price: DATA.entryPrice, color:'#58a6ff',
-  lineWidth:2, lineStyle:0, axisLabelVisible:true, title:'Entry',
-});
 
 // ── Markers ───────────────────────────────────────────────────────────────
 const markers = [];
@@ -397,7 +391,15 @@ function drawOverlays(retryCount) {
   }
 
   // ════════════════════════════════════════════════════════════════
-  // 6. TRAIL STEPS
+  // 6. ENTRY — long horizontal line from entryBar
+  // ════════════════════════════════════════════════════════════════
+  if (DATA.entryPrice != null && DATA.entryBar != null) {
+    rangedHLine(DATA.entryPrice, DATA.entryBar, DATA.entryBar + SL_TP_BAR_SPAN,
+      'rgba(88,166,255,1)', 2, []);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // 7. TRAIL STEPS
   // ════════════════════════════════════════════════════════════════
   (DATA.trailSteps || []).forEach((step) => {
     if (!step.sl) return;

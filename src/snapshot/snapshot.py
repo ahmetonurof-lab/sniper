@@ -29,8 +29,8 @@ _TEMPLATE_PATH = os.environ.get(
 )
 
 _INTERVAL_MS = 15 * 60 * 1000  # 15 dakika
-_PAD_BARS = 8
-_FETCH_LIMIT = 120  # 80 yetersizdi
+_PAD_BARS = 20
+_FETCH_LIMIT = 160
 
 
 # ─────────────────────────────────────────────
