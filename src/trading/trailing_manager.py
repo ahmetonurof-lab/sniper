@@ -43,7 +43,7 @@ class TrailingManager:
         else:
             if current.low > entry - threshold or trade["sl"] <= be_sl:
                 return TrailResult()
-        trade.setdefault("trail_steps", []).append(
+        trade["trail_steps"].append(
             {
                 "sl": round(be_sl, 6),
                 "tp": round(trade["tp"], 6),
@@ -104,10 +104,7 @@ class TrailingManager:
             "risk_pts", abs(trade["initial_sl"] - trade["entry_price"])
         )
         trail_count = trade.get("trailing_count", 0)
-        trail_steps = trade.get("trail_steps")
-        if trail_steps is None:
-            trail_steps = []
-            trade["trail_steps"] = trail_steps
+        trail_steps = trade["trail_steps"]
         updated = False
         atr_buffer = atr_val * cfg.ATR_TRAIL_MULT
 
