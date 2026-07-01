@@ -10,7 +10,7 @@ import logging
 from enum import Enum, auto
 from typing import Literal
 
-from fvg import detect_fvgs
+from fvg import detect_fvgs, fvg_close_confirmed
 from models import Bar
 
 logger = logging.getLogger("nexus.retrace_state")
@@ -36,7 +36,10 @@ class HTFFVG:
 
 
 def scan_htf_fvgs(
-    bars_15m: list[Bar], lookback: int = 100, min_fvg_size: float = 10.0
+    bars_15m: list[Bar],
+    lookback: int = 100,
+    min_fvg_size: float = 10.0,
+    max_wick_ratio: float = 1.0,
 ) -> list[HTFFVG]:
     """Son 15m bar'ler icinde FVG'leri tara. min_fvg_size coin'e gore dinamik."""
     segment = bars_15m[-lookback:] if len(bars_15m) > lookback else bars_15m
@@ -44,7 +47,11 @@ def scan_htf_fvgs(
         return []
 
     fvgs = detect_fvgs(
-        segment, lookback=len(segment), timeframe="15m", min_fvg_size=min_fvg_size
+        segment,
+        lookback=len(segment),
+        timeframe="15m",
+        min_fvg_size=min_fvg_size,
+        max_wick_ratio=max_wick_ratio,
     )
     levels = [HTFFVG(f.top, f.bottom, f.direction, f.real_index) for f in fvgs]
     levels.sort(key=lambda x: x.bar_index)
@@ -52,12 +59,13 @@ def scan_htf_fvgs(
 
 
 class RetraceStateMachine:
-    def __init__(self, min_fvg_size: float = 10.0):
+    def __init__(self, min_fvg_size: float = 10.0, max_wick_ratio: float = 1.0):
         self.state: RetraceState = RetraceState.IDLE
         self.direction: Literal["bullish", "bearish"] | None = None
         self.sweep_level: float | None = None
         self.trigger_fvg: HTFFVG | None = None
         self._min_fvg_size = min_fvg_size
+        self._max_wick_ratio = max_wick_ratio
         self._pending_sweep_id: str | None = None
 
     @property
@@ -122,7 +130,10 @@ class RetraceStateMachine:
             return
 
         htf_fvgs = scan_htf_fvgs(
-            bars_15m, lookback=100, min_fvg_size=self._min_fvg_size
+            bars_15m,
+            lookback=100,
+            min_fvg_size=self._min_fvg_size,
+            max_wick_ratio=self._max_wick_ratio,
         )
         if not htf_fvgs:
             self.reset()
@@ -142,6 +153,10 @@ class RetraceStateMachine:
                 wick_touched = last.low <= fvg.top
                 body_broke_down = last.close < fvg.bottom
                 if wick_touched and not body_broke_down:
+                    if not fvg_close_confirmed(
+                        fvg.direction, fvg.top, fvg.bottom, fvg.bar_index, bars_15m
+                    ):
+                        continue
                     self.state = RetraceState.TRIGGER_READY
                     self.trigger_fvg = fvg
                     self._mark_sweep_used()
@@ -150,6 +165,10 @@ class RetraceStateMachine:
                 wick_touched = last.high >= fvg.bottom
                 body_broke_up = last.close > fvg.top
                 if wick_touched and not body_broke_up:
+                    if not fvg_close_confirmed(
+                        fvg.direction, fvg.top, fvg.bottom, fvg.bar_index, bars_15m
+                    ):
+                        continue
                     self.state = RetraceState.TRIGGER_READY
                     self.trigger_fvg = fvg
                     self._mark_sweep_used()

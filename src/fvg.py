@@ -20,12 +20,50 @@ ATR_PERIOD: Final[int] = 14
 _SYMBOL_COUNTERS: dict[str, int] = {}
 
 
+def _wick_ratio_ok(b_curr: Bar, direction: str, max_ratio: float) -> bool:
+    """Impulse mumun fitil oranini kontrol et. (wick / total_range) > max_ratio ise False."""
+    total_range = b_curr.high - b_curr.low
+    if total_range <= 0:
+        return True
+    if direction == "bullish":
+        wick = b_curr.high - max(b_curr.open, b_curr.close)
+    else:
+        wick = min(b_curr.open, b_curr.close) - b_curr.low
+    return (wick / total_range) <= max_ratio
+
+
+def fvg_close_confirmed(
+    direction: str,
+    top: float,
+    bottom: float,
+    bar_index: int,
+    all_bars: list[Bar],
+) -> bool:
+    """FVG icinde kapali 15m mumu var mi?
+    Wick yetmez, govde kapanisi lazim. Far-side close gorurse False doner."""
+    for b in all_bars:
+        if b.index < bar_index + 2:
+            continue
+        if direction == "bullish":
+            if b.close < bottom:
+                return False
+            if bottom <= b.close <= top:
+                return True
+        else:
+            if b.close > top:
+                return False
+            if bottom <= b.close <= top:
+                return True
+    return False
+
+
 def detect_fvgs(
     bars: list[Bar],
     lookback: int = DEFAULT_LOOKBACK,
     timeframe: str = "5m",
     min_fvg_size: float = MIN_FVG_SIZE,
     since_index: int | None = None,
+    max_wick_ratio: float = 1.0,
 ) -> list[FVG]:
     segment = bars[-lookback:] if len(bars) > lookback else bars
     fvgs: list[FVG] = []
@@ -45,6 +83,8 @@ def detect_fvgs(
         gap_bear = b_prev.low - b_next.high
 
         if gap_bull > 0:
+            if not _wick_ratio_ok(b_curr, "bullish", max_wick_ratio):
+                continue
             fvg = FVG(
                 direction="bullish",
                 top=b_next.low,
@@ -57,6 +97,8 @@ def detect_fvgs(
                     fvgs.append(fvg)
 
         elif gap_bear > 0:
+            if not _wick_ratio_ok(b_curr, "bearish", max_wick_ratio):
+                continue
             fvg = FVG(
                 direction="bearish",
                 top=b_prev.low,

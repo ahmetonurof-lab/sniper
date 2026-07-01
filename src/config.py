@@ -71,6 +71,9 @@ DEFAULT_ATR_FALLBACK_PCT = 0.0001  # Varsayılan ATR fallback (%)
 CBDR_SWEEP_ATR_TOLERANCE_MULT = 0.5  # CBDR sweep toleransı ATR çarpanı
 CBDR_SWEEP_DEFAULT_TOLERANCE = 10.0  # CBDR sweep varsayılan tolerans (ATR=0 ise)
 FVG_BUFFER_MIN_FACTOR = 0.10  # FVG buffer minimum çarpanı (fvg.size * factor)
+FVG_WICK_RATIO_MAX = (
+    0.90  # Impulse mum fitil/govde orani max (asarsa FVG kalitesiz sayilir)
+)
 
 # ── Binance API ────────────────────────────────────────────────
 BINANCE_API_KEY = os.getenv("TESTNET_API_KEY") or os.getenv("BINANCE_API_KEY")

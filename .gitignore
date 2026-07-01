@@ -11,13 +11,8 @@ sonnet_only.txt
 cline/
 sniper/
 
-# Output (track specific files)
-output/*
-!output/active_fvg.json
-!output/live_state.json
-!output/nexus_dashboard.html
-!output/trade_state.json
-!output/trades_history.jsonl
+# Output (runtime data, no tracking)
+output/
 
 # Cache
 .ruff_cache/

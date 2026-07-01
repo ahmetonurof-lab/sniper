@@ -6,7 +6,7 @@
 |---------|-------|
 | PaperTrader orchestrator (`bot.py`) | ✅ Testnet emir gönderimi aktif |
 | CBDR → Sweep → FVG → Entry flow | ✅ ICT fix uygulandı |
-| SignalEngine (primary entry) | ✅ Bias + session filtresi ile |
+| SignalEngine (primary entry) | ✅ Bias + session filtresi + close guard + wick ratio > 0.90 |
 | ~~RetradeEngine (retrade entry + LHR fallback)~~ | ❌ Silindi (V3) |
 | TrailingManager (1m FVG trailing) | ✅ Close-teyitli FVG trailing |
 | EntryManager (live order placement) | ✅ Market + SL(StopMarket) + TP(TakeProfitMarket) |

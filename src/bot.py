@@ -369,7 +369,11 @@ class PaperTrader:
         bars_15m = self.hub.get_bars(sym, "15m")
         if bars_15m:
             trail_result = TrailingManager.evaluate_trail(
-                bars_15m, trade, atr_val, min_fvg
+                bars_15m,
+                trade,
+                atr_val,
+                min_fvg,
+                max_wick_ratio=cfg.FVG_WICK_RATIO_MAX,
             )
 
             if trail_result.updated:

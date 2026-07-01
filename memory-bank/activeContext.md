@@ -20,6 +20,7 @@
 | 6 | **FVG trailing close teyidi** | `_fvg_close_confirmed()` — trailing sadece 15m close'u FVG içinde olan FVG'leri kullanır. |
 | 7 | **Trail prev ID geçiş fix** | `update_trail_orders()` eski SL/TP id'sini `*_order_id_prev` olarak saklar, WS fill eşleşmesi hem güncel hem prev id'leri kontrol eder. CANCELED callback'te prev id'ler sessizce yok sayılır. — WS_FALLBACK sayısını azaltır. |
 | 8 | **Backtest trailing → live bot port** | `analyzer_v3.py` trailing bloğu `_fvg_close_confirmed()` + ATR buffer + TRAIL_MIN_MOVE_MULT + break-even ile güncellendi. `coins_config.py`'a trailing sabitleri eklendi. |
+| 9 | **Entry wick ratio + close guard** | `signal_engine.py`'a iki filtre eklendi: (a) `current.is_closed` kontrolü, (b) sweep mumu `(lower_wick veya upper_wick) / range > 0.90` şartı. |
 
 ## Aktif Kararlar
 
