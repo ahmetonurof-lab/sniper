@@ -29,13 +29,14 @@
 | event_log (yapısal JSONL log) | ✅ `src/event_log.py` — `log_event()` + `cleanup_old_event_logs()` |
 | backupCount=7→14 | ✅ `TimedRotatingFileHandler`'da 14 gün saklama |
 | event log noktaları | ✅ entry/exit/force_close (bot.py), orphan/ghost (recovery_manager.py), sl_reject/tp_reject (order_manager.py) |
+| Backtest → live bot trailing portu | ✅ `_fvg_close_confirmed()`, ATR buffer, TRAIL_MIN_MOVE_MULT, break-even `analyzer_v3.py`'a eklendi |
 
 ## Kalan İşler 🔧
 
 | Görev | Öncelik | Açıklama |
 |-------|---------|----------|
 | Canlı test: _exit_trade() flow | 🟠 Yüksek | cancel_all + reduceOnly + verify loop |
-| FVG trailing close teyidi WR etkisi | 🟡 Orta | Yeni `_fvg_close_confirmed()` sonrasi WR/PF |
+| Backtest trailing port WR/DD canlı karşılaştırması | 🟡 Orta | Live WR vs backtest WR farkı analiz edilecek |
 | Mainnet canlı test | 🟢 Düşük | URL + API key değişikliği |
 | Performance benchmark | 🟢 Düşük | CPU/memory profil |
 | README güncelleme | 🟢 Düşük | Sadece ihtiyaç halinde |
@@ -45,11 +46,12 @@
 | Sorun | Durum |
 |-------|-------|
 | HTTP -4130 (açık SL/TP emri çakışması) | 🟡 Precision fix sonrası gözlemlenmeli |
-| FVG_BUFFER_MULT canlı/backtest farkı (0.50 vs 0.25) | 🟡 Bilinçli fark, analiz yaparken dikkat |
+| ~~FVG_BUFFER_MULT canlı/backtest farkı (0.50 vs 0.25)~~ | ✅ Backtest 0.50'ye güncellendi, trailing portu ile uyum tam |
 | ~~Trail prev ID penceresinde WS_FALLBACK~~ | ✅ Fix: `*_order_id_prev` geçiş id'si saklanıyor, WS fill eşleşmesi genişletildi |
 
 ## Test Sonuçları (Backtest — All Coin 2026 Q2)
 
+### Eski (Orijinal SL/TP + trailing)
 | Metrik | Değer |
 |--------|-------|
 | Toplam Trade | 11,355 |
@@ -58,3 +60,14 @@
 | Max DD Aralığı | %5.7 - %19.7 (sembole göre) |
 | LINK WR/DD | %52.7 / %13.6 |
 | DOT WR/DD | %70.2 / %12.0 |
+
+### Yeni (Live bot SL/TP + trailing port)
+| Metrik | Değer |
+|--------|-------|
+| Toplam Trade | 9,529 |
+| Toplam PnL | +1,460,131 USDT |
+| WR Aralığı | %38.3 - %62.4 (sembole göre) |
+| Max DD Aralığı | %2.0 - %19.1 (sembole göre) |
+| BTC WR/DD | %62.4 / %2.0 |
+| LINK WR/DD | %38.3 / %19.1 |
+| DOT WR/DD | %55.9 / %16.4 |

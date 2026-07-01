@@ -19,6 +19,7 @@
 | 5 | **Orphan cleanup geniş** | `reconcile_orphan_orders()` tüm order türlerini temizler (LIMIT dahil). |
 | 6 | **FVG trailing close teyidi** | `_fvg_close_confirmed()` — trailing sadece 15m close'u FVG içinde olan FVG'leri kullanır. |
 | 7 | **Trail prev ID geçiş fix** | `update_trail_orders()` eski SL/TP id'sini `*_order_id_prev` olarak saklar, WS fill eşleşmesi hem güncel hem prev id'leri kontrol eder. CANCELED callback'te prev id'ler sessizce yok sayılır. — WS_FALLBACK sayısını azaltır. |
+| 8 | **Backtest trailing → live bot port** | `analyzer_v3.py` trailing bloğu `_fvg_close_confirmed()` + ATR buffer + TRAIL_MIN_MOVE_MULT + break-even ile güncellendi. `coins_config.py`'a trailing sabitleri eklendi. |
 
 ## Aktif Kararlar
 
@@ -26,14 +27,15 @@
 - **RSM (RetraceStateMachine)**: IDLE → SWEEP_DETECTED → TRIGGER_READY. Sadece 3 state.
 - **Max 1 trade/gün/sembol** (retrade kalktı).
 - **ASIA kapalı**: 22:00-02:00 UTC.
-- **FVG_BUFFER_MULT=0.50**: Canlıda 0.50, backtest'te 0.25.
+- **FVG_BUFFER_MULT=0.50**: Canlı ve backtest artık aynı.
 - **MAX_SL_DIST_MULT=2.0**: FVG bazlı SL max `risk_pts × 2`.
 - **CBDR gövde bazlı (open/close)**: High/low değil.
+- **Backtest trailing live bot ile uyumlu**: `_fvg_close_confirmed()`, ATR buffer (`0.25×ATR`), `TRAIL_MIN_MOVE_MULT=0.2`, break-even (`1R` sonrası SL→entry).
 
 ## Sıradaki / Açık Konular
 
 - Canlı testte `_exit_trade()` cancel_all + reduceOnly flow'un Binance ile çalışması gözlemlenecek.
-- FVG trailing close teyidi sonrası WR değişimi takip edilecek.
+- Backtest trailing port'u sonrası WR/DD değişimi canlı ile karşılaştırılacak.
 - `output/` dizinindeki JSON/JSONL dosyaları `.gitignore` kontrolü.
 - WS_FALLBACK sayısı trail prev ID fix sonrası takip edilecek.
 
