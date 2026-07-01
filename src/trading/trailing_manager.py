@@ -90,6 +90,7 @@ class TrailingManager:
             return TrailResult()
 
         chunk = bars_15m[:-1] if len(bars_15m) > 1 else bars_15m
+        current = bars_15m[-1]  # validation icin son barin kapanisi
         fvgs = detect_fvgs(
             chunk,
             lookback=min(50, len(chunk)),
@@ -119,6 +120,9 @@ class TrailingManager:
 
             if side == "long":
                 new_sl = fvg.bottom - atr_buffer
+                # Immidiate trigger korumasi: yeni SL current.close'un altinda olmali
+                if new_sl >= current.close:
+                    continue
                 if (
                     new_sl > current_sl
                     and (new_sl - current_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
@@ -130,6 +134,9 @@ class TrailingManager:
                     updated = True
             else:
                 new_sl = fvg.top + atr_buffer
+                # Immidiate trigger korumasi: yeni SL current.close'un ustunde olmali
+                if new_sl <= current.close:
+                    continue
                 if (
                     new_sl < current_sl
                     and (current_sl - new_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
