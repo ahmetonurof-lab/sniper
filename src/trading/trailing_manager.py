@@ -29,7 +29,9 @@ class ExitDecision:
 
 class TrailingManager:
     @staticmethod
-    def evaluate_break_even(current: Bar, trade: dict) -> TrailResult:
+    def evaluate_break_even(
+        current: Bar, trade: dict, bar_index_15m: int
+    ) -> TrailResult:
         if trade.get("trailing_count", 0) > 0:
             return TrailResult()
         side = trade["side"]
@@ -50,7 +52,7 @@ class TrailingManager:
                 "tp": round(trade["tp"], 6),
                 "fvg_top": None,
                 "fvg_bot": None,
-                "bar": current.index,
+                "bar": bar_index_15m,
             }
         )
         log.info("[BE] %s SL->%.2f (1R=%.4f)", side, be_sl, threshold)

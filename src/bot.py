@@ -351,7 +351,12 @@ class PaperTrader:
             await self.recovery_manager.reconcile_orphan_orders()
 
         # ── Break-Even (trail_count=0 iken SL->entry) ──
-        be_result = TrailingManager.evaluate_break_even(current, trade)
+        bars_15m = self.hub.get_bars(sym, "15m")
+        be_result = TrailingManager.evaluate_break_even(
+            current,
+            trade,
+            bars_15m[-1].index if bars_15m else trade.get("entry_bar_index", 0),
+        )
         if be_result.updated:
             old_sl = trade["sl"]
             old_tp = trade["tp"]
@@ -366,7 +371,6 @@ class PaperTrader:
                 trade["trailing_count"] = old_tc
 
         # ── FVG Trailing → TrailingManager (ATR bazlı buffer) ──
-        bars_15m = self.hub.get_bars(sym, "15m")
         if bars_15m:
             trail_result = TrailingManager.evaluate_trail(
                 bars_15m,
@@ -571,6 +575,7 @@ class PaperTrader:
             fvg_bottom=getattr(fvg, "bottom", None) if fvg else None,
             fvg_direction=getattr(fvg, "direction", None) if fvg else None,
             fvg_bar_index=fvg.bar_index if fvg else -1,
+            sweep_level=ss.sweep_level,
             sl_order_id=sl_id
             if (cfg.BINANCE_API_KEY and getattr(self, "_live", False))
             else "",
@@ -586,7 +591,7 @@ class PaperTrader:
                 "fvg_top": getattr(fvg, "top", None) if fvg else None,
                 "fvg_bottom": getattr(fvg, "bottom", None) if fvg else None,
                 "fvg_direction": getattr(fvg, "direction", None) if fvg else None,
-                "fvg_bar_index": max(0, current.index - 3) if fvg else -1,
+                "fvg_bar_index": fvg.bar_index if fvg else -1,
             },
         )
         mark_trade_opened(sym, entry_price)

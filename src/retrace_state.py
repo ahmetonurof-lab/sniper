@@ -125,9 +125,26 @@ class RetraceStateMachine:
         logger.info(f"[RST] SWEEP_DETECTED | dir={direction} level={level:.2f}")
 
     def on_sweep_confirmed(self, bars_15m: list[Bar], sweep_bar: Bar):
-        """Sweep onaylandiginda aninda FVG taramasi + wick rejection."""
+        """Sweep onaylandiginda FVG taramasi + govde-ici kapanis onayi."""
         if self.state != RetraceState.SWEEP_DETECTED:
             return
+
+        last = sweep_bar
+
+        # ── Sweep invalidation: likidite okumasi ters yonde kirilirsa TAM reset ──
+        if self.sweep_level is not None:
+            if self.direction == "bullish" and last.close < self.sweep_level:
+                logger.info(
+                    f"[RST] SWEEP INVALID | close={last.close:.2f} < sweep={self.sweep_level:.2f} -> IDLE"
+                )
+                self.reset()
+                return
+            if self.direction == "bearish" and last.close > self.sweep_level:
+                logger.info(
+                    f"[RST] SWEEP INVALID | close={last.close:.2f} > sweep={self.sweep_level:.2f} -> IDLE"
+                )
+                self.reset()
+                return
 
         htf_fvgs = scan_htf_fvgs(
             bars_15m,
@@ -136,12 +153,7 @@ class RetraceStateMachine:
             max_wick_ratio=self._max_wick_ratio,
         )
         if not htf_fvgs:
-            self.reset()
-            return
-
-        last = sweep_bar
-        min(last.open, last.close)
-        max(last.open, last.close)
+            return  # sweep hala gecerli, bir sonraki bar'i bekle — RESET YOK
 
         for fvg in reversed(htf_fvgs):
             if fvg.direction != self.direction:
@@ -152,26 +164,18 @@ class RetraceStateMachine:
             if self.direction == "bullish":
                 wick_touched = last.low <= fvg.top
                 body_broke_down = last.close < fvg.bottom
-                if wick_touched and not body_broke_down:
-                    if not fvg_close_confirmed(
-                        fvg.direction, fvg.top, fvg.bottom, fvg.bar_index, bars_15m
-                    ):
-                        continue
-                    self.state = RetraceState.TRIGGER_READY
-                    self.trigger_fvg = fvg
-                    self._mark_sweep_used()
-                    return
             else:
                 wick_touched = last.high >= fvg.bottom
-                body_broke_up = last.close > fvg.top
-                if wick_touched and not body_broke_up:
-                    if not fvg_close_confirmed(
-                        fvg.direction, fvg.top, fvg.bottom, fvg.bar_index, bars_15m
-                    ):
-                        continue
-                    self.state = RetraceState.TRIGGER_READY
-                    self.trigger_fvg = fvg
-                    self._mark_sweep_used()
-                    return
+                body_broke_down = last.close > fvg.top
 
-        self.reset()
+            if wick_touched and not body_broke_down:
+                if not fvg_close_confirmed(
+                    fvg.direction, fvg.top, fvg.bottom, fvg.bar_index, bars_15m
+                ):
+                    continue
+                self.state = RetraceState.TRIGGER_READY
+                self.trigger_fvg = fvg
+                self._mark_sweep_used()
+                return
+
+        return  # bu bar'da hicbir FVG tetiklenmedi — SWEEP_DETECTED'de kal, reset YOK
