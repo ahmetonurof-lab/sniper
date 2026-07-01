@@ -457,6 +457,7 @@ class PaperTrader:
         side = "long" if sweep_dir == "bullish" else "short"
         entry_price = current.close
         risk_pts = atr_val * sl_atr
+        fvg = rsm.trigger_fvg
 
         sl, tp = EntryManager.calculate_sl_tp(
             side=side,
@@ -556,7 +557,6 @@ class PaperTrader:
         # şu an race condition teorik. Eğer ActiveTrade.__init__ asenkron
         # olursa bu window kapatılmalı (PendingLock atomic blok genişletilmeli).
         # ── 3. BAŞARILI KAYIT (PENDING ÜZERİNE YAZ) ──
-        fvg = rsm.trigger_fvg
 
         self.active_trades[sym] = ActiveTrade(
             symbol=sym,
@@ -576,6 +576,8 @@ class PaperTrader:
             fvg_direction=getattr(fvg, "direction", None) if fvg else None,
             fvg_bar_index=fvg.bar_index if fvg else -1,
             sweep_level=ss.sweep_level,
+            cbdr_high=ss.cbdr_body_high,
+            cbdr_low=ss.cbdr_body_low,
             sl_order_id=sl_id
             if (cfg.BINANCE_API_KEY and getattr(self, "_live", False))
             else "",

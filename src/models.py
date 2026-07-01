@@ -344,6 +344,8 @@ class ActiveTrade:
     fvg_direction: str | None = None
     fvg_bar_index: int = -1
     sweep_level: float | None = None
+    cbdr_high: float | None = None
+    cbdr_low: float | None = None
     upnl: float | None = None
     status: str = ""
 
