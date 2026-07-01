@@ -100,9 +100,9 @@ class OrderManager:
         except Exception as e:
             log.warning("[TRAIL] %s TP place hatasi: %s -> eski TP korunuyor", sym, e)
 
-        # ── 3. SADECE BAŞARILI OLANLARI STATE'E YAZ VE ESKİLERİ SİL (FIX #1) ──
+        # ── 3. SADECE BAŞARILI OLANLARI STATE'E YAZ (FIX #1) ──
         if sl_ok:
-            # Eski id'yi hemen silme — WS fill'i eski id ile gelebilir
+            # Eski id'yi hemen silme — WS fill'i REST cancel'dan sonra gelebilir
             trade["sl_order_id_prev"] = old_sl_id
             trade["sl_order_id"] = new_sl_id
             if old_sl_id:
@@ -117,9 +117,9 @@ class OrderManager:
                         old_sl_id,
                         e,
                     )
-                finally:
-                    # İptal denemesi bitti (başarılı ya da başarısız), artık eski id devre dışı
-                    trade["sl_order_id_prev"] = ""
+            # FINALLY KALDIRILDI: prev ID bir sonraki trailing adimina kadar kalir.
+            # Cancel basarisizsa WS fill'i prev ID ile eslesir; basariliysa zaten
+            # eski emir borsada yok, WS mesaji gelmez. Temizlemek gereksiz ve riskli.
 
         if tp_ok:
             trade["tp_order_id_prev"] = old_tp_id
@@ -136,8 +136,7 @@ class OrderManager:
                         old_tp_id,
                         e,
                     )
-                finally:
-                    trade["tp_order_id_prev"] = ""
+            # FINALLY KALDIRILDI — ayni sebeple.
 
         if not (sl_ok and tp_ok):
             log.warning(
