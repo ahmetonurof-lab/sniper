@@ -392,6 +392,15 @@ class PaperTrader:
                     trade["tp"] = old_tp
                     trade["trailing_count"] = old_trailing_count
 
+            elif trail_result.exit_now:
+                log.info("[TRAIL] %s trailing FVG kirildi -> aninda market close", sym)
+                trade["exit_price"] = current.close
+                trade["exit_bar"] = current.index
+                trade["exit_timestamp"] = current.timestamp
+                trade["result"] = "TRAIL_CLOSE"
+                await self._exit_trade(sym, trade, current.timestamp)
+                return
+
         # ── Exit kontrolü → TrailingManager ──
         exit_decision = TrailingManager.check_exit(current, trade)
         if exit_decision.triggered:
@@ -557,7 +566,7 @@ class PaperTrader:
             fvg_top=getattr(fvg, "top", None) if fvg else None,
             fvg_bottom=getattr(fvg, "bottom", None) if fvg else None,
             fvg_direction=getattr(fvg, "direction", None) if fvg else None,
-            fvg_bar_index=max(0, current.index - 3) if fvg else -1,
+            fvg_bar_index=fvg.bar_index if fvg else -1,
             sl_order_id=sl_id
             if (cfg.BINANCE_API_KEY and getattr(self, "_live", False))
             else "",

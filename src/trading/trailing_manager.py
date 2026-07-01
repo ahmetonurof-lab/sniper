@@ -17,6 +17,7 @@ class TrailResult:
     new_sl: float = 0.0
     new_tp: float = 0.0
     trail_count: int = 0
+    exit_now: bool = False
 
 
 @dataclass
@@ -120,9 +121,9 @@ class TrailingManager:
 
             if side == "long":
                 new_sl = fvg.bottom - atr_buffer
-                # Immidiate trigger korumasi: yeni SL current.close'un altinda olmali
+                # FVG kirildi — price new_sl seviyesini coktan gecti, trade bitmis
                 if new_sl >= current.close:
-                    continue
+                    return TrailResult(exit_now=True)
                 if (
                     new_sl > current_sl
                     and (new_sl - current_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
@@ -134,9 +135,9 @@ class TrailingManager:
                     updated = True
             else:
                 new_sl = fvg.top + atr_buffer
-                # Immidiate trigger korumasi: yeni SL current.close'un ustunde olmali
+                # FVG kirildi — price new_sl seviyesini coktan gecti, trade bitmis
                 if new_sl <= current.close:
-                    continue
+                    return TrailResult(exit_now=True)
                 if (
                     new_sl < current_sl
                     and (current_sl - new_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
