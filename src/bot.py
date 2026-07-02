@@ -208,7 +208,9 @@ class PaperTrader:
                 "FVG_BUFFER_MULT": cfg.FVG_BUFFER_MULT,
             }
             self.states[sym] = SessionState()
-            self.rsms[sym] = RetraceStateMachine(min_fvg_size=min_fvg)
+            self.rsms[sym] = RetraceStateMachine(
+                min_fvg_size=min_fvg, max_wick_ratio=cfg.FVG_WICK_RATIO_MAX
+            )
             self.signal_engines[sym] = SignalEngine(self.rsms[sym])
 
     def _pl(self, sym: str, key: str, msg: str, force: bool = False):
@@ -369,7 +371,6 @@ class PaperTrader:
                 trade,
                 atr_val,
                 min_fvg,
-                max_wick_ratio=cfg.FVG_WICK_RATIO_MAX,
             )
 
             if trail_result.updated:

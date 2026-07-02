@@ -97,23 +97,6 @@ class SignalEngine:
             self.rsm.reset()
             return EvalResult(decision="SKIP", reason="bar_not_closed")
 
-        # Wick ratio guard — sweep mumu fitil orani > 0.90 olmali
-        total_range = current.high - current.low
-        if total_range > 0:
-            if self.rsm.direction == "bullish":
-                wick_ratio = current.lower_wick / total_range
-            else:
-                wick_ratio = current.upper_wick / total_range
-            if wick_ratio <= 0.90:
-                log.info(
-                    "[SKIP] trigger — wick_ratio=%.3f <= 0.90, atlandi (rsm reset)",
-                    wick_ratio,
-                )
-                self.rsm.reset()
-                return EvalResult(
-                    decision="SKIP", reason=f"wick_ratio_{wick_ratio:.3f}"
-                )
-
         # Bias filter (analyzer.py ile aynı)
         if self.rsm.direction == "bullish" and ss.daily_bias == DailyBias.BEARISH:
             log.info("[SKIP] bullish trigger — bias BEARISH, atlandi (rsm reset)")
