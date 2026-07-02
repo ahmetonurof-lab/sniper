@@ -35,16 +35,23 @@ class OrderManager:
 
     # ── Trailing SL/TP güncelleme ─────────────────────────────
 
-    async def update_trail_orders(self, sym: str, trade: dict) -> bool:
+    async def update_trail_orders(
+        self, sym: str, trade: dict, new_sl: float, new_tp: float, new_trail_count: int
+    ) -> bool:
         """Trailing sonrası SL/TP emirlerini güncelle.
 
-        Orijinal _update_orders() ile birebir aynı mantık.
-        Başarılıysa trade["sl_order_id"] / trade["tp_order_id"] güncellenir.
+        Başarılıysa trade sözlüğündeki ilgili alanlar güncellenir.
 
-        Returns: True if both SL and TP updated successfully.
+        Returns: True if at least one order (SL or TP) was updated successfully.
         """
         if not cfg.BINANCE_API_KEY or not self._is_live:
+            trade["sl"] = new_sl
+            trade["tp"] = new_tp
+            trade["trailing_count"] = new_trail_count
             return True
+
+        new_sl = await self._rest.apply_price_precision(sym, new_sl)
+        new_tp = await self._rest.apply_price_precision(sym, new_tp)
 
         sl_side = "SELL" if trade["side"] == "long" else "BUY"
         qty = trade.get("qty", trade.get("lot", 0))
@@ -60,7 +67,7 @@ class OrderManager:
         # ── 1. YENİ SL EMRİNİ AT (ESKİYİ HENÜZ SİLME) ──
         try:
             sl_resp = await self._rest.place_stop_order(
-                sym, sl_side, qty, trade["sl"], client_id=f"sl_{sym}_{int(time.time())}"
+                sym, sl_side, qty, new_sl, client_id=f"sl_{sym}_{int(time.time())}"
             )
             new_sl_id = extract_order_id(sl_resp)
             if new_sl_id:
@@ -70,7 +77,7 @@ class OrderManager:
                     "sl_reject",
                     sym,
                     side=trade["side"],
-                    sl_price=trade["sl"],
+                    sl_price=new_sl,
                     old_id=old_sl_id,
                 )
                 log.warning(
@@ -83,7 +90,7 @@ class OrderManager:
         # ── 2. YENİ TP EMRİNİ AT ──
         try:
             tp_resp = await self._rest.place_tp_order(
-                sym, sl_side, qty, trade["tp"], client_id=f"tp_{sym}_{int(time.time())}"
+                sym, sl_side, qty, new_tp, client_id=f"tp_{sym}_{int(time.time())}"
             )
             new_tp_id = extract_order_id(tp_resp)
             if new_tp_id:
@@ -93,7 +100,7 @@ class OrderManager:
                     "tp_reject",
                     sym,
                     side=trade["side"],
-                    tp_price=trade["tp"],
+                    tp_price=new_tp,
                     old_id=old_tp_id,
                 )
                 log.warning("[TRAIL] %s TP reject -> eski TP korunuyor", sym)
@@ -103,6 +110,7 @@ class OrderManager:
         # ── 3. SADECE BAŞARILI OLANLARI STATE'E YAZ (FIX #1) ──
         if sl_ok:
             # Eski id'yi hemen silme — WS fill'i REST cancel'dan sonra gelebilir
+            trade["sl"] = new_sl
             trade["sl_order_id_prev"] = old_sl_id
             trade["sl_order_id"] = new_sl_id
             if old_sl_id:
@@ -122,6 +130,7 @@ class OrderManager:
             # eski emir borsada yok, WS mesaji gelmez. Temizlemek gereksiz ve riskli.
 
         if tp_ok:
+            trade["tp"] = new_tp
             trade["tp_order_id_prev"] = old_tp_id
             trade["tp_order_id"] = new_tp_id
             if old_tp_id:
@@ -138,21 +147,25 @@ class OrderManager:
                     )
             # FINALLY KALDIRILDI — ayni sebeple.
 
+        if sl_ok or tp_ok:
+            trade["trailing_count"] = new_trail_count
+
         if not (sl_ok and tp_ok):
             log.warning(
-                "[TRAIL] %s trailing kismen/tamamen basarisiz (sl=%s, tp=%s) -> eski ID'ler korundu",
+                "[TRAIL] %s trailing kismen/tamamen basarisiz (sl=%s, tp=%s)",
                 sym,
                 sl_ok,
                 tp_ok,
             )
-            return False
+            if not sl_ok and not tp_ok:
+                return False
 
         log.info(
             "[ORDER] %s trailing guncellendi sl=%.2f (id=%s) tp=%.2f (id=%s)",
             sym,
-            trade["sl"],
+            trade.get("sl", 0.0),
             new_sl_id,
-            trade["tp"],
+            trade.get("tp", 0.0),
             new_tp_id,
         )
         return True

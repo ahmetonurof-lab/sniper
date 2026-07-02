@@ -12,7 +12,8 @@ cline/
 sniper/
 
 # Output (runtime data, no tracking)
-output/
+output/*
+!output/nexus_dashboard.html
 
 # Cache
 .ruff_cache/

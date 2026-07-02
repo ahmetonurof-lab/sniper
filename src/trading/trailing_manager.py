@@ -88,7 +88,6 @@ class TrailingManager:
         trade: dict,
         atr_val: float,
         min_fvg_size: float,
-        max_wick_ratio: float = 1.0,
     ) -> TrailResult:
         if not bars_15m or len(bars_15m) <= 1:
             return TrailResult()
@@ -100,7 +99,6 @@ class TrailingManager:
             lookback=min(50, len(chunk)),
             timeframe="15m",
             min_fvg_size=min_fvg_size,
-            max_wick_ratio=max_wick_ratio,
         )
 
         side = trade["side"]

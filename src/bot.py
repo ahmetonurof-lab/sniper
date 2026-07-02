@@ -358,17 +358,9 @@ class PaperTrader:
             bars_15m[-1].index if bars_15m else trade.get("entry_bar_index", 0),
         )
         if be_result.updated:
-            old_sl = trade["sl"]
-            old_tp = trade["tp"]
-            old_tc = trade["trailing_count"]
-            trade["sl"] = be_result.new_sl
-            trade["tp"] = be_result.new_tp
-            trade["trailing_count"] = be_result.trail_count
-            success = await self.order_manager.update_trail_orders(sym, trade)
-            if not success:
-                trade["sl"] = old_sl
-                trade["tp"] = old_tp
-                trade["trailing_count"] = old_tc
+            await self.order_manager.update_trail_orders(
+                sym, trade, be_result.new_sl, be_result.new_tp, be_result.trail_count
+            )
 
         # ── FVG Trailing → TrailingManager (ATR bazlı buffer) ──
         if bars_15m:
@@ -381,24 +373,13 @@ class PaperTrader:
             )
 
             if trail_result.updated:
-                # FIX #2: Rollback için eski değerleri yedekle
-                old_sl = trade["sl"]
-                old_tp = trade["tp"]
-                old_trailing_count = trade["trailing_count"]
-
-                trade["sl"] = trail_result.new_sl
-                trade["tp"] = trail_result.new_tp
-                trade["trailing_count"] = trail_result.trail_count
-
-                success = await self.order_manager.update_trail_orders(sym, trade)
-                if not success:
-                    log.warning(
-                        "[TRAIL] %s UPDATE FAIL -> in-memory SL/TP rollback yapiliyor",
-                        sym,
-                    )
-                    trade["sl"] = old_sl
-                    trade["tp"] = old_tp
-                    trade["trailing_count"] = old_trailing_count
+                await self.order_manager.update_trail_orders(
+                    sym,
+                    trade,
+                    trail_result.new_sl,
+                    trail_result.new_tp,
+                    trail_result.trail_count,
+                )
 
             elif trail_result.exit_now:
                 log.info("[TRAIL] %s trailing FVG kirildi -> aninda market close", sym)
@@ -496,41 +477,41 @@ class PaperTrader:
             rsm.reset()
             return
 
-        sl_id = ""
-        tp_id = ""
-        if cfg.BINANCE_API_KEY and getattr(self, "_live", False):
-            assert self.entry_manager is not None
-            exec_result = await self.entry_manager.execute_live_entry(
-                sym,
-                side,
-                qty,
-                sl,
-                tp,
-                entry_price,
-                balance=self._available_balance,
-                leverage=cfg.LEVERAGE,
-            )
-            if not exec_result.success:
-                self._pl(sym, "order_err", f"\u274c ORDER: {exec_result.error}")
-                log.warning(
-                    "[ORDER] %s %s — trade kaydedilmedi", sym, exec_result.error
-                )
-                rsm.reset()
-                return
-            sl_id = exec_result.sl_order_id
-            tp_id = exec_result.tp_order_id
-            qty = exec_result.qty
-            if exec_result.entry_log_msg:
-                self._pl(sym, "entry", exec_result.entry_log_msg)
-        else:
-            assert self.entry_manager is not None
-            paper_result = await self.entry_manager.execute_live_entry(
-                sym, side, qty, sl, tp, entry_price
-            )
-            if paper_result.entry_log_msg:
-                self._pl(sym, "entry", paper_result.entry_log_msg)
-
         with PendingLock(self.active_trades, sym, logger=log) as lock:
+            sl_id = ""
+            tp_id = ""
+            if cfg.BINANCE_API_KEY and getattr(self, "_live", False):
+                assert self.entry_manager is not None
+                exec_result = await self.entry_manager.execute_live_entry(
+                    sym,
+                    side,
+                    qty,
+                    sl,
+                    tp,
+                    entry_price,
+                    balance=self._available_balance,
+                    leverage=cfg.LEVERAGE,
+                )
+                if not exec_result.success:
+                    self._pl(sym, "order_err", f"\u274c ORDER: {exec_result.error}")
+                    log.warning(
+                        "[ORDER] %s %s — trade kaydedilmedi", sym, exec_result.error
+                    )
+                    rsm.reset()
+                    return
+                sl_id = exec_result.sl_order_id
+                tp_id = exec_result.tp_order_id
+                qty = exec_result.qty
+                if exec_result.entry_log_msg:
+                    self._pl(sym, "entry", exec_result.entry_log_msg)
+            else:
+                assert self.entry_manager is not None
+                paper_result = await self.entry_manager.execute_live_entry(
+                    sym, side, qty, sl, tp, entry_price
+                )
+                if paper_result.entry_log_msg:
+                    self._pl(sym, "entry", paper_result.entry_log_msg)
+
             log.info(
                 "[PAPER] %s %s @ %.2f sl=%.2f tp=%.2f qty=%.4f",
                 sym,
@@ -601,7 +582,8 @@ class PaperTrader:
         rsm.reset()
 
     async def _exit_trade(self, sym, trade, exit_timestamp: int):
-        if sym not in self.active_trades:
+        trade = self.active_trades.pop(sym, None)
+        if not trade:
             log.warning("[EXIT] %s zaten kapali, ikinci exit engellendi", sym)
             return
 
@@ -747,7 +729,6 @@ class PaperTrader:
                 f.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
         except Exception:
             log.warning("[TRADES] %s jsonl yazma hatasi", sym)
-        self.active_trades.pop(sym, None)
         mark_trade_closed(sym)
 
         # ── Sweep consumption mark — aynı level sweep tekrar tetiklenmesin ──
