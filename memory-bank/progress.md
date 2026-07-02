@@ -39,6 +39,7 @@
 | Trailing partial success | ✅ `sl_ok or tp_ok` → `trailing_count` güncellenir, tek başarısızlıkta `False` dönme kaldırıldı |
 | _exit_trade active_trades.pop | ✅ `pop` fonksiyon başına taşındı — atomik guard + çift exit koruması |
 | max_wick_ratio kaldırıldı | ✅ `evaluate_trail()` + `find_fvgs()` çağrısından silindi |
+| Wick ratio guard doğru katmana | ✅ signal_engine'dan silindi, RSM init'e `max_wick_ratio=0.90` eklendi — FVG tespitinde impulse bar kontrolü |
 
 ## Kalan İşler 🔧
 
