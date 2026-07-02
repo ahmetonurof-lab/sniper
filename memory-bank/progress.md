@@ -35,6 +35,10 @@
 | Sweep level ActiveTrade | ✅ `sweep_level` field + `_try_entry()` beslemesi |
 | on_sweep_confirmed rewrite | ✅ sweep invalidation gate + no reset on no-FVG + no unconditional reset |
 | output/ gitignore | ✅ exception'lar kaldırıldı, indexten çıkarıldı |
+| update_trail_orders signature | ✅ `new_sl/tp/trail_count` param + paper mod güncellemesi + `apply_price_precision` içe taşındı |
+| Trailing partial success | ✅ `sl_ok or tp_ok` → `trailing_count` güncellenir, tek başarısızlıkta `False` dönme kaldırıldı |
+| _exit_trade active_trades.pop | ✅ `pop` fonksiyon başına taşındı — atomik guard + çift exit koruması |
+| max_wick_ratio kaldırıldı | ✅ `evaluate_trail()` + `find_fvgs()` çağrısından silindi |
 
 ## Kalan İşler 🔧
 
