@@ -151,6 +151,55 @@ def normalize_trade(trade: dict) -> dict:
 # ─────────────────────────────────────────────
 
 
+def _resolve_fvg_bar_index(
+    candles: list[dict],
+    entry_bar: int,
+    fvg_obj,
+    trade: dict,
+    fvg_top: float | None,
+    fvg_bottom: float | None,
+) -> int:
+    """
+    FVG marker'in hangi bar'a konulacağını belirler.
+
+    Öncelik sırası (en güvenilirden en zayıfa):
+    1. OHLC verisinde fiyat aralığına göre bul (restart-proof, her zaman doğru)
+    2. trigger_fvg objesinin bar_index'i + entry_bar offset (normal canlı trade)
+    3. trade dict'inden fvg_bar_index + entry_bar offset (restart senaryosu)
+    4. Varsayılan heuristic: entry'den 2 bar önce
+
+    NOT: Fiyat bazlı arama (1) restart sonrası bar indeksleri sıfırlansa bile
+    doğru çalışır. Bar offset (2-3) sadece aynı bars_15m array'i kullanılırken
+    geçerlidir — restart sonrası indeksler anlamsızlaşır.
+    """
+    # 1. Fiyat aralığına göre bul (restart-proof)
+    if fvg_top is not None and fvg_bottom is not None:
+        lo = min(fvg_top, fvg_bottom)
+        hi = max(fvg_top, fvg_bottom)
+        for i, c in enumerate(candles):
+            if c["high"] >= lo and c["low"] <= hi:
+                return i
+
+    # 2. trigger_fvg objesinin bar_index'inden dene
+    abs_fvg_bar = None
+    if fvg_obj is not None:
+        abs_fvg_bar = getattr(fvg_obj, "bar_index", None)
+    if abs_fvg_bar is None:
+        abs_fvg_bar = trade.get("fvg_bar_index")
+
+    if abs_fvg_bar is not None:
+        entry_bar_idx_abs = trade.get("entry_bar_index")
+        if entry_bar_idx_abs is not None and entry_bar_idx_abs > 0:
+            rel = entry_bar + (abs_fvg_bar - entry_bar_idx_abs)
+            if 0 <= rel < len(candles):
+                return rel
+
+    # 3. Varsayılan heuristic
+    if entry_bar >= 2:
+        return max(0, entry_bar - 2)
+    return 0
+
+
 def capture_snapshot(
     sym: str,
     trade: dict,
@@ -201,13 +250,11 @@ def capture_snapshot(
     fvg_direction = None
     fvg_top = None
     fvg_bottom = None
-    fvg_bar_index = -1
 
     if fvg is not None:
         fvg_direction = getattr(fvg, "direction", None)
         fvg_top = getattr(fvg, "top", None)
         fvg_bottom = getattr(fvg, "bottom", None)
-        fvg_bar_index = max(0, entry_bar - 3)
 
     fvg_top = fvg_top or trade.get("fvg_top")
     fvg_bottom = fvg_bottom or trade.get("fvg_bottom")
@@ -215,14 +262,9 @@ def capture_snapshot(
         fvg_direction or trade.get("fvg_direction") or trade.get("sweep_direction")
     )
 
-    # fvg_bar_index: eğer trade'den gelen mutlak indeks varsa relative'e çevir
-    raw_fvg_bar = trade.get("fvg_bar_index")
-    if raw_fvg_bar is not None:
-        rel = entry_bar + (raw_fvg_bar - trade.get("entry_bar_index", raw_fvg_bar))
-        if 0 <= rel < len(candles):
-            fvg_bar_index = rel
-    elif fvg_bar_index == -1 and entry_bar >= 2:
-        fvg_bar_index = max(0, entry_bar - 2)  # varsayılan: entry'den 2 bar önce
+    fvg_bar_index = _resolve_fvg_bar_index(
+        candles, entry_bar, fvg, trade, fvg_top, fvg_bottom
+    )
 
     # CBDR
     cbdr_high = (

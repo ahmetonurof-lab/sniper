@@ -21,7 +21,9 @@ log = logging.getLogger("sniper.state")
 
 # ── Dosya konumları ────────────────────────────────────────────────
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-_OUTPUT_DIR = os.path.join(_SCRIPT_DIR, "..", "output")
+_OUTPUT_DIR = os.environ.get("SNIPER_OUTPUT_DIR") or os.path.join(
+    _SCRIPT_DIR, "..", "output"
+)
 os.makedirs(_OUTPUT_DIR, exist_ok=True)
 
 STATE_FILE = os.path.join(_OUTPUT_DIR, "trade_state.json")

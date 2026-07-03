@@ -63,6 +63,33 @@ body{background:#0d1117;font-family:'Courier New',monospace;color:#c9d1d9;overfl
 <script>
 const DATA = __DATA__;
 
+// ── FVG consistency check ─────────────────────────────────────────────────
+(function() {
+  const bi = DATA.fvgBarIndex;
+  const ft = DATA.fvgTop;
+  const fb = DATA.fvgBottom;
+  const cc = DATA.candles;
+  if (bi != null && bi >= 0 && ft != null && fb != null && cc && cc[bi]) {
+    const bar = cc[bi];
+    const barRange = Math.abs(bar.high - bar.low);
+    if (barRange > 0) {
+      const fvgMid = (ft + fb) / 2;
+      const dist = Math.min(Math.abs(bar.high - fvgMid), Math.abs(bar.low - fvgMid));
+      if (dist > barRange * 8) {
+        const warn = document.createElement('div');
+        warn.id = 'fvg-warn';
+        warn.textContent = '⚠ FVG konum uyuşmazlığı — bar fiyatı ile FVG aralığı örtüşmüyor';
+        Object.assign(warn.style, {
+          position:'absolute', top:'0', left:'0', right:'0', zIndex:'99',
+          background:'#da3633', color:'#fff', fontSize:'12px', fontWeight:'700',
+          textAlign:'center', padding:'4px 10px', fontFamily:'monospace',
+        });
+        document.getElementById('header')?.after(warn);
+      }
+    }
+  }
+})();
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 const fmt    = n => n == null ? '—' : Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4});
 const pnlFmt = n => (n >= 0 ? '+' : '') + Number(n).toFixed(2) + '%';
