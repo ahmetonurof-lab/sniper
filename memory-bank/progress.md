@@ -59,6 +59,7 @@
 | ~~FVG_BUFFER_MULT canlı/backtest farkı (0.50 vs 0.25)~~ | ✅ Backtest 0.50'ye güncellendi, trailing portu ile uyum tam |
 | ~~Trail prev ID penceresinde WS_FALLBACK~~ | ✅ Fix: `*_order_id_prev` geçiş id'si saklanıyor, WS fill eşleşmesi genişletildi |
 | ~~SOLUSDT FVG bar index restart bug~~ | ✅ `_resolve_fvg_bar_index()` fiyat bazlı arama öncelikli yapıldı. Restart sonrası bar indeksleri sıfırlandığında offset formülü (~81 FVG'yi ~77-78 barına işaret ediyordu). |
+| ~~console_reporter SyntaxError~~ | ✅ `display_fvg_status()` TRIGGER_READY bloğu indent fix — elif artık if'siz kalmıyor. |
 
 ## Test Sonuçları (Backtest — All Coin 2026 Q2)
 

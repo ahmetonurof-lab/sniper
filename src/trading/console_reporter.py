@@ -194,7 +194,7 @@ class ConsoleReporter:
             self.emit(
                 sym,
                 "st_fvg",
-                f"\U0001f7e9 FVG_SCAN | MIN_SIZE: {min_fvg} | FVG:[{tfvg.bottom:.2f} - {tfvg.top:.2f}] | \u2705 HAZIR",
+                f"\U0001f7e9 FVG_SCAN | MIN_SIZE: {min_fvg:.6f} | FVG:[{tfvg.bottom:.2f} - {tfvg.top:.2f}] | \u2705 HAZIR",
                 force=True,
             )
             self.emit(
@@ -209,7 +209,7 @@ class ConsoleReporter:
             self.emit(
                 sym,
                 "st_fvg",
-                f"\U0001f7e8 FVG_SCAN | MIN_SIZE: {min_fvg} | FVG ARANIYOR...",
+                f"\U0001f7e8 FVG_SCAN | MIN_SIZE: {min_fvg:.6f} | FVG ARANIYOR...",
                 force=True,
             )
             self.clear_state(sym, "st_wck")
@@ -217,7 +217,7 @@ class ConsoleReporter:
             self.emit(
                 sym,
                 "st_fvg",
-                f"\U0001f7e8 FVG_SCAN | MIN_SIZE: {min_fvg} | FVG BULUNAMADI",
+                f"\U0001f7e8 FVG_SCAN | MIN_SIZE: {min_fvg:.6f} | FVG BULUNAMADI",
                 force=True,
             )
             self.clear_state(sym, "st_wck")
