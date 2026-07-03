@@ -189,6 +189,11 @@ class PaperTrader:
             rest_client=self.rest,
             is_live=bool(cfg.BINANCE_API_KEY),
         )
+        # ── Gerçek Wilder's ATR rolling state (sembol bazlı) ──
+        # TANIM: RecoveryManager'dan ÖNCE gelmeli (atr_state parametresi)
+        self._atr_state: dict[str, float] = {}
+        self._atr_prev_close: dict[str, float] = {}
+        self._orphan_check_counter = 0
         self.recovery_manager = RecoveryManager(
             rest_client=self.rest,
             symbols=self.symbols,
@@ -199,10 +204,6 @@ class PaperTrader:
             order_manager=self.order_manager,
             atr_state=self._atr_state,
         )
-        self._orphan_check_counter = 0
-        # ── Gerçek Wilder's ATR rolling state (sembol bazlı) ──
-        self._atr_state: dict[str, float] = {}  # güncel ATR değeri
-        self._atr_prev_close: dict[str, float] = {}  # TR hesabı için önceki kapanış
 
         for sym in self.symbols:
             min_fvg = cfg.FVG_SIZE_MAP.get(sym, 0.5)
@@ -356,13 +357,12 @@ class PaperTrader:
         if not trade:
             return
 
-        sym_cfg = self.cfgs[sym]
-        min_fvg = sym_cfg["MIN_FVG_SIZE"]
         current = bars_1m[-1]
         # 1m'de ATR güncellenmez — son 15m ATR'si okunur
         atr_val = self._atr_state.get(
             sym, max(current.range, current.close * cfg.DEFAULT_ATR_FALLBACK_PCT)
         )
+        min_fvg = max(atr_val * cfg.FVG_MIN_SIZE_ATR_MULT, 1e-8)
 
         self._orphan_check_counter += 1
         if self._orphan_check_counter % 5 == 0:
