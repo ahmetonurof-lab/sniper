@@ -18,6 +18,7 @@ from datetime import UTC, datetime, timezone, timedelta
 import config as cfg
 from bot_binance import BinanceRESTClient
 from bot_infra import _close_ohlc_writers, _RateLimiter
+from indicators import calculate_true_range, update_atr
 from models import ActiveTrade, Bar, PendingLock, Result
 from retrace_state import RetraceStateMachine
 from session import SessionState
@@ -196,8 +197,12 @@ class PaperTrader:
             active_trades=self.active_trades,
             pl_callback=self._pl,
             order_manager=self.order_manager,
+            atr_state=self._atr_state,
         )
         self._orphan_check_counter = 0
+        # ── Gerçek Wilder's ATR rolling state (sembol bazlı) ──
+        self._atr_state: dict[str, float] = {}  # güncel ATR değeri
+        self._atr_prev_close: dict[str, float] = {}  # TR hesabı için önceki kapanış
 
         for sym in self.symbols:
             min_fvg = cfg.FVG_SIZE_MAP.get(sym, 0.5)
@@ -208,9 +213,7 @@ class PaperTrader:
                 "FVG_BUFFER_MULT": cfg.FVG_BUFFER_MULT,
             }
             self.states[sym] = SessionState()
-            self.rsms[sym] = RetraceStateMachine(
-                min_fvg_size=min_fvg, max_wick_ratio=cfg.FVG_WICK_RATIO_MAX
-            )
+            self.rsms[sym] = RetraceStateMachine(max_wick_ratio=cfg.FVG_WICK_RATIO_MAX)
             self.signal_engines[sym] = SignalEngine(self.rsms[sym])
 
     def _pl(self, sym: str, key: str, msg: str, force: bool = False):
@@ -250,7 +253,15 @@ class PaperTrader:
         fvg_buf = sym_cfg["FVG_BUFFER_MULT"]
 
         current = bars_15m[-1]
-        atr_val = max(current.range, current.close * cfg.DEFAULT_ATR_FALLBACK_PCT)
+
+        # ── Gerçek Wilder's ATR güncelle (her 15m kapanışında) ──
+        prev_close = self._atr_prev_close.get(sym, current.open)
+        tr = calculate_true_range(current, prev_close)
+        prev_atr = self._atr_state.get(sym)
+        atr_val = update_atr(prev_atr if prev_atr and prev_atr > 0 else None, tr)
+        self._atr_state[sym] = atr_val
+        self._atr_prev_close[sym] = current.close
+
         try:
             dt = datetime.fromtimestamp(current.timestamp / 1000, tz=UTC)
         except Exception:
@@ -294,10 +305,12 @@ class PaperTrader:
         engine = self.signal_engines[sym]
 
         # ── Blok 8: RSM state progression → SignalEngine ──
-        engine.progress_rsm(bars_15m, current, ss)
+        engine.progress_rsm(bars_15m, current, ss, atr_val)
 
         # ── Blok 9: FVG/Wick durum yazdırma → ConsoleReporter (Faz 6.2) ──
-        self.reporter.display_fvg_status(sym, rsm, min_fvg, current.close)
+        self.reporter.display_fvg_status(
+            sym, rsm, max(atr_val * cfg.FVG_MIN_SIZE_ATR_MULT, 1e-8), current.close
+        )
 
         # ── Blok 10: Trigger check + filtreler → SignalEngine ──
         result = engine.evaluate_trigger(current, ss)
@@ -346,7 +359,10 @@ class PaperTrader:
         sym_cfg = self.cfgs[sym]
         min_fvg = sym_cfg["MIN_FVG_SIZE"]
         current = bars_1m[-1]
-        atr_val = max(current.range, current.close * cfg.DEFAULT_ATR_FALLBACK_PCT)
+        # 1m'de ATR güncellenmez — son 15m ATR'si okunur
+        atr_val = self._atr_state.get(
+            sym, max(current.range, current.close * cfg.DEFAULT_ATR_FALLBACK_PCT)
+        )
 
         self._orphan_check_counter += 1
         if self._orphan_check_counter % 5 == 0:
@@ -782,23 +798,56 @@ class PaperTrader:
         if not bars or len(bars) < 10:
             return
         ss = self.states[sym]
+
+        # ── Gerçek Wilder's ATR inşası (rolling, tüm barlar üzerinden) ──
+        atr_val: float | None = None
+        prev_close: float = bars[0].open
         for bar in bars:
+            tr = calculate_true_range(bar, prev_close)
+            atr_val = update_atr(atr_val, tr)
+            prev_close = bar.close
+
             try:
                 dt = datetime.fromtimestamp(bar.timestamp / 1000, tz=UTC)
             except Exception:
                 continue
-            # FIX #1: Tüm barlar SessionState'e beslenmeli.
-            # Eski filtre (sadece 22:00-02:00 CBDR saatleri) London/NY barlarını
-            # atlıyordu; london_high/london_low=0 kalıyor ve TP yanlış hesaplanıyordu.
-            atr = max(bar.range, bar.close * cfg.DEFAULT_ATR_FALLBACK_PCT)
-            ss.update(dt, bar.open, bar.high, bar.low, bar.close, atr)
+            # Sahte ATR yerine gerçek Wilder's ATR kullan
+            current_atr = (
+                atr_val
+                if atr_val is not None
+                else max(bar.range, bar.close * cfg.DEFAULT_ATR_FALLBACK_PCT)
+            )
+            ss.update(dt, bar.open, bar.high, bar.low, bar.close, current_atr)
+
+        # ATR state'ini sakla — canlı barlar buradan devam edecek
+        self._atr_state[sym] = atr_val if atr_val is not None else 0.0
+        self._atr_prev_close[sym] = prev_close
+
+        # ── Sahte vs gerçek ATR karşılaştırması (BTC, LINK, ADA) ──
+        if sym in ("BTCUSDT", "LINKUSDT", "ADAUSDT"):
+            last_bar = bars[-1]
+            fake_atr = max(
+                last_bar.range, last_bar.close * cfg.DEFAULT_ATR_FALLBACK_PCT
+            )
+            real_atr = self._atr_state[sym]
+            log.info(
+                "[ATR-CMP] %s | fake=%.6f (range=%.6f fallback=%.6f) | real_wilders=%.6f | ratio=%.2fx",
+                sym,
+                fake_atr,
+                last_bar.range,
+                last_bar.close * cfg.DEFAULT_ATR_FALLBACK_PCT,
+                real_atr,
+                real_atr / fake_atr if fake_atr > 0 else 0.0,
+            )
+
         log.info(
-            "[WARMUP] %s CBDR body: lock=%s | body=[%.2f-%.2f] | sweep=%s",
+            "[WARMUP] %s CBDR body: lock=%s | body=[%.2f-%.2f] | sweep=%s | ATR=%.6f",
             sym,
             ss.cbdr_locked,
             ss.cbdr_body_low,
             ss.cbdr_body_high,
             ss.sweep_confirmed,
+            self._atr_state.get(sym, 0.0),
         )
 
     async def _set_leverage(self, symbol: str) -> Result[None]:

@@ -59,12 +59,11 @@ def scan_htf_fvgs(
 
 
 class RetraceStateMachine:
-    def __init__(self, min_fvg_size: float = 10.0, max_wick_ratio: float = 1.0):
+    def __init__(self, max_wick_ratio: float = 1.0):
         self.state: RetraceState = RetraceState.IDLE
         self.direction: Literal["bullish", "bearish"] | None = None
         self.sweep_level: float | None = None
         self.trigger_fvg: HTFFVG | None = None
-        self._min_fvg_size = min_fvg_size
         self._max_wick_ratio = max_wick_ratio
         self._pending_sweep_id: str | None = None
 
@@ -124,8 +123,13 @@ class RetraceStateMachine:
         )
         logger.info(f"[RST] SWEEP_DETECTED | dir={direction} level={level:.2f}")
 
-    def on_sweep_confirmed(self, bars_15m: list[Bar], sweep_bar: Bar):
-        """Sweep onaylandiginda FVG taramasi + govde-ici kapanis onayi."""
+    def on_sweep_confirmed(
+        self, bars_15m: list[Bar], sweep_bar: Bar, atr_val: float = 0.0
+    ):
+        """Sweep onaylandiginda FVG taramasi + govde-ici kapanis onayi.
+
+        min_fvg_size artik ATR-bazlı dinamik: atr_val * FVG_MIN_SIZE_ATR_MULT
+        """
         if self.state != RetraceState.SWEEP_DETECTED:
             return
 
@@ -146,10 +150,15 @@ class RetraceStateMachine:
                 self.reset()
                 return
 
+        # ── ATR-bazlı dinamik FVG eşiği ──
+        import config as _cfg
+
+        min_fvg_size = max(atr_val * _cfg.FVG_MIN_SIZE_ATR_MULT, 1e-8)
+
         htf_fvgs = scan_htf_fvgs(
             bars_15m,
             lookback=100,
-            min_fvg_size=self._min_fvg_size,
+            min_fvg_size=min_fvg_size,
             max_wick_ratio=self._max_wick_ratio,
         )
         if not htf_fvgs:

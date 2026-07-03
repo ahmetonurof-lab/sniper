@@ -33,6 +33,7 @@ class RecoveryManager:
       - active_trades: dict[sym, ActiveTrade] — aktif trade'ler
       - pl_callback: callable(sym, key, msg) — _pl() delegesi
       - order_manager: OrderManager (şimdilik kullanılmıyor)
+      - atr_state: dict[sym, float] — sembol bazlı gerçek Wilder's ATR
     """
 
     def __init__(
@@ -44,6 +45,7 @@ class RecoveryManager:
         active_trades: dict,
         pl_callback,
         order_manager=None,
+        atr_state: dict | None = None,
     ):
         self._rest = rest_client
         self._symbols = symbols
@@ -52,6 +54,7 @@ class RecoveryManager:
         self._active_trades = active_trades
         self._pl = pl_callback
         self._order_manager = order_manager
+        self._atr_state = atr_state or {}
 
     # ── Pozisyon kurtarma ──────────────────────────────────────
 
@@ -135,7 +138,12 @@ class RecoveryManager:
                         "recover",
                         f"\u26a0\ufe0f {direction.upper()} @ {entry:.2f} | SL/TP bulunamadi (pozisyon korumasiz)",
                     )
-                    atr_est = entry * cfg.DEFAULT_ATR_FALLBACK_PCT
+                    # Gerçek ATR varsa kullan, yoksa eski fallback
+                    real_atr = self._atr_state.get(sym, 0.0)
+                    if real_atr > 0:
+                        atr_est = real_atr
+                    else:
+                        atr_est = entry * cfg.DEFAULT_ATR_FALLBACK_PCT
                     risk_pts = atr_est * self._cfgs[sym]["SL_ATR_MULT"]
                     if direction == "long":
                         sl = entry - risk_pts * 2

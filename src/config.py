@@ -51,6 +51,10 @@ FVG_SIZE_MAP: dict[str, float] = {
     "NEARUSDT": 0.001,
 }
 
+# ── ATR-bazlı dinamik FVG eşiği (statik FVG_SIZE_MAP yerine) ──
+# Seed: BTC FVG=10.0 / ~80 USD 15m bar range ≈ 0.12
+FVG_MIN_SIZE_ATR_MULT = 0.12
+
 # ── Risk parametreleri ─────────────────────────────────────────
 SL_ATR_MULT = 1.5
 TP_RR = 2.0
