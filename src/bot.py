@@ -10,6 +10,7 @@ import asyncio
 import logging
 import logging.handlers
 import json
+import math
 import os
 import sys
 from collections import deque
@@ -212,9 +213,7 @@ class PaperTrader:
         )
 
         for sym in self.symbols:
-            min_fvg = cfg.FVG_SIZE_MAP.get(sym, 0.5)
             self.cfgs[sym] = {
-                "MIN_FVG_SIZE": min_fvg,
                 "SL_ATR_MULT": cfg.SL_ATR_MULT,
                 "TP_RR": cfg.TP_RR,
                 "FVG_BUFFER_MULT": cfg.FVG_BUFFER_MULT,
@@ -257,7 +256,6 @@ class PaperTrader:
 
     async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):
         sym_cfg = self.cfgs[sym]
-        min_fvg = sym_cfg["MIN_FVG_SIZE"]
         sl_atr = sym_cfg["SL_ATR_MULT"]
         tp_rr = sym_cfg["TP_RR"]
         fvg_buf = sym_cfg["FVG_BUFFER_MULT"]
@@ -348,7 +346,7 @@ class PaperTrader:
                 sl_atr,
                 tp_rr,
                 fvg_buf,
-                min_fvg,
+                max(atr_val * cfg.FVG_MIN_SIZE_ATR_MULT, 1e-8),
             )
         elif result.decision == "SKIP":
             # Filtre reddetti → rsm zaten resetlendi, erken dönüş
@@ -507,11 +505,9 @@ class PaperTrader:
                 pass
 
         # ── CBDR Risk Matrisi carpani ──
-        cbdr_w = (
-            ((ss.cbdr_body_high - ss.cbdr_body_low) / ss.cbdr_body_low * 100)
-            if ss.cbdr_body_low > 0
-            else None
-        )
+        cbdr_w = None
+        if ss.cbdr_body_low > 0 and not math.isinf(ss.cbdr_body_low):
+            cbdr_w = ((ss.cbdr_body_high - ss.cbdr_body_low) / ss.cbdr_body_low) * 100
         cbdr_mult = get_cbdr_multiplier(sym, cbdr_w) if cbdr_w is not None else 1.0
         if cbdr_mult == 0.0:
             log.info(

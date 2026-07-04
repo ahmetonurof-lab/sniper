@@ -55,8 +55,6 @@ FVG_SIZE_MAP: dict[str, float] = {
 FVG_MIN_SIZE_ATR_MULT = 0.06
 
 # ── CBDR Risk Matrisi (coin bazli session + bucket carpani) ─────
-BOT_SESSION = "DEFAULT"  # Botun calistigi session (22:00-02:00)
-
 # ── Session ismi -> saat araligi ──────────────────────────────
 SESSION_HOURS: dict[str, dict[str, int]] = {
     "DEFAULT": {"start": 22, "end": 2},
