@@ -52,13 +52,14 @@ FVG_SIZE_MAP: dict[str, float] = {
 }
 
 # ── ATR-bazlı dinamik FVG eşiği (statik FVG_SIZE_MAP yerine) ──
-# MULT scan 2026-07-03: 195 run (0.02-0.30). Best: 0.04 (+168,824 PnL, 43.7% WR)
-FVG_MIN_SIZE_ATR_MULT = 0.04
+# MULT scan 2026-07-03: 195 run (0.02-0.30). Best: 0.06 (en sağlam orta nokta)
+FVG_MIN_SIZE_ATR_MULT = 0.06
 
 # ── Risk parametreleri ─────────────────────────────────────────
 SL_ATR_MULT = 1.5
 TP_RR = 2.0
 FVG_BUFFER_MULT = 0.50
+EARLY_LONDON_RISK_MULT = 1.5  # 02-08 UTC risk carpani (Altin Oran)
 
 # ── Magic Numbers (Faz 1.2) ────────────────────────────────────
 CBDR_DEAD_THRESHOLD_PCT = 0.5  # CBDR dead eşiği (% olarak)

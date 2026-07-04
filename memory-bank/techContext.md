@@ -21,6 +21,7 @@ sniper/
 ├── output/               # live_state.json (dashboard beslemesi)
 ├── src/
 │   ├── bot.py            # PaperTrader orchestrator
+│   ├── risk_manager.py   # Dinamik risk çarpanı + devre kesici (filelock)
 │   ├── config.py         # Tüm sabitler, risk map, semboller
 │   ├── session.py        # SessionState (CBDR + Range + TradeDay)
 │   ├── models.py         # Bar, FVG, ActiveTrade, Result, PendingLock
@@ -31,6 +32,7 @@ sniper/
 │   ├── websocket.py      # BinanceWSHub (multi-symbol)
 │   ├── state_manager.py  # Disk-persistent trade state
 │   ├── state_writer.py   # live_state.json writer
+│   ├── indicators.py     # Wilder's ATR (14-periyot, rolling state)
 │   └── trading/
 │       ├── entry_manager.py    # Entry validation + order placement
 │       ├── signal_engine.py    # Primary RSM + trigger filters
@@ -71,6 +73,8 @@ TESTNET=True
 | SL_ATR_MULT | 1.5 | SL = ATR × 1.5 |
 | TP_RR | 2.0 | Risk/ödül oranı |
 | FVG_BUFFER_MULT | 0.50 | FVG buffer çarpanı |
+| FVG_WICK_RATIO_MAX | 0.75 | FVG wick ratio (impulse mother bar kontrolü) — eskisi: 0.90 |
+| FVG_MIN_SIZE_ATR_MULT | 0.06 | Dinamik FVG eşiği: min_fvg = atr_val × 0.06 |
 | RETRADE_FVG_MAX_ATTEMPTS | 3 | Retrade FVG max deneme |
 | LHR_RETEST_PCT | 0.003 | LHR zone genişliği |
 

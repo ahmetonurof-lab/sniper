@@ -35,10 +35,13 @@
 | 21 | **Trailing partial success fix** | `sl_ok or tp_ok` durumunda `trailing_count` güncellenir. Sadece ikisi de başarısız olursa `False` döner (eski: biri başarısız → hep `False`). Log'da artık `trade.get("sl")` kullanılıyor — key hatası yok. |
 | 22 | **_exit_trade() active_trades.pop taşındı** | `pop(sym, None)` çağrısı fonksiyon sonundan (`_write_trade_jsonl` sonrası) başına alındı — çift exit'te ikinci çağrı trade bulunmadığı için hemen return eder. |
 | 23 | **max_wick_ratio parametresi kaldırıldı** | `TrailingManager.evaluate_trail()` imzasından `max_wick_ratio: float = 1.0` silindi. `find_fvgs()` çağrısındaki `max_wick_ratio` kwarg da kaldırıldı — kullanılmıyordu. |
-| 24 | **Wick ratio guard doğru katmana taşındı** | `signal_engine.py:100-115` sweep bar wick guardı kaldırıldı (yanlış bar). `bot.py` RSM init'e `max_wick_ratio=cfg.FVG_WICK_RATIO_MAX` (0.90) eklendi — artık `fvg.py/_wick_ratio_ok()` impulse mother barını kontrol eder, FVG tespiti sırasında. Trailing'deki `max_wick_ratio` önceki commit'te zaten silindi (23). |
+| 24 | **Wick ratio guard doğru katmana taşındı** | `signal_engine.py:100-115` sweep bar wick guardı kaldırıldı (yanlış bar). `bot.py` RSM init'e `max_wick_ratio=cfg.FVG_WICK_RATIO_MAX` (0.75) eklendi — artık `fvg.py/_wick_ratio_ok()` impulse mother barını kontrol eder, FVG tespiti sırasında. Trailing'deki `max_wick_ratio` önceki commit'te zaten silindi (23). |
+| 28 | **ATR refactor (indicators.py)** | Sahte ATR (`max(range, close*0.0001)`) → gerçek Wilder's smoothing 14-periyot ATR (`_atr_state`, `_atr_prev_close`). `bot.py`: `_warmup_cbdr`, `_on_15m_close`, `_on_1m_close` 3 yerine entegre. `recovery_manager.py`'de de kullanılıyor. `__init__` sıralama bug'ı düzeltildi (`_atr_state` artık RecoveryManager'dan önce tanımlı). |
+| 29 | **Dinamik FVG eşiği** | Statik `FVG_SIZE_MAP` (`$ değerleri`) → `FVG_MIN_SIZE_ATR_MULT × atr_val` (dinamik). Hem entry hem trailing aynı formül. MULT taraması (0.02-0.30, 195 run) → `FVG_MIN_SIZE_ATR_MULT = 0.06` seçildi (0.02-0.08 arası PnL farkı gürültü seviyesinde, 0.06 en sağlam/orta nokta). |
 | 25 | **FVG bar index restart fix** | `snapshot.py:_resolve_fvg_bar_index()` öncelik sırası değiştirildi: fiyat bazlı arama (#1) artık bar offset formülünden (#2) ÖNCE gelir. Restart sonrası `bars_15m` indeksleri sıfırlandığında formül yanlış bar'ı işaret ediyordu (FVG ~81 seviyesi / indeks 8'de ~77-78 barı). `snapshot.py:166-195`. |
 | 26 | **Chart FVG uyuşmazlık uyarısı** | `chart_template.html`'e JS tutarlılık kontrolü eklendi: FVG marker bar'ının high/low'u ile fvgTop/fvgBottom arasındaki mesafe bar range'inin 8 katını geçerse kırmızı uyarı bandı basar. |
 | 27 | **console_reporter syntax fix** | `display_fvg_status()`'ta `TRIGGER_READY` bloğundaki iki `self.emit()` yanlış indentasyon seviyesindeydi (if dışında), `elif` yetim kalıp SyntaxError veriyordu. |
+| 30 | **RiskManager + Erken London risk çarpanı** | `risk_manager.py` (filelock thread-safe). EL çarpanı 1.5x (02-08 UTC). Histeresizli devre kesici: DD≥%15 patla, DD≤%10 reset. Backtest: 13/13 coin EL avantajı doğrulandı. Config: `EARLY_LONDON_RISK_MULT=1.5`. |
 
 ## Aktif Kararlar
 
@@ -46,6 +49,11 @@
 - **RSM (RetraceStateMachine)**: IDLE → SWEEP_DETECTED → TRIGGER_READY. Sadece 3 state.
 - **Max 1 trade/gün/sembol** (retrade kalktı).
 - **ASIA kapalı**: 22:00-02:00 UTC.
+- **Erken London risk çarpanı (1.5x)**: 02-08 UTC'de pozisyon boyutu %50 artırılır.
+- **Devre kesici**: DD ≥ %15 → EL çarpanı kapanır (base 1.0x). DD ≤ %10 → reset.
+- **RiskManager**: `sniper/src/risk_manager.py`, filelock ile thread-safe, state `output/risk_state.json`.
+- **Backtest doğrulaması**: 13/13 coin'de erken London WR > geç London/NY, tutarlılık %100. EL PF=4.35 vs non-EL PF=2.52.
+- **Backtest metodu**: Parquet'ten linear PnL skalalama — exit koşulları price-based, qty skalası lineer taşınır. Gerçek portföy MaxDD günlük birleştirilmiş equity eğrisinden hesaplanır.
 - **RISK_PER_TRADE=0.003**: Elle güncellendi (%0.3).
 - **FVG_BUFFER_MULT=0.50**: Canlı ve backtest artık aynı.
 - **MAX_SL_DIST_MULT=2.0**: FVG bazlı SL max `risk_pts × 2`.
@@ -57,6 +65,14 @@
 - Canlı testte `_exit_trade()` cancel_all + reduceOnly flow'un Binance ile çalışması gözlemlenecek.
 - Backtest trailing port'u sonrası WR/DD değişimi canlı ile karşılaştırılacak.
 - WS_FALLBACK sayısı trail prev ID fix sonrası takip edilecek.
+- **FVG marker konum bug'ı** (chart'ta gördüğümüz, 3 örnek: SOLUSDT aynı gün) — kök neden araştırılıyor.
+- **ict_cbdr_thresholds.md** — geçersiz (sahte ATR ile koşmuş), yeniden koşulacak.
+- **v3_window_comparison.md** — geçersiz çıktı (süre analiziyle tespit: 26 koşum için 2 dakika fiziksel olarak imkansız, muhtemelen cache/stale veri), yeniden koşulacak.
+- **mult_scan_report.md** — tek geçerli rapor, `FVG_MIN_SIZE_ATR_MULT=0.06` kararı buna dayanıyor.
+- **[FVG_SCAN] log formatı** — 16 haneli float basıyor, `.6f` ile sınırlanması istendi, teyit edilmedi.
+- Coin bazlı pencere kararı (real_cbdr/asia_range) — v3_window_comparison.md geçersiz çıktığı için karar askıda.
+- Dün gece FVG bulunamama şikayeti (23:00'a kadar hiçbir coinde FVG yok, 1-2 sweep) — MULT=0.06 sonrası kendiliğinden düzelip düzelmediği kontrol edilecek.
+- **Backtest altyapısı entegrasyonu**: 5 dosya (session.py, retrace_state.py, fvg.py, models.py, coins_config.py) silindi — artık `sniper/src`'ten import ediliyor. `SNIPER_OUTPUT_DIR` env var ile production output/ klasöründen izolasyon. Determinism doğrulandı (in-memory state sızıntısı yok). `mult_scan.py`'de checkpoint/resume mekanizması var.
 
 ## Hatırlatmalar
 

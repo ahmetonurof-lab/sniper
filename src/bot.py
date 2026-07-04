@@ -22,6 +22,7 @@ from indicators import calculate_true_range, update_atr
 from models import ActiveTrade, Bar, PendingLock, Result
 from retrace_state import RetraceStateMachine
 from session import SessionState
+from risk_manager import RiskManager
 from state_manager import (
     mark_trade_opened,
     mark_trade_closed,
@@ -166,6 +167,10 @@ class PaperTrader:
         self.active_trades: dict[str, ActiveTrade] = {}
         self.trades: deque[dict] = deque(maxlen=1000)
         self.reporter = ConsoleReporter()
+        self.risk_mgr = RiskManager(
+            state_file=os.path.join(_OUTPUT_DIR, "risk_state.json"),
+            initial_equity=INITIAL_CAPITAL,
+        )
         self._live = False
         self._wallet_balance: float = INITIAL_CAPITAL  # WS'den gelen wb (görüntüleme)
         self._available_balance: float = (
@@ -485,14 +490,34 @@ class PaperTrader:
             except Exception:
                 pass
 
-        risk_pct = RISK_PER_TRADE
+        # ── RiskManager: erken London carpani + devre kesici ──
+        current_hour = datetime.now(UTC).hour
+        is_early_london = 2 <= current_hour < 8
+        risk_mult = self.risk_mgr.get_dynamic_risk_multiplier(
+            self._available_balance, is_early_london
+        )
+        adjusted_risk_pct = RISK_PER_TRADE * risk_mult
+
         qty = EntryManager.calculate_qty(
-            self._available_balance, risk_pct, risk_dist, cfg.LEVERAGE, entry_price
+            self._available_balance,
+            adjusted_risk_pct,
+            risk_dist,
+            cfg.LEVERAGE,
+            entry_price,
         )
         if qty <= 0:
             log.warning("[SKIP] %s entry — qty=%.6f <= 0 (rsm reset)", sym, qty)
             rsm.reset()
             return
+        if risk_mult != 1.0:
+            log.info(
+                "[RISK] %s is_el=%s risk_mult=%.2f adjusted_pct=%.4f qty=%.4f",
+                sym,
+                is_early_london,
+                risk_mult,
+                adjusted_risk_pct,
+                qty,
+            )
 
         with PendingLock(self.active_trades, sym, logger=log) as lock:
             sl_id = ""
@@ -611,6 +636,7 @@ class PaperTrader:
         )
         pnl = round(diff * trade["qty"], 2)
         self._available_balance += pnl
+        self.risk_mgr.update_peak(self._available_balance)
         self._pl(
             sym,
             f"exit_{exit_timestamp}",

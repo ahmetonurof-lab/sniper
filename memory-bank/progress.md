@@ -6,13 +6,14 @@
 |---------|-------|
 | PaperTrader orchestrator (`bot.py`) | ✅ Testnet emir gönderimi aktif |
 | CBDR → Sweep → FVG → Entry flow | ✅ ICT fix uygulandı |
-| SignalEngine (primary entry) | ✅ Bias + session filtresi + close guard + wick ratio > 0.90 |
+| SignalEngine (primary entry) | ✅ Bias + session filtresi + close guard + wick ratio > 0.75 |
 | ~~RetradeEngine (retrade entry + LHR fallback)~~ | ❌ Silindi (V3) |
 | TrailingManager (1m FVG trailing) | ✅ Close-teyitli FVG trailing |
 | EntryManager (live order placement) | ✅ Market + SL(StopMarket) + TP(TakeProfitMarket) |
 | OrderManager (trailing update + repair) | ✅ Önce yeni order, sonra eski cancel |
 | OrderManager (cancel_all_open_orders) | ✅ Exit öncesi tüm emirleri iptal |
 | RecoveryManager (startup recovery) | ✅ Pozisyon import + tüm türlerden orphan cleanup |
+| RecoveryManager (ATR integration) | ✅ indicators.py Wilder's ATR entegre |
 | UserDataHandler (WS callbacks) | ✅ ORDER_TRADE_UPDATE + ACCOUNT_UPDATE |
 | BinanceWSHub (multi-symbol WS) | ✅ Auto-reconnect + heartbeat |
 | SessionState (CBDR + Range + TradeDay) | ✅ Gövde bazlı CBDR, retrade alanları temizlendi |
@@ -23,10 +24,14 @@
 | trades_history.jsonl yazma | ✅ `_exit_trade`'de append + `_load_history()` restart yükleme |
 | Hybrid SL buffer | ✅ `FVG_BUFFER_MIN_FACTOR` aktif, `MAX_SL_DIST_MULT` tavanı |
 | chart_export (Plotly HTML chart) | ✅ CBDR box, sweep mum, FVG+CE, trail adimlari, session damgasi |
-| trail_steps kaydi | ✅ Her trailing adimi trade dict’ine {sl, tp, fvg_top, fvg_bot, bar} |
+| trail_steps kaydi | ✅ Her trailing adimi trade dict'ine {sl, tp, fvg_top, fvg_bot, bar} |
 | ConsoleReporter (TR time, dedup) | ✅ Şeffaf console çıktısı |
 | Pre-commit hooks | ✅ ruff (linter + formatter), vulture |
 | event_log (yapısal JSONL log) | ✅ `src/event_log.py` — `log_event()` + `cleanup_old_event_logs()` |
+| RiskManager (dinamik risk + devre kesici) | ✅ `src/risk_manager.py`, filelock thread-safe, 1.5x EL çarpanı |
+| Real CBDR threshold analysis (3 session) | ✅ Parquet tabanlı, `detect_phase()` ile kodun gerçek faz sınırları |
+| Erken London avantajı doğrulama | ✅ 13/13 coin, tutarlılık %100, EL PF=4.35 vs non-EL PF=2.52 |
+| Portföy MaxDD sweep | ✅ Günlük birleştirilmiş equity eğrisi, 1.0x-5.0x taraması |
 | backupCount=7→14 | ✅ `TimedRotatingFileHandler`'da 14 gün saklama |
 | event log noktaları | ✅ entry/exit/force_close (bot.py), orphan/ghost (recovery_manager.py), sl_reject/tp_reject (order_manager.py) |
 | Backtest → live bot trailing portu | ✅ `_fvg_close_confirmed()`, ATR buffer, TRAIL_MIN_MOVE_MULT, break-even `analyzer_v3.py`'a eklendi |
@@ -35,11 +40,13 @@
 | Sweep level ActiveTrade | ✅ `sweep_level` field + `_try_entry()` beslemesi |
 | on_sweep_confirmed rewrite | ✅ sweep invalidation gate + no reset on no-FVG + no unconditional reset |
 | output/ gitignore | ✅ exception'lar kaldırıldı, indexten çıkarıldı |
+| SNIPER_OUTPUT_DIR izolasyon | ✅ Backtest output/ klasörü production'dan ayrı |
 | update_trail_orders signature | ✅ `new_sl/tp/trail_count` param + paper mod güncellemesi + `apply_price_precision` içe taşındı |
 | Trailing partial success | ✅ `sl_ok or tp_ok` → `trailing_count` güncellenir, tek başarısızlıkta `False` dönme kaldırıldı |
 | _exit_trade active_trades.pop | ✅ `pop` fonksiyon başına taşındı — atomik guard + çift exit koruması |
 | max_wick_ratio kaldırıldı | ✅ `evaluate_trail()` + `find_fvgs()` çağrısından silindi |
-| Wick ratio guard doğru katmana | ✅ signal_engine'dan silindi, RSM init'e `max_wick_ratio=0.90` eklendi — FVG tespitinde impulse bar kontrolü |
+| Wick ratio guard doğru katmana | ✅ signal_engine'dan silindi, RSM init'e `max_wick_ratio=0.75` eklendi — FVG tespitinde impulse bar kontrolü |
+| Dinamik FVG eşiği | ✅ `FVG_MIN_SIZE_ATR_MULT × atr_val` (eskiden statik FVG_SIZE_MAP) |
 
 ## Kalan İşler 🔧
 
@@ -50,6 +57,10 @@
 | Mainnet canlı test | 🟢 Düşük | URL + API key değişikliği |
 | Performance benchmark | 🟢 Düşük | CPU/memory profil |
 | README güncelleme | 🟢 Düşük | Sadece ihtiyaç halinde |
+| FVG marker konum bug çözümü | 🟡 Orta | chart'ta gördüğümüz 3 örnek (SOLUSDT) — kök neden araştırılıyor |
+| ATR refactor entegrasyonu | 🟢 Düşük | Gerçek Wilder's ATR (indicators.py) teyit edilecek |
+| v3_window_comparison.md yeniden koşumu | 🟡 Orta | Süre analiziyle geçersiz tespit edildi, yeniden çalıştırılıyor |
+| ict_cbdr_thresholds.md yeniden koşumu | 🟢 Düşük | Sahte ATR ile koşmuş, yeniden koşulacak |
 
 ## Bilinen Sorunlar 🐛
 

@@ -10,10 +10,12 @@ PaperTrader (bot.py — orchestrator)
 │   └── TradeDayState    — Günlük trade sayısı + retrade state
 ├── RetraceStateMachine (retrace_state.py)
 │   └── IDLE → SWEEP_DETECTED → TRIGGER_READY
+├── indicators.py (Wilder's ATR)
+│   └── Rolling 14-periyot ATR, `_atr_state` + `_atr_prev_close`
 ├── SignalEngine (trading/signal_engine.py)
 │   └── RSM progression + trigger filtreleri (bias/session)
-├── RetradeEngine (trading/retrade_engine.py)
-│   └── Retrade sweep detection + RSM + LHR fallback
+├── RiskManager (risk_manager.py)
+│   └── Dinamik risk çarpanı: EL 1.5x (02-08 UTC), DD≥%15 devre kesici, filelock thread-safe state
 ├── EntryManager (trading/entry_manager.py)
 │   └── Risk validasyonu → qty hesapla → SL/TP hesapla → API emir
 ├── TrailingManager (trading/trailing_manager.py)
@@ -33,22 +35,20 @@ PaperTrader (bot.py — orchestrator)
 ## 15m Trading Flow (_on_15m_close)
 
 ```
-1. Load sym config (min_fvg, sl_atr, tp_rr, fvg_buf)
-2. Get current bar + ATR
+1. Load sym config (min_fvg via ATR_MULT, sl_atr, tp_rr, fvg_buf)
+2. Get current bar + Wilder's ATR (indicators.py, rolling state)
 3. Session detection: ASIA/LONDON/NEWYORK
 4. SessionState.update() — CBDR track + sweep check + range type
 5. Active trade check → return if open
 6. ASIA skip → return
 7. Display session status
 8. CBDR lock gate → return if unlocked
-9. Sweep status: dead→return / waiting→_check_retrade+return / detected→continue
-10. Retrade armed bypass → _check_retrade+return
-11. SignalEngine.progress_rsm() — IDLE→SWEEP_DETECTED→TRIGGER_READY
-12. Display FVG status
-13. SignalEngine.evaluate_trigger() — bias/session filtresi
-14. _try_entry() — validate → qty → SL/TP → API orders → ActiveTrade
-15. _check_retrade()
-16. write_state() — live_state.json
+9. Sweep status: dead→return / waiting→return / detected→continue
+10. SignalEngine.progress_rsm() — IDLE→SWEEP_DETECTED→TRIGGER_READY
+11. Display FVG status
+12. SignalEngine.evaluate_trigger() — bias/session filtresi
+13. _try_entry() — validate → qty → SL/TP → API orders → ActiveTrade
+14. write_state() — live_state.json
 ```
 
 ## Sinyal Mimarisi

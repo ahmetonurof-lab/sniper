@@ -42,3 +42,14 @@
 - **Double exit guard:** `_exit_trade()` başına `if sym not in self.active_trades: return` eklendi. `del` → `pop(sym, None)`.
 - **Orphan cleanup genişletildi:** `reconcile_orphan_orders()` artık tüm order türlerini temizler (LIMIT dahil), sadece STOP/TP değil.
 - **FVG trailing close teyidi:** `_fvg_close_confirmed()` metodu — trailing sadece 15m mumu FVG içinde kapanmış (close between bottom-top) FVG'leri kullanır. Sadece fitil (wick) yetmez, gövde kapanışı şart. Close ters tarafta kapandıysa FVG geçersiz sayılır.
+
+## 2026-07-03 — ATR Refactor + Dinamik FVG Eşiği
+
+- **indicators.py (yeni dosya):** Gerçek Wilder's smoothing 14-periyot ATR. Eski sahte ATR (`max(range, close*0.0001)`) kaldırıldı. `calculate_true_range()`, `update_atr()`, `build_atr_from_bars()` fonksiyonları. Rolling state: `_atr_state`, `_atr_prev_close`.
+- **bot.py entegrasyonu:** `_warmup_cbdr`, `_on_15m_close`, `_on_1m_close` — 3 yerde gerçek ATR kullanılıyor. `__init__` sıralama bug'ı düzeltildi (`_atr_state` artık RecoveryManager'dan önce).
+- **recovery_manager.py:** ATR hesaplaması `indicators.py`'den geliyor.
+- **Dinamik FVG eşiği:** Statik `FVG_SIZE_MAP` (`$ değerleri`) → `FVG_MIN_SIZE_ATR_MULT × atr_val`. Hem entry hem trailing aynı dinamik formülü kullanıyor.
+- **MULT taraması:** 0.02-0.30, 195 run, 2.5 yıllık veri. `FVG_MIN_SIZE_ATR_MULT = 0.06` seçildi (0.02-0.08 arası PnL farkı gürültü seviyesinde, 0.06 en sağlam/orta nokta).
+- **FVG_WICK_RATIO_MAX:** 0.90 → 0.75 (config.py + bot.py RSM init).
+- **Backtest entegrasyonu:** 5 dosya (session.py, retrace_state.py, fvg.py, models.py, coins_config.py) silindi — `sniper/src`'ten import ediliyor. `SNIPER_OUTPUT_DIR` env var ile izolasyon. Determinism doğrulandı. `mult_scan.py`'de checkpoint/resume.
+- **Rapor durumu:** `mult_scan_report.md` tek geçerli rapor. `ict_cbdr_thresholds.md` (sahte ATR ile koşulmuş) ve `v3_window_comparison.md` (stale/cache veri, 26 koşum 2 dakikada imkansız) yeniden koşuluyor.
