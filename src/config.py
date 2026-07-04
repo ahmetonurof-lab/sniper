@@ -33,21 +33,6 @@ SYMBOLS = [
 ]
 # ETHUSDT, SUIUSDT cikarildi — Router karari
 
-# ── Coin bazli optimal session haritasi ────────────────────────
-OPTIMAL_SESSION_MAP: dict[str, str] = {
-    "ATOMUSDT": "REAL_CBDR",
-    "SOLUSDT": "REAL_CBDR",
-    "BNBUSDT": "ASIA_RANGE",
-    "NEARUSDT": "ASIA_RANGE",
-    "AVAXUSDT": "ASIA_RANGE",  # Ek kural: CBDR > 5% olmali
-    "LINKUSDT": "ASIA_RANGE",
-    "DOTUSDT": "DEFAULT",
-    "ADAUSDT": "DEFAULT",
-    "XRPUSDT": "DEFAULT",
-    "BTCUSDT": "DEFAULT",
-    "APTUSDT": "DEFAULT",
-}
-
 # ── Coin bazli FVG esikleri ────────────────────────────────────
 FVG_SIZE_MAP: dict[str, float] = {
     "BTCUSDT": 10.0,
@@ -69,10 +54,119 @@ FVG_SIZE_MAP: dict[str, float] = {
 # MULT scan 2026-07-03: 195 run (0.02-0.30). Best: 0.06 (en sağlam orta nokta)
 FVG_MIN_SIZE_ATR_MULT = 0.06
 
-# ── Session Router sabitleri ───────────────────────────────────
+# ── CBDR Risk Matrisi (coin bazli session + bucket carpani) ─────
 BOT_SESSION = "DEFAULT"  # Botun calistigi session (22:00-02:00)
-CBDR_REQUIRED_MIN_PCT = {
-    "AVAXUSDT": 5.0,  # AVAX icin CBDR en az %5 olmali
+# Carpan mantigi:
+#   1.5x = Altin Vurus (WR > %44 veya BE+ > %67)
+#   1.2x = Standart Ustu (net avantaj)
+#   1.0x = Standart
+#   0.8x = Defansif (WR dusuk ama PnL pozitif)
+#   0.5x = Zayif (edge kayboluyor)
+#   0.0x = ZEHIRLI / YASAKLI (sinyal gelse bile girme)
+CBDR_RISK_MATRIX: dict[str, dict] = {
+    "ATOMUSDT": {
+        "session": "REAL_CBDR",
+        "buckets": [
+            (0.0, 1.0, 1.0),
+            (1.0, 1.5, 0.8),
+            (1.5, 2.0, 1.0),
+            (2.0, 3.0, 1.2),
+            (3.0, 5.0, 1.5),
+            (5.0, 999.0, 0.5),
+        ],
+    },
+    "SOLUSDT": {
+        "session": "REAL_CBDR",
+        "buckets": [
+            (0.0, 1.0, 0.8),
+            (1.0, 1.5, 0.0),
+            (1.5, 2.0, 1.0),
+            (2.0, 3.0, 1.5),
+            (3.0, 5.0, 1.2),
+            (5.0, 999.0, 1.0),
+        ],
+    },
+    "BNBUSDT": {
+        "session": "ASIA_RANGE",
+        "buckets": [
+            (0.0, 1.0, 1.0),
+            (1.0, 3.0, 1.5),
+            (3.0, 5.0, 1.0),
+            (5.0, 999.0, 0.8),
+        ],
+    },
+    "NEARUSDT": {
+        "session": "ASIA_RANGE",
+        "buckets": [
+            (0.0, 1.5, 0.8),
+            (1.5, 5.0, 1.2),
+            (5.0, 999.0, 1.5),
+        ],
+    },
+    "AVAXUSDT": {
+        "session": "ASIA_RANGE",
+        "buckets": [
+            (0.0, 2.0, 1.0),
+            (2.0, 3.0, 1.5),
+            (3.0, 5.0, 1.0),
+            (5.0, 999.0, 0.5),
+        ],
+    },
+    "LINKUSDT": {
+        "session": "ASIA_RANGE",
+        "buckets": [
+            (0.0, 1.0, 0.0),
+            (1.0, 2.0, 0.8),
+            (2.0, 999.0, 1.5),
+        ],
+    },
+    "DOTUSDT": {
+        "session": "DEFAULT",
+        "buckets": [
+            (0.0, 2.0, 1.0),
+            (2.0, 3.0, 1.5),
+            (3.0, 5.0, 1.2),
+            (5.0, 999.0, 1.5),
+        ],
+    },
+    "ADAUSDT": {
+        "session": "DEFAULT",
+        "buckets": [
+            (0.0, 1.5, 0.8),
+            (1.5, 3.0, 1.0),
+            (3.0, 999.0, 1.5),
+        ],
+    },
+    "XRPUSDT": {
+        "session": "DEFAULT",
+        "buckets": [
+            (0.0, 2.0, 1.0),
+            (2.0, 3.0, 1.2),
+            (3.0, 5.0, 1.5),
+            (5.0, 999.0, 1.2),
+        ],
+    },
+    "BTCUSDT": {
+        "session": "DEFAULT",
+        "buckets": [
+            (0.0, 1.0, 1.0),
+            (1.0, 1.5, 1.5),
+            (1.5, 2.0, 0.5),
+            (2.0, 3.0, 1.0),
+            (3.0, 5.0, 0.0),
+            (5.0, 999.0, 1.5),
+        ],
+    },
+    "APTUSDT": {
+        "session": "DEFAULT",
+        "buckets": [
+            (0.0, 1.0, 0.0),
+            (1.0, 2.0, 0.8),
+            (2.0, 3.0, 1.5),
+            (3.0, 5.0, 1.2),
+            (5.0, 999.0, 1.5),
+        ],
+    },
 }
 
 # ── Risk parametreleri ─────────────────────────────────────────

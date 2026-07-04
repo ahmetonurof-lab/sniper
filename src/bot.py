@@ -23,7 +23,7 @@ from models import ActiveTrade, Bar, PendingLock, Result
 from retrace_state import RetraceStateMachine
 from session import SessionState
 from risk_manager import RiskManager
-from session_router import should_trade
+from session_router import should_trade, get_cbdr_multiplier
 from state_manager import (
     mark_trade_opened,
     mark_trade_closed,
@@ -503,13 +503,30 @@ class PaperTrader:
             except Exception:
                 pass
 
+        # ── CBDR Risk Matrisi carpani ──
+        cbdr_w = (
+            ((ss.cbdr_body_high - ss.cbdr_body_low) / ss.cbdr_body_low * 100)
+            if ss.cbdr_body_low > 0
+            else None
+        )
+        cbdr_mult = get_cbdr_multiplier(sym, cbdr_w) if cbdr_w is not None else 1.0
+        if cbdr_mult == 0.0:
+            log.info(
+                "[SKIP] %s CBDR %s Zehirli Bolge (cbdr_mult=0.0)",
+                sym,
+                f"{cbdr_w:.2f}%" if cbdr_w is not None else "?",
+            )
+            rsm.reset()
+            return
+
         # ── RiskManager: erken London carpani + devre kesici ──
         current_hour = datetime.now(UTC).hour
         is_early_london = 2 <= current_hour < 8
-        risk_mult = self.risk_mgr.get_dynamic_risk_multiplier(
+        base_risk_mult = self.risk_mgr.get_dynamic_risk_multiplier(
             self._available_balance, is_early_london
         )
-        adjusted_risk_pct = RISK_PER_TRADE * risk_mult
+        final_risk_mult = base_risk_mult * cbdr_mult
+        adjusted_risk_pct = RISK_PER_TRADE * final_risk_mult
 
         qty = EntryManager.calculate_qty(
             self._available_balance,
@@ -522,12 +539,14 @@ class PaperTrader:
             log.warning("[SKIP] %s entry — qty=%.6f <= 0 (rsm reset)", sym, qty)
             rsm.reset()
             return
-        if risk_mult != 1.0:
+        if final_risk_mult != 1.0:
             log.info(
-                "[RISK] %s is_el=%s risk_mult=%.2f adjusted_pct=%.4f qty=%.4f",
+                "[RISK] %s is_el=%s base=%.2fx cbdr=%.2fx final=%.2fx pct=%.4f qty=%.4f",
                 sym,
                 is_early_london,
-                risk_mult,
+                base_risk_mult,
+                cbdr_mult,
+                final_risk_mult,
                 adjusted_risk_pct,
                 qty,
             )
