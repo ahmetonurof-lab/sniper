@@ -17,10 +17,9 @@ RISK_PER_TRADE = 0.003
 LEVERAGE = 5
 LOG_LEVEL = "INFO"
 
-# ── Semboller (data dosyasi olanlar) ───────────────────────────
+# ── Semboller (aktif trade listesi) ───────────────────────────
 SYMBOLS = [
     "BTCUSDT",
-    "ETHUSDT",
     "BNBUSDT",
     "SOLUSDT",
     "AVAXUSDT",
@@ -28,11 +27,26 @@ SYMBOLS = [
     "XRPUSDT",
     "ATOMUSDT",
     "ADAUSDT",
-    "SUIUSDT",
     "APTUSDT",
     "DOTUSDT",
     "NEARUSDT",
 ]
+# ETHUSDT, SUIUSDT cikarildi — Router karari
+
+# ── Coin bazli optimal session haritasi ────────────────────────
+OPTIMAL_SESSION_MAP: dict[str, str] = {
+    "ATOMUSDT": "REAL_CBDR",
+    "SOLUSDT": "REAL_CBDR",
+    "BNBUSDT": "ASIA_RANGE",
+    "NEARUSDT": "ASIA_RANGE",
+    "AVAXUSDT": "ASIA_RANGE",  # Ek kural: CBDR > 5% olmali
+    "LINKUSDT": "ASIA_RANGE",
+    "DOTUSDT": "DEFAULT",
+    "ADAUSDT": "DEFAULT",
+    "XRPUSDT": "DEFAULT",
+    "BTCUSDT": "DEFAULT",
+    "APTUSDT": "DEFAULT",
+}
 
 # ── Coin bazli FVG esikleri ────────────────────────────────────
 FVG_SIZE_MAP: dict[str, float] = {
@@ -54,6 +68,12 @@ FVG_SIZE_MAP: dict[str, float] = {
 # ── ATR-bazlı dinamik FVG eşiği (statik FVG_SIZE_MAP yerine) ──
 # MULT scan 2026-07-03: 195 run (0.02-0.30). Best: 0.06 (en sağlam orta nokta)
 FVG_MIN_SIZE_ATR_MULT = 0.06
+
+# ── Session Router sabitleri ───────────────────────────────────
+BOT_SESSION = "DEFAULT"  # Botun calistigi session (22:00-02:00)
+CBDR_REQUIRED_MIN_PCT = {
+    "AVAXUSDT": 5.0,  # AVAX icin CBDR en az %5 olmali
+}
 
 # ── Risk parametreleri ─────────────────────────────────────────
 SL_ATR_MULT = 1.5

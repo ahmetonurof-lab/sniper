@@ -23,6 +23,7 @@ from models import ActiveTrade, Bar, PendingLock, Result
 from retrace_state import RetraceStateMachine
 from session import SessionState
 from risk_manager import RiskManager
+from session_router import should_trade
 from state_manager import (
     mark_trade_opened,
     mark_trade_closed,
@@ -322,6 +323,18 @@ class PaperTrader:
         result = engine.evaluate_trigger(current, ss)
 
         if result.decision == "TRIGGER":
+            # ── Session Router filtresi ──
+            cbdr_w = (
+                ((ss.cbdr_body_high - ss.cbdr_body_low) / ss.cbdr_body_low * 100)
+                if ss.cbdr_body_low > 0
+                else None
+            )
+            allowed, reason = should_trade(sym, cbdr_width_pct=cbdr_w)
+            if not allowed:
+                log.info("[ROUTER] %s trade reddedildi: %s", sym, reason)
+                rsm.reset()
+                return
+
             await self._try_entry(
                 sym,
                 current,
