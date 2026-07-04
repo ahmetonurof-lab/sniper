@@ -24,7 +24,12 @@ from models import ActiveTrade, Bar, PendingLock, Result
 from retrace_state import RetraceStateMachine
 from session import SessionState
 from risk_manager import RiskManager
-from session_router import should_trade, get_cbdr_multiplier, get_session_hours
+from session_router import (
+    should_trade,
+    get_cbdr_multiplier,
+    get_session_hours,
+    is_high_quality_fvg,
+)
 from state_manager import (
     mark_trade_opened,
     mark_trade_closed,
@@ -324,10 +329,23 @@ class PaperTrader:
         result = engine.evaluate_trigger(current, ss)
 
         if result.decision == "TRIGGER":
+            # ── Dinamik FVG kalite filtresi (ATR bazli) ──
+            tf = rsm.trigger_fvg
+            if tf is not None and not is_high_quality_fvg(tf.top - tf.bottom, atr_val):
+                rel = (tf.top - tf.bottom) / atr_val if atr_val > 1e-8 else 0
+                log.info(
+                    "[FVG-FILTER] %s rel_fvg=%.2f < %.2f (gurultu, iptal)",
+                    sym,
+                    rel,
+                    cfg.MIN_REL_FVG_THRESHOLD,
+                )
+                rsm.reset()
+                return
+
             # ── Session Router filtresi ──
             cbdr_w = (
                 ((ss.cbdr_body_high - ss.cbdr_body_low) / ss.cbdr_body_low * 100)
-                if ss.cbdr_body_low > 0
+                if ss.cbdr_body_low > 0 and not math.isinf(ss.cbdr_body_low)
                 else None
             )
             allowed, reason = should_trade(sym, cbdr_width_pct=cbdr_w)

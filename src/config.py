@@ -180,6 +180,11 @@ TP_RR = 2.0
 FVG_BUFFER_MULT = 0.50
 EARLY_LONDON_RISK_MULT = 1.5  # 02-08 UTC risk carpani (Altin Oran)
 
+# ── Dinamik FVG filtreleri (ATR bazli) ────────────────────────
+# Statik MIN_FVG_SIZE_PIPS kalkti. FVG kalitesi ATR'ye gore olculur.
+# FVG, ATR'nin en az bu kati buyuklugunde olmali (0.50 = %%50).
+MIN_REL_FVG_THRESHOLD = 0.50
+
 # ── Magic Numbers (Faz 1.2) ────────────────────────────────────
 CBDR_DEAD_THRESHOLD_PCT = 0.5  # CBDR dead eşiği (% olarak)
 ASIA_DEAD_THRESHOLD_PCT = 0.3  # Asya range dead eşiği (% olarak)
