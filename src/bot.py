@@ -519,13 +519,27 @@ class PaperTrader:
             rsm.reset()
             return
 
-        # ── RiskManager: erken London carpani + devre kesici ──
+        # ── RiskManager: zaman (EL) + portfoy sagligi (devre kesici) ──
         current_hour = datetime.now(UTC).hour
         is_early_london = 2 <= current_hour < 8
-        base_risk_mult = self.risk_mgr.get_dynamic_risk_multiplier(
+        risk_mgr_mult = self.risk_mgr.get_dynamic_risk_multiplier(
             self._available_balance, is_early_london
         )
-        final_risk_mult = base_risk_mult * cbdr_mult
+        is_defense_mode = self.risk_mgr.is_circuit_broken
+
+        # ── Nihai carpan (Guvenlik Freni) ──
+        if is_defense_mode:
+            # PORTFOY KANIYOR (DD > %15): Elite CBDR gelse bile riski buyutme
+            final_risk_mult = 1.0 * min(cbdr_mult, 1.0)
+            log.warning(
+                "[DEFENSE] %s DD limitinde! EL ve Elite CBDR iptal. final=%.2fx",
+                sym,
+                final_risk_mult,
+            )
+        else:
+            # PORTFOY SAGLIKLI: Zaman (EL) x Kurulum (CBDR) carpani
+            final_risk_mult = risk_mgr_mult * cbdr_mult
+
         adjusted_risk_pct = RISK_PER_TRADE * final_risk_mult
 
         qty = EntryManager.calculate_qty(
@@ -541,13 +555,12 @@ class PaperTrader:
             return
         if final_risk_mult != 1.0:
             log.info(
-                "[RISK] %s is_el=%s base=%.2fx cbdr=%.2fx final=%.2fx pct=%.4f qty=%.4f",
+                "[RISK ENGINE] %s | EL=%s | CBDR=%.2f%% (%sx) | FINAL=%.2fx | QTY=%.4f",
                 sym,
                 is_early_london,
-                base_risk_mult,
+                cbdr_w,
                 cbdr_mult,
                 final_risk_mult,
-                adjusted_risk_pct,
                 qty,
             )
 
