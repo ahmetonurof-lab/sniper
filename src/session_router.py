@@ -1,9 +1,10 @@
 """
-session_router.py — Coin bazli session filtresi + CBDR risk carpani.
+session_router.py — Coin bazli CBDR risk carpani + session helper.
 
 Iki gorevi var:
-  1. should_trade() — trade oncesi filtre (zayif coinler + session uyumu)
+  1. should_trade() — trade oncesi filtre (zayif coinler + zehirli bolge)
   2. get_cbdr_multiplier() — CBDR genisligine gore risk carpani
+  3. get_session_hours() — coin'in optimal session saatleri
 """
 
 import logging
@@ -23,29 +24,32 @@ def get_cbdr_multiplier(symbol: str, cbdr_pct: float) -> float:
     return 1.0
 
 
+def get_session_hours(symbol: str) -> dict[str, int]:
+    """Coin'in optimal session saatlerini dondur."""
+    profile = cfg.CBDR_RISK_MATRIX.get(symbol)
+    if not profile:
+        return {"start": 22, "end": 2}
+    hours = cfg.SESSION_HOURS.get(profile["session"])
+    return hours or {"start": 22, "end": 2}
+
+
 def should_trade(
     symbol: str,
     cbdr_width_pct: float | None = None,
-    current_session: str | None = None,
 ) -> tuple[bool, str]:
-    if current_session is None:
-        current_session = cfg.BOT_SESSION
     if symbol in ("ETHUSDT", "SUIUSDT"):
-        return False, f"{symbol} portfoyden cikarildi (zayif halka)"
+        return False, symbol + " portfoyden cikarildi (zayif halka)"
     profile = cfg.CBDR_RISK_MATRIX.get(symbol)
     if profile is None:
-        return False, f"{symbol} CBDR_RISK_MATRIX'te tanimli degil"
-    optimal = profile["session"]
-    if current_session != optimal:
-        return (
-            False,
-            f"{symbol} optimal={optimal}, mevcut={current_session} -> eslesmiyor",
-        )
+        return False, symbol + " CBDR_RISK_MATRIX'te tanimli degil"
     if cbdr_width_pct is not None:
         cbdr_mult = get_cbdr_multiplier(symbol, cbdr_width_pct)
         if cbdr_mult == 0.0:
             return (
                 False,
-                f"{symbol} CBDR={cbdr_width_pct:.2f}% Zehirli Bolge (mult=0.0)",
+                symbol
+                + " CBDR="
+                + f"{cbdr_width_pct:.2f}%"
+                + " Zehirli Bolge (mult=0.0)",
             )
     return True, ""

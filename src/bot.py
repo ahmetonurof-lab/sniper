@@ -23,7 +23,7 @@ from models import ActiveTrade, Bar, PendingLock, Result
 from retrace_state import RetraceStateMachine
 from session import SessionState
 from risk_manager import RiskManager
-from session_router import should_trade, get_cbdr_multiplier
+from session_router import should_trade, get_cbdr_multiplier, get_session_hours
 from state_manager import (
     mark_trade_opened,
     mark_trade_closed,
@@ -219,7 +219,10 @@ class PaperTrader:
                 "TP_RR": cfg.TP_RR,
                 "FVG_BUFFER_MULT": cfg.FVG_BUFFER_MULT,
             }
-            self.states[sym] = SessionState()
+            self.states[sym] = SessionState(
+                start_hour=get_session_hours(sym)["start"],
+                end_hour=get_session_hours(sym)["end"],
+            )
             self.rsms[sym] = RetraceStateMachine(max_wick_ratio=cfg.FVG_WICK_RATIO_MAX)
             self.signal_engines[sym] = SignalEngine(self.rsms[sym])
 

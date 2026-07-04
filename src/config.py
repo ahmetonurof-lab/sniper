@@ -56,6 +56,13 @@ FVG_MIN_SIZE_ATR_MULT = 0.06
 
 # ── CBDR Risk Matrisi (coin bazli session + bucket carpani) ─────
 BOT_SESSION = "DEFAULT"  # Botun calistigi session (22:00-02:00)
+
+# ── Session ismi -> saat araligi ──────────────────────────────
+SESSION_HOURS: dict[str, dict[str, int]] = {
+    "DEFAULT": {"start": 22, "end": 2},
+    "REAL_CBDR": {"start": 19, "end": 1},
+    "ASIA_RANGE": {"start": 1, "end": 5},
+}
 # Carpan mantigi:
 #   1.5x = Altin Vurus (WR > %44 veya BE+ > %67)
 #   1.2x = Standart Ustu (net avantaj)
