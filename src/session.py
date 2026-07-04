@@ -244,11 +244,13 @@ class SessionState:
     bot.py, signal_engine.py'de değişiklik gerekmez.
     """
 
-    def __init__(self):
+    def __init__(self, start_hour: int = 22, end_hour: int = 2):
         self._cbdr = CBDRState()
         self._range = RangeTracker()
         self._trade = TradeDayState()
         self.fvg_ready: bool = False
+        self.cbdr_start: int = start_hour
+        self.cbdr_end: int = end_hour
 
     # ── CBDRState delegation (8 attribute) ──────────────────
 
@@ -387,22 +389,37 @@ class SessionState:
         close: float,
         atr: float = 0.0,
     ) -> None:
-        """Tüm alt state'leri güncelle. Orijinal mantık birebir aynı."""
-        sess = detect_phase(dt)
+        """Tüm alt state'leri güncelle. cbdr_start/cbdr_end ile dinamik pencere."""
+        sess = detect_phase(dt, {"start": self.cbdr_start, "end": self.cbdr_end})
         h = dt.hour
         today = dt.strftime("%Y-%m-%d")
         cbdr = self._cbdr
         rng = self._range
+        sh = self.cbdr_start
+        eh = self.cbdr_end
+        spans_midnight = sh > eh
 
-        cbdr_key = today if h >= 22 else (dt - timedelta(days=1)).strftime("%Y-%m-%d")
+        # CBDR day_key: spans_midnight ise dünün bugününe düşen saatler
+        if spans_midnight:
+            cbdr_key = (
+                today if h >= sh else (dt - timedelta(days=1)).strftime("%Y-%m-%d")
+            )
+        else:
+            cbdr_key = (
+                today if h >= sh else (dt - timedelta(days=1)).strftime("%Y-%m-%d")
+            )
         if cbdr_key != cbdr.day:
             self._reset_for_new_cbdr_cycle()
             cbdr.day = cbdr_key
 
-        if sess == SessionPhase.CBDR and not cbdr.locked:
+        # CBDR body tracking: pencere ici saatlerde
+        in_window = (h >= sh or h < eh) if spans_midnight else (sh <= h < eh)
+        if in_window and not cbdr.locked:
             cbdr.track_body(open, close)
 
-        if 2 <= h < 22 and not cbdr.locked and cbdr.body_high > 0:
+        # CBDR lock: pencere disina cikinca
+        out_of_window = (eh <= h < sh) if spans_midnight else (h >= eh or h < sh)
+        if out_of_window and not cbdr.locked and cbdr.body_high > 0:
             cbdr.lock()
 
         if cbdr.locked and not cbdr.sweep_confirmed:
@@ -456,24 +473,39 @@ class SessionState:
 # ═══════════════════════════════════════════════════════════════
 
 
-def detect_phase(dt: datetime) -> SessionPhase:
+def detect_phase(dt: datetime, session_hours: dict | None = None) -> SessionPhase:
+    """
+    Saat bazinda piyasa seansi tespiti.
+    session_hours: {'start': int, 'end': int} — CBDR penceresi.
+                   None = default (22-2, mevcut hardcoded davranis).
+    """
     if isinstance(dt, int):
         return SessionPhase.CLOSED
+    if session_hours is None:
+        session_hours = {"start": 22, "end": 2}
     h = dt.hour
-    if h >= 22 or h < 2:
+    sh = session_hours["start"]
+    eh = session_hours["end"]
+    spans = sh > eh
+    # CBDR window kontrolu
+    in_cbdr = (h >= sh or h < eh) if spans else (sh <= h < eh)
+    if in_cbdr:
         return SessionPhase.CBDR
-    elif 2 <= h < 13:
+    # Aktif seanslar (hardcoded, piyasa saatleri degismez)
+    if 2 <= h < 13:
         return SessionPhase.LONDON
     elif 13 <= h < 22:
         return SessionPhase.NEWYORK
     return SessionPhase.CLOSED
 
 
-def detect_phase_from_timestamp(ts_ms: int) -> SessionPhase:
+def detect_phase_from_timestamp(
+    ts_ms: int, session_hours: dict | None = None
+) -> SessionPhase:
     if ts_ms <= 0:
         return SessionPhase.CLOSED
     try:
         dt = datetime.fromtimestamp(ts_ms / 1000, tz=UTC)
-        return detect_phase(dt)
+        return detect_phase(dt, session_hours)
     except Exception:
         return SessionPhase.CLOSED
