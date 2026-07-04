@@ -29,6 +29,7 @@ from session_router import (
     get_cbdr_multiplier,
     get_session_hours,
     is_high_quality_fvg,
+    is_fvg_valid,
 )
 from state_manager import (
     mark_trade_opened,
@@ -331,16 +332,26 @@ class PaperTrader:
         if result.decision == "TRIGGER":
             # ── Dinamik FVG kalite filtresi (ATR bazli) ──
             tf = rsm.trigger_fvg
-            if tf is not None and not is_high_quality_fvg(tf.top - tf.bottom, atr_val):
-                rel = (tf.top - tf.bottom) / atr_val if atr_val > 1e-8 else 0
-                log.info(
-                    "[FVG-FILTER] %s rel_fvg=%.2f < %.2f (gurultu, iptal)",
-                    sym,
-                    rel,
-                    cfg.MIN_REL_FVG_THRESHOLD,
-                )
-                rsm.reset()
-                return
+            if tf is not None:
+                if not is_high_quality_fvg(tf.top - tf.bottom, atr_val):
+                    rel = (tf.top - tf.bottom) / atr_val if atr_val > 1e-8 else 0
+                    log.info(
+                        "[FVG-FILTER] %s rel_fvg=%.2f < %.2f (gurultu, iptal)",
+                        sym,
+                        rel,
+                        cfg.MIN_REL_FVG_THRESHOLD,
+                    )
+                    rsm.reset()
+                    return
+                if not is_fvg_valid(tf.real_index, current.index):
+                    log.info(
+                        "[FVG-FILTER] %s FVG %d bar once olusmus, expiry=%d (iptal)",
+                        sym,
+                        current.index - tf.real_index,
+                        cfg.GLOBAL_FVG_EXPIRY_BARS,
+                    )
+                    rsm.reset()
+                    return
 
             # ── Session Router filtresi ──
             cbdr_w = (

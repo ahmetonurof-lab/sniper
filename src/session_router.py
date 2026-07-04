@@ -15,12 +15,20 @@ logger = logging.getLogger("sniper.session_router")
 
 
 def is_high_quality_fvg(fvg_pips: float, current_atr: float) -> bool:
-    """FVG kalitesini volatiliteye (ATR) gore kontrol et.
-    Kucuk FVG / yuksek ATR = gurultu -> reddet."""
+    """FVG kalitesini volatiliteye (ATR) gore kontrol et."""
     if current_atr <= 1e-8:
         return False
     rel_fvg = fvg_pips / current_atr
     if rel_fvg < cfg.MIN_REL_FVG_THRESHOLD:
+        return False
+    return True
+
+
+def is_fvg_valid(formation_bar_index: int, current_bar_index: int) -> bool:
+    """FVG'nin zaman asimina ugrayip ugramadigini kontrol eder.
+    DNA analizine gore 45 bar gecmisse FVG 'olu', magnet etkisi bitmis."""
+    bars_passed = current_bar_index - formation_bar_index
+    if bars_passed > cfg.GLOBAL_FVG_EXPIRY_BARS:
         return False
     return True
 

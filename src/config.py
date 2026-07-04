@@ -185,6 +185,11 @@ EARLY_LONDON_RISK_MULT = 1.5  # 02-08 UTC risk carpani (Altin Oran)
 # FVG, ATR'nin en az bu kati buyuklugunde olmali (0.50 = %%50).
 MIN_REL_FVG_THRESHOLD = 0.50
 
+# ── FVG zaman asimi (expiry) ───────────────────────────────────
+# En yavas coin (AVAX=40b) baz alinarak guvenli ust sinir.
+# 45 bar = 15m'de 11.25 saat. FVG bu surede dolmazsa magnet etkisi biter.
+GLOBAL_FVG_EXPIRY_BARS = 45
+
 # ── Magic Numbers (Faz 1.2) ────────────────────────────────────
 CBDR_DEAD_THRESHOLD_PCT = 0.5  # CBDR dead eşiği (% olarak)
 ASIA_DEAD_THRESHOLD_PCT = 0.3  # Asya range dead eşiği (% olarak)
