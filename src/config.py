@@ -75,7 +75,7 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
         "session": "DEFAULT",
         "buckets": [
             (0, 1, 1.0),
-            (1, 1.5, 0.0),
+            (1, 1.5, 1.0),  # n<100 -> 1.0x
             (1.5, 2, 1.0),
             (2, 3, 1.0),
             (3, 5, 1.5),
@@ -98,7 +98,7 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
         "buckets": [
             (0, 1, 1.0),
             (1, 1.5, 1.0),
-            (1.5, 2, 0.0),
+            (1.5, 2, 1.0),  # n<100 -> 1.0x
             (2, 3, 1.5),
             (3, 5, 1.0),
             (5, 999, 1.5),
@@ -140,23 +140,23 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     "ATOMUSDT": {
         "session": "REAL_CBDR",
         "buckets": [
-            (0, 1, 0.0),
-            (1, 1.5, 0.0),
+            (0, 1, 1.0),  # n<100 -> 1.0x
+            (1, 1.5, 1.0),  # n<100 -> 1.0x
             (1.5, 2, 1.5),
             (2, 3, 1.5),
             (3, 5, 1.0),
-            (5, 999, 0.0),
+            (5, 999, 1.0),  # n<100 -> 1.0x
         ],
     },
     "BTCUSDT": {
         "session": "REAL_CBDR",
         "buckets": [
-            (0.0, 1.0, 0.0),  # n=41, PnL negatif — zehirli
+            (0.0, 1.0, 1.0),  # n=41, PnL negatif — zehirli (n<100 -> 1.0x)
             (1.0, 1.5, 1.2),  # en büyük PnL katkısı (+46491)
             (1.5, 2.0, 1.2),
             (2.0, 3.0, 1.0),
             (3.0, 5.0, 0.8),
-            (5.0, 999.0, 0.8),  # n=36 çok küçük
+            (5.0, 999.0, 1.0),  # n=36 çok küçük (n<100 -> 1.0x)
         ],
     },
     "ETHUSDT": {
@@ -173,7 +173,7 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
             (1.5, 2.0, 1.0),
             (2.0, 3.0, 1.0),
             (3.0, 5.0, 0.8),
-            (5.0, 999.0, 1.5),
+            (5.0, 999.0, 1.0),  # n<100 -> 1.0x
         ],
     },
     "SUIUSDT": {
@@ -197,7 +197,11 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     "APTUSDT": {
         "session": "ASIA_RANGE",
         "buckets": [
-            (0.0, 1.0, 0.0),  # n=9, PnL negatif — zehirli (sample küçük ama negatif)
+            (
+                0.0,
+                1.0,
+                1.0,
+            ),  # n=9, PnL negatif — zehirli (sample küçük ama negatif) (n<100 -> 1.0x)
             (1.0, 1.5, 1.0),  # veri yok, nötr fallback
             (1.5, 2.0, 1.0),
             (2.0, 3.0, 1.5),  # WR 45.6 / BE+ 65.6 — altın vuruş
@@ -219,7 +223,7 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     "LINKUSDT": {
         "session": "ASIA_RANGE",
         "buckets": [
-            (0, 1, 0.0),
+            (0, 1, 1.0),  # n<100 -> 1.0x
             (1, 1.5, 1.0),
             (1.5, 2, 1.0),
             (2, 3, 1.5),
