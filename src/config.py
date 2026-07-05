@@ -20,6 +20,7 @@ LOG_LEVEL = "INFO"
 # ── Semboller (aktif trade listesi) ───────────────────────────
 SYMBOLS = [
     "BTCUSDT",
+    "ETHUSDT",
     "BNBUSDT",
     "SOLUSDT",
     "AVAXUSDT",
@@ -27,11 +28,11 @@ SYMBOLS = [
     "XRPUSDT",
     "ATOMUSDT",
     "ADAUSDT",
+    "SUIUSDT",
     "APTUSDT",
     "DOTUSDT",
     "NEARUSDT",
 ]
-# ETHUSDT, SUIUSDT cikarildi — Router karari
 
 # ── Coin bazli FVG esikleri ────────────────────────────────────
 FVG_SIZE_MAP: dict[str, float] = {
@@ -69,107 +70,147 @@ SESSION_HOURS: dict[str, dict[str, int]] = {
 #   0.5x = Zayif (edge kayboluyor)
 #   0.0x = ZEHIRLI / YASAKLI (sinyal gelse bile girme)
 CBDR_RISK_MATRIX: dict[str, dict] = {
-    "ATOMUSDT": {
-        "session": "REAL_CBDR",
+    "ADAUSDT": {
+        "session": "DEFAULT",
         "buckets": [
-            (0.0, 1.0, 1.0),
-            (1.0, 1.5, 0.8),
-            (1.5, 2.0, 1.0),
-            (2.0, 3.0, 1.2),
-            (3.0, 5.0, 1.5),
-            (5.0, 999.0, 0.5),
-        ],
-    },
-    "SOLUSDT": {
-        "session": "REAL_CBDR",
-        "buckets": [
-            (0.0, 1.0, 0.8),
-            (1.0, 1.5, 0.0),
-            (1.5, 2.0, 1.0),
-            (2.0, 3.0, 1.5),
-            (3.0, 5.0, 1.2),
-            (5.0, 999.0, 1.0),
-        ],
-    },
-    "BNBUSDT": {
-        "session": "ASIA_RANGE",
-        "buckets": [
-            (0.0, 1.0, 1.0),
-            (1.0, 3.0, 1.5),
-            (3.0, 5.0, 1.0),
-            (5.0, 999.0, 0.8),
-        ],
-    },
-    "NEARUSDT": {
-        "session": "ASIA_RANGE",
-        "buckets": [
-            (0.0, 1.5, 0.8),
-            (1.5, 5.0, 1.2),
-            (5.0, 999.0, 1.5),
+            (0, 1, 1.0),
+            (1, 1.5, 0.0),
+            (1.5, 2, 1.0),
+            (2, 3, 1.0),
+            (3, 5, 1.5),
+            (5, 999, 1.0),
         ],
     },
     "AVAXUSDT": {
-        "session": "ASIA_RANGE",
+        "session": "DEFAULT",
         "buckets": [
-            (0.0, 2.0, 1.0),
-            (2.0, 3.0, 1.5),
-            (3.0, 5.0, 1.0),
-            (5.0, 999.0, 0.5),
-        ],
-    },
-    "LINKUSDT": {
-        "session": "ASIA_RANGE",
-        "buckets": [
-            (0.0, 1.0, 0.0),
-            (1.0, 2.0, 0.8),
-            (2.0, 999.0, 1.5),
+            (0, 1, 1.0),
+            (1, 1.5, 0.0),
+            (1.5, 2, 1.0),
+            (2, 3, 1.5),
+            (3, 5, 1.5),
+            (5, 999, 1.5),
         ],
     },
     "DOTUSDT": {
         "session": "DEFAULT",
         "buckets": [
-            (0.0, 2.0, 1.0),
-            (2.0, 3.0, 1.5),
-            (3.0, 5.0, 1.2),
-            (5.0, 999.0, 1.5),
+            (0, 1, 1.0),
+            (1, 1.5, 1.0),
+            (1.5, 2, 0.0),
+            (2, 3, 1.5),
+            (3, 5, 1.0),
+            (5, 999, 1.5),
         ],
     },
-    "ADAUSDT": {
+    "NEARUSDT": {
         "session": "DEFAULT",
         "buckets": [
-            (0.0, 1.5, 0.8),
-            (1.5, 3.0, 1.0),
-            (3.0, 999.0, 1.5),
+            (0, 1, 1.0),
+            (1, 1.5, 1.0),
+            (1.5, 2, 0.0),
+            (2, 3, 1.5),
+            (3, 5, 1.5),
+            (5, 999, 1.0),
+        ],
+    },
+    "SOLUSDT": {
+        "session": "DEFAULT",
+        "buckets": [
+            (0, 1, 1.0),
+            (1, 1.5, 0.0),
+            (1.5, 2, 1.0),
+            (2, 3, 1.0),
+            (3, 5, 1.0),
+            (5, 999, 1.0),
         ],
     },
     "XRPUSDT": {
         "session": "DEFAULT",
         "buckets": [
-            (0.0, 2.0, 1.0),
-            (2.0, 3.0, 1.2),
-            (3.0, 5.0, 1.5),
-            (5.0, 999.0, 1.2),
+            (0, 1, 1.0),
+            (1, 1.5, 1.0),
+            (1.5, 2, 1.0),
+            (2, 3, 1.0),
+            (3, 5, 1.5),
+            (5, 999, 1.0),
+        ],
+    },
+    "ATOMUSDT": {
+        "session": "REAL_CBDR",
+        "buckets": [
+            (0, 1, 0.0),
+            (1, 1.5, 0.0),
+            (1.5, 2, 1.5),
+            (2, 3, 1.5),
+            (3, 5, 1.0),
+            (5, 999, 0.0),
         ],
     },
     "BTCUSDT": {
-        "session": "DEFAULT",
+        "session": "REAL_CBDR",
         "buckets": [
-            (0.0, 1.0, 1.0),
-            (1.0, 1.5, 1.5),
-            (1.5, 2.0, 0.5),
-            (2.0, 3.0, 1.0),
-            (3.0, 5.0, 0.0),
-            (5.0, 999.0, 1.5),
+            (0, 1, 0.0),
+            (1, 1.5, 1.5),
+            (1.5, 2, 1.0),
+            (2, 3, 1.0),
+            (3, 5, 1.0),
+            (5, 999, 1.0),
+        ],
+    },
+    "ETHUSDT": {
+        "session": "REAL_CBDR",
+        "buckets": [
+            (0, 1, 1.0),
+            (1, 1.5, 1.0),
+            (1.5, 2, 1.0),
+            (2, 3, 1.0),
+            (3, 5, 1.0),
+            (5, 999, 1.5),
+        ],
+    },
+    "SUIUSDT": {
+        "session": "REAL_CBDR",
+        "buckets": [
+            (0, 1, 1.0),
+            (1, 1.5, 0.0),
+            (1.5, 2, 1.0),
+            (2, 3, 1.5),
+            (3, 5, 1.0),
+            (5, 999, 1.0),
         ],
     },
     "APTUSDT": {
-        "session": "DEFAULT",
+        "session": "ASIA_RANGE",
         "buckets": [
-            (0.0, 1.0, 0.0),
-            (1.0, 2.0, 0.8),
-            (2.0, 3.0, 1.5),
-            (3.0, 5.0, 1.2),
-            (5.0, 999.0, 1.5),
+            (0, 1, 0.0),
+            (1, 1.5, 0.0),
+            (1.5, 2, 1.0),
+            (2, 3, 1.5),
+            (3, 5, 1.0),
+            (5, 999, 1.5),
+        ],
+    },
+    "BNBUSDT": {
+        "session": "ASIA_RANGE",
+        "buckets": [
+            (0, 1, 0.0),
+            (1, 1.5, 1.0),
+            (1.5, 2, 1.5),
+            (2, 3, 1.0),
+            (3, 5, 1.0),
+            (5, 999, 1.0),
+        ],
+    },
+    "LINKUSDT": {
+        "session": "ASIA_RANGE",
+        "buckets": [
+            (0, 1, 0.0),
+            (1, 1.5, 1.0),
+            (1.5, 2, 1.0),
+            (2, 3, 1.5),
+            (3, 5, 1.0),
+            (5, 999, 1.0),
         ],
     },
 }
@@ -181,31 +222,27 @@ FVG_BUFFER_MULT = 0.50
 EARLY_LONDON_RISK_MULT = 1.5  # 02-08 UTC risk carpani (Altin Oran)
 
 # ── Dinamik FVG filtreleri (ATR bazli) ────────────────────────
-# Statik MIN_FVG_SIZE_PIPS kalkti. FVG kalitesi ATR'ye gore olculur.
-# FVG, ATR'nin en az bu kati buyuklugunde olmali (0.50 = %%50).
 MIN_REL_FVG_THRESHOLD = 0.50
 
 # ── FVG zaman asimi (expiry) ───────────────────────────────────
-# En yavas coin (AVAX=40b) baz alinarak guvenli ust sinir.
-# 45 bar = 15m'de 11.25 saat. FVG bu surede dolmazsa magnet etkisi biter.
 GLOBAL_FVG_EXPIRY_BARS = 45
 
 # ── Magic Numbers (Faz 1.2) ────────────────────────────────────
-CBDR_DEAD_THRESHOLD_PCT = 0.5  # CBDR dead eşiği (% olarak)
-ASIA_DEAD_THRESHOLD_PCT = 0.3  # Asya range dead eşiği (% olarak)
-TRAIL_MIN_MOVE_MULT = 0.2  # Min trailing hareket çarpanı
-BE_RISK_MULT = 1.0  # Break-even: 1R kârda SL->entry
-BE_SPREAD_PTS = 0.0  # Break-even spread/komisyon offseti
-ATR_TRAIL_MULT = 0.25  # Trailing buffer = ATR * 0.25
-MIN_STOP_DIST_PCT = 0.006  # Min SL mesafesi (entry %0.6)
-MAX_MARGIN_PCT = 0.20  # Tek pozisyonda max marjin (%20)
-MIN_RISK_DIST_ATR_MULT = 0.1  # Min risk mesafesi ATR çarpanı
-MAX_SL_DIST_MULT = 2.0  # FVG bazlı SL max risk_pts çarpanı (aşarsa fallback)
-DEFAULT_ATR_FALLBACK_PCT = 0.0001  # Varsayılan ATR fallback (%)
-CBDR_SWEEP_ATR_TOLERANCE_MULT = 0.5  # CBDR sweep toleransı ATR çarpanı
-CBDR_SWEEP_DEFAULT_TOLERANCE = 10.0  # CBDR sweep varsayılan tolerans (ATR=0 ise)
-FVG_BUFFER_MIN_FACTOR = 0.10  # FVG buffer minimum çarpanı (fvg.size * factor)
-FVG_WICK_RATIO_MAX = 0.75  # eskisi: 0.90 — %88 gibi mumları da artik yakalar
+CBDR_DEAD_THRESHOLD_PCT = 0.5
+ASIA_DEAD_THRESHOLD_PCT = 0.3
+TRAIL_MIN_MOVE_MULT = 0.2
+BE_RISK_MULT = 1.0
+BE_SPREAD_PTS = 0.0
+ATR_TRAIL_MULT = 0.25
+MIN_STOP_DIST_PCT = 0.006
+MAX_MARGIN_PCT = 0.20
+MIN_RISK_DIST_ATR_MULT = 0.1
+MAX_SL_DIST_MULT = 2.0
+DEFAULT_ATR_FALLBACK_PCT = 0.0001
+CBDR_SWEEP_ATR_TOLERANCE_MULT = 0.5
+CBDR_SWEEP_DEFAULT_TOLERANCE = 10.0
+FVG_BUFFER_MIN_FACTOR = 0.10
+FVG_WICK_RATIO_MAX = 0.75
 
 # ── Binance API ────────────────────────────────────────────────
 BINANCE_API_KEY = os.getenv("TESTNET_API_KEY") or os.getenv("BINANCE_API_KEY")

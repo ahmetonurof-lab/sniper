@@ -56,8 +56,6 @@ def should_trade(
     symbol: str,
     cbdr_width_pct: float | None = None,
 ) -> tuple[bool, str]:
-    if symbol in ("ETHUSDT", "SUIUSDT"):
-        return False, symbol + " portfoyden cikarildi (zayif halka)"
     profile = cfg.CBDR_RISK_MATRIX.get(symbol)
     if profile is None:
         return False, symbol + " CBDR_RISK_MATRIX'te tanimli degil"
