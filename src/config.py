@@ -20,7 +20,6 @@ LOG_LEVEL = "INFO"
 # ── Semboller (aktif trade listesi) ───────────────────────────
 SYMBOLS = [
     "BTCUSDT",
-    "ETHUSDT",
     "BNBUSDT",
     "SOLUSDT",
     "AVAXUSDT",
@@ -28,11 +27,13 @@ SYMBOLS = [
     "XRPUSDT",
     "ATOMUSDT",
     "ADAUSDT",
-    "SUIUSDT",
     "APTUSDT",
     "DOTUSDT",
     "NEARUSDT",
+    "ETHUSDT",
+    "SUIUSDT",
 ]
+# Not: ETHUSDT ve SUIUSDT 2026-07-05 nihai kararla DEFAULT session'a atanarak geri eklendi.
 
 # ── Coin bazli FVG esikleri ────────────────────────────────────
 FVG_SIZE_MAP: dict[str, float] = {
@@ -84,12 +85,12 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     "AVAXUSDT": {
         "session": "DEFAULT",
         "buckets": [
-            (0, 1, 1.0),
-            (1, 1.5, 0.0),
-            (1.5, 2, 1.0),
-            (2, 3, 1.5),
-            (3, 5, 1.5),
-            (5, 999, 1.5),
+            (0.0, 1.0, 1.0),
+            (1.0, 1.5, 1.0),  # veri yok, nötr fallback
+            (1.5, 2.0, 1.0),
+            (2.0, 3.0, 1.5),  # WR 46.8 / BE+ 67.9 — altın vuruş
+            (3.0, 5.0, 1.5),  # WR 45.8 / BE+ 66.1 — altın vuruş
+            (5.0, 999.0, 1.2),  # n=191 küçük, temkinli
         ],
     },
     "DOTUSDT": {
@@ -106,23 +107,23 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     "NEARUSDT": {
         "session": "DEFAULT",
         "buckets": [
-            (0, 1, 1.0),
-            (1, 1.5, 1.0),
-            (1.5, 2, 0.0),
-            (2, 3, 1.5),
-            (3, 5, 1.5),
-            (5, 999, 1.0),
+            (0.0, 1.0, 0.8),
+            (1.0, 1.5, 1.0),
+            (1.5, 2.0, 1.0),  # veri yok, nötr fallback
+            (2.0, 3.0, 1.5),  # WR 44.4 / BE+ 66.8 — altın vuruş
+            (3.0, 5.0, 1.5),  # WR 45.3 / BE+ 67.2 — altın vuruş
+            (5.0, 999.0, 1.0),
         ],
     },
     "SOLUSDT": {
         "session": "DEFAULT",
         "buckets": [
-            (0, 1, 1.0),
-            (1, 1.5, 0.0),
-            (1.5, 2, 1.0),
-            (2, 3, 1.0),
-            (3, 5, 1.0),
-            (5, 999, 1.0),
+            (0.0, 1.0, 1.2),
+            (1.0, 1.5, 1.0),  # veri yok, nötr fallback
+            (1.5, 2.0, 1.0),
+            (2.0, 3.0, 1.0),
+            (3.0, 5.0, 0.8),
+            (5.0, 999.0, 1.2),
         ],
     },
     "XRPUSDT": {
@@ -150,32 +151,45 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     "BTCUSDT": {
         "session": "REAL_CBDR",
         "buckets": [
-            (0, 1, 0.0),
-            (1, 1.5, 1.5),
-            (1.5, 2, 1.0),
-            (2, 3, 1.0),
-            (3, 5, 1.0),
-            (5, 999, 1.0),
+            (0.0, 1.0, 0.0),  # n=41, PnL negatif — zehirli
+            (1.0, 1.5, 1.2),  # en büyük PnL katkısı (+46491)
+            (1.5, 2.0, 1.2),
+            (2.0, 3.0, 1.0),
+            (3.0, 5.0, 0.8),
+            (5.0, 999.0, 0.8),  # n=36 çok küçük
         ],
     },
     "ETHUSDT": {
-        "session": "REAL_CBDR",
+        "session": "DEFAULT",
         "buckets": [
-            (0, 1, 1.0),
-            (1, 1.5, 1.0),
-            (1.5, 2, 1.0),
-            (2, 3, 1.0),
-            (3, 5, 1.0),
-            (5, 999, 1.5),
+            # 0-1%:   WR=34.5% BE+=60.7% PnL=+18018 → Standart
+            # 1-1.5%: WR=38.0% BE+=63.7% PnL=+25358 → Standart Ustu (en yuksek PnL bucket)
+            # 1.5-2%: WR=38.8% BE+=62.8% PnL=+8453  → Standart
+            # 2-3%:   WR=36.1% BE+=58.7% PnL=+9769  → Standart
+            # 3-5%:   WR=32.2% BE+=65.3% PnL=+5755  → Defansif (WR dusuk)
+            # >5%:    WR=56.7% BE+=68.7% PnL=+3449  → Altin Vurus (WR>44% VE BE+>67%)
+            (0.0, 1.0, 1.0),
+            (1.0, 1.5, 1.2),  # en yüksek PnL bucket (+25k)
+            (1.5, 2.0, 1.0),
+            (2.0, 3.0, 1.0),
+            (3.0, 5.0, 0.8),
+            (5.0, 999.0, 1.5),
         ],
     },
     "SUIUSDT": {
-        "session": "REAL_CBDR",
+        "session": "DEFAULT",
         "buckets": [
+            # DEFAULT WR=39.4% BE+=62.1% PnL=+104030 (1.0x nötr + EL 1.5x)
+            # 0-1%:   WR=37.3% BE+=62.3% PnL=+5214  → Standart
+            # 1-1.5%: WR=36.0% BE+=60.5% PnL=+15326 → Standart
+            # 1.5-2%: WR=38.6% BE+=60.7% PnL=+12618 → Standart
+            # 2-3%:   WR=42.7% BE+=65.2% PnL=+33806 → Standart Ustu (WR 42.7% yaklasik 44%)
+            # 3-5%:   WR=39.4% BE+=61.0% PnL=+20710 → Standart
+            # >5%:    WR=40.9% BE+=60.8% PnL=+16355 → Standart
             (0, 1, 1.0),
-            (1, 1.5, 0.0),
+            (1, 1.5, 1.0),
             (1.5, 2, 1.0),
-            (2, 3, 1.5),
+            (2, 3, 1.2),
             (3, 5, 1.0),
             (5, 999, 1.0),
         ],
@@ -183,12 +197,12 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     "APTUSDT": {
         "session": "ASIA_RANGE",
         "buckets": [
-            (0, 1, 0.0),
-            (1, 1.5, 0.0),
-            (1.5, 2, 1.0),
-            (2, 3, 1.5),
-            (3, 5, 1.0),
-            (5, 999, 1.5),
+            (0.0, 1.0, 0.0),  # n=9, PnL negatif — zehirli (sample küçük ama negatif)
+            (1.0, 1.5, 1.0),  # veri yok, nötr fallback
+            (1.5, 2.0, 1.0),
+            (2.0, 3.0, 1.5),  # WR 45.6 / BE+ 65.6 — altın vuruş
+            (3.0, 5.0, 1.2),
+            (5.0, 999.0, 1.5),  # WR 53.0 / BE+ 72.2 — altın vuruş
         ],
     },
     "BNBUSDT": {
