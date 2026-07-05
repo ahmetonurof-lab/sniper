@@ -47,6 +47,17 @@
 | max_wick_ratio kaldırıldı | ✅ `evaluate_trail()` + `find_fvgs()` çağrısından silindi |
 | Wick ratio guard doğru katmana | ✅ signal_engine'dan silindi, RSM init'e `max_wick_ratio=0.75` eklendi — FVG tespitinde impulse bar kontrolü |
 | Dinamik FVG eşiği | ✅ `FVG_MIN_SIZE_ATR_MULT × atr_val` (eskiden statik FVG_SIZE_MAP) |
+| Session Router (session_router.py) | ✅ `get_cbdr_multiplier()`, `should_trade()`, `is_high_quality_fvg()`, `is_fvg_valid()`, `get_session_hours()` |
+| CBDR Risk Matrisi (13 coin × 6 bucket) | ✅ `config.py`'de `CBDR_RISK_MATRIX`, backtest WR/BE+/PnL verisiyle dolduruldu |
+| 3 katmanlı risk motoru | ✅ Zaman(EL) × Kurulum(CBDR bucket) × Portföy(devre kesici). Defense mode: EL+Elite iptal |
+| Coin bazlı SessionState | ✅ Her coin `CBDR_RISK_MATRIX['session']` üzerinden kendi optimal saatlerini alır |
+| BOT_SESSION kaldırıldı | ✅ Yerine coin bazlı session assignment |
+| NaN fix + MIN_FVG_SIZE temizlik | ✅ Kullanılmayan sabitler silindi, NaN koruması eklendi |
+| Dinamik ATR bazlı FVG filtresi | ✅ `is_high_quality_fvg()` — `MIN_REL_FVG_THRESHOLD=0.50` |
+| FVG expiry filter | ✅ `GLOBAL_FVG_EXPIRY_BARS=45`, `is_fvg_valid()` |
+| Session assignment (13 coin) | ✅ DEFAULT=8, REAL_CBDR=2, ASIA_RANGE=3 |
+| ETHUSDT/SUIUSDT geri eklendi | ✅ DEFAULT session'a atandı |
+| CBDR_RISK_MATRIX final commit | ✅ 13 coin bucket eşikleri + çarpanları tamamlandı |
 
 ## Kalan İşler 🔧
 
@@ -54,12 +65,13 @@
 |-------|---------|----------|
 | Canlı test: _exit_trade() flow | 🟠 Yüksek | cancel_all + reduceOnly + verify loop |
 | Backtest trailing port WR/DD canlı karşılaştırması | 🟡 Orta | Live WR vs backtest WR farkı analiz edilecek |
+| CBDR_RISK_MATRIX canlı doğrulaması | 🟡 Orta | Bucket çarpanlarının gerçek PnL'e uyumu kontrol edilecek |
+| Session assignment canlı gözlem | 🟡 Orta | DEFAULT/REAL_CBDR/ASIA_RANGE geçişlerinde FVG bulunamama sorunu tekrarlarsa analiz |
 | Mainnet canlı test | 🟢 Düşük | URL + API key değişikliği |
 | Performance benchmark | 🟢 Düşük | CPU/memory profil |
 | README güncelleme | 🟢 Düşük | Sadece ihtiyaç halinde |
 | FVG marker konum bug çözümü | 🟡 Orta | chart'ta gördüğümüz 3 örnek (SOLUSDT) — kök neden araştırılıyor |
-| ATR refactor entegrasyonu | 🟢 Düşük | Gerçek Wilder's ATR (indicators.py) teyit edilecek |
-| v3_window_comparison.md yeniden koşumu | 🟡 Orta | Süre analiziyle geçersiz tespit edildi, yeniden çalıştırılıyor |
+| v3_window_comparison.md yeniden koşumu | 🟡 Orta | Geçersiz çıktı, yeniden çalıştırılacak |
 | ict_cbdr_thresholds.md yeniden koşumu | 🟢 Düşük | Sahte ATR ile koşmuş, yeniden koşulacak |
 
 ## Bilinen Sorunlar 🐛

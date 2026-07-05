@@ -43,6 +43,14 @@
 - **Orphan cleanup genişletildi:** `reconcile_orphan_orders()` artık tüm order türlerini temizler (LIMIT dahil), sadece STOP/TP değil.
 - **FVG trailing close teyidi:** `_fvg_close_confirmed()` metodu — trailing sadece 15m mumu FVG içinde kapanmış (close between bottom-top) FVG'leri kullanır. Sadece fitil (wick) yetmez, gövde kapanışı şart. Close ters tarafta kapandıysa FVG geçersiz sayılır.
 
+## 2026-07-05 — CBDR Risk Matrisi + Session Router + 3 Katmanlı Risk
+
+- **session_router.py (yeni modül):** `should_trade()` — zehirli bölge filtresi + CBDR genişliğine göre risk çarpanı. `get_cbdr_multiplier()` — coin bazlı bucket çarpanı. `is_high_quality_fvg()` — ATR-bazlı FVG kalite filtresi (`MIN_REL_FVG_THRESHOLD=0.50`). `is_fvg_valid()` — 45 bar expiry. `get_session_hours()` — coin'in optimal session'ını döndürür.
+- **config.py:** `CBDR_RISK_MATRIX` — 13 coin × 6 bucket × 6 çarpan kademesi (1.5x/1.2x/1.0x/0.8x/0.5x/0.0x). Backtest WR/BE+/PnL verisiyle dolduruldu. `SESSION_HOURS` 3 tipe ayrıldı (DEFAULT/REAL_CBDR/ASIA_RANGE). `BOT_SESSION` kaldırıldı. `MIN_FVG_SIZE` temizlendi. `GLOBAL_FVG_EXPIRY_BARS=45`.
+- **bot.py:** 3 katmanlı risk motoru: (1) Zaman — EL 1.5x, (2) Kurulum — CBDR bucket çarpanı, (3) Portföy — devre kesici (defense mode). Defense mode'da EL ve Elite CBDR iptal: `final = 1.0 × min(cbdr_mult, 1.0)`. FVG expiry filter entry öncesi. NaN koruması. Log formatı iyileştirildi.
+- **Session assignment:** DEFAULT=8 (ADA, AVAX, DOT, NEAR, SOL, XRP, ETH, SUI), REAL_CBDR=2 (ATOM, BTC), ASIA_RANGE=3 (APT, BNB, LINK). ETH ve SUI geri eklendi.
+- **Commit listesi (bugün):** `0643f84` Session Router, `65d36aa` CBDR Risk Matrisi, `c1ade2f` Defense mode, `e4f0ca2` Coin bazlı SessionState, `e979000` NaN fix, `56aee2e` ATR FVG filtresi, `219986a` Expiry filter, `bf7c9c2` Session assignment, `1d73134` CBDR_RISK_MATRIX final.
+
 ## 2026-07-03 — ATR Refactor + Dinamik FVG Eşiği
 
 - **indicators.py (yeni dosya):** Gerçek Wilder's smoothing 14-periyot ATR. Eski sahte ATR (`max(range, close*0.0001)`) kaldırıldı. `calculate_true_range()`, `update_atr()`, `build_atr_from_bars()` fonksiyonları. Rolling state: `_atr_state`, `_atr_prev_close`.

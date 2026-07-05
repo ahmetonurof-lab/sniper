@@ -42,17 +42,31 @@
 | 26 | **Chart FVG uyuşmazlık uyarısı** | `chart_template.html`'e JS tutarlılık kontrolü eklendi: FVG marker bar'ının high/low'u ile fvgTop/fvgBottom arasındaki mesafe bar range'inin 8 katını geçerse kırmızı uyarı bandı basar. |
 | 27 | **console_reporter syntax fix** | `display_fvg_status()`'ta `TRIGGER_READY` bloğundaki iki `self.emit()` yanlış indentasyon seviyesindeydi (if dışında), `elif` yetim kalıp SyntaxError veriyordu. |
 | 30 | **RiskManager + Erken London risk çarpanı** | `risk_manager.py` (filelock thread-safe). EL çarpanı 1.5x (02-08 UTC). Histeresizli devre kesici: DD≥%15 patla, DD≤%10 reset. Backtest: 13/13 coin EL avantajı doğrulandı. Config: `EARLY_LONDON_RISK_MULT=1.5`. |
+| 31 | **Session Router (yeni modül)** | `session_router.py` — `get_cbdr_multiplier()`, `should_trade()`, `is_high_quality_fvg()`, `is_fvg_valid()`, `get_session_hours()`. Coin bazlı CBDR risk çarpanı + zehirli bölge filtresi + ATR-bazlı FVG kalite kontrolü. |
+| 32 | **CBDR Risk Matrisi + 3 katmanlı risk** | `config.py`'de `CBDR_RISK_MATRIX` (13 coin × 6 bucket × 6 çarpan kademesi: 1.5x/1.2x/1.0x/0.8x/0.5x/0.0x). 3 katman: Zaman(EL) × Kurulum(CBDR bucket) × Portföy(devre kesici). |
+| 33 | **Defense mode** | Devre kesici aktifken (DD > %15) EL ve Elite CBDR çarpanları iptal: `final = 1.0 × min(cbdr_mult, 1.0)`. Log'da `[DEFENSE]` etiketi. |
+| 34 | **Coin bazlı SessionState + midnight crossover** | Her coin `CBDR_RISK_MATRIX['session']` üzerinden kendi optimal session saatlerini alır. Midnight crossover session_router'da handle edilir. |
+| 35 | **NaN fix + BOT_SESSION sil + MIN_FVG_SIZE temizlik** | `BOT_SESSION` sabiti kaldırıldı (artık coin bazlı). `FVG_SIZE_MAP` kullanımdan kalktı (ATR-bazlı dinamik eşik). NaN koruması eklendi. |
+| 36 | **Dinamik ATR bazlı FVG filtresi** | `is_high_quality_fvg()` — FVG/ATR oranı `MIN_REL_FVG_THRESHOLD=0.50` altındaki FVG'leri reddeder. Tüm checklist tamamlandı. |
+| 37 | **FVG expiry filter** | `GLOBAL_FVG_EXPIRY_BARS=45` — 45 bar'dan eski FVG'ler 'ölü' kabul edilir. `is_fvg_valid()` session_router'da. Entry öncesi uygulanır. |
+| 38 | **Session assignment** | 13 coin 3 session: **DEFAULT** (8: ADA, AVAX, DOT, NEAR, SOL, XRP, ETH, SUI), **REAL_CBDR** (2: ATOM, BTC), **ASIA_RANGE** (3: APT, BNB, LINK). ETH/SUI DEFAULT'a atanarak geri eklendi. |
+| 39 | **CBDR_RISK_MATRIX final** | 13 coin bucket eşikleri + çarpanları backtest verisiyle dolduruldu. Her bucket WR/BE+/PnL baz alındı. Zehirli bölgeler (mult=0.0) işaretlendi. |
 
 ## Aktif Kararlar
 
 - **LEVERAGE=5**: 5x kaldıraç, margin = notional / 5.
 - **RSM (RetraceStateMachine)**: IDLE → SWEEP_DETECTED → TRIGGER_READY. Sadece 3 state.
 - **Max 1 trade/gün/sembol** (retrade kalktı).
-- **ASIA kapalı**: 22:00-02:00 UTC.
+- **ASIA kapalı**: Coin bazlı session saatleri (`CBDR_RISK_MATRIX`). DEFAULT=22:00-02:00, REAL_CBDR=19:00-01:00, ASIA_RANGE=01:00-05:00.
 - **Erken London risk çarpanı (1.5x)**: 02-08 UTC'de pozisyon boyutu %50 artırılır.
-- **Devre kesici**: DD ≥ %15 → EL çarpanı kapanır (base 1.0x). DD ≤ %10 → reset.
+- **CBDR bucket çarpanı**: 6 kademe (1.5x/1.2x/1.0x/0.8x/0.5x/0.0x). Coin bazlı, CBDR genişliğine göre.
+- **3 katmanlı risk**: Zaman (EL 1.5x) × Kurulum (CBDR bucket) × Portföy (devre kesici). Defense mode'da EL ve Elite CBDR iptal.
+- **Devre kesici**: DD ≥ %15 → defense mode (EL çarpanı kapanır, CBDR elite iptal). DD ≤ %10 → reset.
 - **RiskManager**: `sniper/src/risk_manager.py`, filelock ile thread-safe, state `output/risk_state.json`.
-- **Backtest doğrulaması**: 13/13 coin'de erken London WR > geç London/NY, tutarlılık %100. EL PF=4.35 vs non-EL PF=2.52.
+- **Session Router**: `sniper/src/session_router.py` — coin bazlı CBDR çarpanı + zehirli bölge filtresi + FVG kalite/zaman aşımı kontrolü.
+- **FVG expiry filter**: `GLOBAL_FVG_EXPIRY_BARS=45` — 45 bar'dan eski FVG'ler kullanılmaz.
+- **Dinamik FVG filtresi**: `MIN_REL_FVG_THRESHOLD=0.50` — FVG/ATR oranı bu değerin altındaysa red.
+- **Backtest doğrulaması**: 13/13 coin'de erken London WR > geç London/NY, tutarlılık %100. EL PF=4.35 vs non-EL PF=2.52. CBDR bucket matrisi backtest ile dolduruldu.
 - **Backtest metodu**: Parquet'ten linear PnL skalalama — exit koşulları price-based, qty skalası lineer taşınır. Gerçek portföy MaxDD günlük birleştirilmiş equity eğrisinden hesaplanır.
 - **RISK_PER_TRADE=0.003**: Elle güncellendi (%0.3).
 - **FVG_BUFFER_MULT=0.50**: Canlı ve backtest artık aynı.
@@ -66,12 +80,13 @@
 - Backtest trailing port'u sonrası WR/DD değişimi canlı ile karşılaştırılacak.
 - WS_FALLBACK sayısı trail prev ID fix sonrası takip edilecek.
 - **FVG marker konum bug'ı** (chart'ta gördüğümüz, 3 örnek: SOLUSDT aynı gün) — kök neden araştırılıyor.
-- **ict_cbdr_thresholds.md** — geçersiz (sahte ATR ile koşmuş), yeniden koşulacak.
-- **v3_window_comparison.md** — geçersiz çıktı (süre analiziyle tespit: 26 koşum için 2 dakika fiziksel olarak imkansız, muhtemelen cache/stale veri), yeniden koşulacak.
-- **mult_scan_report.md** — tek geçerli rapor, `FVG_MIN_SIZE_ATR_MULT=0.06` kararı buna dayanıyor.
+- **CBDR_RISK_MATRIX** canlı performansı gözlemlenecek — bucket çarpanlarının gerçek PnL'e uyumu kontrol edilecek.
+- **Session assignment** sonrası DEFAULT/REAL_CBDR/ASIA_RANGE geçişlerinde FVG bulunamama sorunu tekrarlarsa analiz edilecek.
+- **ict_cbdr_thresholds.md** — geçersiz (sahte ATR ile koşmuş), yeniden koşulacak (sırada bekliyor).
+- **v3_window_comparison.md** — geçersiz çıktı, yeniden koşulacak (sırada bekliyor).
 - **[FVG_SCAN] log formatı** — 16 haneli float basıyor, `.6f` ile sınırlanması istendi, teyit edilmedi.
-- Coin bazlı pencere kararı (real_cbdr/asia_range) — v3_window_comparison.md geçersiz çıktığı için karar askıda.
-- Dün gece FVG bulunamama şikayeti (23:00'a kadar hiçbir coinde FVG yok, 1-2 sweep) — MULT=0.06 sonrası kendiliğinden düzelip düzelmediği kontrol edilecek.
+- Coin bazlı pencere kararı (real_cbdr/asia_range) — CBDR_RISK_MATRIX içinde session assignment çözüldü, artık v3_window_comparison.md'ye bağımlı değil.
+- Dün gece FVG bulunamama şikayeti (23:00'a kadar hiçbir coinde FVG yok, 1-2 sweep) — MULT=0.06 + ATR-bazlı FVG filtresi sonrası düzelip düzelmediği kontrol edilecek.
 - **Backtest altyapısı entegrasyonu**: 5 dosya (session.py, retrace_state.py, fvg.py, models.py, coins_config.py) silindi — artık `sniper/src`'ten import ediliyor. `SNIPER_OUTPUT_DIR` env var ile production output/ klasöründen izolasyon. Determinism doğrulandı (in-memory state sızıntısı yok). `mult_scan.py`'de checkpoint/resume mekanizması var.
 
 ## Hatırlatmalar
