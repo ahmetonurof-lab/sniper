@@ -4,7 +4,7 @@
 
 1. **Bismillahirrahmanirrahim** — Her göreve bu selamla başla. Atlanırsa görev sayılmaz.
 
-2. **jcodemunch + index.json** — Kod değişikliğinden ÖNCE `index.json`'u oku (aynı klasörde). İçinde 739 fonksiyonun dosya ve satır numarası var. jcodemunch ile bul, index.json ile teyit et. jcodemunch navigasyon aracıdır, kod temizleme/değiştirme aracı değildir.
+2. **index.json ile navigasyon** — Kod aramak için dosyaları tek tek tarama. Önce `index.json`'u oku. İçinde `function_name → dosya:satır` var. Bulduktan sonra o dosyayı oku, değiştir. Bu, context ve token tasarrufu içindir.
 
 3. **Memory Bank** — İşlem bittiğinde `memory-bank/` altındaki dosyaları güncelle. Dosya yoksa bu adımı atla.
 
