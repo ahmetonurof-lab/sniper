@@ -70,9 +70,14 @@ SESSION_HOURS: dict[str, dict[str, int]] = {
 #   0.8x = Defansif (WR dusuk ama PnL pozitif)
 #   0.5x = Zayif (edge kayboluyor)
 #   0.0x = ZEHIRLI / YASAKLI (sinyal gelse bile girme)
+#
+# weekend_bonus: Cumartesi/Pazar gunleri cbdr_mult ek carpan
+# weekend_mult:  kac kat uygulanacak (ornek: 1.5 = %50 fazla)
 CBDR_RISK_MATRIX: dict[str, dict] = {
     "ADAUSDT": {
         "session": "DEFAULT",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
         "buckets": [
             (0.0, 1.0, 1.0),
             (1.0, 1.5, 1.0),  # n<100 -> 1.0x
@@ -84,6 +89,8 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     },
     "APTUSDT": {
         "session": "ASIA_RANGE",
+        "weekend_bonus": True,
+        "weekend_mult": 1.5,
         "buckets": [
             (0.0, 1.0, 1.0),  # n=9, n<100 -> 1.0x
             (1.0, 1.5, 1.0),
@@ -95,6 +102,8 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     },
     "ATOMUSDT": {
         "session": "REAL_CBDR",
+        "weekend_bonus": True,
+        "weekend_mult": 1.5,
         "buckets": [
             (0.0, 1.0, 1.0),  # n<100 -> 1.0x
             (1.0, 1.5, 1.0),  # n<100 -> 1.0x
@@ -106,6 +115,8 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     },
     "AVAXUSDT": {
         "session": "ASIA_RANGE",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
         "buckets": [
             (0.0, 1.0, 1.0),
             (1.0, 1.5, 1.0),
@@ -117,6 +128,8 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     },
     "BNBUSDT": {
         "session": "ASIA_RANGE",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
         "buckets": [
             (0.0, 1.0, 1.0),  # 2026-07-09: Wilson CI overlap testi ile 0.0x kisitlamasi kaldirildi, 0-1% bucket digerlerinden istatistiksel ayrisim yok (bkz backtest-sniper repo)
             (1.0, 1.5, 1.0),
@@ -128,6 +141,8 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     },
     "BTCUSDT": {
         "session": "REAL_CBDR",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
         "buckets": [
             (0.0, 1.0, 1.0),  # n=41, n<100 -> 1.0x
             (1.0, 1.5, 1.2),
@@ -139,6 +154,8 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     },
     "DOTUSDT": {
         "session": "REAL_CBDR",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
         "buckets": [
             (0.0, 1.0, 0.8),
             (1.0, 1.5, 1.0),
@@ -150,6 +167,8 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     },
     "ETHUSDT": {
         "session": "REAL_CBDR",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
         "buckets": [
             (0.0, 1.0, 0.8),
             (1.0, 1.5, 1.0),
@@ -161,6 +180,8 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     },
     "LINKUSDT": {
         "session": "ASIA_RANGE",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
         "buckets": [
             (0.0, 1.0, 1.0),  # n<100 -> 1.0x
             (1.0, 1.5, 1.0),
@@ -172,6 +193,8 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     },
     "NEARUSDT": {
         "session": "ASIA_RANGE",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
         "buckets": [
             (0.0, 1.0, 0.8),
             (1.0, 1.5, 1.0),
@@ -183,6 +206,8 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     },
     "SOLUSDT": {
         "session": "DEFAULT",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
         "buckets": [
             (0.0, 1.0, 1.2),
             (1.0, 1.5, 1.0),
@@ -194,6 +219,8 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     },
     "SUIUSDT": {
         "session": "DEFAULT",
+        "weekend_bonus": True,
+        "weekend_mult": 1.5,
         "buckets": [
             (0.0, 1.0, 1.0),
             (1.0, 1.5, 1.0),
@@ -205,6 +232,8 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     },
     "XRPUSDT": {
         "session": "DEFAULT",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
         "buckets": [
             (0.0, 1.0, 1.0),
             (1.0, 1.5, 1.0),
