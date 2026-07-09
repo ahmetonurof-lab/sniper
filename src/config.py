@@ -118,7 +118,7 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     "BNBUSDT": {
         "session": "ASIA_RANGE",
         "buckets": [
-            (0.0, 1.0, 0.0),
+            (0.0, 1.0, 1.0),  # 2026-07-09: Wilson CI overlap testi ile 0.0x kisitlamasi kaldirildi, 0-1% bucket digerlerinden istatistiksel ayrisim yok (bkz backtest-sniper repo)
             (1.0, 1.5, 1.0),
             (1.5, 2.0, 1.5),
             (2.0, 3.0, 1.0),
