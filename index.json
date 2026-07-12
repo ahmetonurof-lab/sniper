@@ -4580,10 +4580,6 @@
           "last_modified": "2026-06-30T21:12:59",
           "hash": "sha256:f61320312ed5e5b1"
         },
-        "src\\config.py": {
-          "last_modified": "2026-07-12T07:58:55",
-          "hash": "sha256:287614a86a8b31ce"
-        },
         "src\\bot.py": {
           "last_modified": "2026-07-12T08:18:14",
           "hash": "sha256:89269eacea659476"
@@ -4591,6 +4587,10 @@
         "src\\session.py": {
           "last_modified": "2026-07-12T08:30:08",
           "hash": "sha256:a896bf26359bc13b"
+        },
+        "src\\config.py": {
+          "last_modified": "2026-07-12T08:30:24",
+          "hash": "sha256:07a2f9a4f7bd95cc"
         }
       },
       "last_full_scan": "2026-07-11T17:46:08"
