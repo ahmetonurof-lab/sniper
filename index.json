@@ -4024,30 +4024,6 @@
           "line_end": 74,
           "signature": "def should_trade(symbol: str, cbdr_width_pct: float | None=None) -> tuple[bool, str]:"
         },
-        "src.trading.user_data_handler.UserDataHandler.__init__": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 33,
-          "line_end": 45,
-          "signature": "def __init__(self, active_trades: dict[str, Any], pl_callback: Callable[[str, str, str], None], wallet_callback: Callable[[float], None], order_manager: Any, exit_callback: Callable[..., Any]):"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 47,
-          "line_end": 153,
-          "signature": "def register(self, hub: Any) -> None:"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register.on_order_update": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 52,
-          "line_end": 139,
-          "signature": "@hub.on_user_data('ORDER_TRADE_UPDATE')"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register.on_account_update": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 142,
-          "line_end": 146,
-          "signature": "@hub.on_user_data('ACCOUNT_UPDATE')"
-        },
         "src.session.CBDRState.__init__": {
           "file": "src\\session.py",
           "line_start": 56,
@@ -4276,114 +4252,6 @@
           "line_end": 479,
           "signature": "def detect_phase_from_timestamp(ts_ms: int, session_hours: dict | None=None) -> SessionPhase:"
         },
-        "src.bot._save_fvg_state": {
-          "file": "src\\bot.py",
-          "line_start": 65,
-          "line_end": 76,
-          "signature": "def _save_fvg_state(sym: str, fvg_data: dict) -> None:"
-        },
-        "src.bot._load_fvg_state": {
-          "file": "src\\bot.py",
-          "line_start": 79,
-          "line_end": 87,
-          "signature": "def _load_fvg_state(sym: str) -> dict:"
-        },
-        "src.bot._setup_logging": {
-          "file": "src\\bot.py",
-          "line_start": 90,
-          "line_end": 143,
-          "signature": "def _setup_logging() -> logging.Logger:"
-        },
-        "src.bot.PaperTrader.__init__": {
-          "file": "src\\bot.py",
-          "line_start": 153,
-          "line_end": 232,
-          "signature": "def __init__(self, symbols: list[str] | None=None):"
-        },
-        "src.bot.PaperTrader._pl": {
-          "file": "src\\bot.py",
-          "line_start": 234,
-          "line_end": 236,
-          "signature": "def _pl(self, sym: str, key: str, msg: str, force: bool=False):"
-        },
-        "src.bot.PaperTrader._session_label": {
-          "file": "src\\bot.py",
-          "line_start": 238,
-          "line_end": 243,
-          "signature": "def _session_label(self, hour: int) -> str:"
-        },
-        "src.bot.PaperTrader._load_history": {
-          "file": "src\\bot.py",
-          "line_start": 245,
-          "line_end": 259,
-          "signature": "def _load_history(self):"
-        },
-        "src.bot.PaperTrader._on_15m_close": {
-          "file": "src\\bot.py",
-          "line_start": 263,
-          "line_end": 400,
-          "signature": "async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):"
-        },
-        "src.bot.PaperTrader._on_1m_close": {
-          "file": "src\\bot.py",
-          "line_start": 404,
-          "line_end": 471,
-          "signature": "async def _on_1m_close(self, sym: str, bars_1m: list[Bar]):"
-        },
-        "src.bot.PaperTrader._try_entry": {
-          "file": "src\\bot.py",
-          "line_start": 475,
-          "line_end": 687,
-          "signature": "async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):"
-        },
-        "src.bot.PaperTrader._exit_trade": {
-          "file": "src\\bot.py",
-          "line_start": 689,
-          "line_end": 847,
-          "signature": "async def _exit_trade(self, sym, trade, exit_timestamp: int):"
-        },
-        "src.bot.PaperTrader.on_15m": {
-          "file": "src\\bot.py",
-          "line_start": 849,
-          "line_end": 852,
-          "signature": "async def on_15m(self, sym: str, bars: list[Bar]):"
-        },
-        "src.bot.PaperTrader.on_1m": {
-          "file": "src\\bot.py",
-          "line_start": 854,
-          "line_end": 857,
-          "signature": "async def on_1m(self, sym: str, bars: list[Bar]):"
-        },
-        "src.bot.PaperTrader._prefill_bars": {
-          "file": "src\\bot.py",
-          "line_start": 859,
-          "line_end": 883,
-          "signature": "async def _prefill_bars(self, sym: str, timeframe: str='15m') -> Result[None]:"
-        },
-        "src.bot.PaperTrader._warmup_cbdr": {
-          "file": "src\\bot.py",
-          "line_start": 885,
-          "line_end": 940,
-          "signature": "def _warmup_cbdr(self, sym: str):"
-        },
-        "src.bot.PaperTrader._set_leverage": {
-          "file": "src\\bot.py",
-          "line_start": 942,
-          "line_end": 959,
-          "signature": "async def _set_leverage(self, symbol: str) -> Result[None]:"
-        },
-        "src.bot.PaperTrader.run": {
-          "file": "src\\bot.py",
-          "line_start": 961,
-          "line_end": 1105,
-          "signature": "async def run(self):"
-        },
-        "src.bot.main": {
-          "file": "src\\bot.py",
-          "line_start": 1108,
-          "line_end": 1118,
-          "signature": "def main():"
-        },
         "src.trading.console_reporter.ConsoleReporter.__init__": {
           "file": "src\\trading\\console_reporter.py",
           "line_start": 32,
@@ -4431,6 +4299,138 @@
           "line_start": 186,
           "line_end": 228,
           "signature": "def display_fvg_status(self, sym: str, rsm: 'RetraceStateMachine', min_fvg: float, current_close: float) -> None:"
+        },
+        "src.trading.user_data_handler.UserDataHandler.__init__": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 33,
+          "line_end": 45,
+          "signature": "def __init__(self, active_trades: dict[str, Any], pl_callback: Callable[[str, str, str], None], wallet_callback: Callable[[float], None], order_manager: Any, exit_callback: Callable[..., Any]):"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 47,
+          "line_end": 153,
+          "signature": "def register(self, hub: Any) -> None:"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register.on_order_update": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 52,
+          "line_end": 139,
+          "signature": "@hub.on_user_data('ORDER_TRADE_UPDATE')"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register.on_account_update": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 142,
+          "line_end": 146,
+          "signature": "@hub.on_user_data('ACCOUNT_UPDATE')"
+        },
+        "src.bot._save_fvg_state": {
+          "file": "src\\bot.py",
+          "line_start": 67,
+          "line_end": 78,
+          "signature": "def _save_fvg_state(sym: str, fvg_data: dict) -> None:"
+        },
+        "src.bot._load_fvg_state": {
+          "file": "src\\bot.py",
+          "line_start": 81,
+          "line_end": 89,
+          "signature": "def _load_fvg_state(sym: str) -> dict:"
+        },
+        "src.bot._setup_logging": {
+          "file": "src\\bot.py",
+          "line_start": 92,
+          "line_end": 145,
+          "signature": "def _setup_logging() -> logging.Logger:"
+        },
+        "src.bot.PaperTrader.__init__": {
+          "file": "src\\bot.py",
+          "line_start": 155,
+          "line_end": 234,
+          "signature": "def __init__(self, symbols: list[str] | None=None):"
+        },
+        "src.bot.PaperTrader._pl": {
+          "file": "src\\bot.py",
+          "line_start": 236,
+          "line_end": 238,
+          "signature": "def _pl(self, sym: str, key: str, msg: str, force: bool=False):"
+        },
+        "src.bot.PaperTrader._session_label": {
+          "file": "src\\bot.py",
+          "line_start": 240,
+          "line_end": 245,
+          "signature": "def _session_label(self, hour: int) -> str:"
+        },
+        "src.bot.PaperTrader._load_history": {
+          "file": "src\\bot.py",
+          "line_start": 247,
+          "line_end": 261,
+          "signature": "def _load_history(self):"
+        },
+        "src.bot.PaperTrader._on_15m_close": {
+          "file": "src\\bot.py",
+          "line_start": 265,
+          "line_end": 402,
+          "signature": "async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):"
+        },
+        "src.bot.PaperTrader._on_1m_close": {
+          "file": "src\\bot.py",
+          "line_start": 406,
+          "line_end": 473,
+          "signature": "async def _on_1m_close(self, sym: str, bars_1m: list[Bar]):"
+        },
+        "src.bot.PaperTrader._try_entry": {
+          "file": "src\\bot.py",
+          "line_start": 477,
+          "line_end": 689,
+          "signature": "async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):"
+        },
+        "src.bot.PaperTrader._exit_trade": {
+          "file": "src\\bot.py",
+          "line_start": 691,
+          "line_end": 852,
+          "signature": "async def _exit_trade(self, sym, trade, exit_timestamp: int):"
+        },
+        "src.bot.PaperTrader.on_15m": {
+          "file": "src\\bot.py",
+          "line_start": 854,
+          "line_end": 857,
+          "signature": "async def on_15m(self, sym: str, bars: list[Bar]):"
+        },
+        "src.bot.PaperTrader.on_1m": {
+          "file": "src\\bot.py",
+          "line_start": 859,
+          "line_end": 862,
+          "signature": "async def on_1m(self, sym: str, bars: list[Bar]):"
+        },
+        "src.bot.PaperTrader._prefill_bars": {
+          "file": "src\\bot.py",
+          "line_start": 864,
+          "line_end": 888,
+          "signature": "async def _prefill_bars(self, sym: str, timeframe: str='15m') -> Result[None]:"
+        },
+        "src.bot.PaperTrader._warmup_cbdr": {
+          "file": "src\\bot.py",
+          "line_start": 890,
+          "line_end": 945,
+          "signature": "def _warmup_cbdr(self, sym: str):"
+        },
+        "src.bot.PaperTrader._set_leverage": {
+          "file": "src\\bot.py",
+          "line_start": 947,
+          "line_end": 964,
+          "signature": "async def _set_leverage(self, symbol: str) -> Result[None]:"
+        },
+        "src.bot.PaperTrader.run": {
+          "file": "src\\bot.py",
+          "line_start": 966,
+          "line_end": 1110,
+          "signature": "async def run(self):"
+        },
+        "src.bot.main": {
+          "file": "src\\bot.py",
+          "line_start": 1113,
+          "line_end": 1123,
+          "signature": "def main():"
         }
       },
       "files": {
@@ -4574,14 +4574,6 @@
           "last_modified": "2026-07-12T07:58:24",
           "hash": "sha256:d5fd86fb8f0dc5bb"
         },
-        "src\\trading\\__init__.py": {
-          "last_modified": "2026-06-30T21:12:59",
-          "hash": "sha256:f61320312ed5e5b1"
-        },
-        "src\\trading\\user_data_handler.py": {
-          "last_modified": "2026-07-01T18:34:14",
-          "hash": "sha256:b17e77851be3b865"
-        },
         "src\\session.py": {
           "last_modified": "2026-07-12T09:07:20",
           "hash": "sha256:a896bf26359bc13b"
@@ -4590,13 +4582,21 @@
           "last_modified": "2026-07-12T09:07:25",
           "hash": "sha256:13d717a28f84a2c4"
         },
-        "src\\bot.py": {
-          "last_modified": "2026-07-12T08:18:14",
-          "hash": "sha256:89269eacea659476"
-        },
         "src\\trading\\console_reporter.py": {
           "last_modified": "2026-07-12T09:27:15",
           "hash": "sha256:3e13754e30112fae"
+        },
+        "src\\trading\\user_data_handler.py": {
+          "last_modified": "2026-07-01T18:34:14",
+          "hash": "sha256:b17e77851be3b865"
+        },
+        "src\\trading\\__init__.py": {
+          "last_modified": "2026-06-30T21:12:59",
+          "hash": "sha256:f61320312ed5e5b1"
+        },
+        "src\\bot.py": {
+          "last_modified": "2026-07-12T11:26:34",
+          "hash": "sha256:54ffdc0ade70d3bf"
         }
       },
       "last_full_scan": "2026-07-11T17:46:08"

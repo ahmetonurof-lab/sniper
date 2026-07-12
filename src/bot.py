@@ -54,6 +54,8 @@ from websocket import BinanceWSHub
 
 TR_TZ = timezone(timedelta(hours=3))
 
+COMMISSION_RATE = 0.0005  # %0.05 Binance futures taker fee (each leg)
+
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _OUTPUT_DIR = os.path.join(_SCRIPT_DIR, "..", "output")
 os.makedirs(_OUTPUT_DIR, exist_ok=True)
@@ -697,7 +699,10 @@ class PaperTrader:
             if trade["side"] == "long"
             else (trade["entry_price"] - trade["exit_price"])
         )
-        pnl = round(diff * trade["qty"], 2)
+        entry_fee = trade["entry_price"] * trade["qty"] * COMMISSION_RATE
+        exit_fee = trade["exit_price"] * trade["qty"] * COMMISSION_RATE
+        total_fee = entry_fee + exit_fee
+        pnl = round(diff * trade["qty"] - total_fee, 2)
         self._available_balance += pnl
         self.risk_mgr.update_peak(self._available_balance)
         self._pl(
