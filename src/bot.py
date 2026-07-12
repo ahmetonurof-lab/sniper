@@ -344,7 +344,7 @@ class PaperTrader:
                     )
                     rsm.reset()
                     return
-                if not is_fvg_valid(tf.real_index, current.index):
+                if not is_fvg_valid(tf.bar_index, current.index):
                     log.info(
                         "[FVG-FILTER] %s FVG %d bar once olusmus, expiry=%d (iptal)",
                         sym,
