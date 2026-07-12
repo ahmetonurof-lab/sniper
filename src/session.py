@@ -169,34 +169,6 @@ class RangeTracker:
         elif low < self.london_low:
             self.london_low = low
 
-    def evaluate_range_type(self, cbdr: CBDRState) -> None:
-        """08:00 UTC'de CBDR ve Asia range'lerine bakarak range_type belirle.
-
-        CBDR dar (< CBDR_DEAD_THRESHOLD_PCT) ve Asia da dar ise → DEAD.
-        CBDR dar ama Asia yeterli genişlikte → ASIA range kullan.
-        Aksi halde range_type "CBDR" kalır.
-        """
-        cbdr_range_pct = (
-            ((cbdr.body_high - cbdr.body_low) / cbdr.body_low * 100)
-            if cbdr.body_low > 0
-            else 0
-        )
-        if cbdr_range_pct < cfg.CBDR_DEAD_THRESHOLD_PCT:
-            if self.asia_high > 0:
-                asia_range_pct = (
-                    ((self.asia_high - self.asia_low) / self.asia_low * 100)
-                    if self.asia_low > 0
-                    else 0
-                )
-                if asia_range_pct < cfg.ASIA_DEAD_THRESHOLD_PCT:
-                    self.range_type = "DEAD"
-                    cbdr.locked = False  # DEAD: CBDR kilidi geri al
-                else:
-                    cbdr.body_high = self.asia_high
-                    cbdr.body_low = self.asia_low
-                    self.range_type = "ASIA"
-        # dar değilse range_type zaten "CBDR", dokunma
-
     def reset(self) -> None:
         """Yeni CBDR döngüsünde range'leri sıfırla."""
         self.asia_high = 0.0
@@ -424,10 +396,6 @@ class SessionState:
 
         if cbdr.locked and not cbdr.sweep_confirmed:
             cbdr.check_sweep(high, low, close, atr)
-
-        if h >= 8 and not rng.asia_checked and cbdr.locked:
-            rng.asia_checked = True
-            rng.evaluate_range_type(cbdr)
 
         if 2 <= h < 8:
             rng.track_asia(high, low)

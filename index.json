@@ -748,240 +748,6 @@
           "line_end": 145,
           "signature": "def get_dynamic_risk_multiplier(self, current_equity: float, is_early_london: bool) -> float:"
         },
-        "src.session.CBDRState.__init__": {
-          "file": "src\\session.py",
-          "line_start": 56,
-          "line_end": 64,
-          "signature": "def __init__(self):"
-        },
-        "src.session.CBDRState.track_body": {
-          "file": "src\\session.py",
-          "line_start": 66,
-          "line_end": 73,
-          "signature": "def track_body(self, open: float, close: float) -> None:"
-        },
-        "src.session.CBDRState.lock": {
-          "file": "src\\session.py",
-          "line_start": 75,
-          "line_end": 77,
-          "signature": "def lock(self) -> None:"
-        },
-        "src.session.CBDRState.check_sweep": {
-          "file": "src\\session.py",
-          "line_start": 79,
-          "line_end": 103,
-          "signature": "def check_sweep(self, high: float, low: float, close: float, atr: float=0.0) -> None:"
-        },
-        "src.session.CBDRState.reset_for_new_cycle": {
-          "file": "src\\session.py",
-          "line_start": 105,
-          "line_end": 113,
-          "signature": "def reset_for_new_cycle(self) -> None:"
-        },
-        "src.session.RangeTracker.__init__": {
-          "file": "src\\session.py",
-          "line_start": 131,
-          "line_end": 137,
-          "signature": "def __init__(self):"
-        },
-        "src.session.RangeTracker.track_asia": {
-          "file": "src\\session.py",
-          "line_start": 139,
-          "line_end": 144,
-          "signature": "def track_asia(self, high: float, low: float) -> None:"
-        },
-        "src.session.RangeTracker.track_london": {
-          "file": "src\\session.py",
-          "line_start": 146,
-          "line_end": 157,
-          "signature": "def track_london(self, high: float, low: float) -> None:"
-        },
-        "src.session.RangeTracker.track_ny": {
-          "file": "src\\session.py",
-          "line_start": 159,
-          "line_end": 170,
-          "signature": "def track_ny(self, high: float, low: float) -> None:"
-        },
-        "src.session.RangeTracker.evaluate_range_type": {
-          "file": "src\\session.py",
-          "line_start": 172,
-          "line_end": 197,
-          "signature": "def evaluate_range_type(self, cbdr: CBDRState) -> None:"
-        },
-        "src.session.RangeTracker.reset": {
-          "file": "src\\session.py",
-          "line_start": 200,
-          "line_end": 207,
-          "signature": "def reset(self) -> None:"
-        },
-        "src.session.TradeDayState.__init__": {
-          "file": "src\\session.py",
-          "line_start": 218,
-          "line_end": 219,
-          "signature": "def __init__(self):"
-        },
-        "src.session.TradeDayState.increment_trade": {
-          "file": "src\\session.py",
-          "line_start": 221,
-          "line_end": 223,
-          "signature": "def increment_trade(self) -> None:"
-        },
-        "src.session.TradeDayState.reset_for_new_cycle": {
-          "file": "src\\session.py",
-          "line_start": 225,
-          "line_end": 231,
-          "signature": "def reset_for_new_cycle(self) -> None:"
-        },
-        "src.session.SessionState.__init__": {
-          "file": "src\\session.py",
-          "line_start": 247,
-          "line_end": 253,
-          "signature": "def __init__(self, start_hour: int=22, end_hour: int=2):"
-        },
-        "src.session.SessionState.cbdr_body_high": {
-          "file": "src\\session.py",
-          "line_start": 262,
-          "line_end": 263,
-          "signature": "@cbdr_body_high.setter"
-        },
-        "src.session.SessionState.cbdr_body_low": {
-          "file": "src\\session.py",
-          "line_start": 270,
-          "line_end": 271,
-          "signature": "@cbdr_body_low.setter"
-        },
-        "src.session.SessionState.cbdr_locked": {
-          "file": "src\\session.py",
-          "line_start": 278,
-          "line_end": 279,
-          "signature": "@cbdr_locked.setter"
-        },
-        "src.session.SessionState.cbdr_day": {
-          "file": "src\\session.py",
-          "line_start": 286,
-          "line_end": 287,
-          "signature": "@cbdr_day.setter"
-        },
-        "src.session.SessionState.daily_bias": {
-          "file": "src\\session.py",
-          "line_start": 294,
-          "line_end": 295,
-          "signature": "@daily_bias.setter"
-        },
-        "src.session.SessionState.sweep_confirmed": {
-          "file": "src\\session.py",
-          "line_start": 302,
-          "line_end": 303,
-          "signature": "@sweep_confirmed.setter"
-        },
-        "src.session.SessionState.sweep_direction": {
-          "file": "src\\session.py",
-          "line_start": 310,
-          "line_end": 311,
-          "signature": "@sweep_direction.setter"
-        },
-        "src.session.SessionState.sweep_level": {
-          "file": "src\\session.py",
-          "line_start": 318,
-          "line_end": 319,
-          "signature": "@sweep_level.setter"
-        },
-        "src.session.SessionState.asia_high": {
-          "file": "src\\session.py",
-          "line_start": 328,
-          "line_end": 329,
-          "signature": "@asia_high.setter"
-        },
-        "src.session.SessionState.asia_low": {
-          "file": "src\\session.py",
-          "line_start": 336,
-          "line_end": 337,
-          "signature": "@asia_low.setter"
-        },
-        "src.session.SessionState.london_high": {
-          "file": "src\\session.py",
-          "line_start": 344,
-          "line_end": 345,
-          "signature": "@london_high.setter"
-        },
-        "src.session.SessionState.london_low": {
-          "file": "src\\session.py",
-          "line_start": 352,
-          "line_end": 353,
-          "signature": "@london_low.setter"
-        },
-        "src.session.SessionState.range_type": {
-          "file": "src\\session.py",
-          "line_start": 360,
-          "line_end": 361,
-          "signature": "@range_type.setter"
-        },
-        "src.session.SessionState.asia_checked": {
-          "file": "src\\session.py",
-          "line_start": 368,
-          "line_end": 369,
-          "signature": "@asia_checked.setter"
-        },
-        "src.session.SessionState.trades_today": {
-          "file": "src\\session.py",
-          "line_start": 378,
-          "line_end": 379,
-          "signature": "@trades_today.setter"
-        },
-        "src.session.SessionState.update": {
-          "file": "src\\session.py",
-          "line_start": 383,
-          "line_end": 438,
-          "signature": "def update(self, dt: datetime, open: float, high: float, low: float, close: float, atr: float=0.0) -> None:"
-        },
-        "src.session.SessionState._reset_for_new_cbdr_cycle": {
-          "file": "src\\session.py",
-          "line_start": 440,
-          "line_end": 444,
-          "signature": "def _reset_for_new_cbdr_cycle(self) -> None:"
-        },
-        "src.session.SessionState._track_cbdr_body": {
-          "file": "src\\session.py",
-          "line_start": 446,
-          "line_end": 450,
-          "signature": "def _track_cbdr_body(self, open: float, high: float, low: float, close: float) -> None:"
-        },
-        "src.session.SessionState._track_asia": {
-          "file": "src\\session.py",
-          "line_start": 452,
-          "line_end": 454,
-          "signature": "def _track_asia(self, high: float, low: float) -> None:"
-        },
-        "src.session.SessionState._track_london": {
-          "file": "src\\session.py",
-          "line_start": 456,
-          "line_end": 458,
-          "signature": "def _track_london(self, high: float, low: float) -> None:"
-        },
-        "src.session.SessionState._track_ny": {
-          "file": "src\\session.py",
-          "line_start": 460,
-          "line_end": 462,
-          "signature": "def _track_ny(self, high: float, low: float) -> None:"
-        },
-        "src.session.SessionState._check_cbdr_sweep": {
-          "file": "src\\session.py",
-          "line_start": 464,
-          "line_end": 468,
-          "signature": "def _check_cbdr_sweep(self, high: float, low: float, close: float, atr: float=0.0) -> None:"
-        },
-        "src.session.detect_phase": {
-          "file": "src\\session.py",
-          "line_start": 476,
-          "line_end": 499,
-          "signature": "def detect_phase(dt: datetime, session_hours: dict | None=None) -> SessionPhase:"
-        },
-        "src.session.detect_phase_from_timestamp": {
-          "file": "src\\session.py",
-          "line_start": 502,
-          "line_end": 511,
-          "signature": "def detect_phase_from_timestamp(ts_ms: int, session_hours: dict | None=None) -> SessionPhase:"
-        },
         "src.state_manager._today": {
           "file": "src\\state_manager.py",
           "line_start": 36,
@@ -4431,6 +4197,234 @@
           "line_start": 1108,
           "line_end": 1118,
           "signature": "def main():"
+        },
+        "src.session.CBDRState.__init__": {
+          "file": "src\\session.py",
+          "line_start": 56,
+          "line_end": 64,
+          "signature": "def __init__(self):"
+        },
+        "src.session.CBDRState.track_body": {
+          "file": "src\\session.py",
+          "line_start": 66,
+          "line_end": 73,
+          "signature": "def track_body(self, open: float, close: float) -> None:"
+        },
+        "src.session.CBDRState.lock": {
+          "file": "src\\session.py",
+          "line_start": 75,
+          "line_end": 77,
+          "signature": "def lock(self) -> None:"
+        },
+        "src.session.CBDRState.check_sweep": {
+          "file": "src\\session.py",
+          "line_start": 79,
+          "line_end": 103,
+          "signature": "def check_sweep(self, high: float, low: float, close: float, atr: float=0.0) -> None:"
+        },
+        "src.session.CBDRState.reset_for_new_cycle": {
+          "file": "src\\session.py",
+          "line_start": 105,
+          "line_end": 113,
+          "signature": "def reset_for_new_cycle(self) -> None:"
+        },
+        "src.session.RangeTracker.__init__": {
+          "file": "src\\session.py",
+          "line_start": 131,
+          "line_end": 137,
+          "signature": "def __init__(self):"
+        },
+        "src.session.RangeTracker.track_asia": {
+          "file": "src\\session.py",
+          "line_start": 139,
+          "line_end": 144,
+          "signature": "def track_asia(self, high: float, low: float) -> None:"
+        },
+        "src.session.RangeTracker.track_london": {
+          "file": "src\\session.py",
+          "line_start": 146,
+          "line_end": 157,
+          "signature": "def track_london(self, high: float, low: float) -> None:"
+        },
+        "src.session.RangeTracker.track_ny": {
+          "file": "src\\session.py",
+          "line_start": 159,
+          "line_end": 170,
+          "signature": "def track_ny(self, high: float, low: float) -> None:"
+        },
+        "src.session.RangeTracker.reset": {
+          "file": "src\\session.py",
+          "line_start": 172,
+          "line_end": 179,
+          "signature": "def reset(self) -> None:"
+        },
+        "src.session.TradeDayState.__init__": {
+          "file": "src\\session.py",
+          "line_start": 190,
+          "line_end": 191,
+          "signature": "def __init__(self):"
+        },
+        "src.session.TradeDayState.increment_trade": {
+          "file": "src\\session.py",
+          "line_start": 193,
+          "line_end": 195,
+          "signature": "def increment_trade(self) -> None:"
+        },
+        "src.session.TradeDayState.reset_for_new_cycle": {
+          "file": "src\\session.py",
+          "line_start": 197,
+          "line_end": 203,
+          "signature": "def reset_for_new_cycle(self) -> None:"
+        },
+        "src.session.SessionState.__init__": {
+          "file": "src\\session.py",
+          "line_start": 219,
+          "line_end": 225,
+          "signature": "def __init__(self, start_hour: int=22, end_hour: int=2):"
+        },
+        "src.session.SessionState.cbdr_body_high": {
+          "file": "src\\session.py",
+          "line_start": 234,
+          "line_end": 235,
+          "signature": "@cbdr_body_high.setter"
+        },
+        "src.session.SessionState.cbdr_body_low": {
+          "file": "src\\session.py",
+          "line_start": 242,
+          "line_end": 243,
+          "signature": "@cbdr_body_low.setter"
+        },
+        "src.session.SessionState.cbdr_locked": {
+          "file": "src\\session.py",
+          "line_start": 250,
+          "line_end": 251,
+          "signature": "@cbdr_locked.setter"
+        },
+        "src.session.SessionState.cbdr_day": {
+          "file": "src\\session.py",
+          "line_start": 258,
+          "line_end": 259,
+          "signature": "@cbdr_day.setter"
+        },
+        "src.session.SessionState.daily_bias": {
+          "file": "src\\session.py",
+          "line_start": 266,
+          "line_end": 267,
+          "signature": "@daily_bias.setter"
+        },
+        "src.session.SessionState.sweep_confirmed": {
+          "file": "src\\session.py",
+          "line_start": 274,
+          "line_end": 275,
+          "signature": "@sweep_confirmed.setter"
+        },
+        "src.session.SessionState.sweep_direction": {
+          "file": "src\\session.py",
+          "line_start": 282,
+          "line_end": 283,
+          "signature": "@sweep_direction.setter"
+        },
+        "src.session.SessionState.sweep_level": {
+          "file": "src\\session.py",
+          "line_start": 290,
+          "line_end": 291,
+          "signature": "@sweep_level.setter"
+        },
+        "src.session.SessionState.asia_high": {
+          "file": "src\\session.py",
+          "line_start": 300,
+          "line_end": 301,
+          "signature": "@asia_high.setter"
+        },
+        "src.session.SessionState.asia_low": {
+          "file": "src\\session.py",
+          "line_start": 308,
+          "line_end": 309,
+          "signature": "@asia_low.setter"
+        },
+        "src.session.SessionState.london_high": {
+          "file": "src\\session.py",
+          "line_start": 316,
+          "line_end": 317,
+          "signature": "@london_high.setter"
+        },
+        "src.session.SessionState.london_low": {
+          "file": "src\\session.py",
+          "line_start": 324,
+          "line_end": 325,
+          "signature": "@london_low.setter"
+        },
+        "src.session.SessionState.range_type": {
+          "file": "src\\session.py",
+          "line_start": 332,
+          "line_end": 333,
+          "signature": "@range_type.setter"
+        },
+        "src.session.SessionState.asia_checked": {
+          "file": "src\\session.py",
+          "line_start": 340,
+          "line_end": 341,
+          "signature": "@asia_checked.setter"
+        },
+        "src.session.SessionState.trades_today": {
+          "file": "src\\session.py",
+          "line_start": 350,
+          "line_end": 351,
+          "signature": "@trades_today.setter"
+        },
+        "src.session.SessionState.update": {
+          "file": "src\\session.py",
+          "line_start": 355,
+          "line_end": 406,
+          "signature": "def update(self, dt: datetime, open: float, high: float, low: float, close: float, atr: float=0.0) -> None:"
+        },
+        "src.session.SessionState._reset_for_new_cbdr_cycle": {
+          "file": "src\\session.py",
+          "line_start": 408,
+          "line_end": 412,
+          "signature": "def _reset_for_new_cbdr_cycle(self) -> None:"
+        },
+        "src.session.SessionState._track_cbdr_body": {
+          "file": "src\\session.py",
+          "line_start": 414,
+          "line_end": 418,
+          "signature": "def _track_cbdr_body(self, open: float, high: float, low: float, close: float) -> None:"
+        },
+        "src.session.SessionState._track_asia": {
+          "file": "src\\session.py",
+          "line_start": 420,
+          "line_end": 422,
+          "signature": "def _track_asia(self, high: float, low: float) -> None:"
+        },
+        "src.session.SessionState._track_london": {
+          "file": "src\\session.py",
+          "line_start": 424,
+          "line_end": 426,
+          "signature": "def _track_london(self, high: float, low: float) -> None:"
+        },
+        "src.session.SessionState._track_ny": {
+          "file": "src\\session.py",
+          "line_start": 428,
+          "line_end": 430,
+          "signature": "def _track_ny(self, high: float, low: float) -> None:"
+        },
+        "src.session.SessionState._check_cbdr_sweep": {
+          "file": "src\\session.py",
+          "line_start": 432,
+          "line_end": 436,
+          "signature": "def _check_cbdr_sweep(self, high: float, low: float, close: float, atr: float=0.0) -> None:"
+        },
+        "src.session.detect_phase": {
+          "file": "src\\session.py",
+          "line_start": 444,
+          "line_end": 467,
+          "signature": "def detect_phase(dt: datetime, session_hours: dict | None=None) -> SessionPhase:"
+        },
+        "src.session.detect_phase_from_timestamp": {
+          "file": "src\\session.py",
+          "line_start": 470,
+          "line_end": 479,
+          "signature": "def detect_phase_from_timestamp(ts_ms: int, session_hours: dict | None=None) -> SessionPhase:"
         }
       },
       "files": {
@@ -4469,10 +4463,6 @@
         "src\\risk_manager.py": {
           "last_modified": "2026-07-04T23:17:52",
           "hash": "sha256:46a4bb3d59fb9e83"
-        },
-        "src\\session.py": {
-          "last_modified": "2026-07-04T03:04:25",
-          "hash": "sha256:c1c854b48de46fe6"
         },
         "src\\state_manager.py": {
           "last_modified": "2026-07-03T14:11:49",
@@ -4597,6 +4587,10 @@
         "src\\bot.py": {
           "last_modified": "2026-07-12T08:18:14",
           "hash": "sha256:89269eacea659476"
+        },
+        "src\\session.py": {
+          "last_modified": "2026-07-12T08:30:08",
+          "hash": "sha256:a896bf26359bc13b"
         }
       },
       "last_full_scan": "2026-07-11T17:46:08"
