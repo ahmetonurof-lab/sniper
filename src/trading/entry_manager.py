@@ -36,7 +36,7 @@ log = logging.getLogger("sniper.entry_manager")
 
 @dataclass
 class EntryExecutionResult:
-    """Canlı emir yerleştirme sonucu."""
+    """Canli emir yerlestirme sonucu."""
 
     success: bool
     qty: float = 0.0
@@ -44,6 +44,16 @@ class EntryExecutionResult:
     tp_order_id: str = ""
     error: str = ""
     entry_log_msg: str = ""
+    actual_qty: float = 0.0
+    actual_price: float = 0.0
+    quote_qty: float = 0.0
+    order_id: str = ""
+    entry_price: float = 0.0
+    actual_qty: float = 0.0
+    actual_price: float = 0.0
+    quote_qty: float = 0.0
+    order_id: str = ""
+    entry_price: float = 0.0
 
 
 class EntryManager:
@@ -153,6 +163,35 @@ class EntryManager:
 
     # ── 3. Canlı emir yerleştirme ────────────────────────────────
 
+    @staticmethod
+    def parse_market_fill(response: dict) -> tuple[float, float, float]:
+        if not response or not isinstance(response, dict):
+            return (0.0, 0.0, 0.0)
+        executed_qty = float(response.get("executedQty", 0))
+        if executed_qty <= 0:
+            executed_qty = float(response.get("cumQuote", 0))
+        if executed_qty <= 0:
+            return (0.0, 0.0, 0.0)
+        avg_price = float(response.get("avgPrice", 0))
+        if avg_price <= 0:
+            avg_price = float(response.get("averagePrice", 0))
+        if avg_price <= 0:
+            cum_quote = float(response.get("cummulativeQuoteQty", 0))
+            if cum_quote <= 0:
+                cum_quote = float(response.get("cumQuote", 0))
+            if cum_quote <= 0:
+                cum_quote = float(response.get("quoteQty", 0))
+            if cum_quote > 0 and executed_qty > 0:
+                avg_price = cum_quote / executed_qty
+        quote_qty = float(response.get("cummulativeQuoteQty", 0))
+        if quote_qty <= 0:
+            quote_qty = float(response.get("cumQuote", 0))
+        if quote_qty <= 0:
+            quote_qty = float(response.get("quoteQty", 0))
+        if quote_qty <= 0 and avg_price > 0 and executed_qty > 0:
+            quote_qty = avg_price * executed_qty
+        return (executed_qty, avg_price, quote_qty)
+
     async def execute_live_entry(
         self,
         sym: str,
@@ -214,26 +253,35 @@ class EntryManager:
 
         # ── Market entry ──────────────────────────────────────────
         mkt_resp = await self._rest.place_market_order(sym, mkt_side, valid_qty)
+        actual_qty, actual_price, quote_qty = self.parse_market_fill(mkt_resp)
         mkt_id = extract_order_id(mkt_resp)
-        if not mkt_id:
-            err_detail = str(mkt_resp) if mkt_resp else "empty_response"
-            log.warning(
-                "[MARKET] %s basarisiz resp=%s qty=%s", sym, err_detail, valid_qty
-            )
-            return EntryExecutionResult(
-                success=False, error=f"MARKET BASARISIZ — {err_detail}"
-            )
+        if not mkt_id or actual_qty <= 0 or actual_price <= 0:
+            if actual_qty > 0 and actual_price > 0:
+                pass
+            else:
+                err_detail = str(mkt_resp) if mkt_resp else "empty_response"
+                log.warning(
+                    "[MARKET] %s basarisiz resp=%s qty=%.8f",
+                    sym, err_detail, valid_qty
+                )
+                return EntryExecutionResult(
+                    success=False, error=f"MARKET BASARISIZ — {err_detail}"
+                )
 
         log.info(
-            "[ORDER] %s MARKET entry OK orderId=%s qty=%.8f",
+            "[ORDER] %s MARKET entry OK orderId=%s " "requested_qty=%.8f actual_qty=%.8f actual_price=%.6f quote_qty=%.2f",
             sym,
             mkt_id,
             valid_qty,
+            actual_qty,
+            actual_price,
+            quote_qty,
         )
 
-        # ── SL emri ───────────────────────────────────────────────
+        # ── SL ve TP emirleri (actual_qty ile) ────────────────────
+        order_qty = actual_qty if actual_qty > 0 else valid_qty
         rounded_sl = await self._rest.apply_price_precision(sym, sl)
-        sl_resp = await self._rest.place_stop_order(sym, sl_side, valid_qty, rounded_sl)
+        sl_resp = await self._rest.place_stop_order(sym, sl_side, order_qty, rounded_sl)
         sl_id = extract_order_id(sl_resp)
         if not sl_id:
             log.critical(
@@ -256,7 +304,7 @@ class EntryManager:
 
         # ── TP emri ───────────────────────────────────────────────
         rounded_tp = await self._rest.apply_price_precision(sym, tp)
-        tp_resp = await self._rest.place_tp_order(sym, sl_side, valid_qty, rounded_tp)
+        tp_resp = await self._rest.place_tp_order(sym, sl_side, order_qty, rounded_tp)
         tp_id = extract_order_id(tp_resp)
         if tp_id:
             log.info("[ORDER] %s TP OK algoId=%s", sym, tp_id)
@@ -265,14 +313,19 @@ class EntryManager:
 
         return EntryExecutionResult(
             success=True,
-            qty=valid_qty,
+            qty=actual_qty,
+            actual_qty=actual_qty,
+            actual_price=actual_price,
+            quote_qty=quote_qty,
+            order_id=mkt_id,
+            entry_price=actual_price,
             sl_order_id=sl_id,
             tp_order_id=tp_id,
             entry_log_msg=(
                 f"\U0001f7e8 ENTRY: {side.upper()} | "
-                f"PRICE: {est_price:.2f} | "
+                f"PRICE: {est_price:.2f} (filled @ {actual_price:.4f}) | "
                 f"SL: {sl:.2f} | TP: {tp:.2f} | "
-                f"QTY: {valid_qty:.4f}"
+                f"QTY: {valid_qty:.4f} (filled: {actual_qty:.4f})"
             ),
         )
 

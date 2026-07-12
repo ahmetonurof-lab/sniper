@@ -585,6 +585,7 @@ class PaperTrader:
             )
 
         with PendingLock(self.active_trades, sym, logger=log) as lock:
+            entry_price_original = entry_price
             sl_id = ""
             tp_id = ""
             if cfg.BINANCE_API_KEY and getattr(self, "_live", False):
@@ -608,9 +609,18 @@ class PaperTrader:
                     return
                 sl_id = exec_result.sl_order_id
                 tp_id = exec_result.tp_order_id
-                qty = exec_result.qty
+                qty = exec_result.actual_qty if exec_result.actual_qty > 0 else exec_result.qty
+                actual_entry_price = exec_result.actual_price if exec_result.actual_price > 0 else entry_price
+                if qty <= 0 or actual_entry_price <= 0:
+                    self._pl(sym, "order_err", "\u274c ORDER: gecersiz fill verisi")
+                    log.warning("[ORDER] %s actual_qty=%.4f price=%.6f iptal", sym, qty, actual_entry_price)
+                    rsm.reset()
+                    return
+                entry_price = actual_entry_price
                 if exec_result.entry_log_msg:
                     self._pl(sym, "entry", exec_result.entry_log_msg)
+                live_entry_order_id = exec_result.order_id
+                live_requested_qty = exec_result.qty or qty
             else:
                 assert self.entry_manager is not None
                 paper_result = await self.entry_manager.execute_live_entry(
@@ -618,6 +628,8 @@ class PaperTrader:
                 )
                 if paper_result.entry_log_msg:
                     self._pl(sym, "entry", paper_result.entry_log_msg)
+                live_entry_order_id = ""
+                live_requested_qty = 0.0
 
             log.info(
                 "[PAPER] %s %s @ %.2f sl=%.2f tp=%.2f qty=%.4f",
@@ -672,6 +684,11 @@ class PaperTrader:
             tp_order_id=tp_id
             if (cfg.BINANCE_API_KEY and getattr(self, "_live", False))
             else "",
+            entry_order_id=live_entry_order_id,
+            entry_requested_qty=live_requested_qty,
+            entry_price_estimate=entry_price_original,
+            entry_actual_qty=qty,
+            entry_actual_price=entry_price,
         )
 
         # FVG verisini diske yaz — recovery'de kaybolmasin
@@ -694,15 +711,29 @@ class PaperTrader:
             log.warning("[EXIT] %s zaten kapali, ikinci exit engellendi", sym)
             return
 
+        actual_entry_price = trade.get("entry_actual_price", 0) or trade["entry_price"]
+        actual_entry_qty = trade.get("entry_actual_qty", 0) or trade["qty"]
+        actual_exit_price = trade.get("exit_actual_price", 0) or trade["exit_price"]
+        actual_exit_qty = trade.get("exit_actual_qty", 0) or actual_entry_qty
+        if actual_entry_price <= 0 or actual_exit_price <= 0 or actual_entry_qty <= 0:
+            log.critical("[EXIT] %s gecersiz fill verisi — PnL hesaplanamadi", sym)
+            return
+        pnl_qty = min(actual_entry_qty, actual_exit_qty)
         diff = (
-            (trade["exit_price"] - trade["entry_price"])
+            (actual_exit_price - actual_entry_price)
             if trade["side"] == "long"
-            else (trade["entry_price"] - trade["exit_price"])
+            else (actual_entry_price - actual_exit_price)
         )
-        entry_fee = trade["entry_price"] * trade["qty"] * COMMISSION_RATE
-        exit_fee = trade["exit_price"] * trade["qty"] * COMMISSION_RATE
+        entry_fee = actual_entry_price * pnl_qty * COMMISSION_RATE
+        exit_fee = actual_exit_price * pnl_qty * COMMISSION_RATE
         total_fee = entry_fee + exit_fee
-        pnl = round(diff * trade["qty"] - total_fee, 2)
+        pnl = round(diff * pnl_qty - total_fee, 2)
+        trade["entry_price"] = actual_entry_price
+        trade["qty"] = pnl_qty
+        trade["exit_price"] = actual_exit_price
+        trade["entry_fee"] = round(entry_fee, 2)
+        trade["exit_fee"] = round(exit_fee, 2)
+        trade["fee"] = round(total_fee, 2)
         self._available_balance += pnl
         self.risk_mgr.update_peak(self._available_balance)
         self._pl(

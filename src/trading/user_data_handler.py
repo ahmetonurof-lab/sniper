@@ -60,7 +60,11 @@ class UserDataHandler:
             is_reduce_only = od.get("R", False) or od.get("reduceOnly", False)
 
             if status in ("FILLED", "TRIGGERED"):
-                price = float(od.get("L", 0))
+                ap = float(od.get("ap", 0))
+                last_price = float(od.get("L", 0))
+                price = ap if ap > 0 else last_price
+                cum_qty = float(od.get("z", 0))
+                cum_quote = float(od.get("Z", 0))
 
                 trade = _active_trades.get(sym)
                 if trade:
@@ -70,29 +74,39 @@ class UserDataHandler:
                     t_id_prev = str(trade.get("tp_order_id_prev", ""))
 
                     if oid in (s_id, t_id, s_id_prev, t_id_prev):
-                        # Normal akış: ID eşleşti (güncel veya geçiş)
+                        # Normal akis: ID eslesti (guncel veya gecis)
                         result = "SL" if oid in (s_id, s_id_prev) else "TP"
                         _pl(
                             sym,
                             "filled_confirm",
-                            f"✅ BINANCE CONFIRMED: pozisyon kapatildi @ {price} ({result})",
+                            f"\u2705 BINANCE CONFIRMED: pozisyon kapatildi @ {price} ({result})",
                         )
 
-                        # Trade'i kapat (eğer henüz _on_1m_close kapatmadıysa)
+                        # Gercek fill verisini kaydet
                         if sym in _active_trades:
                             trade["exit_price"] = price
+                            trade["exit_actual_price"] = price
+                            if cum_qty > 0:
+                                trade["exit_actual_qty"] = cum_qty
+                            if cum_quote > 0:
+                                trade["exit_quote_qty"] = cum_quote
+                            trade["exit_order_id"] = oid
                             trade["exit_timestamp"] = int(time.time() * 1000)
                             trade["result"] = result
                             await _exit_trade(sym, trade, int(time.time() * 1000))
                     else:
-                        # FIX #3: ID eşleşmiyor AMA reduceOnly FILLED geldi!
+                        # FIX #3: ID eslesmiyor AMA reduceOnly FILLED geldi!
                         if is_reduce_only:
                             trade["exit_price"] = price
+                            trade["exit_actual_price"] = price
+                            if cum_qty > 0:
+                                trade["exit_actual_qty"] = cum_qty
+                            if cum_quote > 0:
+                                trade["exit_quote_qty"] = cum_quote
+                            trade["exit_order_id"] = oid
                             trade["exit_timestamp"] = int(time.time() * 1000)
-                            trade["result"] = "WS_FALLBACK"
+                            trade["result"] = result
                             await _exit_trade(sym, trade, int(time.time() * 1000))
-                            # P8.5: Kritik durumu exception ile yukari firlat
-                            # (hub callback wrapper log.exception ile yakalar)
                             raise WSFallbackError(sym, oid, s_id, t_id)
                 else:
                     # trade active_trades'te yok ama reduceOnly FILLED geldi.

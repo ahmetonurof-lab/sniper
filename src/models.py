@@ -348,6 +348,15 @@ class ActiveTrade:
     cbdr_low: float | None = None
     upnl: float | None = None
     status: str = ""
+    entry_order_id: str = ""
+    entry_requested_qty: float = 0.0
+    entry_price_estimate: float = 0.0
+    entry_actual_qty: float = 0.0
+    entry_actual_price: float = 0.0
+    exit_order_id: str = ""
+    exit_actual_qty: float = 0.0
+    exit_actual_price: float = 0.0
+    exit_quote_qty: float = 0.0
 
     # ── Dict uyumluluğu ───────────────────────────────────────
 
