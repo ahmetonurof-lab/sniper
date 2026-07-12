@@ -169,8 +169,6 @@ class EntryManager:
             return (0.0, 0.0, 0.0)
         executed_qty = float(response.get("executedQty", 0))
         if executed_qty <= 0:
-            executed_qty = float(response.get("cumQuote", 0))
-        if executed_qty <= 0:
             return (0.0, 0.0, 0.0)
         avg_price = float(response.get("avgPrice", 0))
         if avg_price <= 0:
@@ -255,27 +253,47 @@ class EntryManager:
         mkt_resp = await self._rest.place_market_order(sym, mkt_side, valid_qty)
         actual_qty, actual_price, quote_qty = self.parse_market_fill(mkt_resp)
         mkt_id = extract_order_id(mkt_resp)
-        if not mkt_id or actual_qty <= 0 or actual_price <= 0:
-            if actual_qty > 0 and actual_price > 0:
-                pass
-            else:
-                err_detail = str(mkt_resp) if mkt_resp else "empty_response"
-                log.warning(
-                    "[MARKET] %s basarisiz resp=%s qty=%.8f",
-                    sym, err_detail, valid_qty
-                )
+
+        # Fill varsa ama orderId eksikse — Binance'te pozisyon acilmis olabilir
+        if not mkt_id and actual_qty > 0 and actual_price > 0:
+            try:
+                positions = await self._rest.get_positions()
+                for p in positions:
+                    if p["symbol"] == sym:
+                        pos_amt = abs(float(p.get("positionAmt", 0)))
+                        if pos_amt > 0:
+                            close_resp = await self._rest.place_market_order(
+                                sym, opp_side, pos_amt, reduce_only=True
+                            )
+                            log.critical(
+                                "[MARKET-RECONCILE] %s pos=%.4f acik, orderId yok — "
+                                "acil kapatma gonderildi",
+                                sym, pos_amt,
+                            )
+                            return EntryExecutionResult(
+                                success=False, error=f"MARKET orderId bulunamadi — "
+                                f"pos={pos_amt:.4f} acik kapatildi"
+                            )
+            except Exception as e:
+                log.critical("[MARKET-RECONCILE] %s pos sorgu hatasi: %s", sym, e)
                 return EntryExecutionResult(
-                    success=False, error=f"MARKET BASARISIZ — {err_detail}"
+                    success=False, error=f"MARKET RECONCILE BASARISIZ — {e}"
                 )
 
+        if not mkt_id or actual_qty <= 0 or actual_price <= 0:
+            err_detail = str(mkt_resp) if mkt_resp else "empty_response"
+            log.warning(
+                "[MARKET] %s basarisiz resp=%s qty=%.8f",
+                sym, err_detail, valid_qty
+            )
+            return EntryExecutionResult(
+                success=False, error=f"MARKET BASARISIZ — {err_detail}"
+            )
+
         log.info(
-            "[ORDER] %s MARKET entry OK orderId=%s " "requested_qty=%.8f actual_qty=%.8f actual_price=%.6f quote_qty=%.2f",
-            sym,
-            mkt_id,
-            valid_qty,
-            actual_qty,
-            actual_price,
-            quote_qty,
+            "[ORDER] %s MARKET entry OK orderId=%s "
+            "requested_qty=%.8f actual_qty=%.8f actual_price=%.6f quote_qty=%.2f",
+            sym, mkt_id, valid_qty, actual_qty, actual_price, quote_qty,
         )
 
         # ── SL ve TP emirleri (actual_qty ile) ────────────────────
@@ -286,12 +304,11 @@ class EntryManager:
         if not sl_id:
             log.critical(
                 "[ORDER] %s SL BASARISIZ! Acil pozisyon kapatiliyor. resp=%s",
-                sym,
-                sl_resp,
+                sym, sl_resp,
             )
             opp_side = "SELL" if mkt_side == "BUY" else "BUY"
             try:
-                await self._rest.place_market_order(sym, opp_side, valid_qty)
+                await self._rest.place_market_order(sym, opp_side, order_qty)
             except Exception as e:
                 log.critical(
                     "[ORDER] %s acil pozisyon kapatma emri basarisiz: %s", sym, e
@@ -300,7 +317,7 @@ class EntryManager:
                 success=False, error="SL BASARISIZ — acil pozisyon kapatildi"
             )
 
-        log.info("[ORDER] %s SL OK algoId=%s", sym, sl_id)
+        log.info("[ORDER] %s SL OK at line=%s", sym, sl_id)
 
         # ── TP emri ───────────────────────────────────────────────
         rounded_tp = await self._rest.apply_price_precision(sym, tp)

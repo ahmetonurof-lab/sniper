@@ -750,6 +750,9 @@ class PaperTrader:
             self._available_balance,
         )
 
+        # ── Bazı exit tipleri zaten Binance tarafindan kapatilmistir ──
+        _exit_already_closed = trade.get("result") in ("SL", "TP", "WS_FALLBACK")
+
         # ── Önce tüm açık emirleri iptal et (SL/TP çakışmasını önle) ──
         if cfg.BINANCE_API_KEY:
             try:
@@ -759,8 +762,8 @@ class PaperTrader:
                     "[EXIT] %s cancel_all_open_orders hatasi (devam): %s", sym, e
                 )
 
-        # ── Pozisyon kapatma (reduceOnly market) ──
-        if cfg.BINANCE_API_KEY:
+        # ── Pozisyon kapatma (reduceOnly market) — SL/TP ile kapandıysa atla ──
+        if cfg.BINANCE_API_KEY and not _exit_already_closed:
             mkt_side = "SELL" if trade["side"] == "long" else "BUY"
             try:
                 close_resp = await self.rest.place_market_order(

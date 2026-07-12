@@ -105,7 +105,7 @@ class UserDataHandler:
                                 trade["exit_quote_qty"] = cum_quote
                             trade["exit_order_id"] = oid
                             trade["exit_timestamp"] = int(time.time() * 1000)
-                            trade["result"] = result
+                            trade["result"] = "WS_FALLBACK"
                             await _exit_trade(sym, trade, int(time.time() * 1000))
                             raise WSFallbackError(sym, oid, s_id, t_id)
                 else:
