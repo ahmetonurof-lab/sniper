@@ -238,9 +238,8 @@ class PaperTrader:
         self.reporter.emit(sym, key, msg, force)
 
     def _session_label(self, hour: int) -> str:
-        if hour >= 22 or hour < 2:
-            return "ASIA"
-        elif 2 <= hour < 13:
+        """Saati piyasa seansina cevir."""
+        if 2 <= hour < 13:
             return "LONDON"
         return "NEWYORK"
 
@@ -292,15 +291,6 @@ class PaperTrader:
         if sym in self.active_trades:
             self.reporter.display_active_position(
                 sym, self.active_trades[sym], hour, dt.minute
-            )
-            return
-
-        if session == "ASIA":
-            self._pl(
-                sym,
-                "st_ses",
-                "\U0001f7e5 SESSION: ASIA | 22:00-02:00 UTC | trading kapali",
-                force=True,
             )
             return
 
@@ -609,11 +599,24 @@ class PaperTrader:
                     return
                 sl_id = exec_result.sl_order_id
                 tp_id = exec_result.tp_order_id
-                qty = exec_result.actual_qty if exec_result.actual_qty > 0 else exec_result.qty
-                actual_entry_price = exec_result.actual_price if exec_result.actual_price > 0 else entry_price
+                qty = (
+                    exec_result.actual_qty
+                    if exec_result.actual_qty > 0
+                    else exec_result.qty
+                )
+                actual_entry_price = (
+                    exec_result.actual_price
+                    if exec_result.actual_price > 0
+                    else entry_price
+                )
                 if qty <= 0 or actual_entry_price <= 0:
                     self._pl(sym, "order_err", "\u274c ORDER: gecersiz fill verisi")
-                    log.warning("[ORDER] %s actual_qty=%.4f price=%.6f iptal", sym, qty, actual_entry_price)
+                    log.warning(
+                        "[ORDER] %s actual_qty=%.4f price=%.6f iptal",
+                        sym,
+                        qty,
+                        actual_entry_price,
+                    )
                     rsm.reset()
                     return
                 entry_price = actual_entry_price

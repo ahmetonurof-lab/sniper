@@ -4,6 +4,7 @@ vscode-extension/
 sonnet/
 
 # Artifacts
+_patch_*.py
 sniper_files.txt
 sniper_only.txt
 sonnet_files.txt

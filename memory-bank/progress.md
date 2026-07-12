@@ -58,6 +58,7 @@
 | Session assignment (13 coin) | ✅ DEFAULT=8, REAL_CBDR=2, ASIA_RANGE=3 |
 | ETHUSDT/SUIUSDT geri eklendi | ✅ DEFAULT session'a atandı |
 | CBDR_RISK_MATRIX final commit | ✅ 13 coin bucket eşikleri + çarpanları tamamlandı |
+| bot.py _session_label ASIA fix (backtest uyumu) | ✅ `_session_label()`'deki 22-02="ASIA" blokajı kaldırıldı. Artık coin bazlı CBDR blokajı backtest'le birebir aynı. REAL_CBDR coin'lerde 01:00-02:00 arası hatalı blok düzeldi. |
 
 ## Kalan İşler 🔧
 

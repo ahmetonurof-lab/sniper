@@ -51,13 +51,14 @@
 | 37 | **FVG expiry filter** | `GLOBAL_FVG_EXPIRY_BARS=45` — 45 bar'dan eski FVG'ler 'ölü' kabul edilir. `is_fvg_valid()` session_router'da. Entry öncesi uygulanır. |
 | 38 | **Session assignment** | 13 coin 3 session: **DEFAULT** (8: ADA, AVAX, DOT, NEAR, SOL, XRP, ETH, SUI), **REAL_CBDR** (2: ATOM, BTC), **ASIA_RANGE** (3: APT, BNB, LINK). ETH/SUI DEFAULT'a atanarak geri eklendi. |
 | 39 | **CBDR_RISK_MATRIX final** | 13 coin bucket eşikleri + çarpanları backtest verisiyle dolduruldu. Her bucket WR/BE+/PnL baz alındı. Zehirli bölgeler (mult=0.0) işaretlendi. |
+| 40 | **bot.py _session_label ASIA fix — backtest uyumu** | `_session_label()` 22-02'yi "ASIA" olarak etiketleyip blokluyordu. Bu REAL_CBDR coin'lerde (19-01) 01:00-02:00 arası hatalı bloka sebep oluyordu. Kaldırıldı. Artık coin bazlı CBDR penceresi blokajı (`cbdr_locked`) backtest'le birebir aynı. |
 
 ## Aktif Kararlar
 
 - **LEVERAGE=5**: 5x kaldıraç, margin = notional / 5.
 - **RSM (RetraceStateMachine)**: IDLE → SWEEP_DETECTED → TRIGGER_READY. Sadece 3 state.
 - **Max 1 trade/gün/sembol** (retrade kalktı).
-- **ASIA kapalı**: Coin bazlı session saatleri (`CBDR_RISK_MATRIX`). DEFAULT=22:00-02:00, REAL_CBDR=19:00-01:00, ASIA_RANGE=01:00-05:00.
+- **CBDR penceresi içinde işlem yasak**: Backtest'le birebir aynı. CBDR body tracking penceresinde (DEFAULT 22-02, REAL_CBDR 19-01, ASIA_RANGE 01-05) trade alınmaz — sadece body tracking + bias üretimi. CBDR kilitlenince trade serbest. Eski `_session_label` "ASIA" blokajı kaldırıldı.
 - **Erken London risk çarpanı (1.5x)**: 02-08 UTC'de pozisyon boyutu %50 artırılır.
 - **CBDR bucket çarpanı**: 6 kademe (1.5x/1.2x/1.0x/0.8x/0.5x/0.0x). Coin bazlı, CBDR genişliğine göre.
 - **3 katmanlı risk**: Zaman (EL 1.5x) × Kurulum (CBDR bucket) × Portföy (devre kesici). Defense mode'da EL ve Elite CBDR iptal.

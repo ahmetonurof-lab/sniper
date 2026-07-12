@@ -448,6 +448,210 @@
           "line_end": 73,
           "signature": "def build_atr_from_bars(bars: list[Bar], period: int=ATR_PERIOD) -> float:"
         },
+        "src.models.Result.ok": {
+          "file": "src\\models.py",
+          "line_start": 43,
+          "line_end": 44,
+          "signature": "@staticmethod"
+        },
+        "src.models.Result.fail": {
+          "file": "src\\models.py",
+          "line_start": 47,
+          "line_end": 48,
+          "signature": "@staticmethod"
+        },
+        "src.models.Result.is_ok": {
+          "file": "src\\models.py",
+          "line_start": 51,
+          "line_end": 52,
+          "signature": "@property"
+        },
+        "src.models.Result.is_err": {
+          "file": "src\\models.py",
+          "line_start": 55,
+          "line_end": 56,
+          "signature": "@property"
+        },
+        "src.models.WSFallbackError.__init__": {
+          "file": "src\\models.py",
+          "line_start": 71,
+          "line_end": 79,
+          "signature": "def __init__(self, symbol: str, oid: str, expected_sl: str, expected_tp: str):"
+        },
+        "src.models.tf_params": {
+          "file": "src\\models.py",
+          "line_start": 96,
+          "line_end": 97,
+          "signature": "def tf_params(timeframe: str) -> tuple[int, int, int]:"
+        },
+        "src.models.Bar.body": {
+          "file": "src\\models.py",
+          "line_start": 120,
+          "line_end": 121,
+          "signature": "@property"
+        },
+        "src.models.Bar.upper_wick": {
+          "file": "src\\models.py",
+          "line_start": 124,
+          "line_end": 125,
+          "signature": "@property"
+        },
+        "src.models.Bar.lower_wick": {
+          "file": "src\\models.py",
+          "line_start": 128,
+          "line_end": 129,
+          "signature": "@property"
+        },
+        "src.models.Bar.range": {
+          "file": "src\\models.py",
+          "line_start": 132,
+          "line_end": 133,
+          "signature": "@property"
+        },
+        "src.models.Bar.__post_init__": {
+          "file": "src\\models.py",
+          "line_start": 135,
+          "line_end": 147,
+          "signature": "def __post_init__(self) -> None:"
+        },
+        "src.models.FVG.__post_init__": {
+          "file": "src\\models.py",
+          "line_start": 161,
+          "line_end": 167,
+          "signature": "def __post_init__(self) -> None:"
+        },
+        "src.models.FVG.size": {
+          "file": "src\\models.py",
+          "line_start": 170,
+          "line_end": 171,
+          "signature": "@property"
+        },
+        "src.models.FVG.midpoint": {
+          "file": "src\\models.py",
+          "line_start": 174,
+          "line_end": 175,
+          "signature": "@property"
+        },
+        "src.models.FVG.is_active": {
+          "file": "src\\models.py",
+          "line_start": 178,
+          "line_end": 179,
+          "signature": "@property"
+        },
+        "src.models.FVG.mark_filled": {
+          "file": "src\\models.py",
+          "line_start": 181,
+          "line_end": 190,
+          "signature": "def mark_filled(self, price: float) -> bool:"
+        },
+        "src.models.CHoCH.__post_init__": {
+          "file": "src\\models.py",
+          "line_start": 203,
+          "line_end": 208,
+          "signature": "def __post_init__(self) -> None:"
+        },
+        "src.models.CHoCH.age_bars": {
+          "file": "src\\models.py",
+          "line_start": 210,
+          "line_end": 211,
+          "signature": "def age_bars(self, current_index: int) -> int:"
+        },
+        "src.models.SwingPoint.mark_mitigated": {
+          "file": "src\\models.py",
+          "line_start": 221,
+          "line_end": 228,
+          "signature": "def mark_mitigated(self, price: float) -> bool:"
+        },
+        "src.models.FVGQuality.__post_init__": {
+          "file": "src\\models.py",
+          "line_start": 239,
+          "line_end": 248,
+          "signature": "def __post_init__(self) -> None:"
+        },
+        "src.models.FVGQuality.is_valid": {
+          "file": "src\\models.py",
+          "line_start": 251,
+          "line_end": 252,
+          "signature": "@property"
+        },
+        "src.models.AnalysisResult.expected_choch_direction": {
+          "file": "src\\models.py",
+          "line_start": 275,
+          "line_end": 280,
+          "signature": "@property"
+        },
+        "src.models.AnalysisResult.is_valid_signal": {
+          "file": "src\\models.py",
+          "line_start": 282,
+          "line_end": 286,
+          "signature": "def is_valid_signal(self, _threshold: float | None=None) -> bool:"
+        },
+        "src.models.AnalysisResult.summary": {
+          "file": "src\\models.py",
+          "line_start": 288,
+          "line_end": 307,
+          "signature": "def summary(self) -> str:"
+        },
+        "src.models.ActiveTrade.__getitem__": {
+          "file": "src\\models.py",
+          "line_start": 363,
+          "line_end": 367,
+          "signature": "def __getitem__(self, key: str):"
+        },
+        "src.models.ActiveTrade.__setitem__": {
+          "file": "src\\models.py",
+          "line_start": 369,
+          "line_end": 370,
+          "signature": "def __setitem__(self, key: str, value) -> None:"
+        },
+        "src.models.ActiveTrade.get": {
+          "file": "src\\models.py",
+          "line_start": 372,
+          "line_end": 373,
+          "signature": "def get(self, key: str, default=None):"
+        },
+        "src.models.ActiveTrade.__contains__": {
+          "file": "src\\models.py",
+          "line_start": 375,
+          "line_end": 376,
+          "signature": "def __contains__(self, key: str) -> bool:"
+        },
+        "src.models.ActiveTrade.keys": {
+          "file": "src\\models.py",
+          "line_start": 378,
+          "line_end": 379,
+          "signature": "def keys(self):"
+        },
+        "src.models.ActiveTrade.__iter__": {
+          "file": "src\\models.py",
+          "line_start": 381,
+          "line_end": 382,
+          "signature": "def __iter__(self):"
+        },
+        "src.models.PendingLock.__init__": {
+          "file": "src\\models.py",
+          "line_start": 407,
+          "line_end": 411,
+          "signature": "def __init__(self, active_trades: dict, sym: str, logger=None):"
+        },
+        "src.models.PendingLock.__enter__": {
+          "file": "src\\models.py",
+          "line_start": 413,
+          "line_end": 416,
+          "signature": "def __enter__(self):"
+        },
+        "src.models.PendingLock.commit": {
+          "file": "src\\models.py",
+          "line_start": 418,
+          "line_end": 423,
+          "signature": "def commit(self):"
+        },
+        "src.models.PendingLock.__exit__": {
+          "file": "src\\models.py",
+          "line_start": 425,
+          "line_end": 435,
+          "signature": "def __exit__(self, _exc_type, _exc_val, _exc_tb):"
+        },
         "src.retrace_state.HTFFVG.__init__": {
           "file": "src\\retrace_state.py",
           "line_start": 28,
@@ -543,6 +747,264 @@
           "line_start": 103,
           "line_end": 145,
           "signature": "def get_dynamic_risk_multiplier(self, current_equity: float, is_early_london: bool) -> float:"
+        },
+        "src.session.CBDRState.__init__": {
+          "file": "src\\session.py",
+          "line_start": 56,
+          "line_end": 64,
+          "signature": "def __init__(self):"
+        },
+        "src.session.CBDRState.track_body": {
+          "file": "src\\session.py",
+          "line_start": 66,
+          "line_end": 73,
+          "signature": "def track_body(self, open: float, close: float) -> None:"
+        },
+        "src.session.CBDRState.lock": {
+          "file": "src\\session.py",
+          "line_start": 75,
+          "line_end": 77,
+          "signature": "def lock(self) -> None:"
+        },
+        "src.session.CBDRState.check_sweep": {
+          "file": "src\\session.py",
+          "line_start": 79,
+          "line_end": 103,
+          "signature": "def check_sweep(self, high: float, low: float, close: float, atr: float=0.0) -> None:"
+        },
+        "src.session.CBDRState.reset_for_new_cycle": {
+          "file": "src\\session.py",
+          "line_start": 105,
+          "line_end": 113,
+          "signature": "def reset_for_new_cycle(self) -> None:"
+        },
+        "src.session.RangeTracker.__init__": {
+          "file": "src\\session.py",
+          "line_start": 131,
+          "line_end": 137,
+          "signature": "def __init__(self):"
+        },
+        "src.session.RangeTracker.track_asia": {
+          "file": "src\\session.py",
+          "line_start": 139,
+          "line_end": 144,
+          "signature": "def track_asia(self, high: float, low: float) -> None:"
+        },
+        "src.session.RangeTracker.track_london": {
+          "file": "src\\session.py",
+          "line_start": 146,
+          "line_end": 157,
+          "signature": "def track_london(self, high: float, low: float) -> None:"
+        },
+        "src.session.RangeTracker.track_ny": {
+          "file": "src\\session.py",
+          "line_start": 159,
+          "line_end": 170,
+          "signature": "def track_ny(self, high: float, low: float) -> None:"
+        },
+        "src.session.RangeTracker.reset": {
+          "file": "src\\session.py",
+          "line_start": 172,
+          "line_end": 179,
+          "signature": "def reset(self) -> None:"
+        },
+        "src.session.TradeDayState.__init__": {
+          "file": "src\\session.py",
+          "line_start": 190,
+          "line_end": 191,
+          "signature": "def __init__(self):"
+        },
+        "src.session.TradeDayState.increment_trade": {
+          "file": "src\\session.py",
+          "line_start": 193,
+          "line_end": 195,
+          "signature": "def increment_trade(self) -> None:"
+        },
+        "src.session.TradeDayState.reset_for_new_cycle": {
+          "file": "src\\session.py",
+          "line_start": 197,
+          "line_end": 203,
+          "signature": "def reset_for_new_cycle(self) -> None:"
+        },
+        "src.session.SessionState.__init__": {
+          "file": "src\\session.py",
+          "line_start": 219,
+          "line_end": 225,
+          "signature": "def __init__(self, start_hour: int=22, end_hour: int=2):"
+        },
+        "src.session.SessionState.cbdr_body_high": {
+          "file": "src\\session.py",
+          "line_start": 234,
+          "line_end": 235,
+          "signature": "@cbdr_body_high.setter"
+        },
+        "src.session.SessionState.cbdr_body_low": {
+          "file": "src\\session.py",
+          "line_start": 242,
+          "line_end": 243,
+          "signature": "@cbdr_body_low.setter"
+        },
+        "src.session.SessionState.cbdr_locked": {
+          "file": "src\\session.py",
+          "line_start": 250,
+          "line_end": 251,
+          "signature": "@cbdr_locked.setter"
+        },
+        "src.session.SessionState.cbdr_day": {
+          "file": "src\\session.py",
+          "line_start": 258,
+          "line_end": 259,
+          "signature": "@cbdr_day.setter"
+        },
+        "src.session.SessionState.daily_bias": {
+          "file": "src\\session.py",
+          "line_start": 266,
+          "line_end": 267,
+          "signature": "@daily_bias.setter"
+        },
+        "src.session.SessionState.sweep_confirmed": {
+          "file": "src\\session.py",
+          "line_start": 274,
+          "line_end": 275,
+          "signature": "@sweep_confirmed.setter"
+        },
+        "src.session.SessionState.sweep_direction": {
+          "file": "src\\session.py",
+          "line_start": 282,
+          "line_end": 283,
+          "signature": "@sweep_direction.setter"
+        },
+        "src.session.SessionState.sweep_level": {
+          "file": "src\\session.py",
+          "line_start": 290,
+          "line_end": 291,
+          "signature": "@sweep_level.setter"
+        },
+        "src.session.SessionState.asia_high": {
+          "file": "src\\session.py",
+          "line_start": 300,
+          "line_end": 301,
+          "signature": "@asia_high.setter"
+        },
+        "src.session.SessionState.asia_low": {
+          "file": "src\\session.py",
+          "line_start": 308,
+          "line_end": 309,
+          "signature": "@asia_low.setter"
+        },
+        "src.session.SessionState.london_high": {
+          "file": "src\\session.py",
+          "line_start": 316,
+          "line_end": 317,
+          "signature": "@london_high.setter"
+        },
+        "src.session.SessionState.london_low": {
+          "file": "src\\session.py",
+          "line_start": 324,
+          "line_end": 325,
+          "signature": "@london_low.setter"
+        },
+        "src.session.SessionState.range_type": {
+          "file": "src\\session.py",
+          "line_start": 332,
+          "line_end": 333,
+          "signature": "@range_type.setter"
+        },
+        "src.session.SessionState.asia_checked": {
+          "file": "src\\session.py",
+          "line_start": 340,
+          "line_end": 341,
+          "signature": "@asia_checked.setter"
+        },
+        "src.session.SessionState.trades_today": {
+          "file": "src\\session.py",
+          "line_start": 350,
+          "line_end": 351,
+          "signature": "@trades_today.setter"
+        },
+        "src.session.SessionState.update": {
+          "file": "src\\session.py",
+          "line_start": 355,
+          "line_end": 406,
+          "signature": "def update(self, dt: datetime, open: float, high: float, low: float, close: float, atr: float=0.0) -> None:"
+        },
+        "src.session.SessionState._reset_for_new_cbdr_cycle": {
+          "file": "src\\session.py",
+          "line_start": 408,
+          "line_end": 412,
+          "signature": "def _reset_for_new_cbdr_cycle(self) -> None:"
+        },
+        "src.session.SessionState._track_cbdr_body": {
+          "file": "src\\session.py",
+          "line_start": 414,
+          "line_end": 418,
+          "signature": "def _track_cbdr_body(self, open: float, high: float, low: float, close: float) -> None:"
+        },
+        "src.session.SessionState._track_asia": {
+          "file": "src\\session.py",
+          "line_start": 420,
+          "line_end": 422,
+          "signature": "def _track_asia(self, high: float, low: float) -> None:"
+        },
+        "src.session.SessionState._track_london": {
+          "file": "src\\session.py",
+          "line_start": 424,
+          "line_end": 426,
+          "signature": "def _track_london(self, high: float, low: float) -> None:"
+        },
+        "src.session.SessionState._track_ny": {
+          "file": "src\\session.py",
+          "line_start": 428,
+          "line_end": 430,
+          "signature": "def _track_ny(self, high: float, low: float) -> None:"
+        },
+        "src.session.SessionState._check_cbdr_sweep": {
+          "file": "src\\session.py",
+          "line_start": 432,
+          "line_end": 436,
+          "signature": "def _check_cbdr_sweep(self, high: float, low: float, close: float, atr: float=0.0) -> None:"
+        },
+        "src.session.detect_phase": {
+          "file": "src\\session.py",
+          "line_start": 444,
+          "line_end": 467,
+          "signature": "def detect_phase(dt: datetime, session_hours: dict | None=None) -> SessionPhase:"
+        },
+        "src.session.detect_phase_from_timestamp": {
+          "file": "src\\session.py",
+          "line_start": 470,
+          "line_end": 479,
+          "signature": "def detect_phase_from_timestamp(ts_ms: int, session_hours: dict | None=None) -> SessionPhase:"
+        },
+        "src.session_router.is_high_quality_fvg": {
+          "file": "src\\session_router.py",
+          "line_start": 17,
+          "line_end": 26,
+          "signature": "def is_high_quality_fvg(fvg_pips: float, current_atr: float, symbol: str='') -> bool:"
+        },
+        "src.session_router.is_fvg_valid": {
+          "file": "src\\session_router.py",
+          "line_start": 29,
+          "line_end": 35,
+          "signature": "def is_fvg_valid(formation_bar_index: int, current_bar_index: int) -> bool:"
+        },
+        "src.session_router.get_cbdr_multiplier": {
+          "file": "src\\session_router.py",
+          "line_start": 38,
+          "line_end": 45,
+          "signature": "def get_cbdr_multiplier(symbol: str, cbdr_pct: float) -> float:"
+        },
+        "src.session_router.get_session_hours": {
+          "file": "src\\session_router.py",
+          "line_start": 48,
+          "line_end": 54,
+          "signature": "def get_session_hours(symbol: str) -> dict[str, int]:"
+        },
+        "src.session_router.should_trade": {
+          "file": "src\\session_router.py",
+          "line_start": 57,
+          "line_end": 74,
+          "signature": "def should_trade(symbol: str, cbdr_width_pct: float | None=None) -> tuple[bool, str]:"
         },
         "src.state_manager._today": {
           "file": "src\\state_manager.py",
@@ -814,6 +1276,96 @@
           "line_end": 376,
           "signature": "def capture_snapshot(sym: str, trade: dict, pnl: float | None=None, session_state=None) -> str | None:"
         },
+        "src.trading.console_reporter.ConsoleReporter.__init__": {
+          "file": "src\\trading\\console_reporter.py",
+          "line_start": 32,
+          "line_end": 34,
+          "signature": "def __init__(self):"
+        },
+        "src.trading.console_reporter.ConsoleReporter.emit": {
+          "file": "src\\trading\\console_reporter.py",
+          "line_start": 36,
+          "line_end": 52,
+          "signature": "def emit(self, sym: str, key: str, msg: str, force: bool=False) -> None:"
+        },
+        "src.trading.console_reporter.ConsoleReporter.clear_state": {
+          "file": "src\\trading\\console_reporter.py",
+          "line_start": 54,
+          "line_end": 56,
+          "signature": "def clear_state(self, sym: str, key: str) -> None:"
+        },
+        "src.trading.console_reporter.ConsoleReporter.display_active_position": {
+          "file": "src\\trading\\console_reporter.py",
+          "line_start": 60,
+          "line_end": 86,
+          "signature": "def display_active_position(self, sym: str, trade: dict, hour: int, minute: int) -> None:"
+        },
+        "src.trading.console_reporter.ConsoleReporter.display_session_status": {
+          "file": "src\\trading\\console_reporter.py",
+          "line_start": 88,
+          "line_end": 116,
+          "signature": "def display_session_status(self, sym: str, session: str, hour: int, minute: int, ss: 'SessionState') -> None:"
+        },
+        "src.trading.console_reporter.ConsoleReporter._cbdr_label": {
+          "file": "src\\trading\\console_reporter.py",
+          "line_start": 118,
+          "line_end": 123,
+          "signature": "def _cbdr_label(self, start: int, end: int) -> str:"
+        },
+        "src.trading.console_reporter.ConsoleReporter.display_sweep_status": {
+          "file": "src\\trading\\console_reporter.py",
+          "line_start": 125,
+          "line_end": 184,
+          "signature": "def display_sweep_status(self, sym: str, ss: 'SessionState', hour: int, minute: int) -> str:"
+        },
+        "src.trading.console_reporter.ConsoleReporter.display_fvg_status": {
+          "file": "src\\trading\\console_reporter.py",
+          "line_start": 186,
+          "line_end": 228,
+          "signature": "def display_fvg_status(self, sym: str, rsm: 'RetraceStateMachine', min_fvg: float, current_close: float) -> None:"
+        },
+        "src.trading.entry_manager.EntryManager.__init__": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 60,
+          "line_end": 62,
+          "signature": "def __init__(self, rest_client, is_live: bool=False):"
+        },
+        "src.trading.entry_manager.EntryManager.validate_risk": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 67,
+          "line_end": 74,
+          "signature": "@staticmethod"
+        },
+        "src.trading.entry_manager.EntryManager.calculate_qty": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 79,
+          "line_end": 96,
+          "signature": "@staticmethod"
+        },
+        "src.trading.entry_manager.EntryManager.calculate_sl_tp": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 101,
+          "line_end": 162,
+          "signature": "@staticmethod"
+        },
+        "src.trading.entry_manager.EntryManager.parse_market_fill": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 167,
+          "line_end": 191,
+          "signature": "@staticmethod"
+        },
+        "src.trading.entry_manager.EntryManager.execute_live_entry": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 193,
+          "line_end": 347,
+          "signature": "async def execute_live_entry(self, sym: str, side: str, qty: float, sl: float, tp: float, entry_price: float | None=None, balance: float=0.0, leverage: int=1) -> EntryExecutionResult:"
+        },
+        "src.trading.entry_manager.EntryManager._bump_to_min_notional": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 351,
+          "line_end": 407,
+          "signature": "async def _bump_to_min_notional(self, sym: str, qty: float, price: float, balance: float, leverage: int) -> float:"
+        },
         "src.trading.order_manager.OrderManager.__init__": {
           "file": "src\\trading\\order_manager.py",
           "line_start": 32,
@@ -885,6 +1437,48 @@
           "line_start": 85,
           "line_end": 130,
           "signature": "def evaluate_trigger(self, current: Bar, ss: SessionState) -> EvalResult:"
+        },
+        "src.trading.trailing_manager.TrailingManager._fvg_close_confirmed": {
+          "file": "src\\trading\\trailing_manager.py",
+          "line_start": 32,
+          "line_end": 51,
+          "signature": "@staticmethod"
+        },
+        "src.trading.trailing_manager.TrailingManager.evaluate_trail": {
+          "file": "src\\trading\\trailing_manager.py",
+          "line_start": 54,
+          "line_end": 145,
+          "signature": "@staticmethod"
+        },
+        "src.trading.trailing_manager.TrailingManager.check_exit": {
+          "file": "src\\trading\\trailing_manager.py",
+          "line_start": 148,
+          "line_end": 162,
+          "signature": "@staticmethod"
+        },
+        "src.trading.user_data_handler.UserDataHandler.__init__": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 33,
+          "line_end": 45,
+          "signature": "def __init__(self, active_trades: dict[str, Any], pl_callback: Callable[[str, str, str], None], wallet_callback: Callable[[float], None], order_manager: Any, exit_callback: Callable[..., Any]):"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 47,
+          "line_end": 167,
+          "signature": "def register(self, hub: Any) -> None:"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register.on_order_update": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 52,
+          "line_end": 153,
+          "signature": "@hub.on_user_data('ORDER_TRADE_UPDATE')"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register.on_account_update": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 156,
+          "line_end": 160,
+          "signature": "@hub.on_user_data('ACCOUNT_UPDATE')"
         },
         "tests.conftest._isolate_logging": {
           "file": "tests\\conftest.py",
@@ -3490,330 +4084,6 @@
           "line_end": 476,
           "signature": "@patch('trading.trailing_manager.cfg')"
         },
-        "src.trading.trailing_manager.TrailingManager._fvg_close_confirmed": {
-          "file": "src\\trading\\trailing_manager.py",
-          "line_start": 32,
-          "line_end": 51,
-          "signature": "@staticmethod"
-        },
-        "src.trading.trailing_manager.TrailingManager.evaluate_trail": {
-          "file": "src\\trading\\trailing_manager.py",
-          "line_start": 54,
-          "line_end": 145,
-          "signature": "@staticmethod"
-        },
-        "src.trading.trailing_manager.TrailingManager.check_exit": {
-          "file": "src\\trading\\trailing_manager.py",
-          "line_start": 148,
-          "line_end": 162,
-          "signature": "@staticmethod"
-        },
-        "src.session_router.is_high_quality_fvg": {
-          "file": "src\\session_router.py",
-          "line_start": 17,
-          "line_end": 26,
-          "signature": "def is_high_quality_fvg(fvg_pips: float, current_atr: float, symbol: str='') -> bool:"
-        },
-        "src.session_router.is_fvg_valid": {
-          "file": "src\\session_router.py",
-          "line_start": 29,
-          "line_end": 35,
-          "signature": "def is_fvg_valid(formation_bar_index: int, current_bar_index: int) -> bool:"
-        },
-        "src.session_router.get_cbdr_multiplier": {
-          "file": "src\\session_router.py",
-          "line_start": 38,
-          "line_end": 45,
-          "signature": "def get_cbdr_multiplier(symbol: str, cbdr_pct: float) -> float:"
-        },
-        "src.session_router.get_session_hours": {
-          "file": "src\\session_router.py",
-          "line_start": 48,
-          "line_end": 54,
-          "signature": "def get_session_hours(symbol: str) -> dict[str, int]:"
-        },
-        "src.session_router.should_trade": {
-          "file": "src\\session_router.py",
-          "line_start": 57,
-          "line_end": 74,
-          "signature": "def should_trade(symbol: str, cbdr_width_pct: float | None=None) -> tuple[bool, str]:"
-        },
-        "src.session.CBDRState.__init__": {
-          "file": "src\\session.py",
-          "line_start": 56,
-          "line_end": 64,
-          "signature": "def __init__(self):"
-        },
-        "src.session.CBDRState.track_body": {
-          "file": "src\\session.py",
-          "line_start": 66,
-          "line_end": 73,
-          "signature": "def track_body(self, open: float, close: float) -> None:"
-        },
-        "src.session.CBDRState.lock": {
-          "file": "src\\session.py",
-          "line_start": 75,
-          "line_end": 77,
-          "signature": "def lock(self) -> None:"
-        },
-        "src.session.CBDRState.check_sweep": {
-          "file": "src\\session.py",
-          "line_start": 79,
-          "line_end": 103,
-          "signature": "def check_sweep(self, high: float, low: float, close: float, atr: float=0.0) -> None:"
-        },
-        "src.session.CBDRState.reset_for_new_cycle": {
-          "file": "src\\session.py",
-          "line_start": 105,
-          "line_end": 113,
-          "signature": "def reset_for_new_cycle(self) -> None:"
-        },
-        "src.session.RangeTracker.__init__": {
-          "file": "src\\session.py",
-          "line_start": 131,
-          "line_end": 137,
-          "signature": "def __init__(self):"
-        },
-        "src.session.RangeTracker.track_asia": {
-          "file": "src\\session.py",
-          "line_start": 139,
-          "line_end": 144,
-          "signature": "def track_asia(self, high: float, low: float) -> None:"
-        },
-        "src.session.RangeTracker.track_london": {
-          "file": "src\\session.py",
-          "line_start": 146,
-          "line_end": 157,
-          "signature": "def track_london(self, high: float, low: float) -> None:"
-        },
-        "src.session.RangeTracker.track_ny": {
-          "file": "src\\session.py",
-          "line_start": 159,
-          "line_end": 170,
-          "signature": "def track_ny(self, high: float, low: float) -> None:"
-        },
-        "src.session.RangeTracker.reset": {
-          "file": "src\\session.py",
-          "line_start": 172,
-          "line_end": 179,
-          "signature": "def reset(self) -> None:"
-        },
-        "src.session.TradeDayState.__init__": {
-          "file": "src\\session.py",
-          "line_start": 190,
-          "line_end": 191,
-          "signature": "def __init__(self):"
-        },
-        "src.session.TradeDayState.increment_trade": {
-          "file": "src\\session.py",
-          "line_start": 193,
-          "line_end": 195,
-          "signature": "def increment_trade(self) -> None:"
-        },
-        "src.session.TradeDayState.reset_for_new_cycle": {
-          "file": "src\\session.py",
-          "line_start": 197,
-          "line_end": 203,
-          "signature": "def reset_for_new_cycle(self) -> None:"
-        },
-        "src.session.SessionState.__init__": {
-          "file": "src\\session.py",
-          "line_start": 219,
-          "line_end": 225,
-          "signature": "def __init__(self, start_hour: int=22, end_hour: int=2):"
-        },
-        "src.session.SessionState.cbdr_body_high": {
-          "file": "src\\session.py",
-          "line_start": 234,
-          "line_end": 235,
-          "signature": "@cbdr_body_high.setter"
-        },
-        "src.session.SessionState.cbdr_body_low": {
-          "file": "src\\session.py",
-          "line_start": 242,
-          "line_end": 243,
-          "signature": "@cbdr_body_low.setter"
-        },
-        "src.session.SessionState.cbdr_locked": {
-          "file": "src\\session.py",
-          "line_start": 250,
-          "line_end": 251,
-          "signature": "@cbdr_locked.setter"
-        },
-        "src.session.SessionState.cbdr_day": {
-          "file": "src\\session.py",
-          "line_start": 258,
-          "line_end": 259,
-          "signature": "@cbdr_day.setter"
-        },
-        "src.session.SessionState.daily_bias": {
-          "file": "src\\session.py",
-          "line_start": 266,
-          "line_end": 267,
-          "signature": "@daily_bias.setter"
-        },
-        "src.session.SessionState.sweep_confirmed": {
-          "file": "src\\session.py",
-          "line_start": 274,
-          "line_end": 275,
-          "signature": "@sweep_confirmed.setter"
-        },
-        "src.session.SessionState.sweep_direction": {
-          "file": "src\\session.py",
-          "line_start": 282,
-          "line_end": 283,
-          "signature": "@sweep_direction.setter"
-        },
-        "src.session.SessionState.sweep_level": {
-          "file": "src\\session.py",
-          "line_start": 290,
-          "line_end": 291,
-          "signature": "@sweep_level.setter"
-        },
-        "src.session.SessionState.asia_high": {
-          "file": "src\\session.py",
-          "line_start": 300,
-          "line_end": 301,
-          "signature": "@asia_high.setter"
-        },
-        "src.session.SessionState.asia_low": {
-          "file": "src\\session.py",
-          "line_start": 308,
-          "line_end": 309,
-          "signature": "@asia_low.setter"
-        },
-        "src.session.SessionState.london_high": {
-          "file": "src\\session.py",
-          "line_start": 316,
-          "line_end": 317,
-          "signature": "@london_high.setter"
-        },
-        "src.session.SessionState.london_low": {
-          "file": "src\\session.py",
-          "line_start": 324,
-          "line_end": 325,
-          "signature": "@london_low.setter"
-        },
-        "src.session.SessionState.range_type": {
-          "file": "src\\session.py",
-          "line_start": 332,
-          "line_end": 333,
-          "signature": "@range_type.setter"
-        },
-        "src.session.SessionState.asia_checked": {
-          "file": "src\\session.py",
-          "line_start": 340,
-          "line_end": 341,
-          "signature": "@asia_checked.setter"
-        },
-        "src.session.SessionState.trades_today": {
-          "file": "src\\session.py",
-          "line_start": 350,
-          "line_end": 351,
-          "signature": "@trades_today.setter"
-        },
-        "src.session.SessionState.update": {
-          "file": "src\\session.py",
-          "line_start": 355,
-          "line_end": 406,
-          "signature": "def update(self, dt: datetime, open: float, high: float, low: float, close: float, atr: float=0.0) -> None:"
-        },
-        "src.session.SessionState._reset_for_new_cbdr_cycle": {
-          "file": "src\\session.py",
-          "line_start": 408,
-          "line_end": 412,
-          "signature": "def _reset_for_new_cbdr_cycle(self) -> None:"
-        },
-        "src.session.SessionState._track_cbdr_body": {
-          "file": "src\\session.py",
-          "line_start": 414,
-          "line_end": 418,
-          "signature": "def _track_cbdr_body(self, open: float, high: float, low: float, close: float) -> None:"
-        },
-        "src.session.SessionState._track_asia": {
-          "file": "src\\session.py",
-          "line_start": 420,
-          "line_end": 422,
-          "signature": "def _track_asia(self, high: float, low: float) -> None:"
-        },
-        "src.session.SessionState._track_london": {
-          "file": "src\\session.py",
-          "line_start": 424,
-          "line_end": 426,
-          "signature": "def _track_london(self, high: float, low: float) -> None:"
-        },
-        "src.session.SessionState._track_ny": {
-          "file": "src\\session.py",
-          "line_start": 428,
-          "line_end": 430,
-          "signature": "def _track_ny(self, high: float, low: float) -> None:"
-        },
-        "src.session.SessionState._check_cbdr_sweep": {
-          "file": "src\\session.py",
-          "line_start": 432,
-          "line_end": 436,
-          "signature": "def _check_cbdr_sweep(self, high: float, low: float, close: float, atr: float=0.0) -> None:"
-        },
-        "src.session.detect_phase": {
-          "file": "src\\session.py",
-          "line_start": 444,
-          "line_end": 467,
-          "signature": "def detect_phase(dt: datetime, session_hours: dict | None=None) -> SessionPhase:"
-        },
-        "src.session.detect_phase_from_timestamp": {
-          "file": "src\\session.py",
-          "line_start": 470,
-          "line_end": 479,
-          "signature": "def detect_phase_from_timestamp(ts_ms: int, session_hours: dict | None=None) -> SessionPhase:"
-        },
-        "src.trading.console_reporter.ConsoleReporter.__init__": {
-          "file": "src\\trading\\console_reporter.py",
-          "line_start": 32,
-          "line_end": 34,
-          "signature": "def __init__(self):"
-        },
-        "src.trading.console_reporter.ConsoleReporter.emit": {
-          "file": "src\\trading\\console_reporter.py",
-          "line_start": 36,
-          "line_end": 52,
-          "signature": "def emit(self, sym: str, key: str, msg: str, force: bool=False) -> None:"
-        },
-        "src.trading.console_reporter.ConsoleReporter.clear_state": {
-          "file": "src\\trading\\console_reporter.py",
-          "line_start": 54,
-          "line_end": 56,
-          "signature": "def clear_state(self, sym: str, key: str) -> None:"
-        },
-        "src.trading.console_reporter.ConsoleReporter.display_active_position": {
-          "file": "src\\trading\\console_reporter.py",
-          "line_start": 60,
-          "line_end": 86,
-          "signature": "def display_active_position(self, sym: str, trade: dict, hour: int, minute: int) -> None:"
-        },
-        "src.trading.console_reporter.ConsoleReporter.display_session_status": {
-          "file": "src\\trading\\console_reporter.py",
-          "line_start": 88,
-          "line_end": 116,
-          "signature": "def display_session_status(self, sym: str, session: str, hour: int, minute: int, ss: 'SessionState') -> None:"
-        },
-        "src.trading.console_reporter.ConsoleReporter._cbdr_label": {
-          "file": "src\\trading\\console_reporter.py",
-          "line_start": 118,
-          "line_end": 123,
-          "signature": "def _cbdr_label(self, start: int, end: int) -> str:"
-        },
-        "src.trading.console_reporter.ConsoleReporter.display_sweep_status": {
-          "file": "src\\trading\\console_reporter.py",
-          "line_start": 125,
-          "line_end": 184,
-          "signature": "def display_sweep_status(self, sym: str, ss: 'SessionState', hour: int, minute: int) -> str:"
-        },
-        "src.trading.console_reporter.ConsoleReporter.display_fvg_status": {
-          "file": "src\\trading\\console_reporter.py",
-          "line_start": 186,
-          "line_end": 228,
-          "signature": "def display_fvg_status(self, sym: str, rsm: 'RetraceStateMachine', min_fvg: float, current_close: float) -> None:"
-        },
         "tests.test_websocket._bar": {
           "file": "tests\\test_websocket.py",
           "line_start": 27,
@@ -4060,234 +4330,6 @@
           "line_end": 423,
           "signature": "def test_known_timeframes(self):"
         },
-        "src.models.Result.ok": {
-          "file": "src\\models.py",
-          "line_start": 43,
-          "line_end": 44,
-          "signature": "@staticmethod"
-        },
-        "src.models.Result.fail": {
-          "file": "src\\models.py",
-          "line_start": 47,
-          "line_end": 48,
-          "signature": "@staticmethod"
-        },
-        "src.models.Result.is_ok": {
-          "file": "src\\models.py",
-          "line_start": 51,
-          "line_end": 52,
-          "signature": "@property"
-        },
-        "src.models.Result.is_err": {
-          "file": "src\\models.py",
-          "line_start": 55,
-          "line_end": 56,
-          "signature": "@property"
-        },
-        "src.models.WSFallbackError.__init__": {
-          "file": "src\\models.py",
-          "line_start": 71,
-          "line_end": 79,
-          "signature": "def __init__(self, symbol: str, oid: str, expected_sl: str, expected_tp: str):"
-        },
-        "src.models.tf_params": {
-          "file": "src\\models.py",
-          "line_start": 96,
-          "line_end": 97,
-          "signature": "def tf_params(timeframe: str) -> tuple[int, int, int]:"
-        },
-        "src.models.Bar.body": {
-          "file": "src\\models.py",
-          "line_start": 120,
-          "line_end": 121,
-          "signature": "@property"
-        },
-        "src.models.Bar.upper_wick": {
-          "file": "src\\models.py",
-          "line_start": 124,
-          "line_end": 125,
-          "signature": "@property"
-        },
-        "src.models.Bar.lower_wick": {
-          "file": "src\\models.py",
-          "line_start": 128,
-          "line_end": 129,
-          "signature": "@property"
-        },
-        "src.models.Bar.range": {
-          "file": "src\\models.py",
-          "line_start": 132,
-          "line_end": 133,
-          "signature": "@property"
-        },
-        "src.models.Bar.__post_init__": {
-          "file": "src\\models.py",
-          "line_start": 135,
-          "line_end": 147,
-          "signature": "def __post_init__(self) -> None:"
-        },
-        "src.models.FVG.__post_init__": {
-          "file": "src\\models.py",
-          "line_start": 161,
-          "line_end": 167,
-          "signature": "def __post_init__(self) -> None:"
-        },
-        "src.models.FVG.size": {
-          "file": "src\\models.py",
-          "line_start": 170,
-          "line_end": 171,
-          "signature": "@property"
-        },
-        "src.models.FVG.midpoint": {
-          "file": "src\\models.py",
-          "line_start": 174,
-          "line_end": 175,
-          "signature": "@property"
-        },
-        "src.models.FVG.is_active": {
-          "file": "src\\models.py",
-          "line_start": 178,
-          "line_end": 179,
-          "signature": "@property"
-        },
-        "src.models.FVG.mark_filled": {
-          "file": "src\\models.py",
-          "line_start": 181,
-          "line_end": 190,
-          "signature": "def mark_filled(self, price: float) -> bool:"
-        },
-        "src.models.CHoCH.__post_init__": {
-          "file": "src\\models.py",
-          "line_start": 203,
-          "line_end": 208,
-          "signature": "def __post_init__(self) -> None:"
-        },
-        "src.models.CHoCH.age_bars": {
-          "file": "src\\models.py",
-          "line_start": 210,
-          "line_end": 211,
-          "signature": "def age_bars(self, current_index: int) -> int:"
-        },
-        "src.models.SwingPoint.mark_mitigated": {
-          "file": "src\\models.py",
-          "line_start": 221,
-          "line_end": 228,
-          "signature": "def mark_mitigated(self, price: float) -> bool:"
-        },
-        "src.models.FVGQuality.__post_init__": {
-          "file": "src\\models.py",
-          "line_start": 239,
-          "line_end": 248,
-          "signature": "def __post_init__(self) -> None:"
-        },
-        "src.models.FVGQuality.is_valid": {
-          "file": "src\\models.py",
-          "line_start": 251,
-          "line_end": 252,
-          "signature": "@property"
-        },
-        "src.models.AnalysisResult.expected_choch_direction": {
-          "file": "src\\models.py",
-          "line_start": 275,
-          "line_end": 280,
-          "signature": "@property"
-        },
-        "src.models.AnalysisResult.is_valid_signal": {
-          "file": "src\\models.py",
-          "line_start": 282,
-          "line_end": 286,
-          "signature": "def is_valid_signal(self, _threshold: float | None=None) -> bool:"
-        },
-        "src.models.AnalysisResult.summary": {
-          "file": "src\\models.py",
-          "line_start": 288,
-          "line_end": 307,
-          "signature": "def summary(self) -> str:"
-        },
-        "src.models.ActiveTrade.__getitem__": {
-          "file": "src\\models.py",
-          "line_start": 363,
-          "line_end": 367,
-          "signature": "def __getitem__(self, key: str):"
-        },
-        "src.models.ActiveTrade.__setitem__": {
-          "file": "src\\models.py",
-          "line_start": 369,
-          "line_end": 370,
-          "signature": "def __setitem__(self, key: str, value) -> None:"
-        },
-        "src.models.ActiveTrade.get": {
-          "file": "src\\models.py",
-          "line_start": 372,
-          "line_end": 373,
-          "signature": "def get(self, key: str, default=None):"
-        },
-        "src.models.ActiveTrade.__contains__": {
-          "file": "src\\models.py",
-          "line_start": 375,
-          "line_end": 376,
-          "signature": "def __contains__(self, key: str) -> bool:"
-        },
-        "src.models.ActiveTrade.keys": {
-          "file": "src\\models.py",
-          "line_start": 378,
-          "line_end": 379,
-          "signature": "def keys(self):"
-        },
-        "src.models.ActiveTrade.__iter__": {
-          "file": "src\\models.py",
-          "line_start": 381,
-          "line_end": 382,
-          "signature": "def __iter__(self):"
-        },
-        "src.models.PendingLock.__init__": {
-          "file": "src\\models.py",
-          "line_start": 407,
-          "line_end": 411,
-          "signature": "def __init__(self, active_trades: dict, sym: str, logger=None):"
-        },
-        "src.models.PendingLock.__enter__": {
-          "file": "src\\models.py",
-          "line_start": 413,
-          "line_end": 416,
-          "signature": "def __enter__(self):"
-        },
-        "src.models.PendingLock.commit": {
-          "file": "src\\models.py",
-          "line_start": 418,
-          "line_end": 423,
-          "signature": "def commit(self):"
-        },
-        "src.models.PendingLock.__exit__": {
-          "file": "src\\models.py",
-          "line_start": 425,
-          "line_end": 435,
-          "signature": "def __exit__(self, _exc_type, _exc_val, _exc_tb):"
-        },
-        "src.trading.user_data_handler.UserDataHandler.__init__": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 33,
-          "line_end": 45,
-          "signature": "def __init__(self, active_trades: dict[str, Any], pl_callback: Callable[[str, str, str], None], wallet_callback: Callable[[float], None], order_manager: Any, exit_callback: Callable[..., Any]):"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 47,
-          "line_end": 167,
-          "signature": "def register(self, hub: Any) -> None:"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register.on_order_update": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 52,
-          "line_end": 153,
-          "signature": "@hub.on_user_data('ORDER_TRADE_UPDATE')"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register.on_account_update": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 156,
-          "line_end": 160,
-          "signature": "@hub.on_user_data('ACCOUNT_UPDATE')"
-        },
         "src.bot._save_fvg_state": {
           "file": "src\\bot.py",
           "line_start": 67,
@@ -4321,122 +4363,80 @@
         "src.bot.PaperTrader._session_label": {
           "file": "src\\bot.py",
           "line_start": 240,
-          "line_end": 245,
+          "line_end": 244,
           "signature": "def _session_label(self, hour: int) -> str:"
         },
         "src.bot.PaperTrader._load_history": {
           "file": "src\\bot.py",
-          "line_start": 247,
-          "line_end": 261,
+          "line_start": 246,
+          "line_end": 260,
           "signature": "def _load_history(self):"
         },
         "src.bot.PaperTrader._on_15m_close": {
           "file": "src\\bot.py",
-          "line_start": 265,
-          "line_end": 402,
+          "line_start": 264,
+          "line_end": 392,
           "signature": "async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):"
         },
         "src.bot.PaperTrader._on_1m_close": {
           "file": "src\\bot.py",
-          "line_start": 406,
-          "line_end": 473,
+          "line_start": 396,
+          "line_end": 463,
           "signature": "async def _on_1m_close(self, sym: str, bars_1m: list[Bar]):"
         },
         "src.bot.PaperTrader._try_entry": {
           "file": "src\\bot.py",
-          "line_start": 477,
-          "line_end": 706,
+          "line_start": 467,
+          "line_end": 709,
           "signature": "async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):"
         },
         "src.bot.PaperTrader._exit_trade": {
           "file": "src\\bot.py",
-          "line_start": 708,
-          "line_end": 886,
+          "line_start": 711,
+          "line_end": 889,
           "signature": "async def _exit_trade(self, sym, trade, exit_timestamp: int):"
         },
         "src.bot.PaperTrader.on_15m": {
           "file": "src\\bot.py",
-          "line_start": 888,
-          "line_end": 891,
+          "line_start": 891,
+          "line_end": 894,
           "signature": "async def on_15m(self, sym: str, bars: list[Bar]):"
         },
         "src.bot.PaperTrader.on_1m": {
           "file": "src\\bot.py",
-          "line_start": 893,
-          "line_end": 896,
+          "line_start": 896,
+          "line_end": 899,
           "signature": "async def on_1m(self, sym: str, bars: list[Bar]):"
         },
         "src.bot.PaperTrader._prefill_bars": {
           "file": "src\\bot.py",
-          "line_start": 898,
-          "line_end": 922,
+          "line_start": 901,
+          "line_end": 925,
           "signature": "async def _prefill_bars(self, sym: str, timeframe: str='15m') -> Result[None]:"
         },
         "src.bot.PaperTrader._warmup_cbdr": {
           "file": "src\\bot.py",
-          "line_start": 924,
-          "line_end": 979,
+          "line_start": 927,
+          "line_end": 982,
           "signature": "def _warmup_cbdr(self, sym: str):"
         },
         "src.bot.PaperTrader._set_leverage": {
           "file": "src\\bot.py",
-          "line_start": 981,
-          "line_end": 998,
+          "line_start": 984,
+          "line_end": 1001,
           "signature": "async def _set_leverage(self, symbol: str) -> Result[None]:"
         },
         "src.bot.PaperTrader.run": {
           "file": "src\\bot.py",
-          "line_start": 1000,
-          "line_end": 1144,
+          "line_start": 1003,
+          "line_end": 1147,
           "signature": "async def run(self):"
         },
         "src.bot.main": {
           "file": "src\\bot.py",
-          "line_start": 1147,
-          "line_end": 1157,
+          "line_start": 1150,
+          "line_end": 1160,
           "signature": "def main():"
-        },
-        "src.trading.entry_manager.EntryManager.__init__": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 60,
-          "line_end": 62,
-          "signature": "def __init__(self, rest_client, is_live: bool=False):"
-        },
-        "src.trading.entry_manager.EntryManager.validate_risk": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 67,
-          "line_end": 74,
-          "signature": "@staticmethod"
-        },
-        "src.trading.entry_manager.EntryManager.calculate_qty": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 79,
-          "line_end": 96,
-          "signature": "@staticmethod"
-        },
-        "src.trading.entry_manager.EntryManager.calculate_sl_tp": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 101,
-          "line_end": 162,
-          "signature": "@staticmethod"
-        },
-        "src.trading.entry_manager.EntryManager.parse_market_fill": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 167,
-          "line_end": 191,
-          "signature": "@staticmethod"
-        },
-        "src.trading.entry_manager.EntryManager.execute_live_entry": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 193,
-          "line_end": 347,
-          "signature": "async def execute_live_entry(self, sym: str, side: str, qty: float, sl: float, tp: float, entry_price: float | None=None, balance: float=0.0, leverage: int=1) -> EntryExecutionResult:"
-        },
-        "src.trading.entry_manager.EntryManager._bump_to_min_notional": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 351,
-          "line_end": 407,
-          "signature": "async def _bump_to_min_notional(self, sym: str, qty: float, price: float, balance: float, leverage: int) -> float:"
         }
       },
       "files": {
@@ -4447,6 +4447,10 @@
         "src\\bot_infra.py": {
           "last_modified": "2026-06-26T01:13:27",
           "hash": "sha256:9d0293d6683afbad"
+        },
+        "src\\config.py": {
+          "last_modified": "2026-07-12T09:07:25",
+          "hash": "sha256:13d717a28f84a2c4"
         },
         "src\\debug_balance.py": {
           "last_modified": "2026-07-02T00:12:45",
@@ -4464,6 +4468,10 @@
           "last_modified": "2026-07-02T22:39:52",
           "hash": "sha256:c35d0d475e92b4be"
         },
+        "src\\models.py": {
+          "last_modified": "2026-07-12T12:05:23",
+          "hash": "sha256:93801e9b4f9ff1f5"
+        },
         "src\\retrace_state.py": {
           "last_modified": "2026-07-11T15:30:35",
           "hash": "sha256:a293e5cead93e5ac"
@@ -4471,6 +4479,14 @@
         "src\\risk_manager.py": {
           "last_modified": "2026-07-04T23:17:52",
           "hash": "sha256:46a4bb3d59fb9e83"
+        },
+        "src\\session.py": {
+          "last_modified": "2026-07-12T09:07:20",
+          "hash": "sha256:a896bf26359bc13b"
+        },
+        "src\\session_router.py": {
+          "last_modified": "2026-07-12T07:58:24",
+          "hash": "sha256:d5fd86fb8f0dc5bb"
         },
         "src\\state_manager.py": {
           "last_modified": "2026-07-03T14:11:49",
@@ -4484,6 +4500,10 @@
           "last_modified": "2026-06-26T01:17:29",
           "hash": "sha256:de70ea222cfe2e42"
         },
+        "src\\_patch_bot.py": {
+          "last_modified": "2026-07-12T12:05:40",
+          "hash": "sha256:68ea06cfac6f8a10"
+        },
         "src\\snapshot\\snapshot.py": {
           "last_modified": "2026-07-03T14:07:15",
           "hash": "sha256:84bba635b438db53"
@@ -4491,6 +4511,14 @@
         "src\\snapshot\\__init__.py": {
           "last_modified": "2026-06-28T13:19:02",
           "hash": "sha256:e3b0c44298fc1c14"
+        },
+        "src\\trading\\console_reporter.py": {
+          "last_modified": "2026-07-12T09:27:15",
+          "hash": "sha256:3e13754e30112fae"
+        },
+        "src\\trading\\entry_manager.py": {
+          "last_modified": "2026-07-12T12:14:24",
+          "hash": "sha256:1634be9697ebedee"
         },
         "src\\trading\\order_manager.py": {
           "last_modified": "2026-07-02T12:36:50",
@@ -4503,6 +4531,22 @@
         "src\\trading\\signal_engine.py": {
           "last_modified": "2026-07-03T09:59:24",
           "hash": "sha256:94d7f4ced9411ba3"
+        },
+        "src\\trading\\trailing_manager.py": {
+          "last_modified": "2026-07-11T17:46:57",
+          "hash": "sha256:674cc070a56d5502"
+        },
+        "src\\trading\\user_data_handler.py": {
+          "last_modified": "2026-07-12T12:13:09",
+          "hash": "sha256:2e485928d7d0773b"
+        },
+        "src\\trading\\_patch_entry.py": {
+          "last_modified": "2026-07-12T12:05:13",
+          "hash": "sha256:f088923353566b70"
+        },
+        "src\\trading\\__init__.py": {
+          "last_modified": "2026-06-30T21:12:59",
+          "hash": "sha256:f61320312ed5e5b1"
         },
         "tests\\conftest.py": {
           "last_modified": "2026-06-30T14:00:39",
@@ -4560,60 +4604,16 @@
           "last_modified": "2026-06-30T13:40:20",
           "hash": "sha256:da02d07128e82f74"
         },
-        "src\\trading\\trailing_manager.py": {
-          "last_modified": "2026-07-11T17:46:57",
-          "hash": "sha256:674cc070a56d5502"
-        },
-        "src\\session_router.py": {
-          "last_modified": "2026-07-12T07:58:24",
-          "hash": "sha256:d5fd86fb8f0dc5bb"
-        },
-        "src\\session.py": {
-          "last_modified": "2026-07-12T09:07:20",
-          "hash": "sha256:a896bf26359bc13b"
-        },
-        "src\\config.py": {
-          "last_modified": "2026-07-12T09:07:25",
-          "hash": "sha256:13d717a28f84a2c4"
-        },
-        "src\\trading\\console_reporter.py": {
-          "last_modified": "2026-07-12T09:27:15",
-          "hash": "sha256:3e13754e30112fae"
-        },
-        "src\\trading\\__init__.py": {
-          "last_modified": "2026-06-30T21:12:59",
-          "hash": "sha256:f61320312ed5e5b1"
-        },
         "tests\\test_websocket.py": {
           "last_modified": "2026-06-26T01:10:59",
           "hash": "sha256:6f1468bf97ef5dde"
         },
-        "src\\trading\\_patch_entry.py": {
-          "last_modified": "2026-07-12T12:05:13",
-          "hash": "sha256:f088923353566b70"
-        },
-        "src\\models.py": {
-          "last_modified": "2026-07-12T12:05:23",
-          "hash": "sha256:93801e9b4f9ff1f5"
-        },
-        "src\\_patch_bot.py": {
-          "last_modified": "2026-07-12T12:05:40",
-          "hash": "sha256:68ea06cfac6f8a10"
-        },
-        "src\\trading\\user_data_handler.py": {
-          "last_modified": "2026-07-12T12:13:09",
-          "hash": "sha256:2e485928d7d0773b"
-        },
         "src\\bot.py": {
-          "last_modified": "2026-07-12T12:13:25",
-          "hash": "sha256:1068bb6e47606d20"
-        },
-        "src\\trading\\entry_manager.py": {
-          "last_modified": "2026-07-12T12:14:24",
-          "hash": "sha256:1634be9697ebedee"
+          "last_modified": "2026-07-12T23:30:50",
+          "hash": "sha256:967a9efc5f477a93"
         }
       },
-      "last_full_scan": "2026-07-11T17:46:08"
+      "last_full_scan": "2026-07-12T23:30:10"
     },
     "backtest-sniper": {
       "functions": {
@@ -6613,10 +6613,6 @@
           "last_modified": "2026-07-12T01:56:04",
           "hash": "sha256:6f452f8e4ccd4aa0"
         },
-        "src\\utils\\visualize_cbdr_zoom.py": {
-          "last_modified": "2026-06-27T13:21:49",
-          "hash": "sha256:6dacdce0362ca3db"
-        },
         "src\\_analyze_all_20.py": {
           "last_modified": "2026-07-12T03:20:34",
           "hash": "sha256:13799df62471b8d1"
@@ -6625,13 +6621,17 @@
           "last_modified": "2026-07-12T03:17:27",
           "hash": "sha256:09e8f88ab4edfea4"
         },
+        "src\\_profile_test.py": {
+          "last_modified": "2026-07-12T02:54:27",
+          "hash": "sha256:80cf2757382f511a"
+        },
         "src\\analyzer_v5.py": {
           "last_modified": "2026-07-12T07:58:30",
           "hash": "sha256:0fa6696b61b71ab1"
         },
-        "src\\_profile_test.py": {
-          "last_modified": "2026-07-12T02:54:27",
-          "hash": "sha256:80cf2757382f511a"
+        "src\\utils\\visualize_cbdr_zoom.py": {
+          "last_modified": "2026-06-27T13:21:49",
+          "hash": "sha256:6dacdce0362ca3db"
         }
       },
       "last_full_scan": "2026-07-11T21:18:06"
