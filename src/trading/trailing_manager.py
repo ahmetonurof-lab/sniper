@@ -29,38 +29,6 @@ class ExitDecision:
 
 class TrailingManager:
     @staticmethod
-    def evaluate_break_even(
-        current: Bar, trade: dict, bar_index_15m: int
-    ) -> TrailResult:
-        if trade.get("trailing_count", 0) > 0:
-            return TrailResult()
-        side = trade["side"]
-        entry = trade["entry_price"]
-        risk_pts = abs(trade["sl"] - entry)
-        threshold = risk_pts * cfg.BE_RISK_MULT
-        spread = cfg.BE_SPREAD_PTS
-        be_sl = entry + spread if side == "long" else entry - spread
-        if side == "long":
-            if current.high < entry + threshold or trade["sl"] >= be_sl:
-                return TrailResult()
-        else:
-            if current.low > entry - threshold or trade["sl"] <= be_sl:
-                return TrailResult()
-        trade["trail_steps"].append(
-            {
-                "sl": round(be_sl, 6),
-                "tp": round(trade["tp"], 6),
-                "fvg_top": None,
-                "fvg_bot": None,
-                "bar": bar_index_15m,
-            }
-        )
-        log.info("[BE] %s SL->%.2f (1R=%.4f)", side, be_sl, threshold)
-        return TrailResult(
-            updated=True, new_sl=be_sl, new_tp=trade["tp"], trail_count=1
-        )
-
-    @staticmethod
     def _fvg_close_confirmed(fvg: FVG, bars: list[Bar]) -> bool:
         """FVG olustuktan sonraki barlardan en az biri FVG icinde kapandi mi?
         Sadece fitil degil, gövde kapanisi lazim — wick yetmez."""

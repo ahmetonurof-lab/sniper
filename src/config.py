@@ -74,16 +74,26 @@ SESSION_HOURS: dict[str, dict[str, int]] = {
     "REAL_CBDR": {"start": 19, "end": 1},
     "ASIA_RANGE": {"start": 1, "end": 5},
 }
-# Carpan mantigi:
-#   1.5x = Altin Vurus (WR > %44 veya BE+ > %67)
-#   1.2x = Standart Ustu (net avantaj)
-#   1.0x = Standart
-#   0.8x = Defansif (WR dusuk ama PnL pozitif)
-#   0.5x = Zayif (edge kayboluyor)
-#   0.0x = ZEHIRLI / YASAKLI (sinyal gelse bile girme)
-#
-# weekend_bonus: Cumartesi/Pazar gunleri cbdr_mult ek carpan
-# weekend_mult:  kac kat uygulanacak (ornek: 1.5 = %50 fazla)
+# Carpan mantigi:
+
+#   1.5x = Altin Vurus (WR > %44 veya BE+ > %67)
+
+#   1.2x = Standart Ustu (net avantaj)
+
+#   1.0x = Standart
+
+#   0.8x = Defansif (WR dusuk ama PnL pozitif)
+
+#   0.5x = Zayif (edge kayboluyor)
+
+#   0.0x = ZEHIRLI / YASAKLI (sinyal gelse bile girme)
+
+#
+
+# weekend_bonus: Cumartesi/Pazar gunleri cbdr_mult ek carpan
+
+# weekend_mult:  kac kat uygulanacak (ornek: 1.5 = %50 fazla)
+
 CBDR_RISK_MATRIX: dict[str, dict] = {
     "BTCUSDT": {
         "session": "DEFAULT",

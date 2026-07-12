@@ -416,19 +416,8 @@ class PaperTrader:
         if self._orphan_check_counter % 5 == 0:
             await self.recovery_manager.reconcile_orphan_orders()
 
-        # ── Break-Even (trail_count=0 iken SL->entry) ──
-        bars_15m = self.hub.get_bars(sym, "15m")
-        be_result = TrailingManager.evaluate_break_even(
-            current,
-            trade,
-            bars_15m[-1].index if bars_15m else trade.get("entry_bar_index", 0),
-        )
-        if be_result.updated:
-            await self.order_manager.update_trail_orders(
-                sym, trade, be_result.new_sl, be_result.new_tp, be_result.trail_count
-            )
-
         # ── FVG Trailing → TrailingManager (ATR bazlı buffer) ──
+        bars_15m = self.hub.get_bars(sym, "15m")
         if bars_15m:
             trail_result = TrailingManager.evaluate_trail(
                 bars_15m,
