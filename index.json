@@ -448,210 +448,6 @@
           "line_end": 73,
           "signature": "def build_atr_from_bars(bars: list[Bar], period: int=ATR_PERIOD) -> float:"
         },
-        "src.models.Result.ok": {
-          "file": "src\\models.py",
-          "line_start": 43,
-          "line_end": 44,
-          "signature": "@staticmethod"
-        },
-        "src.models.Result.fail": {
-          "file": "src\\models.py",
-          "line_start": 47,
-          "line_end": 48,
-          "signature": "@staticmethod"
-        },
-        "src.models.Result.is_ok": {
-          "file": "src\\models.py",
-          "line_start": 51,
-          "line_end": 52,
-          "signature": "@property"
-        },
-        "src.models.Result.is_err": {
-          "file": "src\\models.py",
-          "line_start": 55,
-          "line_end": 56,
-          "signature": "@property"
-        },
-        "src.models.WSFallbackError.__init__": {
-          "file": "src\\models.py",
-          "line_start": 71,
-          "line_end": 79,
-          "signature": "def __init__(self, symbol: str, oid: str, expected_sl: str, expected_tp: str):"
-        },
-        "src.models.tf_params": {
-          "file": "src\\models.py",
-          "line_start": 96,
-          "line_end": 97,
-          "signature": "def tf_params(timeframe: str) -> tuple[int, int, int]:"
-        },
-        "src.models.Bar.body": {
-          "file": "src\\models.py",
-          "line_start": 120,
-          "line_end": 121,
-          "signature": "@property"
-        },
-        "src.models.Bar.upper_wick": {
-          "file": "src\\models.py",
-          "line_start": 124,
-          "line_end": 125,
-          "signature": "@property"
-        },
-        "src.models.Bar.lower_wick": {
-          "file": "src\\models.py",
-          "line_start": 128,
-          "line_end": 129,
-          "signature": "@property"
-        },
-        "src.models.Bar.range": {
-          "file": "src\\models.py",
-          "line_start": 132,
-          "line_end": 133,
-          "signature": "@property"
-        },
-        "src.models.Bar.__post_init__": {
-          "file": "src\\models.py",
-          "line_start": 135,
-          "line_end": 147,
-          "signature": "def __post_init__(self) -> None:"
-        },
-        "src.models.FVG.__post_init__": {
-          "file": "src\\models.py",
-          "line_start": 161,
-          "line_end": 167,
-          "signature": "def __post_init__(self) -> None:"
-        },
-        "src.models.FVG.size": {
-          "file": "src\\models.py",
-          "line_start": 170,
-          "line_end": 171,
-          "signature": "@property"
-        },
-        "src.models.FVG.midpoint": {
-          "file": "src\\models.py",
-          "line_start": 174,
-          "line_end": 175,
-          "signature": "@property"
-        },
-        "src.models.FVG.is_active": {
-          "file": "src\\models.py",
-          "line_start": 178,
-          "line_end": 179,
-          "signature": "@property"
-        },
-        "src.models.FVG.mark_filled": {
-          "file": "src\\models.py",
-          "line_start": 181,
-          "line_end": 190,
-          "signature": "def mark_filled(self, price: float) -> bool:"
-        },
-        "src.models.CHoCH.__post_init__": {
-          "file": "src\\models.py",
-          "line_start": 203,
-          "line_end": 208,
-          "signature": "def __post_init__(self) -> None:"
-        },
-        "src.models.CHoCH.age_bars": {
-          "file": "src\\models.py",
-          "line_start": 210,
-          "line_end": 211,
-          "signature": "def age_bars(self, current_index: int) -> int:"
-        },
-        "src.models.SwingPoint.mark_mitigated": {
-          "file": "src\\models.py",
-          "line_start": 221,
-          "line_end": 228,
-          "signature": "def mark_mitigated(self, price: float) -> bool:"
-        },
-        "src.models.FVGQuality.__post_init__": {
-          "file": "src\\models.py",
-          "line_start": 239,
-          "line_end": 248,
-          "signature": "def __post_init__(self) -> None:"
-        },
-        "src.models.FVGQuality.is_valid": {
-          "file": "src\\models.py",
-          "line_start": 251,
-          "line_end": 252,
-          "signature": "@property"
-        },
-        "src.models.AnalysisResult.expected_choch_direction": {
-          "file": "src\\models.py",
-          "line_start": 275,
-          "line_end": 280,
-          "signature": "@property"
-        },
-        "src.models.AnalysisResult.is_valid_signal": {
-          "file": "src\\models.py",
-          "line_start": 282,
-          "line_end": 286,
-          "signature": "def is_valid_signal(self, _threshold: float | None=None) -> bool:"
-        },
-        "src.models.AnalysisResult.summary": {
-          "file": "src\\models.py",
-          "line_start": 288,
-          "line_end": 307,
-          "signature": "def summary(self) -> str:"
-        },
-        "src.models.ActiveTrade.__getitem__": {
-          "file": "src\\models.py",
-          "line_start": 354,
-          "line_end": 358,
-          "signature": "def __getitem__(self, key: str):"
-        },
-        "src.models.ActiveTrade.__setitem__": {
-          "file": "src\\models.py",
-          "line_start": 360,
-          "line_end": 361,
-          "signature": "def __setitem__(self, key: str, value) -> None:"
-        },
-        "src.models.ActiveTrade.get": {
-          "file": "src\\models.py",
-          "line_start": 363,
-          "line_end": 364,
-          "signature": "def get(self, key: str, default=None):"
-        },
-        "src.models.ActiveTrade.__contains__": {
-          "file": "src\\models.py",
-          "line_start": 366,
-          "line_end": 367,
-          "signature": "def __contains__(self, key: str) -> bool:"
-        },
-        "src.models.ActiveTrade.keys": {
-          "file": "src\\models.py",
-          "line_start": 369,
-          "line_end": 370,
-          "signature": "def keys(self):"
-        },
-        "src.models.ActiveTrade.__iter__": {
-          "file": "src\\models.py",
-          "line_start": 372,
-          "line_end": 373,
-          "signature": "def __iter__(self):"
-        },
-        "src.models.PendingLock.__init__": {
-          "file": "src\\models.py",
-          "line_start": 398,
-          "line_end": 402,
-          "signature": "def __init__(self, active_trades: dict, sym: str, logger=None):"
-        },
-        "src.models.PendingLock.__enter__": {
-          "file": "src\\models.py",
-          "line_start": 404,
-          "line_end": 407,
-          "signature": "def __enter__(self):"
-        },
-        "src.models.PendingLock.commit": {
-          "file": "src\\models.py",
-          "line_start": 409,
-          "line_end": 414,
-          "signature": "def commit(self):"
-        },
-        "src.models.PendingLock.__exit__": {
-          "file": "src\\models.py",
-          "line_start": 416,
-          "line_end": 426,
-          "signature": "def __exit__(self, _exc_type, _exc_val, _exc_tb):"
-        },
         "src.retrace_state.HTFFVG.__init__": {
           "file": "src\\retrace_state.py",
           "line_start": 28,
@@ -1017,42 +813,6 @@
           "line_start": 203,
           "line_end": 376,
           "signature": "def capture_snapshot(sym: str, trade: dict, pnl: float | None=None, session_state=None) -> str | None:"
-        },
-        "src.trading.entry_manager.EntryManager.__init__": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 50,
-          "line_end": 52,
-          "signature": "def __init__(self, rest_client, is_live: bool=False):"
-        },
-        "src.trading.entry_manager.EntryManager.validate_risk": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 57,
-          "line_end": 64,
-          "signature": "@staticmethod"
-        },
-        "src.trading.entry_manager.EntryManager.calculate_qty": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 69,
-          "line_end": 86,
-          "signature": "@staticmethod"
-        },
-        "src.trading.entry_manager.EntryManager.calculate_sl_tp": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 91,
-          "line_end": 152,
-          "signature": "@staticmethod"
-        },
-        "src.trading.entry_manager.EntryManager.execute_live_entry": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 156,
-          "line_end": 277,
-          "signature": "async def execute_live_entry(self, sym: str, side: str, qty: float, sl: float, tp: float, entry_price: float | None=None, balance: float=0.0, leverage: int=1) -> EntryExecutionResult:"
-        },
-        "src.trading.entry_manager.EntryManager._bump_to_min_notional": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 281,
-          "line_end": 337,
-          "signature": "async def _bump_to_min_notional(self, sym: str, qty: float, price: float, balance: float, leverage: int) -> float:"
         },
         "src.trading.order_manager.OrderManager.__init__": {
           "file": "src\\trading\\order_manager.py",
@@ -3748,252 +3508,6 @@
           "line_end": 162,
           "signature": "@staticmethod"
         },
-        "tests.test_websocket._bar": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 27,
-          "line_end": 36,
-          "signature": "def _bar(index, open_, high, low, close, is_closed=True, timestamp=0):"
-        },
-        "tests.test_websocket._kline_msg": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 39,
-          "line_end": 60,
-          "signature": "def _kline_msg(symbol='btcusdt', interval='5m', close=100.0, is_closed=True, ts=None):"
-        },
-        "tests.test_websocket.TestCooldown.setup_method": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 69,
-          "line_end": 70,
-          "signature": "def setup_method(self):"
-        },
-        "tests.test_websocket.TestCooldown.test_is_cooldown_active_false_initially": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 72,
-          "line_end": 73,
-          "signature": "def test_is_cooldown_active_false_initially(self):"
-        },
-        "tests.test_websocket.TestCooldown.test_is_cooldown_active_true_after_register": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 75,
-          "line_end": 77,
-          "signature": "def test_is_cooldown_active_true_after_register(self):"
-        },
-        "tests.test_websocket.TestCooldown.test_is_cooldown_active_false_after_cooldown": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 79,
-          "line_end": 82,
-          "signature": "def test_is_cooldown_active_false_after_cooldown(self):"
-        },
-        "tests.test_websocket.TestCooldown.test_register_trade_updates_time": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 84,
-          "line_end": 90,
-          "signature": "def test_register_trade_updates_time(self):"
-        },
-        "tests.test_websocket.TestBarBuffer.setup_method": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 99,
-          "line_end": 100,
-          "signature": "def setup_method(self):"
-        },
-        "tests.test_websocket.TestBarBuffer._cb": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 102,
-          "line_end": 103,
-          "signature": "async def _cb(self, bars):"
-        },
-        "tests.test_websocket.TestBarBuffer.test_kline_to_bar_conversion": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 105,
-          "line_end": 114,
-          "signature": "def test_kline_to_bar_conversion(self):"
-        },
-        "tests.test_websocket.TestBarBuffer.test_feed_appends_closed_bar_and_calls_callback": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 117,
-          "line_end": 134,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_feed_does_not_call_callback_on_unclosed": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 137,
-          "line_end": 152,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_feed_skips_duplicate_timestamp": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 155,
-          "line_end": 171,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_feed_max_bars_eviction": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 174,
-          "line_end": 191,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_feed_next_index_management": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 194,
-          "line_end": 212,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 215,
-          "line_end": 239,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks.cb1": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 219,
-          "line_end": 220,
-          "signature": "async def cb1(bars):"
-        },
-        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks.cb2": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 222,
-          "line_end": 223,
-          "signature": "async def cb2(bars):"
-        },
-        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 242,
-          "line_end": 264,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks.bad_cb": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 245,
-          "line_end": 246,
-          "signature": "async def bad_cb(bars):"
-        },
-        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks.good_cb": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 248,
-          "line_end": 249,
-          "signature": "async def good_cb(bars):"
-        },
-        "tests.test_websocket.TestBinanceWSHubInit.test_default_initialization": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 273,
-          "line_end": 278,
-          "signature": "def test_default_initialization(self):"
-        },
-        "tests.test_websocket.TestBinanceWSHubInit.test_custom_timeframes": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 280,
-          "line_end": 282,
-          "signature": "def test_custom_timeframes(self):"
-        },
-        "tests.test_websocket.TestBinanceWSHubInit.test_symbols_uppercased": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 284,
-          "line_end": 286,
-          "signature": "def test_symbols_uppercased(self):"
-        },
-        "tests.test_websocket.TestBinanceWSHubInit.test_custom_base_url": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 288,
-          "line_end": 292,
-          "signature": "def test_custom_base_url(self):"
-        },
-        "tests.test_websocket.TestBuildUrl.test_single_symbol_single_timeframe": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 296,
-          "line_end": 299,
-          "signature": "def test_single_symbol_single_timeframe(self):"
-        },
-        "tests.test_websocket.TestBuildUrl.test_multi_symbol_multi_timeframe": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 301,
-          "line_end": 307,
-          "signature": "def test_multi_symbol_multi_timeframe(self):"
-        },
-        "tests.test_websocket.TestBuildUrl.test_invalid_timeframe_raises": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 309,
-          "line_end": 312,
-          "signature": "def test_invalid_timeframe_raises(self):"
-        },
-        "tests.test_websocket.TestDispatch.test_dispatch_routes_kline_to_correct_buffer": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 317,
-          "line_end": 324,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestDispatch.test_dispatch_ignores_non_kline_events": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 327,
-          "line_end": 337,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestDispatch.test_dispatch_handles_invalid_json": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 340,
-          "line_end": 343,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestDispatch.test_dispatch_updates_last_seen": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 346,
-          "line_end": 353,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestGetBarsPrefill.test_get_bars_empty_initially": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 357,
-          "line_end": 359,
-          "signature": "def test_get_bars_empty_initially(self):"
-        },
-        "tests.test_websocket.TestGetBarsPrefill.test_prefill_bars_sets_buffer": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 361,
-          "line_end": 367,
-          "signature": "def test_prefill_bars_sets_buffer(self):"
-        },
-        "tests.test_websocket.TestGetBarsPrefill.test_get_bars_returns_copy": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 369,
-          "line_end": 376,
-          "signature": "def test_get_bars_returns_copy(self):"
-        },
-        "tests.test_websocket.TestCallbackRegistration.test_register_callback": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 380,
-          "line_end": 390,
-          "signature": "def test_register_callback(self):"
-        },
-        "tests.test_websocket.TestCallbackRegistration.test_register_callback.handler": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 384,
-          "line_end": 385,
-          "signature": "async def handler(bars):"
-        },
-        "tests.test_websocket.TestCallbackRegistration.test_on_bar_decorator": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 392,
-          "line_end": 400,
-          "signature": "def test_on_bar_decorator(self):"
-        },
-        "tests.test_websocket.TestCallbackRegistration.test_on_bar_decorator.handler": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 396,
-          "line_end": 397,
-          "signature": "@hub.on_bar('BTCUSDT', '5m')"
-        },
-        "tests.test_websocket.TestStop.test_stop_sets_event": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 404,
-          "line_end": 408,
-          "signature": "def test_stop_sets_event(self):"
-        },
-        "tests.test_websocket.TestTfToStream.test_known_timeframes": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 417,
-          "line_end": 423,
-          "signature": "def test_known_timeframes(self):"
-        },
         "src.session_router.is_high_quality_fvg": {
           "file": "src\\session_router.py",
           "line_start": 17,
@@ -4300,6 +3814,456 @@
           "line_end": 228,
           "signature": "def display_fvg_status(self, sym: str, rsm: 'RetraceStateMachine', min_fvg: float, current_close: float) -> None:"
         },
+        "tests.test_websocket._bar": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 27,
+          "line_end": 36,
+          "signature": "def _bar(index, open_, high, low, close, is_closed=True, timestamp=0):"
+        },
+        "tests.test_websocket._kline_msg": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 39,
+          "line_end": 60,
+          "signature": "def _kline_msg(symbol='btcusdt', interval='5m', close=100.0, is_closed=True, ts=None):"
+        },
+        "tests.test_websocket.TestCooldown.setup_method": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 69,
+          "line_end": 70,
+          "signature": "def setup_method(self):"
+        },
+        "tests.test_websocket.TestCooldown.test_is_cooldown_active_false_initially": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 72,
+          "line_end": 73,
+          "signature": "def test_is_cooldown_active_false_initially(self):"
+        },
+        "tests.test_websocket.TestCooldown.test_is_cooldown_active_true_after_register": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 75,
+          "line_end": 77,
+          "signature": "def test_is_cooldown_active_true_after_register(self):"
+        },
+        "tests.test_websocket.TestCooldown.test_is_cooldown_active_false_after_cooldown": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 79,
+          "line_end": 82,
+          "signature": "def test_is_cooldown_active_false_after_cooldown(self):"
+        },
+        "tests.test_websocket.TestCooldown.test_register_trade_updates_time": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 84,
+          "line_end": 90,
+          "signature": "def test_register_trade_updates_time(self):"
+        },
+        "tests.test_websocket.TestBarBuffer.setup_method": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 99,
+          "line_end": 100,
+          "signature": "def setup_method(self):"
+        },
+        "tests.test_websocket.TestBarBuffer._cb": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 102,
+          "line_end": 103,
+          "signature": "async def _cb(self, bars):"
+        },
+        "tests.test_websocket.TestBarBuffer.test_kline_to_bar_conversion": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 105,
+          "line_end": 114,
+          "signature": "def test_kline_to_bar_conversion(self):"
+        },
+        "tests.test_websocket.TestBarBuffer.test_feed_appends_closed_bar_and_calls_callback": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 117,
+          "line_end": 134,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_feed_does_not_call_callback_on_unclosed": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 137,
+          "line_end": 152,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_feed_skips_duplicate_timestamp": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 155,
+          "line_end": 171,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_feed_max_bars_eviction": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 174,
+          "line_end": 191,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_feed_next_index_management": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 194,
+          "line_end": 212,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 215,
+          "line_end": 239,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks.cb1": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 219,
+          "line_end": 220,
+          "signature": "async def cb1(bars):"
+        },
+        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks.cb2": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 222,
+          "line_end": 223,
+          "signature": "async def cb2(bars):"
+        },
+        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 242,
+          "line_end": 264,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks.bad_cb": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 245,
+          "line_end": 246,
+          "signature": "async def bad_cb(bars):"
+        },
+        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks.good_cb": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 248,
+          "line_end": 249,
+          "signature": "async def good_cb(bars):"
+        },
+        "tests.test_websocket.TestBinanceWSHubInit.test_default_initialization": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 273,
+          "line_end": 278,
+          "signature": "def test_default_initialization(self):"
+        },
+        "tests.test_websocket.TestBinanceWSHubInit.test_custom_timeframes": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 280,
+          "line_end": 282,
+          "signature": "def test_custom_timeframes(self):"
+        },
+        "tests.test_websocket.TestBinanceWSHubInit.test_symbols_uppercased": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 284,
+          "line_end": 286,
+          "signature": "def test_symbols_uppercased(self):"
+        },
+        "tests.test_websocket.TestBinanceWSHubInit.test_custom_base_url": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 288,
+          "line_end": 292,
+          "signature": "def test_custom_base_url(self):"
+        },
+        "tests.test_websocket.TestBuildUrl.test_single_symbol_single_timeframe": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 296,
+          "line_end": 299,
+          "signature": "def test_single_symbol_single_timeframe(self):"
+        },
+        "tests.test_websocket.TestBuildUrl.test_multi_symbol_multi_timeframe": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 301,
+          "line_end": 307,
+          "signature": "def test_multi_symbol_multi_timeframe(self):"
+        },
+        "tests.test_websocket.TestBuildUrl.test_invalid_timeframe_raises": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 309,
+          "line_end": 312,
+          "signature": "def test_invalid_timeframe_raises(self):"
+        },
+        "tests.test_websocket.TestDispatch.test_dispatch_routes_kline_to_correct_buffer": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 317,
+          "line_end": 324,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestDispatch.test_dispatch_ignores_non_kline_events": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 327,
+          "line_end": 337,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestDispatch.test_dispatch_handles_invalid_json": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 340,
+          "line_end": 343,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestDispatch.test_dispatch_updates_last_seen": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 346,
+          "line_end": 353,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestGetBarsPrefill.test_get_bars_empty_initially": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 357,
+          "line_end": 359,
+          "signature": "def test_get_bars_empty_initially(self):"
+        },
+        "tests.test_websocket.TestGetBarsPrefill.test_prefill_bars_sets_buffer": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 361,
+          "line_end": 367,
+          "signature": "def test_prefill_bars_sets_buffer(self):"
+        },
+        "tests.test_websocket.TestGetBarsPrefill.test_get_bars_returns_copy": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 369,
+          "line_end": 376,
+          "signature": "def test_get_bars_returns_copy(self):"
+        },
+        "tests.test_websocket.TestCallbackRegistration.test_register_callback": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 380,
+          "line_end": 390,
+          "signature": "def test_register_callback(self):"
+        },
+        "tests.test_websocket.TestCallbackRegistration.test_register_callback.handler": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 384,
+          "line_end": 385,
+          "signature": "async def handler(bars):"
+        },
+        "tests.test_websocket.TestCallbackRegistration.test_on_bar_decorator": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 392,
+          "line_end": 400,
+          "signature": "def test_on_bar_decorator(self):"
+        },
+        "tests.test_websocket.TestCallbackRegistration.test_on_bar_decorator.handler": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 396,
+          "line_end": 397,
+          "signature": "@hub.on_bar('BTCUSDT', '5m')"
+        },
+        "tests.test_websocket.TestStop.test_stop_sets_event": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 404,
+          "line_end": 408,
+          "signature": "def test_stop_sets_event(self):"
+        },
+        "tests.test_websocket.TestTfToStream.test_known_timeframes": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 417,
+          "line_end": 423,
+          "signature": "def test_known_timeframes(self):"
+        },
+        "src.models.Result.ok": {
+          "file": "src\\models.py",
+          "line_start": 43,
+          "line_end": 44,
+          "signature": "@staticmethod"
+        },
+        "src.models.Result.fail": {
+          "file": "src\\models.py",
+          "line_start": 47,
+          "line_end": 48,
+          "signature": "@staticmethod"
+        },
+        "src.models.Result.is_ok": {
+          "file": "src\\models.py",
+          "line_start": 51,
+          "line_end": 52,
+          "signature": "@property"
+        },
+        "src.models.Result.is_err": {
+          "file": "src\\models.py",
+          "line_start": 55,
+          "line_end": 56,
+          "signature": "@property"
+        },
+        "src.models.WSFallbackError.__init__": {
+          "file": "src\\models.py",
+          "line_start": 71,
+          "line_end": 79,
+          "signature": "def __init__(self, symbol: str, oid: str, expected_sl: str, expected_tp: str):"
+        },
+        "src.models.tf_params": {
+          "file": "src\\models.py",
+          "line_start": 96,
+          "line_end": 97,
+          "signature": "def tf_params(timeframe: str) -> tuple[int, int, int]:"
+        },
+        "src.models.Bar.body": {
+          "file": "src\\models.py",
+          "line_start": 120,
+          "line_end": 121,
+          "signature": "@property"
+        },
+        "src.models.Bar.upper_wick": {
+          "file": "src\\models.py",
+          "line_start": 124,
+          "line_end": 125,
+          "signature": "@property"
+        },
+        "src.models.Bar.lower_wick": {
+          "file": "src\\models.py",
+          "line_start": 128,
+          "line_end": 129,
+          "signature": "@property"
+        },
+        "src.models.Bar.range": {
+          "file": "src\\models.py",
+          "line_start": 132,
+          "line_end": 133,
+          "signature": "@property"
+        },
+        "src.models.Bar.__post_init__": {
+          "file": "src\\models.py",
+          "line_start": 135,
+          "line_end": 147,
+          "signature": "def __post_init__(self) -> None:"
+        },
+        "src.models.FVG.__post_init__": {
+          "file": "src\\models.py",
+          "line_start": 161,
+          "line_end": 167,
+          "signature": "def __post_init__(self) -> None:"
+        },
+        "src.models.FVG.size": {
+          "file": "src\\models.py",
+          "line_start": 170,
+          "line_end": 171,
+          "signature": "@property"
+        },
+        "src.models.FVG.midpoint": {
+          "file": "src\\models.py",
+          "line_start": 174,
+          "line_end": 175,
+          "signature": "@property"
+        },
+        "src.models.FVG.is_active": {
+          "file": "src\\models.py",
+          "line_start": 178,
+          "line_end": 179,
+          "signature": "@property"
+        },
+        "src.models.FVG.mark_filled": {
+          "file": "src\\models.py",
+          "line_start": 181,
+          "line_end": 190,
+          "signature": "def mark_filled(self, price: float) -> bool:"
+        },
+        "src.models.CHoCH.__post_init__": {
+          "file": "src\\models.py",
+          "line_start": 203,
+          "line_end": 208,
+          "signature": "def __post_init__(self) -> None:"
+        },
+        "src.models.CHoCH.age_bars": {
+          "file": "src\\models.py",
+          "line_start": 210,
+          "line_end": 211,
+          "signature": "def age_bars(self, current_index: int) -> int:"
+        },
+        "src.models.SwingPoint.mark_mitigated": {
+          "file": "src\\models.py",
+          "line_start": 221,
+          "line_end": 228,
+          "signature": "def mark_mitigated(self, price: float) -> bool:"
+        },
+        "src.models.FVGQuality.__post_init__": {
+          "file": "src\\models.py",
+          "line_start": 239,
+          "line_end": 248,
+          "signature": "def __post_init__(self) -> None:"
+        },
+        "src.models.FVGQuality.is_valid": {
+          "file": "src\\models.py",
+          "line_start": 251,
+          "line_end": 252,
+          "signature": "@property"
+        },
+        "src.models.AnalysisResult.expected_choch_direction": {
+          "file": "src\\models.py",
+          "line_start": 275,
+          "line_end": 280,
+          "signature": "@property"
+        },
+        "src.models.AnalysisResult.is_valid_signal": {
+          "file": "src\\models.py",
+          "line_start": 282,
+          "line_end": 286,
+          "signature": "def is_valid_signal(self, _threshold: float | None=None) -> bool:"
+        },
+        "src.models.AnalysisResult.summary": {
+          "file": "src\\models.py",
+          "line_start": 288,
+          "line_end": 307,
+          "signature": "def summary(self) -> str:"
+        },
+        "src.models.ActiveTrade.__getitem__": {
+          "file": "src\\models.py",
+          "line_start": 363,
+          "line_end": 367,
+          "signature": "def __getitem__(self, key: str):"
+        },
+        "src.models.ActiveTrade.__setitem__": {
+          "file": "src\\models.py",
+          "line_start": 369,
+          "line_end": 370,
+          "signature": "def __setitem__(self, key: str, value) -> None:"
+        },
+        "src.models.ActiveTrade.get": {
+          "file": "src\\models.py",
+          "line_start": 372,
+          "line_end": 373,
+          "signature": "def get(self, key: str, default=None):"
+        },
+        "src.models.ActiveTrade.__contains__": {
+          "file": "src\\models.py",
+          "line_start": 375,
+          "line_end": 376,
+          "signature": "def __contains__(self, key: str) -> bool:"
+        },
+        "src.models.ActiveTrade.keys": {
+          "file": "src\\models.py",
+          "line_start": 378,
+          "line_end": 379,
+          "signature": "def keys(self):"
+        },
+        "src.models.ActiveTrade.__iter__": {
+          "file": "src\\models.py",
+          "line_start": 381,
+          "line_end": 382,
+          "signature": "def __iter__(self):"
+        },
+        "src.models.PendingLock.__init__": {
+          "file": "src\\models.py",
+          "line_start": 407,
+          "line_end": 411,
+          "signature": "def __init__(self, active_trades: dict, sym: str, logger=None):"
+        },
+        "src.models.PendingLock.__enter__": {
+          "file": "src\\models.py",
+          "line_start": 413,
+          "line_end": 416,
+          "signature": "def __enter__(self):"
+        },
+        "src.models.PendingLock.commit": {
+          "file": "src\\models.py",
+          "line_start": 418,
+          "line_end": 423,
+          "signature": "def commit(self):"
+        },
+        "src.models.PendingLock.__exit__": {
+          "file": "src\\models.py",
+          "line_start": 425,
+          "line_end": 435,
+          "signature": "def __exit__(self, _exc_type, _exc_val, _exc_tb):"
+        },
         "src.trading.user_data_handler.UserDataHandler.__init__": {
           "file": "src\\trading\\user_data_handler.py",
           "line_start": 33,
@@ -4309,19 +4273,19 @@
         "src.trading.user_data_handler.UserDataHandler.register": {
           "file": "src\\trading\\user_data_handler.py",
           "line_start": 47,
-          "line_end": 153,
+          "line_end": 167,
           "signature": "def register(self, hub: Any) -> None:"
         },
         "src.trading.user_data_handler.UserDataHandler.register.on_order_update": {
           "file": "src\\trading\\user_data_handler.py",
           "line_start": 52,
-          "line_end": 139,
+          "line_end": 153,
           "signature": "@hub.on_user_data('ORDER_TRADE_UPDATE')"
         },
         "src.trading.user_data_handler.UserDataHandler.register.on_account_update": {
           "file": "src\\trading\\user_data_handler.py",
-          "line_start": 142,
-          "line_end": 146,
+          "line_start": 156,
+          "line_end": 160,
           "signature": "@hub.on_user_data('ACCOUNT_UPDATE')"
         },
         "src.bot._save_fvg_state": {
@@ -4381,56 +4345,98 @@
         "src.bot.PaperTrader._try_entry": {
           "file": "src\\bot.py",
           "line_start": 477,
-          "line_end": 689,
+          "line_end": 706,
           "signature": "async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):"
         },
         "src.bot.PaperTrader._exit_trade": {
           "file": "src\\bot.py",
-          "line_start": 691,
-          "line_end": 852,
+          "line_start": 708,
+          "line_end": 886,
           "signature": "async def _exit_trade(self, sym, trade, exit_timestamp: int):"
         },
         "src.bot.PaperTrader.on_15m": {
           "file": "src\\bot.py",
-          "line_start": 854,
-          "line_end": 857,
+          "line_start": 888,
+          "line_end": 891,
           "signature": "async def on_15m(self, sym: str, bars: list[Bar]):"
         },
         "src.bot.PaperTrader.on_1m": {
           "file": "src\\bot.py",
-          "line_start": 859,
-          "line_end": 862,
+          "line_start": 893,
+          "line_end": 896,
           "signature": "async def on_1m(self, sym: str, bars: list[Bar]):"
         },
         "src.bot.PaperTrader._prefill_bars": {
           "file": "src\\bot.py",
-          "line_start": 864,
-          "line_end": 888,
+          "line_start": 898,
+          "line_end": 922,
           "signature": "async def _prefill_bars(self, sym: str, timeframe: str='15m') -> Result[None]:"
         },
         "src.bot.PaperTrader._warmup_cbdr": {
           "file": "src\\bot.py",
-          "line_start": 890,
-          "line_end": 945,
+          "line_start": 924,
+          "line_end": 979,
           "signature": "def _warmup_cbdr(self, sym: str):"
         },
         "src.bot.PaperTrader._set_leverage": {
           "file": "src\\bot.py",
-          "line_start": 947,
-          "line_end": 964,
+          "line_start": 981,
+          "line_end": 998,
           "signature": "async def _set_leverage(self, symbol: str) -> Result[None]:"
         },
         "src.bot.PaperTrader.run": {
           "file": "src\\bot.py",
-          "line_start": 966,
-          "line_end": 1110,
+          "line_start": 1000,
+          "line_end": 1144,
           "signature": "async def run(self):"
         },
         "src.bot.main": {
           "file": "src\\bot.py",
-          "line_start": 1113,
-          "line_end": 1123,
+          "line_start": 1147,
+          "line_end": 1157,
           "signature": "def main():"
+        },
+        "src.trading.entry_manager.EntryManager.__init__": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 60,
+          "line_end": 62,
+          "signature": "def __init__(self, rest_client, is_live: bool=False):"
+        },
+        "src.trading.entry_manager.EntryManager.validate_risk": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 67,
+          "line_end": 74,
+          "signature": "@staticmethod"
+        },
+        "src.trading.entry_manager.EntryManager.calculate_qty": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 79,
+          "line_end": 96,
+          "signature": "@staticmethod"
+        },
+        "src.trading.entry_manager.EntryManager.calculate_sl_tp": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 101,
+          "line_end": 162,
+          "signature": "@staticmethod"
+        },
+        "src.trading.entry_manager.EntryManager.parse_market_fill": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 167,
+          "line_end": 191,
+          "signature": "@staticmethod"
+        },
+        "src.trading.entry_manager.EntryManager.execute_live_entry": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 193,
+          "line_end": 347,
+          "signature": "async def execute_live_entry(self, sym: str, side: str, qty: float, sl: float, tp: float, entry_price: float | None=None, balance: float=0.0, leverage: int=1) -> EntryExecutionResult:"
+        },
+        "src.trading.entry_manager.EntryManager._bump_to_min_notional": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 351,
+          "line_end": 407,
+          "signature": "async def _bump_to_min_notional(self, sym: str, qty: float, price: float, balance: float, leverage: int) -> float:"
         }
       },
       "files": {
@@ -4457,10 +4463,6 @@
         "src\\indicators.py": {
           "last_modified": "2026-07-02T22:39:52",
           "hash": "sha256:c35d0d475e92b4be"
-        },
-        "src\\models.py": {
-          "last_modified": "2026-07-02T01:40:38",
-          "hash": "sha256:cf6a6c4401b171cc"
         },
         "src\\retrace_state.py": {
           "last_modified": "2026-07-11T15:30:35",
@@ -4489,10 +4491,6 @@
         "src\\snapshot\\__init__.py": {
           "last_modified": "2026-06-28T13:19:02",
           "hash": "sha256:e3b0c44298fc1c14"
-        },
-        "src\\trading\\entry_manager.py": {
-          "last_modified": "2026-07-01T01:01:30",
-          "hash": "sha256:a269f94e6811d347"
         },
         "src\\trading\\order_manager.py": {
           "last_modified": "2026-07-02T12:36:50",
@@ -4566,10 +4564,6 @@
           "last_modified": "2026-07-11T17:46:57",
           "hash": "sha256:674cc070a56d5502"
         },
-        "tests\\test_websocket.py": {
-          "last_modified": "2026-06-26T01:10:59",
-          "hash": "sha256:6f1468bf97ef5dde"
-        },
         "src\\session_router.py": {
           "last_modified": "2026-07-12T07:58:24",
           "hash": "sha256:d5fd86fb8f0dc5bb"
@@ -4586,17 +4580,37 @@
           "last_modified": "2026-07-12T09:27:15",
           "hash": "sha256:3e13754e30112fae"
         },
-        "src\\trading\\user_data_handler.py": {
-          "last_modified": "2026-07-01T18:34:14",
-          "hash": "sha256:b17e77851be3b865"
-        },
         "src\\trading\\__init__.py": {
           "last_modified": "2026-06-30T21:12:59",
           "hash": "sha256:f61320312ed5e5b1"
         },
+        "tests\\test_websocket.py": {
+          "last_modified": "2026-06-26T01:10:59",
+          "hash": "sha256:6f1468bf97ef5dde"
+        },
+        "src\\trading\\_patch_entry.py": {
+          "last_modified": "2026-07-12T12:05:13",
+          "hash": "sha256:f088923353566b70"
+        },
+        "src\\models.py": {
+          "last_modified": "2026-07-12T12:05:23",
+          "hash": "sha256:93801e9b4f9ff1f5"
+        },
+        "src\\_patch_bot.py": {
+          "last_modified": "2026-07-12T12:05:40",
+          "hash": "sha256:68ea06cfac6f8a10"
+        },
+        "src\\trading\\user_data_handler.py": {
+          "last_modified": "2026-07-12T12:13:09",
+          "hash": "sha256:2e485928d7d0773b"
+        },
         "src\\bot.py": {
-          "last_modified": "2026-07-12T11:26:34",
-          "hash": "sha256:54ffdc0ade70d3bf"
+          "last_modified": "2026-07-12T12:13:25",
+          "hash": "sha256:1068bb6e47606d20"
+        },
+        "src\\trading\\entry_manager.py": {
+          "last_modified": "2026-07-12T12:14:24",
+          "hash": "sha256:1634be9697ebedee"
         }
       },
       "last_full_scan": "2026-07-11T17:46:08"
@@ -6277,6 +6291,54 @@
           "line_end": 2686,
           "signature": "def _build_and_save_report(all_coin_data, results_data):"
         },
+        "src._analyze_all_20._analyze_one_symbol": {
+          "file": "src\\_analyze_all_20.py",
+          "line_start": 60,
+          "line_end": 195,
+          "signature": "def _analyze_one_symbol(sym: str, workers: int=1) -> dict | None:"
+        },
+        "src._analyze_all_20._run_serial": {
+          "file": "src\\_analyze_all_20.py",
+          "line_start": 199,
+          "line_end": 325,
+          "signature": "def _run_serial(workers: int):"
+        },
+        "src._analyze_all_20._print_config": {
+          "file": "src\\_analyze_all_20.py",
+          "line_start": 329,
+          "line_end": 376,
+          "signature": "def _print_config(session_best: dict, bucket_results: dict, all_session_stats: dict, elapsed: float):"
+        },
+        "src._analyze_all_20.main": {
+          "file": "src\\_analyze_all_20.py",
+          "line_start": 380,
+          "line_end": 495,
+          "signature": "def main():"
+        },
+        "src.profile_fvg_size._log_line": {
+          "file": "src\\profile_fvg_size.py",
+          "line_start": 51,
+          "line_end": 55,
+          "signature": "def _log_line(msg: str):"
+        },
+        "src.profile_fvg_size._profile_one": {
+          "file": "src\\profile_fvg_size.py",
+          "line_start": 59,
+          "line_end": 148,
+          "signature": "def _profile_one(sym: str) -> dict | None:"
+        },
+        "src.profile_fvg_size._print_fvg_map": {
+          "file": "src\\profile_fvg_size.py",
+          "line_start": 151,
+          "line_end": 172,
+          "signature": "def _print_fvg_map(results: dict):"
+        },
+        "src.profile_fvg_size.main": {
+          "file": "src\\profile_fvg_size.py",
+          "line_start": 175,
+          "line_end": 250,
+          "signature": "def main():"
+        },
         "src.analyzer_v5.load_data": {
           "file": "src\\analyzer_v5.py",
           "line_start": 63,
@@ -6336,54 +6398,6 @@
           "line_start": 990,
           "line_end": 995,
           "signature": "def fvg_created(rej):"
-        },
-        "src._analyze_all_20._analyze_one_symbol": {
-          "file": "src\\_analyze_all_20.py",
-          "line_start": 60,
-          "line_end": 195,
-          "signature": "def _analyze_one_symbol(sym: str, workers: int=1) -> dict | None:"
-        },
-        "src._analyze_all_20._run_serial": {
-          "file": "src\\_analyze_all_20.py",
-          "line_start": 199,
-          "line_end": 325,
-          "signature": "def _run_serial(workers: int):"
-        },
-        "src._analyze_all_20._print_config": {
-          "file": "src\\_analyze_all_20.py",
-          "line_start": 329,
-          "line_end": 376,
-          "signature": "def _print_config(session_best: dict, bucket_results: dict, all_session_stats: dict, elapsed: float):"
-        },
-        "src._analyze_all_20.main": {
-          "file": "src\\_analyze_all_20.py",
-          "line_start": 380,
-          "line_end": 495,
-          "signature": "def main():"
-        },
-        "src.profile_fvg_size._log_line": {
-          "file": "src\\profile_fvg_size.py",
-          "line_start": 51,
-          "line_end": 55,
-          "signature": "def _log_line(msg: str):"
-        },
-        "src.profile_fvg_size._profile_one": {
-          "file": "src\\profile_fvg_size.py",
-          "line_start": 59,
-          "line_end": 148,
-          "signature": "def _profile_one(sym: str) -> dict | None:"
-        },
-        "src.profile_fvg_size._print_fvg_map": {
-          "file": "src\\profile_fvg_size.py",
-          "line_start": 151,
-          "line_end": 172,
-          "signature": "def _print_fvg_map(results: dict):"
-        },
-        "src.profile_fvg_size.main": {
-          "file": "src\\profile_fvg_size.py",
-          "line_start": 175,
-          "line_end": 250,
-          "signature": "def main():"
         }
       },
       "files": {
@@ -6591,10 +6605,6 @@
           "last_modified": "2026-07-11T23:16:52",
           "hash": "sha256:db2bf6685c3beba9"
         },
-        "src\\_profile_test.py": {
-          "last_modified": "2026-07-12T02:54:27",
-          "hash": "sha256:80cf2757382f511a"
-        },
         "src\\_calc_scores.py": {
           "last_modified": "2026-07-12T02:00:56",
           "hash": "sha256:89cbe8af71dd7e02"
@@ -6602,10 +6612,6 @@
         "src\\_calc_single.py": {
           "last_modified": "2026-07-12T01:56:04",
           "hash": "sha256:6f452f8e4ccd4aa0"
-        },
-        "src\\analyzer_v5.py": {
-          "last_modified": "2026-07-12T07:58:30",
-          "hash": "sha256:0fa6696b61b71ab1"
         },
         "src\\utils\\visualize_cbdr_zoom.py": {
           "last_modified": "2026-06-27T13:21:49",
@@ -6618,6 +6624,14 @@
         "src\\profile_fvg_size.py": {
           "last_modified": "2026-07-12T03:17:27",
           "hash": "sha256:09e8f88ab4edfea4"
+        },
+        "src\\analyzer_v5.py": {
+          "last_modified": "2026-07-12T07:58:30",
+          "hash": "sha256:0fa6696b61b71ab1"
+        },
+        "src\\_profile_test.py": {
+          "last_modified": "2026-07-12T02:54:27",
+          "hash": "sha256:80cf2757382f511a"
         }
       },
       "last_full_scan": "2026-07-11T21:18:06"
