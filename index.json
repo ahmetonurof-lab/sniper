@@ -982,36 +982,6 @@
           "line_end": 511,
           "signature": "def detect_phase_from_timestamp(ts_ms: int, session_hours: dict | None=None) -> SessionPhase:"
         },
-        "src.session_router.is_high_quality_fvg": {
-          "file": "src\\session_router.py",
-          "line_start": 17,
-          "line_end": 24,
-          "signature": "def is_high_quality_fvg(fvg_pips: float, current_atr: float) -> bool:"
-        },
-        "src.session_router.is_fvg_valid": {
-          "file": "src\\session_router.py",
-          "line_start": 27,
-          "line_end": 33,
-          "signature": "def is_fvg_valid(formation_bar_index: int, current_bar_index: int) -> bool:"
-        },
-        "src.session_router.get_cbdr_multiplier": {
-          "file": "src\\session_router.py",
-          "line_start": 36,
-          "line_end": 43,
-          "signature": "def get_cbdr_multiplier(symbol: str, cbdr_pct: float) -> float:"
-        },
-        "src.session_router.get_session_hours": {
-          "file": "src\\session_router.py",
-          "line_start": 46,
-          "line_end": 52,
-          "signature": "def get_session_hours(symbol: str) -> dict[str, int]:"
-        },
-        "src.session_router.should_trade": {
-          "file": "src\\session_router.py",
-          "line_start": 55,
-          "line_end": 72,
-          "signature": "def should_trade(symbol: str, cbdr_width_pct: float | None=None) -> tuple[bool, str]:"
-        },
         "src.state_manager._today": {
           "file": "src\\state_manager.py",
           "line_start": 36,
@@ -4078,114 +4048,6 @@
           "line_end": 162,
           "signature": "@staticmethod"
         },
-        "src.bot._save_fvg_state": {
-          "file": "src\\bot.py",
-          "line_start": 65,
-          "line_end": 76,
-          "signature": "def _save_fvg_state(sym: str, fvg_data: dict) -> None:"
-        },
-        "src.bot._load_fvg_state": {
-          "file": "src\\bot.py",
-          "line_start": 79,
-          "line_end": 87,
-          "signature": "def _load_fvg_state(sym: str) -> dict:"
-        },
-        "src.bot._setup_logging": {
-          "file": "src\\bot.py",
-          "line_start": 90,
-          "line_end": 143,
-          "signature": "def _setup_logging() -> logging.Logger:"
-        },
-        "src.bot.PaperTrader.__init__": {
-          "file": "src\\bot.py",
-          "line_start": 153,
-          "line_end": 232,
-          "signature": "def __init__(self, symbols: list[str] | None=None):"
-        },
-        "src.bot.PaperTrader._pl": {
-          "file": "src\\bot.py",
-          "line_start": 234,
-          "line_end": 236,
-          "signature": "def _pl(self, sym: str, key: str, msg: str, force: bool=False):"
-        },
-        "src.bot.PaperTrader._session_label": {
-          "file": "src\\bot.py",
-          "line_start": 238,
-          "line_end": 243,
-          "signature": "def _session_label(self, hour: int) -> str:"
-        },
-        "src.bot.PaperTrader._load_history": {
-          "file": "src\\bot.py",
-          "line_start": 245,
-          "line_end": 259,
-          "signature": "def _load_history(self):"
-        },
-        "src.bot.PaperTrader._on_15m_close": {
-          "file": "src\\bot.py",
-          "line_start": 263,
-          "line_end": 399,
-          "signature": "async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):"
-        },
-        "src.bot.PaperTrader._on_1m_close": {
-          "file": "src\\bot.py",
-          "line_start": 403,
-          "line_end": 470,
-          "signature": "async def _on_1m_close(self, sym: str, bars_1m: list[Bar]):"
-        },
-        "src.bot.PaperTrader._try_entry": {
-          "file": "src\\bot.py",
-          "line_start": 474,
-          "line_end": 686,
-          "signature": "async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):"
-        },
-        "src.bot.PaperTrader._exit_trade": {
-          "file": "src\\bot.py",
-          "line_start": 688,
-          "line_end": 846,
-          "signature": "async def _exit_trade(self, sym, trade, exit_timestamp: int):"
-        },
-        "src.bot.PaperTrader.on_15m": {
-          "file": "src\\bot.py",
-          "line_start": 848,
-          "line_end": 851,
-          "signature": "async def on_15m(self, sym: str, bars: list[Bar]):"
-        },
-        "src.bot.PaperTrader.on_1m": {
-          "file": "src\\bot.py",
-          "line_start": 853,
-          "line_end": 856,
-          "signature": "async def on_1m(self, sym: str, bars: list[Bar]):"
-        },
-        "src.bot.PaperTrader._prefill_bars": {
-          "file": "src\\bot.py",
-          "line_start": 858,
-          "line_end": 882,
-          "signature": "async def _prefill_bars(self, sym: str, timeframe: str='15m') -> Result[None]:"
-        },
-        "src.bot.PaperTrader._warmup_cbdr": {
-          "file": "src\\bot.py",
-          "line_start": 884,
-          "line_end": 939,
-          "signature": "def _warmup_cbdr(self, sym: str):"
-        },
-        "src.bot.PaperTrader._set_leverage": {
-          "file": "src\\bot.py",
-          "line_start": 941,
-          "line_end": 958,
-          "signature": "async def _set_leverage(self, symbol: str) -> Result[None]:"
-        },
-        "src.bot.PaperTrader.run": {
-          "file": "src\\bot.py",
-          "line_start": 960,
-          "line_end": 1104,
-          "signature": "async def run(self):"
-        },
-        "src.bot.main": {
-          "file": "src\\bot.py",
-          "line_start": 1107,
-          "line_end": 1117,
-          "signature": "def main():"
-        },
         "tests.test_websocket._bar": {
           "file": "tests\\test_websocket.py",
           "line_start": 27,
@@ -4431,6 +4293,144 @@
           "line_start": 417,
           "line_end": 423,
           "signature": "def test_known_timeframes(self):"
+        },
+        "src.session_router.is_high_quality_fvg": {
+          "file": "src\\session_router.py",
+          "line_start": 17,
+          "line_end": 26,
+          "signature": "def is_high_quality_fvg(fvg_pips: float, current_atr: float, symbol: str='') -> bool:"
+        },
+        "src.session_router.is_fvg_valid": {
+          "file": "src\\session_router.py",
+          "line_start": 29,
+          "line_end": 35,
+          "signature": "def is_fvg_valid(formation_bar_index: int, current_bar_index: int) -> bool:"
+        },
+        "src.session_router.get_cbdr_multiplier": {
+          "file": "src\\session_router.py",
+          "line_start": 38,
+          "line_end": 45,
+          "signature": "def get_cbdr_multiplier(symbol: str, cbdr_pct: float) -> float:"
+        },
+        "src.session_router.get_session_hours": {
+          "file": "src\\session_router.py",
+          "line_start": 48,
+          "line_end": 54,
+          "signature": "def get_session_hours(symbol: str) -> dict[str, int]:"
+        },
+        "src.session_router.should_trade": {
+          "file": "src\\session_router.py",
+          "line_start": 57,
+          "line_end": 74,
+          "signature": "def should_trade(symbol: str, cbdr_width_pct: float | None=None) -> tuple[bool, str]:"
+        },
+        "src.bot._save_fvg_state": {
+          "file": "src\\bot.py",
+          "line_start": 65,
+          "line_end": 76,
+          "signature": "def _save_fvg_state(sym: str, fvg_data: dict) -> None:"
+        },
+        "src.bot._load_fvg_state": {
+          "file": "src\\bot.py",
+          "line_start": 79,
+          "line_end": 87,
+          "signature": "def _load_fvg_state(sym: str) -> dict:"
+        },
+        "src.bot._setup_logging": {
+          "file": "src\\bot.py",
+          "line_start": 90,
+          "line_end": 143,
+          "signature": "def _setup_logging() -> logging.Logger:"
+        },
+        "src.bot.PaperTrader.__init__": {
+          "file": "src\\bot.py",
+          "line_start": 153,
+          "line_end": 232,
+          "signature": "def __init__(self, symbols: list[str] | None=None):"
+        },
+        "src.bot.PaperTrader._pl": {
+          "file": "src\\bot.py",
+          "line_start": 234,
+          "line_end": 236,
+          "signature": "def _pl(self, sym: str, key: str, msg: str, force: bool=False):"
+        },
+        "src.bot.PaperTrader._session_label": {
+          "file": "src\\bot.py",
+          "line_start": 238,
+          "line_end": 243,
+          "signature": "def _session_label(self, hour: int) -> str:"
+        },
+        "src.bot.PaperTrader._load_history": {
+          "file": "src\\bot.py",
+          "line_start": 245,
+          "line_end": 259,
+          "signature": "def _load_history(self):"
+        },
+        "src.bot.PaperTrader._on_15m_close": {
+          "file": "src\\bot.py",
+          "line_start": 263,
+          "line_end": 400,
+          "signature": "async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):"
+        },
+        "src.bot.PaperTrader._on_1m_close": {
+          "file": "src\\bot.py",
+          "line_start": 404,
+          "line_end": 471,
+          "signature": "async def _on_1m_close(self, sym: str, bars_1m: list[Bar]):"
+        },
+        "src.bot.PaperTrader._try_entry": {
+          "file": "src\\bot.py",
+          "line_start": 475,
+          "line_end": 687,
+          "signature": "async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):"
+        },
+        "src.bot.PaperTrader._exit_trade": {
+          "file": "src\\bot.py",
+          "line_start": 689,
+          "line_end": 847,
+          "signature": "async def _exit_trade(self, sym, trade, exit_timestamp: int):"
+        },
+        "src.bot.PaperTrader.on_15m": {
+          "file": "src\\bot.py",
+          "line_start": 849,
+          "line_end": 852,
+          "signature": "async def on_15m(self, sym: str, bars: list[Bar]):"
+        },
+        "src.bot.PaperTrader.on_1m": {
+          "file": "src\\bot.py",
+          "line_start": 854,
+          "line_end": 857,
+          "signature": "async def on_1m(self, sym: str, bars: list[Bar]):"
+        },
+        "src.bot.PaperTrader._prefill_bars": {
+          "file": "src\\bot.py",
+          "line_start": 859,
+          "line_end": 883,
+          "signature": "async def _prefill_bars(self, sym: str, timeframe: str='15m') -> Result[None]:"
+        },
+        "src.bot.PaperTrader._warmup_cbdr": {
+          "file": "src\\bot.py",
+          "line_start": 885,
+          "line_end": 940,
+          "signature": "def _warmup_cbdr(self, sym: str):"
+        },
+        "src.bot.PaperTrader._set_leverage": {
+          "file": "src\\bot.py",
+          "line_start": 942,
+          "line_end": 959,
+          "signature": "async def _set_leverage(self, symbol: str) -> Result[None]:"
+        },
+        "src.bot.PaperTrader.run": {
+          "file": "src\\bot.py",
+          "line_start": 961,
+          "line_end": 1105,
+          "signature": "async def run(self):"
+        },
+        "src.bot.main": {
+          "file": "src\\bot.py",
+          "line_start": 1108,
+          "line_end": 1118,
+          "signature": "def main():"
         }
       },
       "files": {
@@ -4473,10 +4473,6 @@
         "src\\session.py": {
           "last_modified": "2026-07-04T03:04:25",
           "hash": "sha256:c1c854b48de46fe6"
-        },
-        "src\\session_router.py": {
-          "last_modified": "2026-07-05T14:12:47",
-          "hash": "sha256:c5a256d2cf14e9d3"
         },
         "src\\state_manager.py": {
           "last_modified": "2026-07-03T14:11:49",
@@ -4582,21 +4578,25 @@
           "last_modified": "2026-07-11T17:46:57",
           "hash": "sha256:674cc070a56d5502"
         },
-        "src\\bot.py": {
-          "last_modified": "2026-07-11T17:47:11",
-          "hash": "sha256:6736acc06b48c359"
+        "tests\\test_websocket.py": {
+          "last_modified": "2026-06-26T01:10:59",
+          "hash": "sha256:6f1468bf97ef5dde"
+        },
+        "src\\session_router.py": {
+          "last_modified": "2026-07-12T07:58:24",
+          "hash": "sha256:d5fd86fb8f0dc5bb"
         },
         "src\\trading\\__init__.py": {
           "last_modified": "2026-06-30T21:12:59",
           "hash": "sha256:f61320312ed5e5b1"
         },
-        "tests\\test_websocket.py": {
-          "last_modified": "2026-06-26T01:10:59",
-          "hash": "sha256:6f1468bf97ef5dde"
+        "src\\bot.py": {
+          "last_modified": "2026-07-12T07:58:48",
+          "hash": "sha256:01735e8a6538dd4f"
         },
         "src\\config.py": {
-          "last_modified": "2026-07-12T03:07:07",
-          "hash": "sha256:6a37b75e24cffe33"
+          "last_modified": "2026-07-12T07:58:55",
+          "hash": "sha256:287614a86a8b31ce"
         }
       },
       "last_full_scan": "2026-07-11T17:46:08"
@@ -6301,6 +6301,30 @@
           "line_end": 211,
           "signature": "def main():"
         },
+        "src._analyze_all_20._analyze_one_symbol": {
+          "file": "src\\_analyze_all_20.py",
+          "line_start": 60,
+          "line_end": 195,
+          "signature": "def _analyze_one_symbol(sym: str, workers: int=1) -> dict | None:"
+        },
+        "src._analyze_all_20._run_serial": {
+          "file": "src\\_analyze_all_20.py",
+          "line_start": 199,
+          "line_end": 325,
+          "signature": "def _run_serial(workers: int):"
+        },
+        "src._analyze_all_20._print_config": {
+          "file": "src\\_analyze_all_20.py",
+          "line_start": 329,
+          "line_end": 376,
+          "signature": "def _print_config(session_best: dict, bucket_results: dict, all_session_stats: dict, elapsed: float):"
+        },
+        "src._analyze_all_20.main": {
+          "file": "src\\_analyze_all_20.py",
+          "line_start": 380,
+          "line_end": 495,
+          "signature": "def main():"
+        },
         "src.analyzer_v5.load_data": {
           "file": "src\\analyzer_v5.py",
           "line_start": 63,
@@ -6360,30 +6384,6 @@
           "line_start": 990,
           "line_end": 995,
           "signature": "def fvg_created(rej):"
-        },
-        "src._analyze_all_20._analyze_one_symbol": {
-          "file": "src\\_analyze_all_20.py",
-          "line_start": 60,
-          "line_end": 195,
-          "signature": "def _analyze_one_symbol(sym: str, workers: int=1) -> dict | None:"
-        },
-        "src._analyze_all_20._run_serial": {
-          "file": "src\\_analyze_all_20.py",
-          "line_start": 199,
-          "line_end": 325,
-          "signature": "def _run_serial(workers: int):"
-        },
-        "src._analyze_all_20._print_config": {
-          "file": "src\\_analyze_all_20.py",
-          "line_start": 329,
-          "line_end": 376,
-          "signature": "def _print_config(session_best: dict, bucket_results: dict, all_session_stats: dict, elapsed: float):"
-        },
-        "src._analyze_all_20.main": {
-          "file": "src\\_analyze_all_20.py",
-          "line_start": 380,
-          "line_end": 495,
-          "signature": "def main():"
         }
       },
       "files": {
@@ -6587,10 +6587,6 @@
           "last_modified": "2026-07-09T18:58:13",
           "hash": "sha256:65754e3610dcd91a"
         },
-        "src\\utils\\visualize_cbdr_zoom.py": {
-          "last_modified": "2026-06-27T13:21:49",
-          "hash": "sha256:6dacdce0362ca3db"
-        },
         "reports\\calc.py": {
           "last_modified": "2026-07-11T23:16:52",
           "hash": "sha256:db2bf6685c3beba9"
@@ -6611,13 +6607,17 @@
           "last_modified": "2026-07-12T03:17:25",
           "hash": "sha256:ff521d34cff1b15e"
         },
-        "src\\analyzer_v5.py": {
-          "last_modified": "2026-07-12T03:17:27",
-          "hash": "sha256:cf0fd0d4dd0efb90"
-        },
         "src\\_analyze_all_20.py": {
           "last_modified": "2026-07-12T03:20:34",
           "hash": "sha256:13799df62471b8d1"
+        },
+        "src\\analyzer_v5.py": {
+          "last_modified": "2026-07-12T07:58:30",
+          "hash": "sha256:0fa6696b61b71ab1"
+        },
+        "src\\utils\\visualize_cbdr_zoom.py": {
+          "last_modified": "2026-06-27T13:21:49",
+          "hash": "sha256:6dacdce0362ca3db"
         }
       },
       "last_full_scan": "2026-07-11T21:18:06"
