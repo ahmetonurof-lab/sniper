@@ -88,15 +88,13 @@ class ConsoleReporter:
     def display_session_status(
         self, sym: str, session: str, hour: int, minute: int, ss: "SessionState"
     ) -> None:
-        """London/NY session display: CBDR locked + bias + range type. st_ses force print.
-
-        Args:
-            sym: Sembol adı
-            session: "LONDON" veya "NEWYORK" (ASIA bu metoda gelmez)
-            hour, minute: UTC saat/dakika
-            ss: SessionState (daily_bias, cbdr_locked, range_type, cbdr body kullanır)
-        """
+        """London/NY session display: CBDR locked + bias + range type."""
         from session import DailyBias
+
+        # CBDR type emoji
+        cbdr_type = self._cbdr_label(ss.cbdr_start, ss.cbdr_end)
+        cbdr_emojis = {"ASIA_RANGE": "\U0001f534", "DEFAULT": "\U0001f535", "REAL_CBDR": "\u26aa"}
+        ses_emoji = cbdr_emojis.get(cbdr_type, "\U0001f7e9")
 
         ts = f"{hour:02d}:{minute:02d}"
 
@@ -113,9 +111,16 @@ class ConsoleReporter:
         self.emit(
             sym,
             "st_ses",
-            f"\U0001f7e9 SESSION: {session} | {ts} UTC | CBDR: {cbdr_s}{rt_str}{bias_str}",
+            f"{ses_emoji} SESSION: {session} | {ts} UTC | CBDR: {cbdr_s}{rt_str}{bias_str}",
             force=True,
         )
+
+    def _cbdr_label(self, start: int, end: int) -> str:
+        if start == 1 and end == 5:
+            return "ASIA_RANGE"
+        if start == 19 and end == 1:
+            return "REAL_CBDR"
+        return "DEFAULT"
 
     def display_sweep_status(
         self, sym: str, ss: "SessionState", hour: int, minute: int
