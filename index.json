@@ -652,66 +652,6 @@
           "line_end": 435,
           "signature": "def __exit__(self, _exc_type, _exc_val, _exc_tb):"
         },
-        "src.retrace_state.HTFFVG.__init__": {
-          "file": "src\\retrace_state.py",
-          "line_start": 28,
-          "line_end": 32,
-          "signature": "def __init__(self, top: float, bottom: float, direction: str, bar_index: int):"
-        },
-        "src.retrace_state.HTFFVG.__repr__": {
-          "file": "src\\retrace_state.py",
-          "line_start": 34,
-          "line_end": 35,
-          "signature": "def __repr__(self):"
-        },
-        "src.retrace_state.scan_htf_fvgs": {
-          "file": "src\\retrace_state.py",
-          "line_start": 38,
-          "line_end": 58,
-          "signature": "def scan_htf_fvgs(bars_15m: list[Bar], lookback: int=100, min_fvg_size: float=10.0, max_wick_ratio: float=1.0) -> list[HTFFVG]:"
-        },
-        "src.retrace_state.RetraceStateMachine.__init__": {
-          "file": "src\\retrace_state.py",
-          "line_start": 62,
-          "line_end": 68,
-          "signature": "def __init__(self, max_wick_ratio: float=1.0):"
-        },
-        "src.retrace_state.RetraceStateMachine.state_name": {
-          "file": "src\\retrace_state.py",
-          "line_start": 71,
-          "line_end": 72,
-          "signature": "@property"
-        },
-        "src.retrace_state.RetraceStateMachine.can_trigger": {
-          "file": "src\\retrace_state.py",
-          "line_start": 74,
-          "line_end": 75,
-          "signature": "def can_trigger(self) -> bool:"
-        },
-        "src.retrace_state.RetraceStateMachine._mark_sweep_used": {
-          "file": "src\\retrace_state.py",
-          "line_start": 77,
-          "line_end": 85,
-          "signature": "def _mark_sweep_used(self):"
-        },
-        "src.retrace_state.RetraceStateMachine.reset": {
-          "file": "src\\retrace_state.py",
-          "line_start": 87,
-          "line_end": 92,
-          "signature": "def reset(self):"
-        },
-        "src.retrace_state.RetraceStateMachine.on_sweep": {
-          "file": "src\\retrace_state.py",
-          "line_start": 94,
-          "line_end": 124,
-          "signature": "def on_sweep(self, direction: Literal['bullish', 'bearish'], level: float, bar_index: int | None=None):"
-        },
-        "src.retrace_state.RetraceStateMachine.on_sweep_confirmed": {
-          "file": "src\\retrace_state.py",
-          "line_start": 126,
-          "line_end": 190,
-          "signature": "def on_sweep_confirmed(self, bars_15m: list[Bar], sweep_bar: Bar, atr_val: float=0.0):"
-        },
         "src.risk_manager.RiskManager.__init__": {
           "file": "src\\risk_manager.py",
           "line_start": 29,
@@ -1089,162 +1029,6 @@
           "line_start": 9,
           "line_end": 66,
           "signature": "def write_state(states: dict, active_trades: dict, available_balance: float, wallet_balance: float, symbols: list[str]) -> None:"
-        },
-        "src.websocket.is_cooldown_active": {
-          "file": "src\\websocket.py",
-          "line_start": 51,
-          "line_end": 57,
-          "signature": "def is_cooldown_active(symbol: str) -> bool:"
-        },
-        "src.websocket.register_trade": {
-          "file": "src\\websocket.py",
-          "line_start": 60,
-          "line_end": 61,
-          "signature": "def register_trade(symbol: str) -> None:"
-        },
-        "src.websocket._BarBuffer.__init__": {
-          "file": "src\\websocket.py",
-          "line_start": 98,
-          "line_end": 110,
-          "signature": "def __init__(self, symbol: str, timeframe: str, callbacks: list[BarCallback], max_bars: int=500) -> None:"
-        },
-        "src.websocket._BarBuffer._kline_to_bar": {
-          "file": "src\\websocket.py",
-          "line_start": 112,
-          "line_end": 125,
-          "signature": "def _kline_to_bar(self, k: dict, is_closed: bool) -> Bar:"
-        },
-        "src.websocket._BarBuffer.feed": {
-          "file": "src\\websocket.py",
-          "line_start": 127,
-          "line_end": 159,
-          "signature": "async def feed(self, kline_payload: dict) -> None:"
-        },
-        "src.websocket.BinanceWSHub.__init__": {
-          "file": "src\\websocket.py",
-          "line_start": 183,
-          "line_end": 233,
-          "signature": "def __init__(self, symbols: list[str], timeframes: list[str] | None=None, max_bars: int=500, base_url: str | None=None, reconnect_delay: float=2.0, max_reconnect_delay: float=60.0) -> None:"
-        },
-        "src.websocket.BinanceWSHub.on_bar": {
-          "file": "src\\websocket.py",
-          "line_start": 237,
-          "line_end": 253,
-          "signature": "def on_bar(self, symbol: str, timeframe: str) -> Callable[[BarCallback], BarCallback]:"
-        },
-        "src.websocket.BinanceWSHub.on_bar.decorator": {
-          "file": "src\\websocket.py",
-          "line_start": 249,
-          "line_end": 251,
-          "signature": "def decorator(fn: BarCallback) -> BarCallback:"
-        },
-        "src.websocket.BinanceWSHub.register_callback": {
-          "file": "src\\websocket.py",
-          "line_start": 255,
-          "line_end": 263,
-          "signature": "def register_callback(self, symbol: str, timeframe: str, callback: BarCallback) -> None:"
-        },
-        "src.websocket.BinanceWSHub.set_user_data_listen_key": {
-          "file": "src\\websocket.py",
-          "line_start": 267,
-          "line_end": 274,
-          "signature": "def set_user_data_listen_key(self, listen_key: str, ws_base_url: str='wss://stream.binancefuture.com') -> None:"
-        },
-        "src.websocket.BinanceWSHub.on_user_data": {
-          "file": "src\\websocket.py",
-          "line_start": 276,
-          "line_end": 297,
-          "signature": "def on_user_data(self, event_type: str) -> Callable[[Callable[[dict], Awaitable[None]]], Callable[[dict], Awaitable[None]]]:"
-        },
-        "src.websocket.BinanceWSHub.on_user_data.decorator": {
-          "file": "src\\websocket.py",
-          "line_start": 291,
-          "line_end": 295,
-          "signature": "def decorator(fn: Callable[[dict], Awaitable[None]]) -> Callable[[dict], Awaitable[None]]:"
-        },
-        "src.websocket.BinanceWSHub._user_data_listen_loop": {
-          "file": "src\\websocket.py",
-          "line_start": 299,
-          "line_end": 340,
-          "signature": "async def _user_data_listen_loop(self) -> None:"
-        },
-        "src.websocket.BinanceWSHub._listen_key_refresh_loop": {
-          "file": "src\\websocket.py",
-          "line_start": 342,
-          "line_end": 354,
-          "signature": "async def _listen_key_refresh_loop(self, http_client) -> None:"
-        },
-        "src.websocket.BinanceWSHub._build_url": {
-          "file": "src\\websocket.py",
-          "line_start": 358,
-          "line_end": 366,
-          "signature": "def _build_url(self) -> str:"
-        },
-        "src.websocket.BinanceWSHub._get_buffer": {
-          "file": "src\\websocket.py",
-          "line_start": 370,
-          "line_end": 379,
-          "signature": "def _get_buffer(self, symbol: str, timeframe: str) -> _BarBuffer:"
-        },
-        "src.websocket.BinanceWSHub.get_bars": {
-          "file": "src\\websocket.py",
-          "line_start": 381,
-          "line_end": 383,
-          "signature": "def get_bars(self, symbol: str, timeframe: str) -> list[Bar]:"
-        },
-        "src.websocket.BinanceWSHub.prefill_bars": {
-          "file": "src\\websocket.py",
-          "line_start": 385,
-          "line_end": 391,
-          "signature": "def prefill_bars(self, symbol: str, timeframe: str, bars: list[Bar]) -> None:"
-        },
-        "src.websocket.BinanceWSHub._dispatch": {
-          "file": "src\\websocket.py",
-          "line_start": 395,
-          "line_end": 424,
-          "signature": "async def _dispatch(self, raw: str) -> None:"
-        },
-        "src.websocket.BinanceWSHub._heartbeat_monitor": {
-          "file": "src\\websocket.py",
-          "line_start": 428,
-          "line_end": 464,
-          "signature": "async def _heartbeat_monitor(self) -> None:"
-        },
-        "src.websocket.BinanceWSHub._connect_and_listen": {
-          "file": "src\\websocket.py",
-          "line_start": 466,
-          "line_end": 508,
-          "signature": "async def _connect_and_listen(self) -> None:"
-        },
-        "src.websocket.BinanceWSHub.run": {
-          "file": "src\\websocket.py",
-          "line_start": 510,
-          "line_end": 570,
-          "signature": "async def run(self) -> None:"
-        },
-        "src.websocket.BinanceWSHub.stop": {
-          "file": "src\\websocket.py",
-          "line_start": 572,
-          "line_end": 582,
-          "signature": "def stop(self) -> None:"
-        },
-        "src.websocket.btc_m15_handler": {
-          "file": "src\\websocket.py",
-          "line_start": 600,
-          "line_end": 607,
-          "signature": "@hub.on_bar('BTCUSDT', '15m')"
-        },
-        "src.websocket.eth_m15_handler": {
-          "file": "src\\websocket.py",
-          "line_start": 610,
-          "line_end": 611,
-          "signature": "@hub.on_bar('ETHUSDT', '15m')"
-        },
-        "src.websocket.main": {
-          "file": "src\\websocket.py",
-          "line_start": 613,
-          "line_end": 617,
-          "signature": "async def main() -> None:"
         },
         "src.trading.console_reporter.ConsoleReporter.__init__": {
           "file": "src\\trading\\console_reporter.py",
@@ -2740,222 +2524,6 @@
           "line_end": 370,
           "signature": "@pytest.mark.asyncio"
         },
-        "tests.test_retrace_state._bar": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 19,
-          "line_end": 28,
-          "signature": "def _bar(index, open_, high, low, close, is_closed=True, timestamp=0):"
-        },
-        "tests.test_retrace_state._make_15m_bars": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 31,
-          "line_end": 44,
-          "signature": "def _make_15m_bars(n=50, trend='up', base=100.0, step=1.0, gap=False):"
-        },
-        "tests.test_retrace_state._make_bars_with_gap": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 47,
-          "line_end": 69,
-          "signature": "def _make_bars_with_gap(direction='bullish', gap_index=10, base=100.0):"
-        },
-        "tests.test_retrace_state.TestScanHtfFvgs.test_returns_empty_for_less_than_5_bars": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 78,
-          "line_end": 81,
-          "signature": "def test_returns_empty_for_less_than_5_bars(self):"
-        },
-        "tests.test_retrace_state.TestScanHtfFvgs.test_returns_htf_fvgs_sorted_by_bar_index": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 83,
-          "line_end": 89,
-          "signature": "def test_returns_htf_fvgs_sorted_by_bar_index(self):"
-        },
-        "tests.test_retrace_state.TestScanHtfFvgs.test_limits_to_10": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 91,
-          "line_end": 105,
-          "signature": "def test_limits_to_10(self):"
-        },
-        "tests.test_retrace_state.TestScanHtfFvgs.test_handles_min_fvg_size_filter": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 107,
-          "line_end": 112,
-          "signature": "def test_handles_min_fvg_size_filter(self):"
-        },
-        "tests.test_retrace_state.TestHTFFVG.test_creation": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 121,
-          "line_end": 126,
-          "signature": "def test_creation(self):"
-        },
-        "tests.test_retrace_state.TestHTFFVG.test_repr": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 128,
-          "line_end": 133,
-          "signature": "def test_repr(self):"
-        },
-        "tests.test_retrace_state.TestRetraceStateMachineInit.test_starts_in_idle": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 142,
-          "line_end": 147,
-          "signature": "def test_starts_in_idle(self):"
-        },
-        "tests.test_retrace_state.TestRetraceStateMachineInit.test_state_name": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 149,
-          "line_end": 151,
-          "signature": "def test_state_name(self):"
-        },
-        "tests.test_retrace_state.TestRetraceStateMachineInit.test_can_trigger_false_initially": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 153,
-          "line_end": 155,
-          "signature": "def test_can_trigger_false_initially(self):"
-        },
-        "tests.test_retrace_state.TestOnSweep.test_on_sweep_bullish_transitions_to_sweep_detected": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 159,
-          "line_end": 164,
-          "signature": "def test_on_sweep_bullish_transitions_to_sweep_detected(self):"
-        },
-        "tests.test_retrace_state.TestOnSweep.test_on_sweep_bearish_transitions_to_sweep_detected": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 166,
-          "line_end": 171,
-          "signature": "def test_on_sweep_bearish_transitions_to_sweep_detected(self):"
-        },
-        "tests.test_retrace_state.TestOnSweep.test_on_sweep_ignored_when_not_idle": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 173,
-          "line_end": 180,
-          "signature": "def test_on_sweep_ignored_when_not_idle(self):"
-        },
-        "tests.test_retrace_state.TestOnSweep.test_on_sweep_with_bar_index_stores_pending_id": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 182,
-          "line_end": 186,
-          "signature": "def test_on_sweep_with_bar_index_stores_pending_id(self):"
-        },
-        "tests.test_retrace_state.TestOnSweep.test_on_sweep_skips_already_used": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 189,
-          "line_end": 194,
-          "signature": "@patch('state_manager.is_sweep_used')"
-        },
-        "tests.test_retrace_state.TestOnSweep.test_on_sweep_graceful_on_state_manager_error": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 197,
-          "line_end": 202,
-          "signature": "@patch('state_manager.is_sweep_used')"
-        },
-        "tests.test_retrace_state.TestOnSweepConfirmed.test_resets_when_no_fvg_found": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 206,
-          "line_end": 213,
-          "signature": "def test_resets_when_no_fvg_found(self):"
-        },
-        "tests.test_retrace_state.TestOnSweepConfirmed.test_resets_when_not_in_sweep_detected": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 215,
-          "line_end": 220,
-          "signature": "def test_resets_when_not_in_sweep_detected(self):"
-        },
-        "tests.test_retrace_state.TestOnSweepConfirmed.test_bullish_trigger_when_wick_touches_but_body_safe": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 222,
-          "line_end": 234,
-          "signature": "def test_bullish_trigger_when_wick_touches_but_body_safe(self):"
-        },
-        "tests.test_retrace_state.TestOnSweepConfirmed.test_bullish_wick_rejection_triggers": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 236,
-          "line_end": 257,
-          "signature": "def test_bullish_wick_rejection_triggers(self):"
-        },
-        "tests.test_retrace_state.TestOnSweepConfirmed.test_bearish_wick_rejection_triggers": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 259,
-          "line_end": 284,
-          "signature": "def test_bearish_wick_rejection_triggers(self):"
-        },
-        "tests.test_retrace_state.TestOnSweepConfirmed.test_skips_fvg_with_wrong_direction": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 286,
-          "line_end": 301,
-          "signature": "def test_skips_fvg_with_wrong_direction(self):"
-        },
-        "tests.test_retrace_state.TestOnSweepConfirmed.test_skips_fvg_after_sweep_bar": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 303,
-          "line_end": 316,
-          "signature": "def test_skips_fvg_after_sweep_bar(self):"
-        },
-        "tests.test_retrace_state.TestCanTrigger.test_can_trigger_only_in_trigger_ready": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 320,
-          "line_end": 329,
-          "signature": "def test_can_trigger_only_in_trigger_ready(self):"
-        },
-        "tests.test_retrace_state.TestReset.test_reset_clears_all_fields": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 333,
-          "line_end": 347,
-          "signature": "def test_reset_clears_all_fields(self):"
-        },
-        "tests.test_retrace_state.TestReset.test_reset_no_pending_sweep": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 349,
-          "line_end": 357,
-          "signature": "def test_reset_no_pending_sweep(self):"
-        },
-        "tests.test_retrace_state.TestMarkSweepUsed.test_mark_sweep_used_called_on_trigger": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 362,
-          "line_end": 367,
-          "signature": "@patch('state_manager.mark_sweep_used')"
-        },
-        "tests.test_retrace_state.TestMarkSweepUsed.test_mark_sweep_used_no_id": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 369,
-          "line_end": 371,
-          "signature": "def test_mark_sweep_used_no_id(self):"
-        },
-        "tests.test_retrace_state.TestMarkSweepUsed.test_mark_sweep_used_error_graceful": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 374,
-          "line_end": 379,
-          "signature": "@patch('state_manager.mark_sweep_used')"
-        },
-        "tests.test_retrace_state.TestFullFlow.test_idle_to_sweep_to_trigger_flow_bullish": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 388,
-          "line_end": 419,
-          "signature": "def test_idle_to_sweep_to_trigger_flow_bullish(self):"
-        },
-        "tests.test_retrace_state.TestFullFlow.test_body_breaks_fvg_does_not_trigger_bullish": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 421,
-          "line_end": 438,
-          "signature": "def test_body_breaks_fvg_does_not_trigger_bullish(self):"
-        },
-        "tests.test_retrace_state.TestFullFlow.test_body_breaks_fvg_does_not_trigger_bearish": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 440,
-          "line_end": 458,
-          "signature": "def test_body_breaks_fvg_does_not_trigger_bearish(self):"
-        },
-        "tests.test_retrace_state.TestFullFlow.test_default_min_fvg_size": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 460,
-          "line_end": 462,
-          "signature": "def test_default_min_fvg_size(self):"
-        },
-        "tests.test_retrace_state.TestFullFlow.test_custom_min_fvg_size": {
-          "file": "tests\\test_retrace_state.py",
-          "line_start": 464,
-          "line_end": 466,
-          "signature": "def test_custom_min_fvg_size(self):"
-        },
         "tests.test_session._dt": {
           "file": "tests\\test_session.py",
           "line_start": 12,
@@ -3123,204 +2691,6 @@
           "line_start": 162,
           "line_end": 167,
           "signature": "def test_sweep_needs_close_to_reject(self):"
-        },
-        "tests.test_state_manager.temp_state_dir": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 30,
-          "line_end": 39,
-          "signature": "@pytest.fixture"
-        },
-        "tests.test_state_manager.clean_state": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 43,
-          "line_end": 49,
-          "signature": "@pytest.fixture"
-        },
-        "tests.test_state_manager.TestToday.test_today_returns_string": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 58,
-          "line_end": 61,
-          "signature": "def test_today_returns_string(self):"
-        },
-        "tests.test_state_manager.TestToday.test_today_at_22_utc_returns_next_day": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 63,
-          "line_end": 67,
-          "signature": "def test_today_at_22_utc_returns_next_day(self):"
-        },
-        "tests.test_state_manager.TestLoadSave.test_load_returns_empty_dict_when_no_file": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 76,
-          "line_end": 78,
-          "signature": "def test_load_returns_empty_dict_when_no_file(self, clean_state):"
-        },
-        "tests.test_state_manager.TestLoadSave.test_save_and_load_roundtrip": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 80,
-          "line_end": 84,
-          "signature": "def test_save_and_load_roundtrip(self, clean_state):"
-        },
-        "tests.test_state_manager.TestLoadSave.test_load_handles_corrupt_json": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 86,
-          "line_end": 90,
-          "signature": "def test_load_handles_corrupt_json(self, clean_state):"
-        },
-        "tests.test_state_manager.TestLoadSave.test_save_overwrites_existing": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 92,
-          "line_end": 96,
-          "signature": "def test_save_overwrites_existing(self, clean_state):"
-        },
-        "tests.test_state_manager.TestCanOpenTrade.test_returns_true_for_new_symbol": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 105,
-          "line_end": 106,
-          "signature": "def test_returns_true_for_new_symbol(self, clean_state):"
-        },
-        "tests.test_state_manager.TestCanOpenTrade.test_returns_true_for_new_day": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 108,
-          "line_end": 111,
-          "signature": "def test_returns_true_for_new_day(self, clean_state):"
-        },
-        "tests.test_state_manager.TestCanOpenTrade.test_returns_false_when_count_reached_today": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 113,
-          "line_end": 115,
-          "signature": "def test_returns_false_when_count_reached_today(self, clean_state):"
-        },
-        "tests.test_state_manager.TestCanOpenTrade.test_independent_per_symbol": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 117,
-          "line_end": 125,
-          "signature": "def test_independent_per_symbol(self, clean_state):"
-        },
-        "tests.test_state_manager.TestCanOpenTrade.test_empty_state_returns_true": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 127,
-          "line_end": 128,
-          "signature": "def test_empty_state_returns_true(self, clean_state):"
-        },
-        "tests.test_state_manager.TestMarkTradeOpened.test_writes_to_state": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 137,
-          "line_end": 144,
-          "signature": "def test_writes_to_state(self, clean_state):"
-        },
-        "tests.test_state_manager.TestMarkTradeOpened.test_overwrites_existing_entry": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 146,
-          "line_end": 150,
-          "signature": "def test_overwrites_existing_entry(self, clean_state):"
-        },
-        "tests.test_state_manager.TestMarkTradeClosed.test_sets_open_to_false": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 154,
-          "line_end": 158,
-          "signature": "def test_sets_open_to_false(self, clean_state):"
-        },
-        "tests.test_state_manager.TestMarkTradeClosed.test_noop_for_unknown_symbol": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 160,
-          "line_end": 163,
-          "signature": "def test_noop_for_unknown_symbol(self, clean_state):"
-        },
-        "tests.test_state_manager.TestSweepDedup.test_is_sweep_used_false_when_no_state": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 172,
-          "line_end": 173,
-          "signature": "def test_is_sweep_used_false_when_no_state(self, clean_state):"
-        },
-        "tests.test_state_manager.TestSweepDedup.test_mark_and_check_sweep": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 175,
-          "line_end": 177,
-          "signature": "def test_mark_and_check_sweep(self, clean_state):"
-        },
-        "tests.test_state_manager.TestSweepDedup.test_is_sweep_used_false_for_old_date": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 179,
-          "line_end": 181,
-          "signature": "def test_is_sweep_used_false_for_old_date(self, clean_state):"
-        },
-        "tests.test_state_manager.TestSweepDedup.test_mark_sweep_cleans_old_entries": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 183,
-          "line_end": 191,
-          "signature": "def test_mark_sweep_cleans_old_entries(self, clean_state):"
-        },
-        "tests.test_state_manager.TestSweepDedup.test_mark_sweep_multiple_today": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 193,
-          "line_end": 199,
-          "signature": "def test_mark_sweep_multiple_today(self, clean_state):"
-        },
-        "tests.test_state_manager.TestReconcileFromActive.test_writes_new_entries": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 208,
-          "line_end": 216,
-          "signature": "def test_writes_new_entries(self, clean_state):"
-        },
-        "tests.test_state_manager.TestReconcileFromActive.test_skips_already_recorded_today": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 218,
-          "line_end": 224,
-          "signature": "def test_skips_already_recorded_today(self, clean_state):"
-        },
-        "tests.test_state_manager.TestReconcileFromActive.test_empty_active_noop": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 226,
-          "line_end": 228,
-          "signature": "def test_empty_active_noop(self, clean_state):"
-        },
-        "tests.test_state_manager.TestReconcileFromActive.test_multiple_symbols": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 230,
-          "line_end": 239,
-          "signature": "def test_multiple_symbols(self, clean_state):"
-        },
-        "tests.test_state_manager.TestGetTradeCountToday.test_returns_0_for_unknown_symbol": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 248,
-          "line_end": 249,
-          "signature": "def test_returns_0_for_unknown_symbol(self, clean_state):"
-        },
-        "tests.test_state_manager.TestGetTradeCountToday.test_returns_0_for_old_date": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 251,
-          "line_end": 253,
-          "signature": "def test_returns_0_for_old_date(self, clean_state):"
-        },
-        "tests.test_state_manager.TestGetTradeCountToday.test_returns_count_for_today": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 255,
-          "line_end": 257,
-          "signature": "def test_returns_count_for_today(self, clean_state):"
-        },
-        "tests.test_state_manager.TestGetTradeCountToday.test_returns_count_zero_when_no_count_field": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 259,
-          "line_end": 261,
-          "signature": "def test_returns_count_zero_when_no_count_field(self, clean_state):"
-        },
-        "tests.test_state_manager.TestEdgeCases.test_concurrent_access_same_symbol": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 270,
-          "line_end": 275,
-          "signature": "def test_concurrent_access_same_symbol(self, clean_state):"
-        },
-        "tests.test_state_manager.TestEdgeCases.test_state_persists_across_loads": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 277,
-          "line_end": 283,
-          "signature": "def test_state_persists_across_loads(self, clean_state):"
-        },
-        "tests.test_state_manager.TestEdgeCases.test_special_characters_in_symbol": {
-          "file": "tests\\test_state_manager.py",
-          "line_start": 285,
-          "line_end": 288,
-          "signature": "def test_special_characters_in_symbol(self, clean_state):"
         },
         "tests.test_trailing_manager._bar": {
           "file": "tests\\test_trailing_manager.py",
@@ -4443,6 +3813,636 @@
           "line_start": 384,
           "line_end": 398,
           "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_state_manager.temp_state_dir": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 30,
+          "line_end": 39,
+          "signature": "@pytest.fixture"
+        },
+        "tests.test_state_manager.clean_state": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 43,
+          "line_end": 49,
+          "signature": "@pytest.fixture"
+        },
+        "tests.test_state_manager.TestToday.test_today_returns_string": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 58,
+          "line_end": 61,
+          "signature": "def test_today_returns_string(self):"
+        },
+        "tests.test_state_manager.TestToday.test_today_at_22_utc_returns_next_day": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 63,
+          "line_end": 67,
+          "signature": "def test_today_at_22_utc_returns_next_day(self):"
+        },
+        "tests.test_state_manager.TestLoadSave.test_load_returns_empty_dict_when_no_file": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 76,
+          "line_end": 78,
+          "signature": "def test_load_returns_empty_dict_when_no_file(self, clean_state):"
+        },
+        "tests.test_state_manager.TestLoadSave.test_save_and_load_roundtrip": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 80,
+          "line_end": 84,
+          "signature": "def test_save_and_load_roundtrip(self, clean_state):"
+        },
+        "tests.test_state_manager.TestLoadSave.test_load_handles_corrupt_json": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 86,
+          "line_end": 90,
+          "signature": "def test_load_handles_corrupt_json(self, clean_state):"
+        },
+        "tests.test_state_manager.TestLoadSave.test_save_overwrites_existing": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 92,
+          "line_end": 96,
+          "signature": "def test_save_overwrites_existing(self, clean_state):"
+        },
+        "tests.test_state_manager.TestCanOpenTrade.test_returns_true_for_new_symbol": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 105,
+          "line_end": 106,
+          "signature": "def test_returns_true_for_new_symbol(self, clean_state):"
+        },
+        "tests.test_state_manager.TestCanOpenTrade.test_returns_true_for_new_day": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 108,
+          "line_end": 111,
+          "signature": "def test_returns_true_for_new_day(self, clean_state):"
+        },
+        "tests.test_state_manager.TestCanOpenTrade.test_returns_false_when_count_reached_today": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 113,
+          "line_end": 115,
+          "signature": "def test_returns_false_when_count_reached_today(self, clean_state):"
+        },
+        "tests.test_state_manager.TestCanOpenTrade.test_independent_per_symbol": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 117,
+          "line_end": 125,
+          "signature": "def test_independent_per_symbol(self, clean_state):"
+        },
+        "tests.test_state_manager.TestCanOpenTrade.test_empty_state_returns_true": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 127,
+          "line_end": 128,
+          "signature": "def test_empty_state_returns_true(self, clean_state):"
+        },
+        "tests.test_state_manager.TestMarkTradeOpened.test_writes_to_state": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 137,
+          "line_end": 144,
+          "signature": "def test_writes_to_state(self, clean_state):"
+        },
+        "tests.test_state_manager.TestMarkTradeOpened.test_overwrites_existing_entry": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 146,
+          "line_end": 150,
+          "signature": "def test_overwrites_existing_entry(self, clean_state):"
+        },
+        "tests.test_state_manager.TestMarkTradeClosed.test_sets_open_to_false": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 154,
+          "line_end": 158,
+          "signature": "def test_sets_open_to_false(self, clean_state):"
+        },
+        "tests.test_state_manager.TestMarkTradeClosed.test_noop_for_unknown_symbol": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 160,
+          "line_end": 163,
+          "signature": "def test_noop_for_unknown_symbol(self, clean_state):"
+        },
+        "tests.test_state_manager.TestSweepDedup.test_is_sweep_used_false_when_no_state": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 172,
+          "line_end": 173,
+          "signature": "def test_is_sweep_used_false_when_no_state(self, clean_state):"
+        },
+        "tests.test_state_manager.TestSweepDedup.test_mark_and_check_sweep": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 175,
+          "line_end": 177,
+          "signature": "def test_mark_and_check_sweep(self, clean_state):"
+        },
+        "tests.test_state_manager.TestSweepDedup.test_is_sweep_used_false_for_old_date": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 179,
+          "line_end": 181,
+          "signature": "def test_is_sweep_used_false_for_old_date(self, clean_state):"
+        },
+        "tests.test_state_manager.TestSweepDedup.test_mark_sweep_cleans_old_entries": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 183,
+          "line_end": 191,
+          "signature": "def test_mark_sweep_cleans_old_entries(self, clean_state):"
+        },
+        "tests.test_state_manager.TestSweepDedup.test_mark_sweep_multiple_today": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 193,
+          "line_end": 199,
+          "signature": "def test_mark_sweep_multiple_today(self, clean_state):"
+        },
+        "tests.test_state_manager.TestReconcileFromActive.test_writes_new_entries": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 208,
+          "line_end": 216,
+          "signature": "def test_writes_new_entries(self, clean_state):"
+        },
+        "tests.test_state_manager.TestReconcileFromActive.test_skips_already_recorded_today": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 218,
+          "line_end": 224,
+          "signature": "def test_skips_already_recorded_today(self, clean_state):"
+        },
+        "tests.test_state_manager.TestReconcileFromActive.test_empty_active_noop": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 226,
+          "line_end": 228,
+          "signature": "def test_empty_active_noop(self, clean_state):"
+        },
+        "tests.test_state_manager.TestReconcileFromActive.test_multiple_symbols": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 230,
+          "line_end": 239,
+          "signature": "def test_multiple_symbols(self, clean_state):"
+        },
+        "tests.test_state_manager.TestGetTradeCountToday.test_returns_0_for_unknown_symbol": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 248,
+          "line_end": 249,
+          "signature": "def test_returns_0_for_unknown_symbol(self, clean_state):"
+        },
+        "tests.test_state_manager.TestGetTradeCountToday.test_returns_0_for_old_date": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 251,
+          "line_end": 253,
+          "signature": "def test_returns_0_for_old_date(self, clean_state):"
+        },
+        "tests.test_state_manager.TestGetTradeCountToday.test_returns_count_for_today": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 255,
+          "line_end": 257,
+          "signature": "def test_returns_count_for_today(self, clean_state):"
+        },
+        "tests.test_state_manager.TestGetTradeCountToday.test_returns_count_zero_when_no_count_field": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 259,
+          "line_end": 261,
+          "signature": "def test_returns_count_zero_when_no_count_field(self, clean_state):"
+        },
+        "tests.test_state_manager.TestEdgeCases.test_concurrent_access_same_symbol": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 270,
+          "line_end": 275,
+          "signature": "def test_concurrent_access_same_symbol(self, clean_state):"
+        },
+        "tests.test_state_manager.TestEdgeCases.test_state_persists_across_loads": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 277,
+          "line_end": 283,
+          "signature": "def test_state_persists_across_loads(self, clean_state):"
+        },
+        "tests.test_state_manager.TestEdgeCases.test_special_characters_in_symbol": {
+          "file": "tests\\test_state_manager.py",
+          "line_start": 285,
+          "line_end": 288,
+          "signature": "def test_special_characters_in_symbol(self, clean_state):"
+        },
+        "src.retrace_state.HTFFVG.__init__": {
+          "file": "src\\retrace_state.py",
+          "line_start": 28,
+          "line_end": 32,
+          "signature": "def __init__(self, top: float, bottom: float, direction: str, bar_index: int):"
+        },
+        "src.retrace_state.HTFFVG.__repr__": {
+          "file": "src\\retrace_state.py",
+          "line_start": 34,
+          "line_end": 35,
+          "signature": "def __repr__(self):"
+        },
+        "src.retrace_state.scan_htf_fvgs": {
+          "file": "src\\retrace_state.py",
+          "line_start": 38,
+          "line_end": 58,
+          "signature": "def scan_htf_fvgs(bars_15m: list[Bar], lookback: int=100, min_fvg_size: float=10.0, max_wick_ratio: float=1.0) -> list[HTFFVG]:"
+        },
+        "src.retrace_state.RetraceStateMachine.__init__": {
+          "file": "src\\retrace_state.py",
+          "line_start": 62,
+          "line_end": 68,
+          "signature": "def __init__(self, max_wick_ratio: float=1.0):"
+        },
+        "src.retrace_state.RetraceStateMachine.state_name": {
+          "file": "src\\retrace_state.py",
+          "line_start": 71,
+          "line_end": 72,
+          "signature": "@property"
+        },
+        "src.retrace_state.RetraceStateMachine.can_trigger": {
+          "file": "src\\retrace_state.py",
+          "line_start": 74,
+          "line_end": 75,
+          "signature": "def can_trigger(self) -> bool:"
+        },
+        "src.retrace_state.RetraceStateMachine._mark_sweep_used": {
+          "file": "src\\retrace_state.py",
+          "line_start": 77,
+          "line_end": 85,
+          "signature": "def _mark_sweep_used(self):"
+        },
+        "src.retrace_state.RetraceStateMachine.reset": {
+          "file": "src\\retrace_state.py",
+          "line_start": 87,
+          "line_end": 92,
+          "signature": "def reset(self):"
+        },
+        "src.retrace_state.RetraceStateMachine.on_sweep": {
+          "file": "src\\retrace_state.py",
+          "line_start": 94,
+          "line_end": 124,
+          "signature": "def on_sweep(self, direction: Literal['bullish', 'bearish'], level: float, bar_index: int | None=None):"
+        },
+        "src.retrace_state.RetraceStateMachine.on_sweep_confirmed": {
+          "file": "src\\retrace_state.py",
+          "line_start": 126,
+          "line_end": 190,
+          "signature": "def on_sweep_confirmed(self, bars_15m: list[Bar], sweep_bar: Bar, atr_val: float=0.0):"
+        },
+        "tests.test_retrace_state._bar": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 19,
+          "line_end": 28,
+          "signature": "def _bar(index, open_, high, low, close, is_closed=True, timestamp=0):"
+        },
+        "tests.test_retrace_state._make_15m_bars": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 31,
+          "line_end": 44,
+          "signature": "def _make_15m_bars(n=50, trend='up', base=100.0, step=1.0, gap=False):"
+        },
+        "tests.test_retrace_state._make_bars_with_gap": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 47,
+          "line_end": 69,
+          "signature": "def _make_bars_with_gap(direction='bullish', gap_index=10, base=100.0):"
+        },
+        "tests.test_retrace_state.TestScanHtfFvgs.test_returns_empty_for_less_than_5_bars": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 78,
+          "line_end": 81,
+          "signature": "def test_returns_empty_for_less_than_5_bars(self):"
+        },
+        "tests.test_retrace_state.TestScanHtfFvgs.test_returns_htf_fvgs_sorted_by_bar_index": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 83,
+          "line_end": 89,
+          "signature": "def test_returns_htf_fvgs_sorted_by_bar_index(self):"
+        },
+        "tests.test_retrace_state.TestScanHtfFvgs.test_limits_to_10": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 91,
+          "line_end": 105,
+          "signature": "def test_limits_to_10(self):"
+        },
+        "tests.test_retrace_state.TestScanHtfFvgs.test_handles_min_fvg_size_filter": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 107,
+          "line_end": 112,
+          "signature": "def test_handles_min_fvg_size_filter(self):"
+        },
+        "tests.test_retrace_state.TestHTFFVG.test_creation": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 121,
+          "line_end": 126,
+          "signature": "def test_creation(self):"
+        },
+        "tests.test_retrace_state.TestHTFFVG.test_repr": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 128,
+          "line_end": 133,
+          "signature": "def test_repr(self):"
+        },
+        "tests.test_retrace_state.TestRetraceStateMachineInit.test_starts_in_idle": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 142,
+          "line_end": 147,
+          "signature": "def test_starts_in_idle(self):"
+        },
+        "tests.test_retrace_state.TestRetraceStateMachineInit.test_state_name": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 149,
+          "line_end": 151,
+          "signature": "def test_state_name(self):"
+        },
+        "tests.test_retrace_state.TestRetraceStateMachineInit.test_can_trigger_false_initially": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 153,
+          "line_end": 155,
+          "signature": "def test_can_trigger_false_initially(self):"
+        },
+        "tests.test_retrace_state.TestOnSweep.test_on_sweep_bullish_transitions_to_sweep_detected": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 159,
+          "line_end": 164,
+          "signature": "def test_on_sweep_bullish_transitions_to_sweep_detected(self):"
+        },
+        "tests.test_retrace_state.TestOnSweep.test_on_sweep_bearish_transitions_to_sweep_detected": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 166,
+          "line_end": 171,
+          "signature": "def test_on_sweep_bearish_transitions_to_sweep_detected(self):"
+        },
+        "tests.test_retrace_state.TestOnSweep.test_on_sweep_ignored_when_not_idle": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 173,
+          "line_end": 180,
+          "signature": "def test_on_sweep_ignored_when_not_idle(self):"
+        },
+        "tests.test_retrace_state.TestOnSweep.test_on_sweep_with_bar_index_stores_pending_id": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 182,
+          "line_end": 186,
+          "signature": "def test_on_sweep_with_bar_index_stores_pending_id(self):"
+        },
+        "tests.test_retrace_state.TestOnSweep.test_on_sweep_skips_already_used": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 189,
+          "line_end": 194,
+          "signature": "@patch('state_manager.is_sweep_used')"
+        },
+        "tests.test_retrace_state.TestOnSweep.test_on_sweep_graceful_on_state_manager_error": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 197,
+          "line_end": 202,
+          "signature": "@patch('state_manager.is_sweep_used')"
+        },
+        "tests.test_retrace_state.TestOnSweepConfirmed.test_resets_when_no_fvg_found": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 206,
+          "line_end": 213,
+          "signature": "def test_resets_when_no_fvg_found(self):"
+        },
+        "tests.test_retrace_state.TestOnSweepConfirmed.test_resets_when_not_in_sweep_detected": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 215,
+          "line_end": 220,
+          "signature": "def test_resets_when_not_in_sweep_detected(self):"
+        },
+        "tests.test_retrace_state.TestOnSweepConfirmed.test_bullish_trigger_when_wick_touches_but_body_safe": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 222,
+          "line_end": 234,
+          "signature": "def test_bullish_trigger_when_wick_touches_but_body_safe(self):"
+        },
+        "tests.test_retrace_state.TestOnSweepConfirmed.test_bullish_wick_rejection_triggers": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 236,
+          "line_end": 261,
+          "signature": "def test_bullish_wick_rejection_triggers(self):"
+        },
+        "tests.test_retrace_state.TestOnSweepConfirmed.test_bearish_wick_rejection_triggers": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 263,
+          "line_end": 286,
+          "signature": "def test_bearish_wick_rejection_triggers(self):"
+        },
+        "tests.test_retrace_state.TestOnSweepConfirmed.test_skips_fvg_with_wrong_direction": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 288,
+          "line_end": 303,
+          "signature": "def test_skips_fvg_with_wrong_direction(self):"
+        },
+        "tests.test_retrace_state.TestOnSweepConfirmed.test_skips_fvg_after_sweep_bar": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 305,
+          "line_end": 318,
+          "signature": "def test_skips_fvg_after_sweep_bar(self):"
+        },
+        "tests.test_retrace_state.TestCanTrigger.test_can_trigger_only_in_trigger_ready": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 322,
+          "line_end": 331,
+          "signature": "def test_can_trigger_only_in_trigger_ready(self):"
+        },
+        "tests.test_retrace_state.TestReset.test_reset_clears_all_fields": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 335,
+          "line_end": 349,
+          "signature": "def test_reset_clears_all_fields(self):"
+        },
+        "tests.test_retrace_state.TestReset.test_reset_no_pending_sweep": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 351,
+          "line_end": 359,
+          "signature": "def test_reset_no_pending_sweep(self):"
+        },
+        "tests.test_retrace_state.TestMarkSweepUsed.test_mark_sweep_used_called_on_trigger": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 364,
+          "line_end": 369,
+          "signature": "@patch('state_manager.mark_sweep_used')"
+        },
+        "tests.test_retrace_state.TestMarkSweepUsed.test_mark_sweep_used_no_id": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 371,
+          "line_end": 373,
+          "signature": "def test_mark_sweep_used_no_id(self):"
+        },
+        "tests.test_retrace_state.TestMarkSweepUsed.test_mark_sweep_used_error_graceful": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 376,
+          "line_end": 381,
+          "signature": "@patch('state_manager.mark_sweep_used')"
+        },
+        "tests.test_retrace_state.TestFullFlow.test_idle_to_sweep_to_trigger_flow_bullish": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 390,
+          "line_end": 424,
+          "signature": "def test_idle_to_sweep_to_trigger_flow_bullish(self):"
+        },
+        "tests.test_retrace_state.TestFullFlow.test_sweep_invalid_when_body_breaks_below_level": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 426,
+          "line_end": 434,
+          "signature": "def test_sweep_invalid_when_body_breaks_below_level(self):"
+        },
+        "tests.test_retrace_state.TestFullFlow.test_body_breaks_fvg_does_not_trigger_bearish": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 436,
+          "line_end": 454,
+          "signature": "def test_body_breaks_fvg_does_not_trigger_bearish(self):"
+        },
+        "tests.test_retrace_state.TestFullFlow.test_default_uses_max_wick_ratio": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 456,
+          "line_end": 458,
+          "signature": "def test_default_uses_max_wick_ratio(self):"
+        },
+        "tests.test_retrace_state.TestFullFlow.test_stores_custom_max_wick_ratio": {
+          "file": "tests\\test_retrace_state.py",
+          "line_start": 460,
+          "line_end": 462,
+          "signature": "def test_stores_custom_max_wick_ratio(self):"
+        },
+        "src.websocket.is_cooldown_active": {
+          "file": "src\\websocket.py",
+          "line_start": 51,
+          "line_end": 57,
+          "signature": "def is_cooldown_active(symbol: str) -> bool:"
+        },
+        "src.websocket.register_trade": {
+          "file": "src\\websocket.py",
+          "line_start": 60,
+          "line_end": 61,
+          "signature": "def register_trade(symbol: str) -> None:"
+        },
+        "src.websocket._BarBuffer.__init__": {
+          "file": "src\\websocket.py",
+          "line_start": 98,
+          "line_end": 110,
+          "signature": "def __init__(self, symbol: str, timeframe: str, callbacks: list[BarCallback], max_bars: int=500) -> None:"
+        },
+        "src.websocket._BarBuffer._kline_to_bar": {
+          "file": "src\\websocket.py",
+          "line_start": 112,
+          "line_end": 125,
+          "signature": "def _kline_to_bar(self, k: dict, is_closed: bool) -> Bar:"
+        },
+        "src.websocket._BarBuffer.feed": {
+          "file": "src\\websocket.py",
+          "line_start": 127,
+          "line_end": 159,
+          "signature": "async def feed(self, kline_payload: dict) -> None:"
+        },
+        "src.websocket.BinanceWSHub.__init__": {
+          "file": "src\\websocket.py",
+          "line_start": 183,
+          "line_end": 233,
+          "signature": "def __init__(self, symbols: list[str], timeframes: list[str] | None=None, max_bars: int=500, base_url: str | None=None, reconnect_delay: float=2.0, max_reconnect_delay: float=60.0) -> None:"
+        },
+        "src.websocket.BinanceWSHub.on_bar": {
+          "file": "src\\websocket.py",
+          "line_start": 237,
+          "line_end": 253,
+          "signature": "def on_bar(self, symbol: str, timeframe: str) -> Callable[[BarCallback], BarCallback]:"
+        },
+        "src.websocket.BinanceWSHub.on_bar.decorator": {
+          "file": "src\\websocket.py",
+          "line_start": 249,
+          "line_end": 251,
+          "signature": "def decorator(fn: BarCallback) -> BarCallback:"
+        },
+        "src.websocket.BinanceWSHub.register_callback": {
+          "file": "src\\websocket.py",
+          "line_start": 255,
+          "line_end": 263,
+          "signature": "def register_callback(self, symbol: str, timeframe: str, callback: BarCallback) -> None:"
+        },
+        "src.websocket.BinanceWSHub.set_user_data_listen_key": {
+          "file": "src\\websocket.py",
+          "line_start": 267,
+          "line_end": 274,
+          "signature": "def set_user_data_listen_key(self, listen_key: str, ws_base_url: str='wss://stream.binancefuture.com') -> None:"
+        },
+        "src.websocket.BinanceWSHub.on_user_data": {
+          "file": "src\\websocket.py",
+          "line_start": 276,
+          "line_end": 297,
+          "signature": "def on_user_data(self, event_type: str) -> Callable[[Callable[[dict], Awaitable[None]]], Callable[[dict], Awaitable[None]]]:"
+        },
+        "src.websocket.BinanceWSHub.on_user_data.decorator": {
+          "file": "src\\websocket.py",
+          "line_start": 291,
+          "line_end": 295,
+          "signature": "def decorator(fn: Callable[[dict], Awaitable[None]]) -> Callable[[dict], Awaitable[None]]:"
+        },
+        "src.websocket.BinanceWSHub._user_data_listen_loop": {
+          "file": "src\\websocket.py",
+          "line_start": 299,
+          "line_end": 340,
+          "signature": "async def _user_data_listen_loop(self) -> None:"
+        },
+        "src.websocket.BinanceWSHub._listen_key_refresh_loop": {
+          "file": "src\\websocket.py",
+          "line_start": 342,
+          "line_end": 354,
+          "signature": "async def _listen_key_refresh_loop(self, http_client) -> None:"
+        },
+        "src.websocket.BinanceWSHub._build_url": {
+          "file": "src\\websocket.py",
+          "line_start": 358,
+          "line_end": 366,
+          "signature": "def _build_url(self) -> str:"
+        },
+        "src.websocket.BinanceWSHub._get_buffer": {
+          "file": "src\\websocket.py",
+          "line_start": 370,
+          "line_end": 379,
+          "signature": "def _get_buffer(self, symbol: str, timeframe: str) -> _BarBuffer:"
+        },
+        "src.websocket.BinanceWSHub.get_bars": {
+          "file": "src\\websocket.py",
+          "line_start": 381,
+          "line_end": 383,
+          "signature": "def get_bars(self, symbol: str, timeframe: str) -> list[Bar]:"
+        },
+        "src.websocket.BinanceWSHub.prefill_bars": {
+          "file": "src\\websocket.py",
+          "line_start": 385,
+          "line_end": 391,
+          "signature": "def prefill_bars(self, symbol: str, timeframe: str, bars: list[Bar]) -> None:"
+        },
+        "src.websocket.BinanceWSHub._dispatch": {
+          "file": "src\\websocket.py",
+          "line_start": 395,
+          "line_end": 424,
+          "signature": "async def _dispatch(self, raw: str) -> None:"
+        },
+        "src.websocket.BinanceWSHub._heartbeat_monitor": {
+          "file": "src\\websocket.py",
+          "line_start": 428,
+          "line_end": 464,
+          "signature": "async def _heartbeat_monitor(self) -> None:"
+        },
+        "src.websocket.BinanceWSHub._connect_and_listen": {
+          "file": "src\\websocket.py",
+          "line_start": 466,
+          "line_end": 508,
+          "signature": "async def _connect_and_listen(self) -> None:"
+        },
+        "src.websocket.BinanceWSHub.run": {
+          "file": "src\\websocket.py",
+          "line_start": 510,
+          "line_end": 570,
+          "signature": "async def run(self) -> None:"
+        },
+        "src.websocket.BinanceWSHub.stop": {
+          "file": "src\\websocket.py",
+          "line_start": 572,
+          "line_end": 582,
+          "signature": "def stop(self) -> None:"
+        },
+        "src.websocket.btc_m15_handler": {
+          "file": "src\\websocket.py",
+          "line_start": 600,
+          "line_end": 607,
+          "signature": "@hub.on_bar('BTCUSDT', '15m')"
+        },
+        "src.websocket.eth_m15_handler": {
+          "file": "src\\websocket.py",
+          "line_start": 610,
+          "line_end": 611,
+          "signature": "@hub.on_bar('ETHUSDT', '15m')"
+        },
+        "src.websocket.main": {
+          "file": "src\\websocket.py",
+          "line_start": 613,
+          "line_end": 617,
+          "signature": "async def main() -> None:"
         }
       },
       "files": {
@@ -4478,10 +4478,6 @@
           "last_modified": "2026-07-12T12:05:23",
           "hash": "sha256:93801e9b4f9ff1f5"
         },
-        "src\\retrace_state.py": {
-          "last_modified": "2026-07-11T15:30:35",
-          "hash": "sha256:a293e5cead93e5ac"
-        },
         "src\\risk_manager.py": {
           "last_modified": "2026-07-04T23:17:52",
           "hash": "sha256:46a4bb3d59fb9e83"
@@ -4501,10 +4497,6 @@
         "src\\state_writer.py": {
           "last_modified": "2026-06-30T21:09:49",
           "hash": "sha256:ccafe1fef001605e"
-        },
-        "src\\websocket.py": {
-          "last_modified": "2026-06-26T01:17:29",
-          "hash": "sha256:de70ea222cfe2e42"
         },
         "src\\_patch_bot.py": {
           "last_modified": "2026-07-12T12:05:40",
@@ -4558,17 +4550,9 @@
           "last_modified": "2026-06-26T01:10:59",
           "hash": "sha256:766e1204994cacf3"
         },
-        "tests\\test_retrace_state.py": {
-          "last_modified": "2026-06-30T21:37:01",
-          "hash": "sha256:ac17f39899b80e5f"
-        },
         "tests\\test_session.py": {
           "last_modified": "2026-06-30T21:35:40",
           "hash": "sha256:e09054c29933a0d6"
-        },
-        "tests\\test_state_manager.py": {
-          "last_modified": "2026-06-30T21:36:48",
-          "hash": "sha256:b8d679c44a66f7f4"
         },
         "tests\\test_trailing_manager.py": {
           "last_modified": "2026-06-30T13:40:20",
@@ -4609,6 +4593,22 @@
         "tests\\test_entry_manager.py": {
           "last_modified": "2026-07-13T12:00:44",
           "hash": "sha256:b5fc38efe6852325"
+        },
+        "tests\\test_state_manager.py": {
+          "last_modified": "2026-06-30T21:36:48",
+          "hash": "sha256:b8d679c44a66f7f4"
+        },
+        "src\\retrace_state.py": {
+          "last_modified": "2026-07-11T15:30:35",
+          "hash": "sha256:a293e5cead93e5ac"
+        },
+        "tests\\test_retrace_state.py": {
+          "last_modified": "2026-07-13T13:24:39",
+          "hash": "sha256:5d8e639fe88bcfa8"
+        },
+        "src\\websocket.py": {
+          "last_modified": "2026-06-26T01:17:29",
+          "hash": "sha256:de70ea222cfe2e42"
         },
         "src\\trading\\__init__.py": {
           "last_modified": "2026-06-30T21:12:59",
