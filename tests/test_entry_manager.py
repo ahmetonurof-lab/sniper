@@ -313,13 +313,27 @@ class TestExecuteLiveEntry:
         assert result.success is True
         assert result.qty == 0.5
 
-    @pytest.mark.asyncio
-    async def test_live_success_path(self):
+    async def _entry_mock_base(self):
         mock_rest = MagicMock()
         mock_rest.apply_amount_precision = AsyncMock(return_value=0.5)
         mock_rest.validate_min_amount = AsyncMock(return_value=0.5)
-        mock_rest.place_market_order = AsyncMock(return_value={"orderId": 12345})
+        mock_rest.estimate_market_price = AsyncMock(return_value=100.0)
+        mock_rest.get_min_notional = AsyncMock(return_value=5.0)
+        mock_rest.get_step_size = AsyncMock(return_value=0.001)
         mock_rest.apply_price_precision = AsyncMock(side_effect=[99.9, 110.1])
+        return mock_rest
+
+    @pytest.mark.asyncio
+    async def test_live_success_path(self):
+        mock_rest = await self._entry_mock_base()
+        mock_rest.place_market_order = AsyncMock(
+            return_value={
+                "orderId": 12345,
+                "executedQty": "0.5",
+                "avgPrice": "100.0",
+                "cummulativeQuoteQty": "50.0",
+            }
+        )
         mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_001"})
         mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_001"})
 
@@ -345,10 +359,8 @@ class TestExecuteLiveEntry:
 
     @pytest.mark.asyncio
     async def test_market_order_failure(self):
-        mock_rest = MagicMock()
-        mock_rest.apply_amount_precision = AsyncMock(return_value=0.5)
-        mock_rest.validate_min_amount = AsyncMock(return_value=0.5)
-        mock_rest.place_market_order = AsyncMock(return_value={"orderId": None})
+        mock_rest = await self._entry_mock_base()
+        mock_rest.place_market_order = AsyncMock(return_value={})  # No orderId → fail
 
         mgr = EntryManager(rest_client=mock_rest, is_live=True)
         result = await mgr.execute_live_entry("BTCUSDT", "long", 0.5, 100.0, 110.0)
@@ -358,11 +370,15 @@ class TestExecuteLiveEntry:
 
     @pytest.mark.asyncio
     async def test_sl_order_failure_triggers_emergency_close(self):
-        mock_rest = MagicMock()
-        mock_rest.apply_amount_precision = AsyncMock(return_value=0.5)
-        mock_rest.validate_min_amount = AsyncMock(return_value=0.5)
-        mock_rest.place_market_order = AsyncMock(return_value={"orderId": 12345})
-        mock_rest.apply_price_precision = AsyncMock(return_value=99.9)
+        mock_rest = await self._entry_mock_base()
+        mock_rest.place_market_order = AsyncMock(
+            return_value={
+                "orderId": 12345,
+                "executedQty": "0.5",
+                "avgPrice": "100.0",
+                "cummulativeQuoteQty": "50.0",
+            }
+        )
         mock_rest.place_stop_order = AsyncMock(return_value={"algoId": None})
 
         mgr = EntryManager(rest_client=mock_rest, is_live=True)
@@ -371,17 +387,21 @@ class TestExecuteLiveEntry:
         assert result.success is False
         assert "SL BASARISIZ" in result.error
         # Emergency close should have been called (opposite side)
-        # place_market_order called twice: entry + emergency close
+        # place_market_order called for entry + emergency close
         assert mock_rest.place_market_order.call_count == 2
 
     @pytest.mark.asyncio
     async def test_tp_failure_still_returns_success(self):
         """TP failure is non-fatal — execution still succeeds."""
-        mock_rest = MagicMock()
-        mock_rest.apply_amount_precision = AsyncMock(return_value=0.5)
-        mock_rest.validate_min_amount = AsyncMock(return_value=0.5)
-        mock_rest.place_market_order = AsyncMock(return_value={"orderId": 12345})
-        mock_rest.apply_price_precision = AsyncMock(side_effect=[99.9, 110.1])
+        mock_rest = await self._entry_mock_base()
+        mock_rest.place_market_order = AsyncMock(
+            return_value={
+                "orderId": 12345,
+                "executedQty": "0.5",
+                "avgPrice": "100.0",
+                "cummulativeQuoteQty": "50.0",
+            }
+        )
         mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_001"})
         mock_rest.place_tp_order = AsyncMock(return_value={})  # No algoId
 

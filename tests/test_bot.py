@@ -112,16 +112,16 @@ class TestSessionLabel:
         from bot import PaperTrader
 
         bot = PaperTrader()
-        assert bot._session_label(22) == "ASIA"
-        assert bot._session_label(23) == "ASIA"
-        assert bot._session_label(0) == "ASIA"
-        assert bot._session_label(1) == "ASIA"
+        assert bot._session_label(0) == "NEWYORK"
+        assert bot._session_label(1) == "NEWYORK"
         assert bot._session_label(2) == "LONDON"
         assert bot._session_label(8) == "LONDON"
         assert bot._session_label(12) == "LONDON"
         assert bot._session_label(13) == "NEWYORK"
         assert bot._session_label(18) == "NEWYORK"
         assert bot._session_label(21) == "NEWYORK"
+        assert bot._session_label(22) == "NEWYORK"
+        assert bot._session_label(23) == "NEWYORK"
 
 
 # ═══════════════════════════════════════════════════════════════════

@@ -1366,192 +1366,6 @@
           "line_end": 25,
           "signature": "@pytest.fixture(autouse=True)"
         },
-        "tests.test_bot._bar": {
-          "file": "tests\\test_bot.py",
-          "line_start": 20,
-          "line_end": 29,
-          "signature": "def _bar(index, open_, high, low, close, is_closed=True, timestamp=0):"
-        },
-        "tests.test_bot._make_15m_bars_sweep_bullish": {
-          "file": "tests\\test_bot.py",
-          "line_start": 32,
-          "line_end": 43,
-          "signature": "def _make_15m_bars_sweep_bullish(n=30, base=100.0):"
-        },
-        "tests.test_bot.TestPaperTraderInit.test_init_sets_up_symbols_states_rsms": {
-          "file": "tests\\test_bot.py",
-          "line_start": 56,
-          "line_end": 72,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestPaperTraderInit.test_init_custom_symbols": {
-          "file": "tests\\test_bot.py",
-          "line_start": 77,
-          "line_end": 98,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestSessionLabel.test_labels": {
-          "file": "tests\\test_bot.py",
-          "line_start": 110,
-          "line_end": 124,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestOn15mClose.test_skips_asia_session": {
-          "file": "tests\\test_bot.py",
-          "line_start": 136,
-          "line_end": 150,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestOn15mClose.test_skips_when_cbdr_not_locked": {
-          "file": "tests\\test_bot.py",
-          "line_start": 155,
-          "line_end": 167,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestOn15mClose.test_skips_when_trade_active": {
-          "file": "tests\\test_bot.py",
-          "line_start": 172,
-          "line_end": 189,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestTryEntry.test_skips_when_trade_already_active": {
-          "file": "tests\\test_bot.py",
-          "line_start": 202,
-          "line_end": 228,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestTryEntry.test_calculates_sl_tp_long": {
-          "file": "tests\\test_bot.py",
-          "line_start": 233,
-          "line_end": 270,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestTryEntry.test_calculates_sl_tp_short": {
-          "file": "tests\\test_bot.py",
-          "line_start": 275,
-          "line_end": 310,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestTryEntry.test_skips_when_qty_zero": {
-          "file": "tests\\test_bot.py",
-          "line_start": 317,
-          "line_end": 352,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestOn1mClose.test_skips_when_no_active_trade": {
-          "file": "tests\\test_bot.py",
-          "line_start": 364,
-          "line_end": 370,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestOn1mClose.test_calls_trail_check_when_active": {
-          "file": "tests\\test_bot.py",
-          "line_start": 377,
-          "line_end": 412,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestOn1mClose.test_orphan_check_counter_triggers_every_5_calls": {
-          "file": "tests\\test_bot.py",
-          "line_start": 418,
-          "line_end": 449,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestExitTrade.test_pnl_calc_long": {
-          "file": "tests\\test_bot.py",
-          "line_start": 462,
-          "line_end": 494,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestExitTrade.test_pnl_calc_short": {
-          "file": "tests\\test_bot.py",
-          "line_start": 500,
-          "line_end": 530,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestExitTrade.test_trade_appended_to_history": {
-          "file": "tests\\test_bot.py",
-          "line_start": 536,
-          "line_end": 565,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestWarmupCbdr.test_noop_when_no_bars": {
-          "file": "tests\\test_bot.py",
-          "line_start": 577,
-          "line_end": 583,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestWarmupCbdr.test_feeds_bars_to_session_state": {
-          "file": "tests\\test_bot.py",
-          "line_start": 589,
-          "line_end": 606,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestPrefillBars.test_prefill_success": {
-          "file": "tests\\test_bot.py",
-          "line_start": 618,
-          "line_end": 644,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestPrefillBars.test_prefill_failure": {
-          "file": "tests\\test_bot.py",
-          "line_start": 649,
-          "line_end": 659,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestActiveTradeDict.test_getitem": {
-          "file": "tests\\test_bot.py",
-          "line_start": 668,
-          "line_end": 672,
-          "signature": "def test_getitem(self):"
-        },
-        "tests.test_bot.TestActiveTradeDict.test_setitem": {
-          "file": "tests\\test_bot.py",
-          "line_start": 674,
-          "line_end": 677,
-          "signature": "def test_setitem(self):"
-        },
-        "tests.test_bot.TestActiveTradeDict.test_get_with_default": {
-          "file": "tests\\test_bot.py",
-          "line_start": 679,
-          "line_end": 682,
-          "signature": "def test_get_with_default(self):"
-        },
-        "tests.test_bot.TestActiveTradeDict.test_contains": {
-          "file": "tests\\test_bot.py",
-          "line_start": 684,
-          "line_end": 687,
-          "signature": "def test_contains(self):"
-        },
-        "tests.test_bot.TestActiveTradeDict.test_keyerror_on_missing_attr": {
-          "file": "tests\\test_bot.py",
-          "line_start": 689,
-          "line_end": 692,
-          "signature": "def test_keyerror_on_missing_attr(self):"
-        },
-        "tests.test_bot.TestPendingLock.test_enters_sets_pending": {
-          "file": "tests\\test_bot.py",
-          "line_start": 701,
-          "line_end": 709,
-          "signature": "def test_enters_sets_pending(self):"
-        },
-        "tests.test_bot.TestPendingLock.test_commit_preserves_pending": {
-          "file": "tests\\test_bot.py",
-          "line_start": 711,
-          "line_end": 719,
-          "signature": "def test_commit_preserves_pending(self):"
-        },
-        "tests.test_bot.TestPendingLock.test_exception_cleans_up": {
-          "file": "tests\\test_bot.py",
-          "line_start": 721,
-          "line_end": 730,
-          "signature": "def test_exception_cleans_up(self):"
-        },
-        "tests.test_bot._setup_minimal_cfg": {
-          "file": "tests\\test_bot.py",
-          "line_start": 736,
-          "line_end": 753,
-          "signature": "def _setup_minimal_cfg(mock_cfg, balance=1000.0, symbols=None):"
-        },
         "tests.test_bot_binance.client": {
           "file": "tests\\test_bot_binance.py",
           "line_start": 30,
@@ -2379,198 +2193,6 @@
           "line_start": 352,
           "line_end": 355,
           "signature": "def test_different_symbols_different_locks(self):"
-        },
-        "tests.test_entry_manager._bar": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 19,
-          "line_end": 28,
-          "signature": "def _bar(index, open_, high, low, close, is_closed=True, timestamp=0):"
-        },
-        "tests.test_entry_manager._mock_fvg": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 31,
-          "line_end": 37,
-          "signature": "def _mock_fvg(top=105.0, bottom=103.0, direction='bullish'):"
-        },
-        "tests.test_entry_manager._mock_ss": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 40,
-          "line_end": 44,
-          "signature": "def _mock_ss():"
-        },
-        "tests.test_entry_manager.TestEntryExecutionResult.test_defaults": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 53,
-          "line_end": 59,
-          "signature": "def test_defaults(self):"
-        },
-        "tests.test_entry_manager.TestEntryExecutionResult.test_success_with_ids": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 61,
-          "line_end": 68,
-          "signature": "def test_success_with_ids(self):"
-        },
-        "tests.test_entry_manager.TestEntryExecutionResult.test_failure_with_error": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 70,
-          "line_end": 73,
-          "signature": "def test_failure_with_error(self):"
-        },
-        "tests.test_entry_manager.TestValidateRisk.test_passes_when_risk_dist_above_min": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 83,
-          "line_end": 88,
-          "signature": "@patch('trading.entry_manager.cfg')"
-        },
-        "tests.test_entry_manager.TestValidateRisk.test_fails_when_risk_dist_below_min": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 91,
-          "line_end": 97,
-          "signature": "@patch('trading.entry_manager.cfg')"
-        },
-        "tests.test_entry_manager.TestValidateRisk.test_exact_boundary_passes": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 100,
-          "line_end": 103,
-          "signature": "@patch('trading.entry_manager.cfg')"
-        },
-        "tests.test_entry_manager.TestValidateRisk.test_zero_atr_handled": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 106,
-          "line_end": 110,
-          "signature": "@patch('trading.entry_manager.cfg')"
-        },
-        "tests.test_entry_manager.TestValidateRisk.test_zero_risk_dist_fails": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 113,
-          "line_end": 116,
-          "signature": "@patch('trading.entry_manager.cfg')"
-        },
-        "tests.test_entry_manager.TestCalculateQty.test_normal_calculation": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 125,
-          "line_end": 131,
-          "signature": "def test_normal_calculation(self):"
-        },
-        "tests.test_entry_manager.TestCalculateQty.test_zero_balance": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 133,
-          "line_end": 137,
-          "signature": "def test_zero_balance(self):"
-        },
-        "tests.test_entry_manager.TestCalculateQty.test_zero_risk_dist_returns_zero": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 139,
-          "line_end": 143,
-          "signature": "def test_zero_risk_dist_returns_zero(self):"
-        },
-        "tests.test_entry_manager.TestCalculateQty.test_negative_risk_dist_returns_zero": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 145,
-          "line_end": 149,
-          "signature": "def test_negative_risk_dist_returns_zero(self):"
-        },
-        "tests.test_entry_manager.TestCalculateQty.test_high_leverage_increases_qty": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 151,
-          "line_end": 154,
-          "signature": "def test_high_leverage_increases_qty(self):"
-        },
-        "tests.test_entry_manager.TestCalculateQty.test_large_risk_pct_increases_qty": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 156,
-          "line_end": 159,
-          "signature": "def test_large_risk_pct_increases_qty(self):"
-        },
-        "tests.test_entry_manager.TestCalculateQty.test_wide_risk_dist_decreases_qty": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 161,
-          "line_end": 164,
-          "signature": "def test_wide_risk_dist_decreases_qty(self):"
-        },
-        "tests.test_entry_manager.TestCalculateSlTp.test_long_with_fvg_uses_fvg_bottom": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 175,
-          "line_end": 190,
-          "signature": "def test_long_with_fvg_uses_fvg_bottom(self):"
-        },
-        "tests.test_entry_manager.TestCalculateSlTp.test_long_without_fvg_uses_risk_fallback": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 192,
-          "line_end": 206,
-          "signature": "def test_long_without_fvg_uses_risk_fallback(self):"
-        },
-        "tests.test_entry_manager.TestCalculateSlTp.test_long_tp_fallback_when_london_high_below_entry": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 208,
-          "line_end": 220,
-          "signature": "def test_long_tp_fallback_when_london_high_below_entry(self):"
-        },
-        "tests.test_entry_manager.TestCalculateSlTp.test_short_with_fvg_uses_fvg_top": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 224,
-          "line_end": 239,
-          "signature": "def test_short_with_fvg_uses_fvg_top(self):"
-        },
-        "tests.test_entry_manager.TestCalculateSlTp.test_short_without_fvg_uses_risk_fallback": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 241,
-          "line_end": 255,
-          "signature": "def test_short_without_fvg_uses_risk_fallback(self):"
-        },
-        "tests.test_entry_manager.TestCalculateSlTp.test_short_tp_fallback_when_london_low_above_entry": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 257,
-          "line_end": 269,
-          "signature": "def test_short_tp_fallback_when_london_low_above_entry(self):"
-        },
-        "tests.test_entry_manager.TestCalculateSlTp.test_long_zero_risk_pts": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 273,
-          "line_end": 285,
-          "signature": "def test_long_zero_risk_pts(self):"
-        },
-        "tests.test_entry_manager.TestCalculateSlTp.test_long_zero_london_high": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 287,
-          "line_end": 300,
-          "signature": "def test_long_zero_london_high(self):"
-        },
-        "tests.test_entry_manager.TestExecuteLiveEntry.test_not_live_returns_success_with_qty": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 310,
-          "line_end": 314,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_entry_manager.TestExecuteLiveEntry.test_live_success_path": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 317,
-          "line_end": 332,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_entry_manager.TestExecuteLiveEntry.test_qty_below_min_rejected": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 335,
-          "line_end": 344,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_entry_manager.TestExecuteLiveEntry.test_market_order_failure": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 347,
-          "line_end": 357,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_entry_manager.TestExecuteLiveEntry.test_sl_order_failure_triggers_emergency_close": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 360,
-          "line_end": 375,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_entry_manager.TestExecuteLiveEntry.test_tp_failure_still_returns_success": {
-          "file": "tests\\test_entry_manager.py",
-          "line_start": 378,
-          "line_end": 393,
-          "signature": "@pytest.mark.asyncio"
         },
         "tests.test_event_log.TestLogEvent.test_writes_jsonl_line": {
           "file": "tests\\test_event_log.py",
@@ -3502,66 +3124,6 @@
           "line_end": 167,
           "signature": "def test_sweep_needs_close_to_reject(self):"
         },
-        "tests.test_snapshot._candle": {
-          "file": "tests\\test_snapshot.py",
-          "line_start": 4,
-          "line_end": 5,
-          "signature": "def _candle(time, open_, high, low, close):"
-        },
-        "tests.test_snapshot._candles_16": {
-          "file": "tests\\test_snapshot.py",
-          "line_start": 8,
-          "line_end": 12,
-          "signature": "def _candles_16():"
-        },
-        "tests.test_snapshot.TestResolveFvgBarIndex.test_trigger_fvg_object_with_valid_entry_bar_index": {
-          "file": "tests\\test_snapshot.py",
-          "line_start": 18,
-          "line_end": 34,
-          "signature": "def test_trigger_fvg_object_with_valid_entry_bar_index(self):"
-        },
-        "tests.test_snapshot.TestResolveFvgBarIndex.test_trade_fvg_bar_index_with_valid_entry_bar_index": {
-          "file": "tests\\test_snapshot.py",
-          "line_start": 36,
-          "line_end": 47,
-          "signature": "def test_trade_fvg_bar_index_with_valid_entry_bar_index(self):"
-        },
-        "tests.test_snapshot.TestResolveFvgBarIndex.test_restart_entry_bar_index_zero_uses_price_lookup": {
-          "file": "tests\\test_snapshot.py",
-          "line_start": 49,
-          "line_end": 67,
-          "signature": "def test_restart_entry_bar_index_zero_uses_price_lookup(self):"
-        },
-        "tests.test_snapshot.TestResolveFvgBarIndex.test_restart_no_overlap_falls_to_heuristic": {
-          "file": "tests\\test_snapshot.py",
-          "line_start": 69,
-          "line_end": 80,
-          "signature": "def test_restart_no_overlap_falls_to_heuristic(self):"
-        },
-        "tests.test_snapshot.TestResolveFvgBarIndex.test_no_data_falls_to_heuristic": {
-          "file": "tests\\test_snapshot.py",
-          "line_start": 82,
-          "line_end": 93,
-          "signature": "def test_no_data_falls_to_heuristic(self):"
-        },
-        "tests.test_snapshot.TestResolveFvgBarIndex.test_entry_bar_less_than_2_returns_0": {
-          "file": "tests\\test_snapshot.py",
-          "line_start": 95,
-          "line_end": 106,
-          "signature": "def test_entry_bar_less_than_2_returns_0(self):"
-        },
-        "tests.test_snapshot.TestResolveFvgBarIndex.test_all_none_returns_0": {
-          "file": "tests\\test_snapshot.py",
-          "line_start": 108,
-          "line_end": 119,
-          "signature": "def test_all_none_returns_0(self):"
-        },
-        "tests.test_snapshot.TestResolveFvgBarIndex.test_conversion_out_of_bounds_falls_to_price_lookup": {
-          "file": "tests\\test_snapshot.py",
-          "line_start": 121,
-          "line_end": 140,
-          "signature": "def test_conversion_out_of_bounds_falls_to_price_lookup(self):"
-        },
         "tests.test_state_manager.temp_state_dir": {
           "file": "tests\\test_state_manager.py",
           "line_start": 30,
@@ -3964,6 +3526,294 @@
           "line_end": 476,
           "signature": "@patch('trading.trailing_manager.cfg')"
         },
+        "src.snapshot.snapshot._fetch_ohlc": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 41,
+          "line_end": 99,
+          "signature": "def _fetch_ohlc(sym: str, anchor_ms: int) -> list[dict] | None:"
+        },
+        "src.snapshot.snapshot._find_bar": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 107,
+          "line_end": 123,
+          "signature": "def _find_bar(candles: list[dict], price: float, ts_ms: int | None=None) -> int:"
+        },
+        "src.snapshot.snapshot.normalize_trade": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 131,
+          "line_end": 146,
+          "signature": "def normalize_trade(trade: dict) -> dict:"
+        },
+        "src.snapshot.snapshot._resolve_fvg_bar_index": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 154,
+          "line_end": 200,
+          "signature": "def _resolve_fvg_bar_index(candles: list[dict], entry_bar: int, fvg_obj, trade: dict, fvg_top: float | None, fvg_bottom: float | None) -> int:"
+        },
+        "src.snapshot.snapshot.capture_snapshot": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 203,
+          "line_end": 376,
+          "signature": "def capture_snapshot(sym: str, trade: dict, pnl: float | None=None, session_state=None) -> str | None:"
+        },
+        "src.trading.recovery_manager.RecoveryManager.__init__": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 39,
+          "line_end": 57,
+          "signature": "def __init__(self, rest_client, symbols: list[str], cfgs: dict, states: dict, active_trades: dict, pl_callback, order_manager=None, atr_state: dict | None=None):"
+        },
+        "src.trading.recovery_manager.RecoveryManager.recover_positions": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 61,
+          "line_end": 243,
+          "signature": "async def recover_positions(self) -> None:"
+        },
+        "src.trading.recovery_manager.RecoveryManager.reconcile_ghost_positions": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 247,
+          "line_end": 337,
+          "signature": "async def reconcile_ghost_positions(self) -> None:"
+        },
+        "src.trading.recovery_manager.RecoveryManager.reconcile_orphan_orders": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 339,
+          "line_end": 376,
+          "signature": "async def reconcile_orphan_orders(self) -> None:"
+        },
+        "src.trading.user_data_handler.UserDataHandler.__init__": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 33,
+          "line_end": 45,
+          "signature": "def __init__(self, active_trades: dict[str, Any], pl_callback: Callable[[str, str, str], None], wallet_callback: Callable[[float], None], order_manager: Any, exit_callback: Callable[..., Any]):"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 47,
+          "line_end": 167,
+          "signature": "def register(self, hub: Any) -> None:"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register.on_order_update": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 52,
+          "line_end": 153,
+          "signature": "@hub.on_user_data('ORDER_TRADE_UPDATE')"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register.on_account_update": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 156,
+          "line_end": 160,
+          "signature": "@hub.on_user_data('ACCOUNT_UPDATE')"
+        },
+        "src.bot._save_fvg_state": {
+          "file": "src\\bot.py",
+          "line_start": 67,
+          "line_end": 78,
+          "signature": "def _save_fvg_state(sym: str, fvg_data: dict) -> None:"
+        },
+        "src.bot._load_fvg_state": {
+          "file": "src\\bot.py",
+          "line_start": 81,
+          "line_end": 89,
+          "signature": "def _load_fvg_state(sym: str) -> dict:"
+        },
+        "src.bot._setup_logging": {
+          "file": "src\\bot.py",
+          "line_start": 92,
+          "line_end": 145,
+          "signature": "def _setup_logging() -> logging.Logger:"
+        },
+        "src.bot.PaperTrader.__init__": {
+          "file": "src\\bot.py",
+          "line_start": 155,
+          "line_end": 234,
+          "signature": "def __init__(self, symbols: list[str] | None=None):"
+        },
+        "src.bot.PaperTrader._pl": {
+          "file": "src\\bot.py",
+          "line_start": 236,
+          "line_end": 238,
+          "signature": "def _pl(self, sym: str, key: str, msg: str, force: bool=False):"
+        },
+        "src.bot.PaperTrader._session_label": {
+          "file": "src\\bot.py",
+          "line_start": 240,
+          "line_end": 244,
+          "signature": "def _session_label(self, hour: int) -> str:"
+        },
+        "src.bot.PaperTrader._load_history": {
+          "file": "src\\bot.py",
+          "line_start": 246,
+          "line_end": 260,
+          "signature": "def _load_history(self):"
+        },
+        "src.bot.PaperTrader._on_15m_close": {
+          "file": "src\\bot.py",
+          "line_start": 264,
+          "line_end": 392,
+          "signature": "async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):"
+        },
+        "src.bot.PaperTrader._on_1m_close": {
+          "file": "src\\bot.py",
+          "line_start": 396,
+          "line_end": 463,
+          "signature": "async def _on_1m_close(self, sym: str, bars_1m: list[Bar]):"
+        },
+        "src.bot.PaperTrader._try_entry": {
+          "file": "src\\bot.py",
+          "line_start": 467,
+          "line_end": 709,
+          "signature": "async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):"
+        },
+        "src.bot.PaperTrader._exit_trade": {
+          "file": "src\\bot.py",
+          "line_start": 711,
+          "line_end": 901,
+          "signature": "async def _exit_trade(self, sym, trade, exit_timestamp: int):"
+        },
+        "src.bot.PaperTrader.on_15m": {
+          "file": "src\\bot.py",
+          "line_start": 903,
+          "line_end": 906,
+          "signature": "async def on_15m(self, sym: str, bars: list[Bar]):"
+        },
+        "src.bot.PaperTrader.on_1m": {
+          "file": "src\\bot.py",
+          "line_start": 908,
+          "line_end": 911,
+          "signature": "async def on_1m(self, sym: str, bars: list[Bar]):"
+        },
+        "src.bot.PaperTrader._prefill_bars": {
+          "file": "src\\bot.py",
+          "line_start": 913,
+          "line_end": 937,
+          "signature": "async def _prefill_bars(self, sym: str, timeframe: str='15m') -> Result[None]:"
+        },
+        "src.bot.PaperTrader._warmup_cbdr": {
+          "file": "src\\bot.py",
+          "line_start": 939,
+          "line_end": 994,
+          "signature": "def _warmup_cbdr(self, sym: str):"
+        },
+        "src.bot.PaperTrader._set_leverage": {
+          "file": "src\\bot.py",
+          "line_start": 996,
+          "line_end": 1013,
+          "signature": "async def _set_leverage(self, symbol: str) -> Result[None]:"
+        },
+        "src.bot.PaperTrader.run": {
+          "file": "src\\bot.py",
+          "line_start": 1015,
+          "line_end": 1159,
+          "signature": "async def run(self):"
+        },
+        "src.bot.main": {
+          "file": "src\\bot.py",
+          "line_start": 1162,
+          "line_end": 1172,
+          "signature": "def main():"
+        },
+        "src.trading.entry_manager.EntryManager.__init__": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 61,
+          "line_end": 63,
+          "signature": "def __init__(self, rest_client, is_live: bool=False):"
+        },
+        "src.trading.entry_manager.EntryManager.validate_risk": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 68,
+          "line_end": 75,
+          "signature": "@staticmethod"
+        },
+        "src.trading.entry_manager.EntryManager.calculate_qty": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 80,
+          "line_end": 97,
+          "signature": "@staticmethod"
+        },
+        "src.trading.entry_manager.EntryManager.calculate_sl_tp": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 102,
+          "line_end": 163,
+          "signature": "@staticmethod"
+        },
+        "src.trading.entry_manager.EntryManager.parse_market_fill": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 168,
+          "line_end": 192,
+          "signature": "@staticmethod"
+        },
+        "src.trading.entry_manager.EntryManager.execute_live_entry": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 194,
+          "line_end": 381,
+          "signature": "async def execute_live_entry(self, sym: str, side: str, qty: float, sl: float, tp: float, entry_price: float | None=None, balance: float=0.0, leverage: int=1) -> EntryExecutionResult:"
+        },
+        "src.trading.entry_manager.EntryManager._bump_to_min_notional": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 385,
+          "line_end": 441,
+          "signature": "async def _bump_to_min_notional(self, sym: str, qty: float, price: float, balance: float, leverage: int) -> float:"
+        },
+        "tests.test_snapshot._candle": {
+          "file": "tests\\test_snapshot.py",
+          "line_start": 4,
+          "line_end": 5,
+          "signature": "def _candle(time, open_, high, low, close):"
+        },
+        "tests.test_snapshot._candles_16": {
+          "file": "tests\\test_snapshot.py",
+          "line_start": 8,
+          "line_end": 12,
+          "signature": "def _candles_16():"
+        },
+        "tests.test_snapshot.TestResolveFvgBarIndex.test_trigger_fvg_object_with_valid_entry_bar_index": {
+          "file": "tests\\test_snapshot.py",
+          "line_start": 18,
+          "line_end": 34,
+          "signature": "def test_trigger_fvg_object_with_valid_entry_bar_index(self):"
+        },
+        "tests.test_snapshot.TestResolveFvgBarIndex.test_trade_fvg_bar_index_with_valid_entry_bar_index": {
+          "file": "tests\\test_snapshot.py",
+          "line_start": 36,
+          "line_end": 47,
+          "signature": "def test_trade_fvg_bar_index_with_valid_entry_bar_index(self):"
+        },
+        "tests.test_snapshot.TestResolveFvgBarIndex.test_restart_entry_bar_index_zero_uses_price_lookup": {
+          "file": "tests\\test_snapshot.py",
+          "line_start": 49,
+          "line_end": 67,
+          "signature": "def test_restart_entry_bar_index_zero_uses_price_lookup(self):"
+        },
+        "tests.test_snapshot.TestResolveFvgBarIndex.test_restart_no_overlap_falls_to_heuristic": {
+          "file": "tests\\test_snapshot.py",
+          "line_start": 69,
+          "line_end": 80,
+          "signature": "def test_restart_no_overlap_falls_to_heuristic(self):"
+        },
+        "tests.test_snapshot.TestResolveFvgBarIndex.test_no_data_falls_to_heuristic": {
+          "file": "tests\\test_snapshot.py",
+          "line_start": 82,
+          "line_end": 93,
+          "signature": "def test_no_data_falls_to_heuristic(self):"
+        },
+        "tests.test_snapshot.TestResolveFvgBarIndex.test_entry_bar_less_than_2_returns_0": {
+          "file": "tests\\test_snapshot.py",
+          "line_start": 95,
+          "line_end": 106,
+          "signature": "def test_entry_bar_less_than_2_returns_0(self):"
+        },
+        "tests.test_snapshot.TestResolveFvgBarIndex.test_all_none_returns_0": {
+          "file": "tests\\test_snapshot.py",
+          "line_start": 108,
+          "line_end": 119,
+          "signature": "def test_all_none_returns_0(self):"
+        },
+        "tests.test_snapshot.TestResolveFvgBarIndex.test_conversion_out_of_bounds_falls_to_price_lookup": {
+          "file": "tests\\test_snapshot.py",
+          "line_start": 121,
+          "line_end": 140,
+          "signature": "def test_conversion_out_of_bounds_falls_to_price_lookup(self):"
+        },
         "tests.test_websocket._bar": {
           "file": "tests\\test_websocket.py",
           "line_start": 27,
@@ -4210,233 +4060,389 @@
           "line_end": 423,
           "signature": "def test_known_timeframes(self):"
         },
-        "src.snapshot.snapshot._fetch_ohlc": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 41,
-          "line_end": 99,
-          "signature": "def _fetch_ohlc(sym: str, anchor_ms: int) -> list[dict] | None:"
+        "tests.test_bot._bar": {
+          "file": "tests\\test_bot.py",
+          "line_start": 20,
+          "line_end": 29,
+          "signature": "def _bar(index, open_, high, low, close, is_closed=True, timestamp=0):"
         },
-        "src.snapshot.snapshot._find_bar": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 107,
-          "line_end": 123,
-          "signature": "def _find_bar(candles: list[dict], price: float, ts_ms: int | None=None) -> int:"
+        "tests.test_bot._make_15m_bars_sweep_bullish": {
+          "file": "tests\\test_bot.py",
+          "line_start": 32,
+          "line_end": 43,
+          "signature": "def _make_15m_bars_sweep_bullish(n=30, base=100.0):"
         },
-        "src.snapshot.snapshot.normalize_trade": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 131,
-          "line_end": 146,
-          "signature": "def normalize_trade(trade: dict) -> dict:"
+        "tests.test_bot.TestPaperTraderInit.test_init_sets_up_symbols_states_rsms": {
+          "file": "tests\\test_bot.py",
+          "line_start": 56,
+          "line_end": 72,
+          "signature": "@patch('bot.BinanceRESTClient')"
         },
-        "src.snapshot.snapshot._resolve_fvg_bar_index": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 154,
-          "line_end": 200,
-          "signature": "def _resolve_fvg_bar_index(candles: list[dict], entry_bar: int, fvg_obj, trade: dict, fvg_top: float | None, fvg_bottom: float | None) -> int:"
+        "tests.test_bot.TestPaperTraderInit.test_init_custom_symbols": {
+          "file": "tests\\test_bot.py",
+          "line_start": 77,
+          "line_end": 98,
+          "signature": "@patch('bot.BinanceRESTClient')"
         },
-        "src.snapshot.snapshot.capture_snapshot": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 203,
-          "line_end": 376,
-          "signature": "def capture_snapshot(sym: str, trade: dict, pnl: float | None=None, session_state=None) -> str | None:"
+        "tests.test_bot.TestSessionLabel.test_labels": {
+          "file": "tests\\test_bot.py",
+          "line_start": 110,
+          "line_end": 124,
+          "signature": "@patch('bot.BinanceRESTClient')"
         },
-        "src.trading.recovery_manager.RecoveryManager.__init__": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 39,
-          "line_end": 57,
-          "signature": "def __init__(self, rest_client, symbols: list[str], cfgs: dict, states: dict, active_trades: dict, pl_callback, order_manager=None, atr_state: dict | None=None):"
+        "tests.test_bot.TestOn15mClose.test_skips_asia_session": {
+          "file": "tests\\test_bot.py",
+          "line_start": 136,
+          "line_end": 150,
+          "signature": "@patch('bot.BinanceRESTClient')"
         },
-        "src.trading.recovery_manager.RecoveryManager.recover_positions": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 61,
-          "line_end": 243,
-          "signature": "async def recover_positions(self) -> None:"
-        },
-        "src.trading.recovery_manager.RecoveryManager.reconcile_ghost_positions": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 247,
-          "line_end": 337,
-          "signature": "async def reconcile_ghost_positions(self) -> None:"
-        },
-        "src.trading.recovery_manager.RecoveryManager.reconcile_orphan_orders": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 339,
-          "line_end": 376,
-          "signature": "async def reconcile_orphan_orders(self) -> None:"
-        },
-        "src.trading.user_data_handler.UserDataHandler.__init__": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 33,
-          "line_end": 45,
-          "signature": "def __init__(self, active_trades: dict[str, Any], pl_callback: Callable[[str, str, str], None], wallet_callback: Callable[[float], None], order_manager: Any, exit_callback: Callable[..., Any]):"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 47,
-          "line_end": 167,
-          "signature": "def register(self, hub: Any) -> None:"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register.on_order_update": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 52,
-          "line_end": 153,
-          "signature": "@hub.on_user_data('ORDER_TRADE_UPDATE')"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register.on_account_update": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 156,
-          "line_end": 160,
-          "signature": "@hub.on_user_data('ACCOUNT_UPDATE')"
-        },
-        "src.bot._save_fvg_state": {
-          "file": "src\\bot.py",
-          "line_start": 67,
-          "line_end": 78,
-          "signature": "def _save_fvg_state(sym: str, fvg_data: dict) -> None:"
-        },
-        "src.bot._load_fvg_state": {
-          "file": "src\\bot.py",
-          "line_start": 81,
-          "line_end": 89,
-          "signature": "def _load_fvg_state(sym: str) -> dict:"
-        },
-        "src.bot._setup_logging": {
-          "file": "src\\bot.py",
-          "line_start": 92,
-          "line_end": 145,
-          "signature": "def _setup_logging() -> logging.Logger:"
-        },
-        "src.bot.PaperTrader.__init__": {
-          "file": "src\\bot.py",
+        "tests.test_bot.TestOn15mClose.test_skips_when_cbdr_not_locked": {
+          "file": "tests\\test_bot.py",
           "line_start": 155,
-          "line_end": 234,
-          "signature": "def __init__(self, symbols: list[str] | None=None):"
+          "line_end": 167,
+          "signature": "@patch('bot.BinanceRESTClient')"
         },
-        "src.bot.PaperTrader._pl": {
-          "file": "src\\bot.py",
-          "line_start": 236,
-          "line_end": 238,
-          "signature": "def _pl(self, sym: str, key: str, msg: str, force: bool=False):"
+        "tests.test_bot.TestOn15mClose.test_skips_when_trade_active": {
+          "file": "tests\\test_bot.py",
+          "line_start": 172,
+          "line_end": 189,
+          "signature": "@patch('bot.BinanceRESTClient')"
         },
-        "src.bot.PaperTrader._session_label": {
-          "file": "src\\bot.py",
-          "line_start": 240,
-          "line_end": 244,
-          "signature": "def _session_label(self, hour: int) -> str:"
+        "tests.test_bot.TestTryEntry.test_skips_when_trade_already_active": {
+          "file": "tests\\test_bot.py",
+          "line_start": 202,
+          "line_end": 228,
+          "signature": "@patch('bot.BinanceRESTClient')"
         },
-        "src.bot.PaperTrader._load_history": {
-          "file": "src\\bot.py",
-          "line_start": 246,
-          "line_end": 260,
-          "signature": "def _load_history(self):"
+        "tests.test_bot.TestTryEntry.test_calculates_sl_tp_long": {
+          "file": "tests\\test_bot.py",
+          "line_start": 233,
+          "line_end": 270,
+          "signature": "@patch('bot.BinanceRESTClient')"
         },
-        "src.bot.PaperTrader._on_15m_close": {
-          "file": "src\\bot.py",
-          "line_start": 264,
-          "line_end": 392,
-          "signature": "async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):"
+        "tests.test_bot.TestTryEntry.test_calculates_sl_tp_short": {
+          "file": "tests\\test_bot.py",
+          "line_start": 275,
+          "line_end": 310,
+          "signature": "@patch('bot.BinanceRESTClient')"
         },
-        "src.bot.PaperTrader._on_1m_close": {
-          "file": "src\\bot.py",
-          "line_start": 396,
-          "line_end": 463,
-          "signature": "async def _on_1m_close(self, sym: str, bars_1m: list[Bar]):"
+        "tests.test_bot.TestTryEntry.test_skips_when_qty_zero": {
+          "file": "tests\\test_bot.py",
+          "line_start": 317,
+          "line_end": 352,
+          "signature": "@patch('bot.BinanceRESTClient')"
         },
-        "src.bot.PaperTrader._try_entry": {
-          "file": "src\\bot.py",
-          "line_start": 467,
+        "tests.test_bot.TestOn1mClose.test_skips_when_no_active_trade": {
+          "file": "tests\\test_bot.py",
+          "line_start": 364,
+          "line_end": 370,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestOn1mClose.test_calls_trail_check_when_active": {
+          "file": "tests\\test_bot.py",
+          "line_start": 377,
+          "line_end": 412,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestOn1mClose.test_orphan_check_counter_triggers_every_5_calls": {
+          "file": "tests\\test_bot.py",
+          "line_start": 418,
+          "line_end": 449,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestExitTrade.test_pnl_calc_long": {
+          "file": "tests\\test_bot.py",
+          "line_start": 462,
+          "line_end": 494,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestExitTrade.test_pnl_calc_short": {
+          "file": "tests\\test_bot.py",
+          "line_start": 500,
+          "line_end": 530,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestExitTrade.test_trade_appended_to_history": {
+          "file": "tests\\test_bot.py",
+          "line_start": 536,
+          "line_end": 565,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestWarmupCbdr.test_noop_when_no_bars": {
+          "file": "tests\\test_bot.py",
+          "line_start": 577,
+          "line_end": 583,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestWarmupCbdr.test_feeds_bars_to_session_state": {
+          "file": "tests\\test_bot.py",
+          "line_start": 589,
+          "line_end": 606,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestPrefillBars.test_prefill_success": {
+          "file": "tests\\test_bot.py",
+          "line_start": 618,
+          "line_end": 644,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestPrefillBars.test_prefill_failure": {
+          "file": "tests\\test_bot.py",
+          "line_start": 649,
+          "line_end": 659,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestActiveTradeDict.test_getitem": {
+          "file": "tests\\test_bot.py",
+          "line_start": 668,
+          "line_end": 672,
+          "signature": "def test_getitem(self):"
+        },
+        "tests.test_bot.TestActiveTradeDict.test_setitem": {
+          "file": "tests\\test_bot.py",
+          "line_start": 674,
+          "line_end": 677,
+          "signature": "def test_setitem(self):"
+        },
+        "tests.test_bot.TestActiveTradeDict.test_get_with_default": {
+          "file": "tests\\test_bot.py",
+          "line_start": 679,
+          "line_end": 682,
+          "signature": "def test_get_with_default(self):"
+        },
+        "tests.test_bot.TestActiveTradeDict.test_contains": {
+          "file": "tests\\test_bot.py",
+          "line_start": 684,
+          "line_end": 687,
+          "signature": "def test_contains(self):"
+        },
+        "tests.test_bot.TestActiveTradeDict.test_keyerror_on_missing_attr": {
+          "file": "tests\\test_bot.py",
+          "line_start": 689,
+          "line_end": 692,
+          "signature": "def test_keyerror_on_missing_attr(self):"
+        },
+        "tests.test_bot.TestPendingLock.test_enters_sets_pending": {
+          "file": "tests\\test_bot.py",
+          "line_start": 701,
           "line_end": 709,
-          "signature": "async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):"
+          "signature": "def test_enters_sets_pending(self):"
         },
-        "src.bot.PaperTrader._exit_trade": {
-          "file": "src\\bot.py",
+        "tests.test_bot.TestPendingLock.test_commit_preserves_pending": {
+          "file": "tests\\test_bot.py",
           "line_start": 711,
-          "line_end": 901,
-          "signature": "async def _exit_trade(self, sym, trade, exit_timestamp: int):"
+          "line_end": 719,
+          "signature": "def test_commit_preserves_pending(self):"
         },
-        "src.bot.PaperTrader.on_15m": {
-          "file": "src\\bot.py",
-          "line_start": 903,
-          "line_end": 906,
-          "signature": "async def on_15m(self, sym: str, bars: list[Bar]):"
+        "tests.test_bot.TestPendingLock.test_exception_cleans_up": {
+          "file": "tests\\test_bot.py",
+          "line_start": 721,
+          "line_end": 730,
+          "signature": "def test_exception_cleans_up(self):"
         },
-        "src.bot.PaperTrader.on_1m": {
-          "file": "src\\bot.py",
-          "line_start": 908,
-          "line_end": 911,
-          "signature": "async def on_1m(self, sym: str, bars: list[Bar]):"
+        "tests.test_bot._setup_minimal_cfg": {
+          "file": "tests\\test_bot.py",
+          "line_start": 736,
+          "line_end": 753,
+          "signature": "def _setup_minimal_cfg(mock_cfg, balance=1000.0, symbols=None):"
         },
-        "src.bot.PaperTrader._prefill_bars": {
-          "file": "src\\bot.py",
-          "line_start": 913,
-          "line_end": 937,
-          "signature": "async def _prefill_bars(self, sym: str, timeframe: str='15m') -> Result[None]:"
+        "tests.test_entry_manager._bar": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 19,
+          "line_end": 28,
+          "signature": "def _bar(index, open_, high, low, close, is_closed=True, timestamp=0):"
         },
-        "src.bot.PaperTrader._warmup_cbdr": {
-          "file": "src\\bot.py",
-          "line_start": 939,
-          "line_end": 994,
-          "signature": "def _warmup_cbdr(self, sym: str):"
+        "tests.test_entry_manager._mock_fvg": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 31,
+          "line_end": 37,
+          "signature": "def _mock_fvg(top=105.0, bottom=103.0, direction='bullish'):"
         },
-        "src.bot.PaperTrader._set_leverage": {
-          "file": "src\\bot.py",
-          "line_start": 996,
-          "line_end": 1013,
-          "signature": "async def _set_leverage(self, symbol: str) -> Result[None]:"
+        "tests.test_entry_manager._mock_ss": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 40,
+          "line_end": 44,
+          "signature": "def _mock_ss():"
         },
-        "src.bot.PaperTrader.run": {
-          "file": "src\\bot.py",
-          "line_start": 1015,
-          "line_end": 1159,
-          "signature": "async def run(self):"
+        "tests.test_entry_manager.TestEntryExecutionResult.test_defaults": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 53,
+          "line_end": 59,
+          "signature": "def test_defaults(self):"
         },
-        "src.bot.main": {
-          "file": "src\\bot.py",
-          "line_start": 1162,
-          "line_end": 1172,
-          "signature": "def main():"
-        },
-        "src.trading.entry_manager.EntryManager.__init__": {
-          "file": "src\\trading\\entry_manager.py",
+        "tests.test_entry_manager.TestEntryExecutionResult.test_success_with_ids": {
+          "file": "tests\\test_entry_manager.py",
           "line_start": 61,
-          "line_end": 63,
-          "signature": "def __init__(self, rest_client, is_live: bool=False):"
+          "line_end": 68,
+          "signature": "def test_success_with_ids(self):"
         },
-        "src.trading.entry_manager.EntryManager.validate_risk": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 68,
-          "line_end": 75,
-          "signature": "@staticmethod"
+        "tests.test_entry_manager.TestEntryExecutionResult.test_failure_with_error": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 70,
+          "line_end": 73,
+          "signature": "def test_failure_with_error(self):"
         },
-        "src.trading.entry_manager.EntryManager.calculate_qty": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 80,
+        "tests.test_entry_manager.TestValidateRisk.test_passes_when_risk_dist_above_min": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 83,
+          "line_end": 88,
+          "signature": "@patch('trading.entry_manager.cfg')"
+        },
+        "tests.test_entry_manager.TestValidateRisk.test_fails_when_risk_dist_below_min": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 91,
           "line_end": 97,
-          "signature": "@staticmethod"
+          "signature": "@patch('trading.entry_manager.cfg')"
         },
-        "src.trading.entry_manager.EntryManager.calculate_sl_tp": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 102,
-          "line_end": 163,
-          "signature": "@staticmethod"
+        "tests.test_entry_manager.TestValidateRisk.test_exact_boundary_passes": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 100,
+          "line_end": 103,
+          "signature": "@patch('trading.entry_manager.cfg')"
         },
-        "src.trading.entry_manager.EntryManager.parse_market_fill": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 168,
-          "line_end": 192,
-          "signature": "@staticmethod"
+        "tests.test_entry_manager.TestValidateRisk.test_zero_atr_handled": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 106,
+          "line_end": 110,
+          "signature": "@patch('trading.entry_manager.cfg')"
         },
-        "src.trading.entry_manager.EntryManager.execute_live_entry": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 194,
+        "tests.test_entry_manager.TestValidateRisk.test_zero_risk_dist_fails": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 113,
+          "line_end": 116,
+          "signature": "@patch('trading.entry_manager.cfg')"
+        },
+        "tests.test_entry_manager.TestCalculateQty.test_normal_calculation": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 125,
+          "line_end": 131,
+          "signature": "def test_normal_calculation(self):"
+        },
+        "tests.test_entry_manager.TestCalculateQty.test_zero_balance": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 133,
+          "line_end": 137,
+          "signature": "def test_zero_balance(self):"
+        },
+        "tests.test_entry_manager.TestCalculateQty.test_zero_risk_dist_returns_zero": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 139,
+          "line_end": 143,
+          "signature": "def test_zero_risk_dist_returns_zero(self):"
+        },
+        "tests.test_entry_manager.TestCalculateQty.test_negative_risk_dist_returns_zero": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 145,
+          "line_end": 149,
+          "signature": "def test_negative_risk_dist_returns_zero(self):"
+        },
+        "tests.test_entry_manager.TestCalculateQty.test_high_leverage_increases_qty": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 151,
+          "line_end": 154,
+          "signature": "def test_high_leverage_increases_qty(self):"
+        },
+        "tests.test_entry_manager.TestCalculateQty.test_large_risk_pct_increases_qty": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 156,
+          "line_end": 159,
+          "signature": "def test_large_risk_pct_increases_qty(self):"
+        },
+        "tests.test_entry_manager.TestCalculateQty.test_wide_risk_dist_decreases_qty": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 161,
+          "line_end": 164,
+          "signature": "def test_wide_risk_dist_decreases_qty(self):"
+        },
+        "tests.test_entry_manager.TestCalculateSlTp.test_long_with_fvg_uses_fvg_bottom": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 175,
+          "line_end": 190,
+          "signature": "def test_long_with_fvg_uses_fvg_bottom(self):"
+        },
+        "tests.test_entry_manager.TestCalculateSlTp.test_long_without_fvg_uses_risk_fallback": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 192,
+          "line_end": 206,
+          "signature": "def test_long_without_fvg_uses_risk_fallback(self):"
+        },
+        "tests.test_entry_manager.TestCalculateSlTp.test_long_tp_fallback_when_london_high_below_entry": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 208,
+          "line_end": 220,
+          "signature": "def test_long_tp_fallback_when_london_high_below_entry(self):"
+        },
+        "tests.test_entry_manager.TestCalculateSlTp.test_short_with_fvg_uses_fvg_top": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 224,
+          "line_end": 239,
+          "signature": "def test_short_with_fvg_uses_fvg_top(self):"
+        },
+        "tests.test_entry_manager.TestCalculateSlTp.test_short_without_fvg_uses_risk_fallback": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 241,
+          "line_end": 255,
+          "signature": "def test_short_without_fvg_uses_risk_fallback(self):"
+        },
+        "tests.test_entry_manager.TestCalculateSlTp.test_short_tp_fallback_when_london_low_above_entry": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 257,
+          "line_end": 269,
+          "signature": "def test_short_tp_fallback_when_london_low_above_entry(self):"
+        },
+        "tests.test_entry_manager.TestCalculateSlTp.test_long_zero_risk_pts": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 273,
+          "line_end": 285,
+          "signature": "def test_long_zero_risk_pts(self):"
+        },
+        "tests.test_entry_manager.TestCalculateSlTp.test_long_zero_london_high": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 287,
+          "line_end": 300,
+          "signature": "def test_long_zero_london_high(self):"
+        },
+        "tests.test_entry_manager.TestExecuteLiveEntry.test_not_live_returns_success_with_qty": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 310,
+          "line_end": 314,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_entry_manager.TestExecuteLiveEntry._entry_mock_base": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 316,
+          "line_end": 324,
+          "signature": "async def _entry_mock_base(self):"
+        },
+        "tests.test_entry_manager.TestExecuteLiveEntry.test_live_success_path": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 327,
+          "line_end": 341,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_entry_manager.TestExecuteLiveEntry.test_qty_below_min_rejected": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 344,
+          "line_end": 353,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_entry_manager.TestExecuteLiveEntry.test_market_order_failure": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 356,
+          "line_end": 364,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_entry_manager.TestExecuteLiveEntry.test_sl_order_failure_triggers_emergency_close": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 367,
           "line_end": 381,
-          "signature": "async def execute_live_entry(self, sym: str, side: str, qty: float, sl: float, tp: float, entry_price: float | None=None, balance: float=0.0, leverage: int=1) -> EntryExecutionResult:"
+          "signature": "@pytest.mark.asyncio"
         },
-        "src.trading.entry_manager.EntryManager._bump_to_min_notional": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 385,
-          "line_end": 441,
-          "signature": "async def _bump_to_min_notional(self, sym: str, qty: float, price: float, balance: float, leverage: int) -> float:"
+        "tests.test_entry_manager.TestExecuteLiveEntry.test_tp_failure_still_returns_success": {
+          "file": "tests\\test_entry_manager.py",
+          "line_start": 384,
+          "line_end": 398,
+          "signature": "@pytest.mark.asyncio"
         }
       },
       "files": {
@@ -4528,10 +4534,6 @@
           "last_modified": "2026-06-30T14:00:39",
           "hash": "sha256:b60ef76cacc43db8"
         },
-        "tests\\test_bot.py": {
-          "last_modified": "2026-06-30T21:35:18",
-          "hash": "sha256:03863a38c272678c"
-        },
         "tests\\test_bot_binance.py": {
           "last_modified": "2026-06-30T13:55:30",
           "hash": "sha256:17a110abee6ede9b"
@@ -4539,10 +4541,6 @@
         "tests\\test_bot_infra.py": {
           "last_modified": "2026-06-26T01:13:27",
           "hash": "sha256:24f8e94cc53be86b"
-        },
-        "tests\\test_entry_manager.py": {
-          "last_modified": "2026-07-01T01:01:30",
-          "hash": "sha256:4774842311ad368f"
         },
         "tests\\test_event_log.py": {
           "last_modified": "2026-06-30T14:27:29",
@@ -4568,10 +4566,6 @@
           "last_modified": "2026-06-30T21:35:40",
           "hash": "sha256:e09054c29933a0d6"
         },
-        "tests\\test_snapshot.py": {
-          "last_modified": "2026-07-03T14:11:49",
-          "hash": "sha256:c2b3429ccb3e0159"
-        },
         "tests\\test_state_manager.py": {
           "last_modified": "2026-06-30T21:36:48",
           "hash": "sha256:b8d679c44a66f7f4"
@@ -4579,14 +4573,6 @@
         "tests\\test_trailing_manager.py": {
           "last_modified": "2026-06-30T13:40:20",
           "hash": "sha256:da02d07128e82f74"
-        },
-        "tests\\test_websocket.py": {
-          "last_modified": "2026-06-26T01:10:59",
-          "hash": "sha256:6f1468bf97ef5dde"
-        },
-        "src\\trading\\__init__.py": {
-          "last_modified": "2026-06-30T21:12:59",
-          "hash": "sha256:f61320312ed5e5b1"
         },
         "src\\snapshot\\snapshot.py": {
           "last_modified": "2026-07-03T14:07:15",
@@ -4607,6 +4593,26 @@
         "src\\trading\\entry_manager.py": {
           "last_modified": "2026-07-13T11:00:33",
           "hash": "sha256:7a139d8efdba380a"
+        },
+        "tests\\test_snapshot.py": {
+          "last_modified": "2026-07-03T14:11:49",
+          "hash": "sha256:c2b3429ccb3e0159"
+        },
+        "tests\\test_websocket.py": {
+          "last_modified": "2026-06-26T01:10:59",
+          "hash": "sha256:6f1468bf97ef5dde"
+        },
+        "tests\\test_bot.py": {
+          "last_modified": "2026-07-13T11:57:25",
+          "hash": "sha256:9e754406263a77c1"
+        },
+        "tests\\test_entry_manager.py": {
+          "last_modified": "2026-07-13T12:00:44",
+          "hash": "sha256:b5fc38efe6852325"
+        },
+        "src\\trading\\__init__.py": {
+          "last_modified": "2026-06-30T21:12:59",
+          "hash": "sha256:f61320312ed5e5b1"
         }
       },
       "last_full_scan": "2026-07-12T23:30:10"
