@@ -658,36 +658,6 @@
           "line_end": 479,
           "signature": "def detect_phase_from_timestamp(ts_ms: int, session_hours: dict | None=None) -> SessionPhase:"
         },
-        "src.session_router.is_high_quality_fvg": {
-          "file": "src\\session_router.py",
-          "line_start": 17,
-          "line_end": 26,
-          "signature": "def is_high_quality_fvg(fvg_pips: float, current_atr: float, symbol: str='') -> bool:"
-        },
-        "src.session_router.is_fvg_valid": {
-          "file": "src\\session_router.py",
-          "line_start": 29,
-          "line_end": 35,
-          "signature": "def is_fvg_valid(formation_bar_index: int, current_bar_index: int) -> bool:"
-        },
-        "src.session_router.get_cbdr_multiplier": {
-          "file": "src\\session_router.py",
-          "line_start": 38,
-          "line_end": 45,
-          "signature": "def get_cbdr_multiplier(symbol: str, cbdr_pct: float) -> float:"
-        },
-        "src.session_router.get_session_hours": {
-          "file": "src\\session_router.py",
-          "line_start": 48,
-          "line_end": 54,
-          "signature": "def get_session_hours(symbol: str) -> dict[str, int]:"
-        },
-        "src.session_router.should_trade": {
-          "file": "src\\session_router.py",
-          "line_start": 57,
-          "line_end": 74,
-          "signature": "def should_trade(symbol: str, cbdr_width_pct: float | None=None) -> tuple[bool, str]:"
-        },
         "src.state_manager._today": {
           "file": "src\\state_manager.py",
           "line_start": 36,
@@ -2692,138 +2662,6 @@
           "line_end": 376,
           "signature": "async def reconcile_orphan_orders(self) -> None:"
         },
-        "src.trading.user_data_handler.UserDataHandler.__init__": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 33,
-          "line_end": 45,
-          "signature": "def __init__(self, active_trades: dict[str, Any], pl_callback: Callable[[str, str, str], None], wallet_callback: Callable[[float], None], order_manager: Any, exit_callback: Callable[..., Any]):"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 47,
-          "line_end": 167,
-          "signature": "def register(self, hub: Any) -> None:"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register.on_order_update": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 52,
-          "line_end": 153,
-          "signature": "@hub.on_user_data('ORDER_TRADE_UPDATE')"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register.on_account_update": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 156,
-          "line_end": 160,
-          "signature": "@hub.on_user_data('ACCOUNT_UPDATE')"
-        },
-        "src.bot._save_fvg_state": {
-          "file": "src\\bot.py",
-          "line_start": 67,
-          "line_end": 78,
-          "signature": "def _save_fvg_state(sym: str, fvg_data: dict) -> None:"
-        },
-        "src.bot._load_fvg_state": {
-          "file": "src\\bot.py",
-          "line_start": 81,
-          "line_end": 89,
-          "signature": "def _load_fvg_state(sym: str) -> dict:"
-        },
-        "src.bot._setup_logging": {
-          "file": "src\\bot.py",
-          "line_start": 92,
-          "line_end": 145,
-          "signature": "def _setup_logging() -> logging.Logger:"
-        },
-        "src.bot.PaperTrader.__init__": {
-          "file": "src\\bot.py",
-          "line_start": 155,
-          "line_end": 234,
-          "signature": "def __init__(self, symbols: list[str] | None=None):"
-        },
-        "src.bot.PaperTrader._pl": {
-          "file": "src\\bot.py",
-          "line_start": 236,
-          "line_end": 238,
-          "signature": "def _pl(self, sym: str, key: str, msg: str, force: bool=False):"
-        },
-        "src.bot.PaperTrader._session_label": {
-          "file": "src\\bot.py",
-          "line_start": 240,
-          "line_end": 244,
-          "signature": "def _session_label(self, hour: int) -> str:"
-        },
-        "src.bot.PaperTrader._load_history": {
-          "file": "src\\bot.py",
-          "line_start": 246,
-          "line_end": 260,
-          "signature": "def _load_history(self):"
-        },
-        "src.bot.PaperTrader._on_15m_close": {
-          "file": "src\\bot.py",
-          "line_start": 264,
-          "line_end": 392,
-          "signature": "async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):"
-        },
-        "src.bot.PaperTrader._on_1m_close": {
-          "file": "src\\bot.py",
-          "line_start": 396,
-          "line_end": 463,
-          "signature": "async def _on_1m_close(self, sym: str, bars_1m: list[Bar]):"
-        },
-        "src.bot.PaperTrader._try_entry": {
-          "file": "src\\bot.py",
-          "line_start": 467,
-          "line_end": 709,
-          "signature": "async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):"
-        },
-        "src.bot.PaperTrader._exit_trade": {
-          "file": "src\\bot.py",
-          "line_start": 711,
-          "line_end": 901,
-          "signature": "async def _exit_trade(self, sym, trade, exit_timestamp: int):"
-        },
-        "src.bot.PaperTrader.on_15m": {
-          "file": "src\\bot.py",
-          "line_start": 903,
-          "line_end": 906,
-          "signature": "async def on_15m(self, sym: str, bars: list[Bar]):"
-        },
-        "src.bot.PaperTrader.on_1m": {
-          "file": "src\\bot.py",
-          "line_start": 908,
-          "line_end": 911,
-          "signature": "async def on_1m(self, sym: str, bars: list[Bar]):"
-        },
-        "src.bot.PaperTrader._prefill_bars": {
-          "file": "src\\bot.py",
-          "line_start": 913,
-          "line_end": 937,
-          "signature": "async def _prefill_bars(self, sym: str, timeframe: str='15m') -> Result[None]:"
-        },
-        "src.bot.PaperTrader._warmup_cbdr": {
-          "file": "src\\bot.py",
-          "line_start": 939,
-          "line_end": 994,
-          "signature": "def _warmup_cbdr(self, sym: str):"
-        },
-        "src.bot.PaperTrader._set_leverage": {
-          "file": "src\\bot.py",
-          "line_start": 996,
-          "line_end": 1013,
-          "signature": "async def _set_leverage(self, symbol: str) -> Result[None]:"
-        },
-        "src.bot.PaperTrader.run": {
-          "file": "src\\bot.py",
-          "line_start": 1015,
-          "line_end": 1159,
-          "signature": "async def run(self):"
-        },
-        "src.bot.main": {
-          "file": "src\\bot.py",
-          "line_start": 1162,
-          "line_end": 1172,
-          "signature": "def main():"
-        },
         "src.trading.entry_manager.EntryManager.__init__": {
           "file": "src\\trading\\entry_manager.py",
           "line_start": 61,
@@ -3508,66 +3346,6 @@
           "line_end": 288,
           "signature": "def test_special_characters_in_symbol(self, clean_state):"
         },
-        "src.retrace_state.HTFFVG.__init__": {
-          "file": "src\\retrace_state.py",
-          "line_start": 28,
-          "line_end": 32,
-          "signature": "def __init__(self, top: float, bottom: float, direction: str, bar_index: int):"
-        },
-        "src.retrace_state.HTFFVG.__repr__": {
-          "file": "src\\retrace_state.py",
-          "line_start": 34,
-          "line_end": 35,
-          "signature": "def __repr__(self):"
-        },
-        "src.retrace_state.scan_htf_fvgs": {
-          "file": "src\\retrace_state.py",
-          "line_start": 38,
-          "line_end": 58,
-          "signature": "def scan_htf_fvgs(bars_15m: list[Bar], lookback: int=100, min_fvg_size: float=10.0, max_wick_ratio: float=1.0) -> list[HTFFVG]:"
-        },
-        "src.retrace_state.RetraceStateMachine.__init__": {
-          "file": "src\\retrace_state.py",
-          "line_start": 62,
-          "line_end": 68,
-          "signature": "def __init__(self, max_wick_ratio: float=1.0):"
-        },
-        "src.retrace_state.RetraceStateMachine.state_name": {
-          "file": "src\\retrace_state.py",
-          "line_start": 71,
-          "line_end": 72,
-          "signature": "@property"
-        },
-        "src.retrace_state.RetraceStateMachine.can_trigger": {
-          "file": "src\\retrace_state.py",
-          "line_start": 74,
-          "line_end": 75,
-          "signature": "def can_trigger(self) -> bool:"
-        },
-        "src.retrace_state.RetraceStateMachine._mark_sweep_used": {
-          "file": "src\\retrace_state.py",
-          "line_start": 77,
-          "line_end": 85,
-          "signature": "def _mark_sweep_used(self):"
-        },
-        "src.retrace_state.RetraceStateMachine.reset": {
-          "file": "src\\retrace_state.py",
-          "line_start": 87,
-          "line_end": 92,
-          "signature": "def reset(self):"
-        },
-        "src.retrace_state.RetraceStateMachine.on_sweep": {
-          "file": "src\\retrace_state.py",
-          "line_start": 94,
-          "line_end": 124,
-          "signature": "def on_sweep(self, direction: Literal['bullish', 'bearish'], level: float, bar_index: int | None=None):"
-        },
-        "src.retrace_state.RetraceStateMachine.on_sweep_confirmed": {
-          "file": "src\\retrace_state.py",
-          "line_start": 126,
-          "line_end": 190,
-          "signature": "def on_sweep_confirmed(self, bars_15m: list[Bar], sweep_bar: Bar, atr_val: float=0.0):"
-        },
         "tests.test_retrace_state._bar": {
           "file": "tests\\test_retrace_state.py",
           "line_start": 19,
@@ -3939,210 +3717,6 @@
           "line_start": 613,
           "line_end": 617,
           "signature": "async def main() -> None:"
-        },
-        "tests.test_integration._bar": {
-          "file": "tests\\test_integration.py",
-          "line_start": 22,
-          "line_end": 25,
-          "signature": "def _bar(index, o, h, low, c, closed=True, ts=0):"
-        },
-        "tests.test_integration.TestSweepFVGTrigger.test_bullish_sweep_with_valid_fvg_reaches_trigger_ready": {
-          "file": "tests\\test_integration.py",
-          "line_start": 36,
-          "line_end": 62,
-          "signature": "def test_bullish_sweep_with_valid_fvg_reaches_trigger_ready(self):"
-        },
-        "tests.test_integration.TestSweepFVGTrigger.test_bearish_sweep_with_valid_fvg_reaches_trigger_ready": {
-          "file": "tests\\test_integration.py",
-          "line_start": 64,
-          "line_end": 91,
-          "signature": "def test_bearish_sweep_with_valid_fvg_reaches_trigger_ready(self):"
-        },
-        "tests.test_integration.TestSweepFVGTrigger.test_no_fvg_keeps_sweep_detected": {
-          "file": "tests\\test_integration.py",
-          "line_start": 93,
-          "line_end": 105,
-          "signature": "def test_no_fvg_keeps_sweep_detected(self):"
-        },
-        "tests.test_integration.TestSweepFVGTrigger.test_second_sweep_ignored_while_in_sweep_detected": {
-          "file": "tests\\test_integration.py",
-          "line_start": 107,
-          "line_end": 119,
-          "signature": "def test_second_sweep_ignored_while_in_sweep_detected(self):"
-        },
-        "tests.test_integration.TestSweepFVGTrigger.test_sweep_invalidated_when_close_breaks_opposite": {
-          "file": "tests\\test_integration.py",
-          "line_start": 121,
-          "line_end": 130,
-          "signature": "def test_sweep_invalidated_when_close_breaks_opposite(self):"
-        },
-        "tests.test_integration.TestSweepFVGTrigger.test_direction_mapping_bullish_sweep_leads_to_long": {
-          "file": "tests\\test_integration.py",
-          "line_start": 132,
-          "line_end": 140,
-          "signature": "def test_direction_mapping_bullish_sweep_leads_to_long(self):"
-        },
-        "tests.test_integration.TestSweepFVGTrigger.test_direction_mapping_bearish_sweep_leads_to_short": {
-          "file": "tests\\test_integration.py",
-          "line_start": 142,
-          "line_end": 149,
-          "signature": "def test_direction_mapping_bearish_sweep_leads_to_short(self):"
-        },
-        "tests.test_integration.TestTriggerEntry.test_long_entry_calculates_correct_sl_tp": {
-          "file": "tests\\test_integration.py",
-          "line_start": 160,
-          "line_end": 177,
-          "signature": "def test_long_entry_calculates_correct_sl_tp(self):"
-        },
-        "tests.test_integration.TestTriggerEntry.test_short_entry_calculates_correct_sl_tp": {
-          "file": "tests\\test_integration.py",
-          "line_start": 179,
-          "line_end": 196,
-          "signature": "def test_short_entry_calculates_correct_sl_tp(self):"
-        },
-        "tests.test_integration.TestTriggerEntry.test_entry_without_fvg_uses_risk_fallback": {
-          "file": "tests\\test_integration.py",
-          "line_start": 198,
-          "line_end": 213,
-          "signature": "def test_entry_without_fvg_uses_risk_fallback(self):"
-        },
-        "tests.test_integration.TestTriggerEntry.test_invalid_risk_dist_blocks_entry": {
-          "file": "tests\\test_integration.py",
-          "line_start": 215,
-          "line_end": 219,
-          "signature": "def test_invalid_risk_dist_blocks_entry(self):"
-        },
-        "tests.test_integration.TestTriggerEntry.test_valid_risk_dist_allows_entry": {
-          "file": "tests\\test_integration.py",
-          "line_start": 221,
-          "line_end": 224,
-          "signature": "def test_valid_risk_dist_allows_entry(self):"
-        },
-        "tests.test_integration.TestTriggerEntry.test_qty_calculation_scales_with_risk": {
-          "file": "tests\\test_integration.py",
-          "line_start": 226,
-          "line_end": 237,
-          "signature": "def test_qty_calculation_scales_with_risk(self):"
-        },
-        "tests.test_integration.TestTriggerEntry.test_qty_zero_when_risk_dist_zero": {
-          "file": "tests\\test_integration.py",
-          "line_start": 239,
-          "line_end": 248,
-          "signature": "def test_qty_zero_when_risk_dist_zero(self):"
-        },
-        "tests.test_integration.TestTriggerEntry.test_bullish_trigger_to_long_mapping_consistent": {
-          "file": "tests\\test_integration.py",
-          "line_start": 250,
-          "line_end": 255,
-          "signature": "def test_bullish_trigger_to_long_mapping_consistent(self):"
-        },
-        "tests.test_integration.TestTriggerEntry.test_bearish_trigger_to_short_mapping_consistent": {
-          "file": "tests\\test_integration.py",
-          "line_start": 257,
-          "line_end": 261,
-          "signature": "def test_bearish_trigger_to_short_mapping_consistent(self):"
-        },
-        "tests.test_integration.TestTrailingExit._make_trade": {
-          "file": "tests\\test_integration.py",
-          "line_start": 272,
-          "line_end": 285,
-          "signature": "def _make_trade(self, side='long', entry=100.0, sl=95.0, tp=110.0, trail_steps=None):"
-        },
-        "tests.test_integration.TestTrailingExit._bars_with_bullish_fvg": {
-          "file": "tests\\test_integration.py",
-          "line_start": 287,
-          "line_end": 297,
-          "signature": "def _bars_with_bullish_fvg(self, base=100.0):"
-        },
-        "tests.test_integration.TestTrailingExit._bars_with_bearish_fvg": {
-          "file": "tests\\test_integration.py",
-          "line_start": 299,
-          "line_end": 309,
-          "signature": "def _bars_with_bearish_fvg(self, base=100.0):"
-        },
-        "tests.test_integration.TestTrailingExit.test_long_trail_on_bullish_fvg_tightens_sl_up": {
-          "file": "tests\\test_integration.py",
-          "line_start": 311,
-          "line_end": 320,
-          "signature": "def test_long_trail_on_bullish_fvg_tightens_sl_up(self):"
-        },
-        "tests.test_integration.TestTrailingExit.test_short_trail_on_bearish_fvg_tightens_sl_down": {
-          "file": "tests\\test_integration.py",
-          "line_start": 322,
-          "line_end": 330,
-          "signature": "def test_short_trail_on_bearish_fvg_tightens_sl_down(self):"
-        },
-        "tests.test_integration.TestTrailingExit.test_check_exit_long_hit_sl": {
-          "file": "tests\\test_integration.py",
-          "line_start": 332,
-          "line_end": 338,
-          "signature": "def test_check_exit_long_hit_sl(self):"
-        },
-        "tests.test_integration.TestTrailingExit.test_check_exit_long_hit_tp": {
-          "file": "tests\\test_integration.py",
-          "line_start": 340,
-          "line_end": 346,
-          "signature": "def test_check_exit_long_hit_tp(self):"
-        },
-        "tests.test_integration.TestTrailingExit.test_check_exit_short_hit_sl": {
-          "file": "tests\\test_integration.py",
-          "line_start": 348,
-          "line_end": 354,
-          "signature": "def test_check_exit_short_hit_sl(self):"
-        },
-        "tests.test_integration.TestTrailingExit.test_check_exit_short_hit_tp": {
-          "file": "tests\\test_integration.py",
-          "line_start": 356,
-          "line_end": 362,
-          "signature": "def test_check_exit_short_hit_tp(self):"
-        },
-        "tests.test_integration.TestTrailingExit.test_check_exit_no_hit": {
-          "file": "tests\\test_integration.py",
-          "line_start": 364,
-          "line_end": 369,
-          "signature": "def test_check_exit_no_hit(self):"
-        },
-        "tests.test_integration.TestTrailingExit.test_short_bar_set_no_false_exit": {
-          "file": "tests\\test_integration.py",
-          "line_start": 371,
-          "line_end": 376,
-          "signature": "def test_short_bar_set_no_false_exit(self):"
-        },
-        "tests.test_integration.TestTrailingExit.test_trail_does_not_update_when_no_fvg": {
-          "file": "tests\\test_integration.py",
-          "line_start": 378,
-          "line_end": 386,
-          "signature": "def test_trail_does_not_update_when_no_fvg(self):"
-        },
-        "tests.test_integration.TestDryStrategyFlow._make_session_state": {
-          "file": "tests\\test_integration.py",
-          "line_start": 397,
-          "line_end": 410,
-          "signature": "def _make_session_state(self, bias: DailyBias, locked: bool=True):"
-        },
-        "tests.test_integration.TestDryStrategyFlow._bar": {
-          "file": "tests\\test_integration.py",
-          "line_start": 412,
-          "line_end": 416,
-          "signature": "def _bar(self, index, o, h, low, c, ts=None):"
-        },
-        "tests.test_integration.TestDryStrategyFlow._build_bullish_flow_bars": {
-          "file": "tests\\test_integration.py",
-          "line_start": 418,
-          "line_end": 430,
-          "signature": "def _build_bullish_flow_bars(self):"
-        },
-        "tests.test_integration.TestDryStrategyFlow.test_bullish_full_flow_sweep_to_exit": {
-          "file": "tests\\test_integration.py",
-          "line_start": 432,
-          "line_end": 496,
-          "signature": "def test_bullish_full_flow_sweep_to_exit(self):"
-        },
-        "tests.test_integration.TestDryStrategyFlow.test_bearish_full_flow_sweep_to_exit": {
-          "file": "tests\\test_integration.py",
-          "line_start": 498,
-          "line_end": 564,
-          "signature": "def test_bearish_full_flow_sweep_to_exit(self):"
         },
         "src.bot_binance._get_precision_places": {
           "file": "src\\bot_binance.py",
@@ -4648,6 +4222,294 @@
           "line_end": 423,
           "signature": "def test_known_timeframes(self):"
         },
+        "src.retrace_state.HTFFVG.__init__": {
+          "file": "src\\retrace_state.py",
+          "line_start": 28,
+          "line_end": 32,
+          "signature": "def __init__(self, top: float, bottom: float, direction: str, bar_index: int):"
+        },
+        "src.retrace_state.HTFFVG.__repr__": {
+          "file": "src\\retrace_state.py",
+          "line_start": 34,
+          "line_end": 35,
+          "signature": "def __repr__(self):"
+        },
+        "src.retrace_state.scan_htf_fvgs": {
+          "file": "src\\retrace_state.py",
+          "line_start": 38,
+          "line_end": 58,
+          "signature": "def scan_htf_fvgs(bars_15m: list[Bar], lookback: int=100, min_fvg_size: float=10.0, max_wick_ratio: float=1.0) -> list[HTFFVG]:"
+        },
+        "src.retrace_state.RetraceStateMachine.__init__": {
+          "file": "src\\retrace_state.py",
+          "line_start": 62,
+          "line_end": 68,
+          "signature": "def __init__(self, max_wick_ratio: float=1.0):"
+        },
+        "src.retrace_state.RetraceStateMachine.state_name": {
+          "file": "src\\retrace_state.py",
+          "line_start": 71,
+          "line_end": 72,
+          "signature": "@property"
+        },
+        "src.retrace_state.RetraceStateMachine.can_trigger": {
+          "file": "src\\retrace_state.py",
+          "line_start": 74,
+          "line_end": 75,
+          "signature": "def can_trigger(self) -> bool:"
+        },
+        "src.retrace_state.RetraceStateMachine._mark_sweep_used": {
+          "file": "src\\retrace_state.py",
+          "line_start": 77,
+          "line_end": 85,
+          "signature": "def _mark_sweep_used(self):"
+        },
+        "src.retrace_state.RetraceStateMachine.reset": {
+          "file": "src\\retrace_state.py",
+          "line_start": 87,
+          "line_end": 92,
+          "signature": "def reset(self):"
+        },
+        "src.retrace_state.RetraceStateMachine.on_sweep": {
+          "file": "src\\retrace_state.py",
+          "line_start": 94,
+          "line_end": 124,
+          "signature": "def on_sweep(self, direction: Literal['bullish', 'bearish'], level: float, bar_index: int | None=None):"
+        },
+        "src.retrace_state.RetraceStateMachine.on_sweep_confirmed": {
+          "file": "src\\retrace_state.py",
+          "line_start": 126,
+          "line_end": 219,
+          "signature": "def on_sweep_confirmed(self, bars_15m: list[Bar], sweep_bar: Bar, atr_val: float=0.0):"
+        },
+        "tests.test_integration._bar": {
+          "file": "tests\\test_integration.py",
+          "line_start": 22,
+          "line_end": 25,
+          "signature": "def _bar(index, o, h, low, c, closed=True, ts=0):"
+        },
+        "tests.test_integration.TestSweepFVGTrigger.test_bullish_sweep_with_valid_fvg_reaches_trigger_ready": {
+          "file": "tests\\test_integration.py",
+          "line_start": 36,
+          "line_end": 62,
+          "signature": "def test_bullish_sweep_with_valid_fvg_reaches_trigger_ready(self):"
+        },
+        "tests.test_integration.TestSweepFVGTrigger.test_bearish_sweep_with_valid_fvg_reaches_trigger_ready": {
+          "file": "tests\\test_integration.py",
+          "line_start": 64,
+          "line_end": 91,
+          "signature": "def test_bearish_sweep_with_valid_fvg_reaches_trigger_ready(self):"
+        },
+        "tests.test_integration.TestSweepFVGTrigger.test_no_fvg_keeps_sweep_detected": {
+          "file": "tests\\test_integration.py",
+          "line_start": 93,
+          "line_end": 105,
+          "signature": "def test_no_fvg_keeps_sweep_detected(self):"
+        },
+        "tests.test_integration.TestSweepFVGTrigger.test_second_sweep_ignored_while_in_sweep_detected": {
+          "file": "tests\\test_integration.py",
+          "line_start": 107,
+          "line_end": 119,
+          "signature": "def test_second_sweep_ignored_while_in_sweep_detected(self):"
+        },
+        "tests.test_integration.TestSweepFVGTrigger.test_sweep_invalidated_when_close_breaks_opposite": {
+          "file": "tests\\test_integration.py",
+          "line_start": 121,
+          "line_end": 130,
+          "signature": "def test_sweep_invalidated_when_close_breaks_opposite(self):"
+        },
+        "tests.test_integration.TestSweepFVGTrigger.test_direction_mapping_bullish_sweep_leads_to_long": {
+          "file": "tests\\test_integration.py",
+          "line_start": 132,
+          "line_end": 140,
+          "signature": "def test_direction_mapping_bullish_sweep_leads_to_long(self):"
+        },
+        "tests.test_integration.TestSweepFVGTrigger.test_direction_mapping_bearish_sweep_leads_to_short": {
+          "file": "tests\\test_integration.py",
+          "line_start": 142,
+          "line_end": 149,
+          "signature": "def test_direction_mapping_bearish_sweep_leads_to_short(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_long_entry_calculates_correct_sl_tp": {
+          "file": "tests\\test_integration.py",
+          "line_start": 160,
+          "line_end": 177,
+          "signature": "def test_long_entry_calculates_correct_sl_tp(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_short_entry_calculates_correct_sl_tp": {
+          "file": "tests\\test_integration.py",
+          "line_start": 179,
+          "line_end": 196,
+          "signature": "def test_short_entry_calculates_correct_sl_tp(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_entry_without_fvg_uses_risk_fallback": {
+          "file": "tests\\test_integration.py",
+          "line_start": 198,
+          "line_end": 213,
+          "signature": "def test_entry_without_fvg_uses_risk_fallback(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_invalid_risk_dist_blocks_entry": {
+          "file": "tests\\test_integration.py",
+          "line_start": 215,
+          "line_end": 219,
+          "signature": "def test_invalid_risk_dist_blocks_entry(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_valid_risk_dist_allows_entry": {
+          "file": "tests\\test_integration.py",
+          "line_start": 221,
+          "line_end": 224,
+          "signature": "def test_valid_risk_dist_allows_entry(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_qty_calculation_scales_with_risk": {
+          "file": "tests\\test_integration.py",
+          "line_start": 226,
+          "line_end": 237,
+          "signature": "def test_qty_calculation_scales_with_risk(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_qty_zero_when_risk_dist_zero": {
+          "file": "tests\\test_integration.py",
+          "line_start": 239,
+          "line_end": 248,
+          "signature": "def test_qty_zero_when_risk_dist_zero(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_bullish_trigger_to_long_mapping_consistent": {
+          "file": "tests\\test_integration.py",
+          "line_start": 250,
+          "line_end": 255,
+          "signature": "def test_bullish_trigger_to_long_mapping_consistent(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_bearish_trigger_to_short_mapping_consistent": {
+          "file": "tests\\test_integration.py",
+          "line_start": 257,
+          "line_end": 261,
+          "signature": "def test_bearish_trigger_to_short_mapping_consistent(self):"
+        },
+        "tests.test_integration.TestTrailingExit._make_trade": {
+          "file": "tests\\test_integration.py",
+          "line_start": 272,
+          "line_end": 285,
+          "signature": "def _make_trade(self, side='long', entry=100.0, sl=95.0, tp=110.0, trail_steps=None):"
+        },
+        "tests.test_integration.TestTrailingExit._bars_with_bullish_fvg": {
+          "file": "tests\\test_integration.py",
+          "line_start": 287,
+          "line_end": 297,
+          "signature": "def _bars_with_bullish_fvg(self, base=100.0):"
+        },
+        "tests.test_integration.TestTrailingExit._bars_with_bearish_fvg": {
+          "file": "tests\\test_integration.py",
+          "line_start": 299,
+          "line_end": 309,
+          "signature": "def _bars_with_bearish_fvg(self, base=100.0):"
+        },
+        "tests.test_integration.TestTrailingExit.test_long_trail_on_bullish_fvg_tightens_sl_up": {
+          "file": "tests\\test_integration.py",
+          "line_start": 311,
+          "line_end": 320,
+          "signature": "def test_long_trail_on_bullish_fvg_tightens_sl_up(self):"
+        },
+        "tests.test_integration.TestTrailingExit.test_short_trail_on_bearish_fvg_tightens_sl_down": {
+          "file": "tests\\test_integration.py",
+          "line_start": 322,
+          "line_end": 330,
+          "signature": "def test_short_trail_on_bearish_fvg_tightens_sl_down(self):"
+        },
+        "tests.test_integration.TestTrailingExit.test_check_exit_long_hit_sl": {
+          "file": "tests\\test_integration.py",
+          "line_start": 332,
+          "line_end": 338,
+          "signature": "def test_check_exit_long_hit_sl(self):"
+        },
+        "tests.test_integration.TestTrailingExit.test_check_exit_long_hit_tp": {
+          "file": "tests\\test_integration.py",
+          "line_start": 340,
+          "line_end": 346,
+          "signature": "def test_check_exit_long_hit_tp(self):"
+        },
+        "tests.test_integration.TestTrailingExit.test_check_exit_short_hit_sl": {
+          "file": "tests\\test_integration.py",
+          "line_start": 348,
+          "line_end": 354,
+          "signature": "def test_check_exit_short_hit_sl(self):"
+        },
+        "tests.test_integration.TestTrailingExit.test_check_exit_short_hit_tp": {
+          "file": "tests\\test_integration.py",
+          "line_start": 356,
+          "line_end": 362,
+          "signature": "def test_check_exit_short_hit_tp(self):"
+        },
+        "tests.test_integration.TestTrailingExit.test_check_exit_no_hit": {
+          "file": "tests\\test_integration.py",
+          "line_start": 364,
+          "line_end": 369,
+          "signature": "def test_check_exit_no_hit(self):"
+        },
+        "tests.test_integration.TestTrailingExit.test_short_bar_set_no_false_exit": {
+          "file": "tests\\test_integration.py",
+          "line_start": 371,
+          "line_end": 376,
+          "signature": "def test_short_bar_set_no_false_exit(self):"
+        },
+        "tests.test_integration.TestTrailingExit.test_trail_does_not_update_when_no_fvg": {
+          "file": "tests\\test_integration.py",
+          "line_start": 378,
+          "line_end": 386,
+          "signature": "def test_trail_does_not_update_when_no_fvg(self):"
+        },
+        "tests.test_integration.TestDryStrategyFlow._make_session_state": {
+          "file": "tests\\test_integration.py",
+          "line_start": 397,
+          "line_end": 410,
+          "signature": "def _make_session_state(self, bias: DailyBias, locked: bool=True):"
+        },
+        "tests.test_integration.TestDryStrategyFlow._bar": {
+          "file": "tests\\test_integration.py",
+          "line_start": 412,
+          "line_end": 416,
+          "signature": "def _bar(self, index, o, h, low, c, ts=None):"
+        },
+        "tests.test_integration.TestDryStrategyFlow._build_bullish_flow_bars": {
+          "file": "tests\\test_integration.py",
+          "line_start": 418,
+          "line_end": 430,
+          "signature": "def _build_bullish_flow_bars(self):"
+        },
+        "tests.test_integration.TestDryStrategyFlow.test_bullish_full_flow_sweep_to_exit": {
+          "file": "tests\\test_integration.py",
+          "line_start": 432,
+          "line_end": 496,
+          "signature": "def test_bullish_full_flow_sweep_to_exit(self):"
+        },
+        "tests.test_integration.TestDryStrategyFlow.test_bearish_full_flow_sweep_to_exit": {
+          "file": "tests\\test_integration.py",
+          "line_start": 498,
+          "line_end": 564,
+          "signature": "def test_bearish_full_flow_sweep_to_exit(self):"
+        },
+        "src.trading.user_data_handler.UserDataHandler.__init__": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 33,
+          "line_end": 45,
+          "signature": "def __init__(self, active_trades: dict[str, Any], pl_callback: Callable[[str, str, str], None], wallet_callback: Callable[[float], None], order_manager: Any, exit_callback: Callable[..., Any]):"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 47,
+          "line_end": 167,
+          "signature": "def register(self, hub: Any) -> None:"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register.on_order_update": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 52,
+          "line_end": 153,
+          "signature": "@hub.on_user_data('ORDER_TRADE_UPDATE')"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register.on_account_update": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 156,
+          "line_end": 160,
+          "signature": "@hub.on_user_data('ACCOUNT_UPDATE')"
+        },
         "tests.test_integration_v2._bar": {
           "file": "tests\\test_integration_v2.py",
           "line_start": 22,
@@ -4786,33 +4648,167 @@
           "line_end": 421,
           "signature": "def test_sweep_without_fvg_stays_in_sweep_detected(self):"
         },
-        "tests.test_integration_v2.TestDryFlowExtended.test_fvg_no_close_confirm_blocks_trigger": {
+        "tests.test_integration_v2.TestDryFlowExtended.test_fvg_no_close_confirm_no_longer_blocks": {
           "file": "tests\\test_integration_v2.py",
           "line_start": 423,
-          "line_end": 440,
-          "signature": "def test_fvg_no_close_confirm_blocks_trigger(self):"
+          "line_end": 438,
+          "signature": "def test_fvg_no_close_confirm_no_longer_blocks(self):"
         },
         "tests.test_integration_v2.TestDryFlowExtended.test_direction_consistency_through_full_chain": {
           "file": "tests\\test_integration_v2.py",
-          "line_start": 442,
-          "line_end": 505,
+          "line_start": 440,
+          "line_end": 503,
           "signature": "def test_direction_consistency_through_full_chain(self):"
         },
         "tests.test_integration_v2.TestDryFlowExtended.test_bearish_full_chain_direction_consistency": {
           "file": "tests\\test_integration_v2.py",
-          "line_start": 507,
-          "line_end": 578,
+          "line_start": 505,
+          "line_end": 576,
           "signature": "def test_bearish_full_chain_direction_consistency(self):"
+        },
+        "src.session_router.is_high_quality_fvg": {
+          "file": "src\\session_router.py",
+          "line_start": 17,
+          "line_end": 25,
+          "signature": "def is_high_quality_fvg(fvg_pips: float, current_atr: float, symbol: str='') -> bool:"
+        },
+        "src.session_router.is_fvg_valid": {
+          "file": "src\\session_router.py",
+          "line_start": 28,
+          "line_end": 34,
+          "signature": "def is_fvg_valid(formation_bar_index: int, current_bar_index: int) -> bool:"
+        },
+        "src.session_router.get_cbdr_multiplier": {
+          "file": "src\\session_router.py",
+          "line_start": 37,
+          "line_end": 44,
+          "signature": "def get_cbdr_multiplier(symbol: str, cbdr_pct: float) -> float:"
+        },
+        "src.session_router.get_session_hours": {
+          "file": "src\\session_router.py",
+          "line_start": 47,
+          "line_end": 53,
+          "signature": "def get_session_hours(symbol: str) -> dict[str, int]:"
+        },
+        "src.session_router.should_trade": {
+          "file": "src\\session_router.py",
+          "line_start": 56,
+          "line_end": 73,
+          "signature": "def should_trade(symbol: str, cbdr_width_pct: float | None=None) -> tuple[bool, str]:"
+        },
+        "src.bot._save_fvg_state": {
+          "file": "src\\bot.py",
+          "line_start": 67,
+          "line_end": 78,
+          "signature": "def _save_fvg_state(sym: str, fvg_data: dict) -> None:"
+        },
+        "src.bot._load_fvg_state": {
+          "file": "src\\bot.py",
+          "line_start": 81,
+          "line_end": 89,
+          "signature": "def _load_fvg_state(sym: str) -> dict:"
+        },
+        "src.bot._setup_logging": {
+          "file": "src\\bot.py",
+          "line_start": 92,
+          "line_end": 145,
+          "signature": "def _setup_logging() -> logging.Logger:"
+        },
+        "src.bot.PaperTrader.__init__": {
+          "file": "src\\bot.py",
+          "line_start": 155,
+          "line_end": 234,
+          "signature": "def __init__(self, symbols: list[str] | None=None):"
+        },
+        "src.bot.PaperTrader._pl": {
+          "file": "src\\bot.py",
+          "line_start": 236,
+          "line_end": 238,
+          "signature": "def _pl(self, sym: str, key: str, msg: str, force: bool=False):"
+        },
+        "src.bot.PaperTrader._session_label": {
+          "file": "src\\bot.py",
+          "line_start": 240,
+          "line_end": 244,
+          "signature": "def _session_label(self, hour: int) -> str:"
+        },
+        "src.bot.PaperTrader._load_history": {
+          "file": "src\\bot.py",
+          "line_start": 246,
+          "line_end": 260,
+          "signature": "def _load_history(self):"
+        },
+        "src.bot.PaperTrader._on_15m_close": {
+          "file": "src\\bot.py",
+          "line_start": 264,
+          "line_end": 392,
+          "signature": "async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):"
+        },
+        "src.bot.PaperTrader._on_1m_close": {
+          "file": "src\\bot.py",
+          "line_start": 396,
+          "line_end": 463,
+          "signature": "async def _on_1m_close(self, sym: str, bars_1m: list[Bar]):"
+        },
+        "src.bot.PaperTrader._try_entry": {
+          "file": "src\\bot.py",
+          "line_start": 467,
+          "line_end": 709,
+          "signature": "async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):"
+        },
+        "src.bot.PaperTrader._exit_trade": {
+          "file": "src\\bot.py",
+          "line_start": 711,
+          "line_end": 901,
+          "signature": "async def _exit_trade(self, sym, trade, exit_timestamp: int):"
+        },
+        "src.bot.PaperTrader.on_15m": {
+          "file": "src\\bot.py",
+          "line_start": 903,
+          "line_end": 906,
+          "signature": "async def on_15m(self, sym: str, bars: list[Bar]):"
+        },
+        "src.bot.PaperTrader.on_1m": {
+          "file": "src\\bot.py",
+          "line_start": 908,
+          "line_end": 911,
+          "signature": "async def on_1m(self, sym: str, bars: list[Bar]):"
+        },
+        "src.bot.PaperTrader._prefill_bars": {
+          "file": "src\\bot.py",
+          "line_start": 913,
+          "line_end": 937,
+          "signature": "async def _prefill_bars(self, sym: str, timeframe: str='15m') -> Result[None]:"
+        },
+        "src.bot.PaperTrader._warmup_cbdr": {
+          "file": "src\\bot.py",
+          "line_start": 939,
+          "line_end": 994,
+          "signature": "def _warmup_cbdr(self, sym: str):"
+        },
+        "src.bot.PaperTrader._set_leverage": {
+          "file": "src\\bot.py",
+          "line_start": 996,
+          "line_end": 1013,
+          "signature": "async def _set_leverage(self, symbol: str) -> Result[None]:"
+        },
+        "src.bot.PaperTrader.run": {
+          "file": "src\\bot.py",
+          "line_start": 1015,
+          "line_end": 1159,
+          "signature": "async def run(self):"
+        },
+        "src.bot.main": {
+          "file": "src\\bot.py",
+          "line_start": 1162,
+          "line_end": 1172,
+          "signature": "def main():"
         }
       },
       "files": {
         "src\\bot_infra.py": {
           "last_modified": "2026-06-26T01:13:27",
           "hash": "sha256:9d0293d6683afbad"
-        },
-        "src\\config.py": {
-          "last_modified": "2026-07-12T09:07:25",
-          "hash": "sha256:13d717a28f84a2c4"
         },
         "src\\debug_balance.py": {
           "last_modified": "2026-07-02T00:12:45",
@@ -4841,10 +4837,6 @@
         "src\\session.py": {
           "last_modified": "2026-07-12T09:07:20",
           "hash": "sha256:a896bf26359bc13b"
-        },
-        "src\\session_router.py": {
-          "last_modified": "2026-07-12T07:58:24",
-          "hash": "sha256:d5fd86fb8f0dc5bb"
         },
         "src\\state_manager.py": {
           "last_modified": "2026-07-03T14:11:49",
@@ -4922,14 +4914,6 @@
           "last_modified": "2026-07-13T09:51:26",
           "hash": "sha256:36bdac69d9f6d21f"
         },
-        "src\\trading\\user_data_handler.py": {
-          "last_modified": "2026-07-12T12:13:09",
-          "hash": "sha256:2e485928d7d0773b"
-        },
-        "src\\bot.py": {
-          "last_modified": "2026-07-13T10:59:05",
-          "hash": "sha256:d2995646fbac3f89"
-        },
         "src\\trading\\entry_manager.py": {
           "last_modified": "2026-07-13T11:00:33",
           "hash": "sha256:7a139d8efdba380a"
@@ -4950,10 +4934,6 @@
           "last_modified": "2026-06-30T21:36:48",
           "hash": "sha256:b8d679c44a66f7f4"
         },
-        "src\\retrace_state.py": {
-          "last_modified": "2026-07-11T15:30:35",
-          "hash": "sha256:a293e5cead93e5ac"
-        },
         "tests\\test_retrace_state.py": {
           "last_modified": "2026-07-13T13:24:39",
           "hash": "sha256:5d8e639fe88bcfa8"
@@ -4961,14 +4941,6 @@
         "src\\websocket.py": {
           "last_modified": "2026-06-26T01:17:29",
           "hash": "sha256:de70ea222cfe2e42"
-        },
-        "src\\trading\\__init__.py": {
-          "last_modified": "2026-06-30T21:12:59",
-          "hash": "sha256:f61320312ed5e5b1"
-        },
-        "tests\\test_integration.py": {
-          "last_modified": "2026-07-13T14:02:29",
-          "hash": "sha256:9f210d1b0f3a3da7"
         },
         "src\\bot_binance.py": {
           "last_modified": "2026-06-29T09:49:12",
@@ -4978,9 +4950,37 @@
           "last_modified": "2026-06-26T01:10:59",
           "hash": "sha256:6f1468bf97ef5dde"
         },
+        "src\\trading\\__init__.py": {
+          "last_modified": "2026-06-30T21:12:59",
+          "hash": "sha256:f61320312ed5e5b1"
+        },
+        "src\\retrace_state.py": {
+          "last_modified": "2026-07-13T17:00:48",
+          "hash": "sha256:bc83e0605225ff9e"
+        },
+        "tests\\test_integration.py": {
+          "last_modified": "2026-07-13T14:02:29",
+          "hash": "sha256:9f210d1b0f3a3da7"
+        },
+        "src\\trading\\user_data_handler.py": {
+          "last_modified": "2026-07-12T12:13:09",
+          "hash": "sha256:2e485928d7d0773b"
+        },
         "tests\\test_integration_v2.py": {
-          "last_modified": "2026-07-13T14:33:07",
-          "hash": "sha256:8dfcb813f4a85160"
+          "last_modified": "2026-07-13T17:00:23",
+          "hash": "sha256:566306066c0f779a"
+        },
+        "src\\session_router.py": {
+          "last_modified": "2026-07-13T19:05:52",
+          "hash": "sha256:0026094476c765df"
+        },
+        "src\\bot.py": {
+          "last_modified": "2026-07-13T19:06:11",
+          "hash": "sha256:620290e8a2e19c76"
+        },
+        "src\\config.py": {
+          "last_modified": "2026-07-13T19:07:29",
+          "hash": "sha256:0d76d5ab0906c552"
         }
       },
       "last_full_scan": "2026-07-12T23:30:10"
@@ -6661,54 +6661,6 @@
           "line_end": 2686,
           "signature": "def _build_and_save_report(all_coin_data, results_data):"
         },
-        "src._analyze_all_20._analyze_one_symbol": {
-          "file": "src\\_analyze_all_20.py",
-          "line_start": 60,
-          "line_end": 195,
-          "signature": "def _analyze_one_symbol(sym: str, workers: int=1) -> dict | None:"
-        },
-        "src._analyze_all_20._run_serial": {
-          "file": "src\\_analyze_all_20.py",
-          "line_start": 199,
-          "line_end": 325,
-          "signature": "def _run_serial(workers: int):"
-        },
-        "src._analyze_all_20._print_config": {
-          "file": "src\\_analyze_all_20.py",
-          "line_start": 329,
-          "line_end": 376,
-          "signature": "def _print_config(session_best: dict, bucket_results: dict, all_session_stats: dict, elapsed: float):"
-        },
-        "src._analyze_all_20.main": {
-          "file": "src\\_analyze_all_20.py",
-          "line_start": 380,
-          "line_end": 495,
-          "signature": "def main():"
-        },
-        "src.profile_fvg_size._log_line": {
-          "file": "src\\profile_fvg_size.py",
-          "line_start": 51,
-          "line_end": 55,
-          "signature": "def _log_line(msg: str):"
-        },
-        "src.profile_fvg_size._profile_one": {
-          "file": "src\\profile_fvg_size.py",
-          "line_start": 59,
-          "line_end": 148,
-          "signature": "def _profile_one(sym: str) -> dict | None:"
-        },
-        "src.profile_fvg_size._print_fvg_map": {
-          "file": "src\\profile_fvg_size.py",
-          "line_start": 151,
-          "line_end": 172,
-          "signature": "def _print_fvg_map(results: dict):"
-        },
-        "src.profile_fvg_size.main": {
-          "file": "src\\profile_fvg_size.py",
-          "line_start": 175,
-          "line_end": 250,
-          "signature": "def main():"
-        },
         "src.analyzer_v5.load_data": {
           "file": "src\\analyzer_v5.py",
           "line_start": 63,
@@ -6768,6 +6720,54 @@
           "line_start": 990,
           "line_end": 995,
           "signature": "def fvg_created(rej):"
+        },
+        "src.profile_fvg_size._log_line": {
+          "file": "src\\profile_fvg_size.py",
+          "line_start": 57,
+          "line_end": 61,
+          "signature": "def _log_line(msg: str):"
+        },
+        "src.profile_fvg_size._profile_one": {
+          "file": "src\\profile_fvg_size.py",
+          "line_start": 65,
+          "line_end": 157,
+          "signature": "def _profile_one(sym: str) -> dict | None:"
+        },
+        "src.profile_fvg_size._print_fvg_map": {
+          "file": "src\\profile_fvg_size.py",
+          "line_start": 160,
+          "line_end": 188,
+          "signature": "def _print_fvg_map(results: dict):"
+        },
+        "src.profile_fvg_size.main": {
+          "file": "src\\profile_fvg_size.py",
+          "line_start": 191,
+          "line_end": 266,
+          "signature": "def main():"
+        },
+        "src._analyze_all_20._analyze_one_symbol": {
+          "file": "src\\_analyze_all_20.py",
+          "line_start": 60,
+          "line_end": 195,
+          "signature": "def _analyze_one_symbol(sym: str, workers: int=1) -> dict | None:"
+        },
+        "src._analyze_all_20._run_serial": {
+          "file": "src\\_analyze_all_20.py",
+          "line_start": 199,
+          "line_end": 325,
+          "signature": "def _run_serial(workers: int):"
+        },
+        "src._analyze_all_20._print_config": {
+          "file": "src\\_analyze_all_20.py",
+          "line_start": 329,
+          "line_end": 376,
+          "signature": "def _print_config(session_best: dict, bucket_results: dict, all_session_stats: dict, elapsed: float):"
+        },
+        "src._analyze_all_20.main": {
+          "file": "src\\_analyze_all_20.py",
+          "line_start": 380,
+          "line_end": 495,
+          "signature": "def main():"
         }
       },
       "files": {
@@ -6983,21 +6983,9 @@
           "last_modified": "2026-07-12T01:56:04",
           "hash": "sha256:6f452f8e4ccd4aa0"
         },
-        "src\\_analyze_all_20.py": {
-          "last_modified": "2026-07-12T03:20:34",
-          "hash": "sha256:13799df62471b8d1"
-        },
-        "src\\profile_fvg_size.py": {
-          "last_modified": "2026-07-12T03:17:27",
-          "hash": "sha256:09e8f88ab4edfea4"
-        },
         "src\\_profile_test.py": {
           "last_modified": "2026-07-12T02:54:27",
           "hash": "sha256:80cf2757382f511a"
-        },
-        "src\\_ds_comp.py": {
-          "last_modified": "2026-07-13T01:30:22",
-          "hash": "sha256:747d716c9548268a"
         },
         "src\\utils\\visualize_cbdr_zoom.py": {
           "last_modified": "2026-06-27T13:21:49",
@@ -7006,6 +6994,18 @@
         "src\\analyzer_v5.py": {
           "last_modified": "2026-07-13T09:34:16",
           "hash": "sha256:0fa6696b61b71ab1"
+        },
+        "src\\profile_fvg_size.py": {
+          "last_modified": "2026-07-13T17:30:26",
+          "hash": "sha256:a9d439636f6be40b"
+        },
+        "src\\_analyze_all_20.py": {
+          "last_modified": "2026-07-13T17:30:36",
+          "hash": "sha256:13799df62471b8d1"
+        },
+        "src\\_ds_comp.py": {
+          "last_modified": "2026-07-13T01:30:22",
+          "hash": "sha256:747d716c9548268a"
         }
       },
       "last_full_scan": "2026-07-11T21:18:06"

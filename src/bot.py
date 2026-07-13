@@ -327,7 +327,7 @@ class PaperTrader:
             if tf is not None:
                 if not is_high_quality_fvg(tf.top - tf.bottom, atr_val, sym):
                     rel = (tf.top - tf.bottom) / atr_val if atr_val > 1e-8 else 0
-                    threshold = cfg.FVG_SIZE_MAP.get(sym, cfg.MIN_REL_FVG_THRESHOLD)
+                    threshold = cfg.MIN_REL_FVG_THRESHOLD
                     log.info(
                         "[FVG-FILTER] %s rel_fvg=%.2f < %.2f (gurultu, iptal)",
                         sym,
