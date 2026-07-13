@@ -353,6 +353,31 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
 }
 
 FVG_SIZE_MAP: dict[str, float] = {
+    "AAVEUSDT": 0.24,
+    "ADAUSDT": 0.40,
+    "ALGOUSDT": 0.42,
+    "APTUSDT": 0.32,
+    "ARBUSDT": 0.43,
+    "ATOMUSDT": 0.59,
+    "AVAXUSDT": 0.60,
+    "BNBUSDT": 0.21,
+    "BTCUSDT": 0.51,
+    "DOGEUSDT": 0.50,
+    "DOTUSDT": 0.60,
+    "ETHUSDT": 0.44,
+    "INJUSDT": 0.60,
+    "LINKUSDT": 0.51,
+    "NEARUSDT": 0.48,
+    "OPUSDT": 0.60,
+    "SOLUSDT": 0.57,
+    "SUIUSDT": 0.31,
+    "UNIUSDT": 0.35,
+    "XRPUSDT": 0.22,
+}
+
+# ── Coin bazlı FVG_MIN_SIZE_ATR_MULT (min gap eşiği) ────────────
+
+FVG_MIN_MULT_MAP: dict[str, float] = {
     "AAVEUSDT": 0.030,
     "ADAUSDT": 0.050,
     "ALGOUSDT": 0.100,

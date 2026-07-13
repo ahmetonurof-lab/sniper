@@ -658,84 +658,6 @@
           "line_end": 479,
           "signature": "def detect_phase_from_timestamp(ts_ms: int, session_hours: dict | None=None) -> SessionPhase:"
         },
-        "src.state_manager._today": {
-          "file": "src\\state_manager.py",
-          "line_start": 36,
-          "line_end": 46,
-          "signature": "def _today() -> str:"
-        },
-        "src.state_manager._load": {
-          "file": "src\\state_manager.py",
-          "line_start": 49,
-          "line_end": 55,
-          "signature": "def _load() -> dict:"
-        },
-        "src.state_manager._save": {
-          "file": "src\\state_manager.py",
-          "line_start": 58,
-          "line_end": 63,
-          "signature": "def _save(state: dict):"
-        },
-        "src.state_manager.can_open_trade": {
-          "file": "src\\state_manager.py",
-          "line_start": 69,
-          "line_end": 83,
-          "signature": "def can_open_trade(symbol: str) -> bool:"
-        },
-        "src.state_manager.mark_trade_opened": {
-          "file": "src\\state_manager.py",
-          "line_start": 86,
-          "line_end": 100,
-          "signature": "def mark_trade_opened(symbol: str, entry_price: float=0.0):"
-        },
-        "src.state_manager.mark_trade_closed": {
-          "file": "src\\state_manager.py",
-          "line_start": 103,
-          "line_end": 113,
-          "signature": "def mark_trade_closed(symbol: str):"
-        },
-        "src.state_manager.is_sweep_used": {
-          "file": "src\\state_manager.py",
-          "line_start": 119,
-          "line_end": 130,
-          "signature": "def is_sweep_used(sweep_id: str) -> bool:"
-        },
-        "src.state_manager.mark_sweep_used": {
-          "file": "src\\state_manager.py",
-          "line_start": 133,
-          "line_end": 149,
-          "signature": "def mark_sweep_used(sweep_id: str):"
-        },
-        "src.state_manager.is_sweep_consumed": {
-          "file": "src\\state_manager.py",
-          "line_start": 152,
-          "line_end": 161,
-          "signature": "def is_sweep_consumed(direction: str, level: float) -> bool:"
-        },
-        "src.state_manager.mark_sweep_consumed": {
-          "file": "src\\state_manager.py",
-          "line_start": 164,
-          "line_end": 174,
-          "signature": "def mark_sweep_consumed(direction: str, level: float):"
-        },
-        "src.state_manager.reconcile_from_active": {
-          "file": "src\\state_manager.py",
-          "line_start": 180,
-          "line_end": 217,
-          "signature": "def reconcile_from_active(active_trades: dict):"
-        },
-        "src.state_manager.get_trade_count_today": {
-          "file": "src\\state_manager.py",
-          "line_start": 223,
-          "line_end": 238,
-          "signature": "def get_trade_count_today(symbol: str) -> int:"
-        },
-        "src.state_manager.dump_state": {
-          "file": "src\\state_manager.py",
-          "line_start": 244,
-          "line_end": 247,
-          "signature": "def dump_state() -> dict:"
-        },
         "src.state_writer.write_state": {
           "file": "src\\state_writer.py",
           "line_start": 9,
@@ -819,24 +741,6 @@
           "line_start": 233,
           "line_end": 286,
           "signature": "async def cleanup_on_exit(self, sym: str, trade: dict, result: str) -> None:"
-        },
-        "src.trading.signal_engine.SignalEngine.__init__": {
-          "file": "src\\trading\\signal_engine.py",
-          "line_start": 58,
-          "line_end": 59,
-          "signature": "def __init__(self, rsm: RetraceStateMachine):"
-        },
-        "src.trading.signal_engine.SignalEngine.progress_rsm": {
-          "file": "src\\trading\\signal_engine.py",
-          "line_start": 63,
-          "line_end": 81,
-          "signature": "def progress_rsm(self, bars_15m: list[Bar], current: Bar, ss: SessionState, atr_val: float=0.0) -> None:"
-        },
-        "src.trading.signal_engine.SignalEngine.evaluate_trigger": {
-          "file": "src\\trading\\signal_engine.py",
-          "line_start": 85,
-          "line_end": 130,
-          "signature": "def evaluate_trigger(self, current: Bar, ss: SessionState) -> EvalResult:"
         },
         "src.trading.trailing_manager.TrailingManager._fvg_close_confirmed": {
           "file": "src\\trading\\trailing_manager.py",
@@ -4222,66 +4126,6 @@
           "line_end": 423,
           "signature": "def test_known_timeframes(self):"
         },
-        "src.retrace_state.HTFFVG.__init__": {
-          "file": "src\\retrace_state.py",
-          "line_start": 28,
-          "line_end": 32,
-          "signature": "def __init__(self, top: float, bottom: float, direction: str, bar_index: int):"
-        },
-        "src.retrace_state.HTFFVG.__repr__": {
-          "file": "src\\retrace_state.py",
-          "line_start": 34,
-          "line_end": 35,
-          "signature": "def __repr__(self):"
-        },
-        "src.retrace_state.scan_htf_fvgs": {
-          "file": "src\\retrace_state.py",
-          "line_start": 38,
-          "line_end": 58,
-          "signature": "def scan_htf_fvgs(bars_15m: list[Bar], lookback: int=100, min_fvg_size: float=10.0, max_wick_ratio: float=1.0) -> list[HTFFVG]:"
-        },
-        "src.retrace_state.RetraceStateMachine.__init__": {
-          "file": "src\\retrace_state.py",
-          "line_start": 62,
-          "line_end": 68,
-          "signature": "def __init__(self, max_wick_ratio: float=1.0):"
-        },
-        "src.retrace_state.RetraceStateMachine.state_name": {
-          "file": "src\\retrace_state.py",
-          "line_start": 71,
-          "line_end": 72,
-          "signature": "@property"
-        },
-        "src.retrace_state.RetraceStateMachine.can_trigger": {
-          "file": "src\\retrace_state.py",
-          "line_start": 74,
-          "line_end": 75,
-          "signature": "def can_trigger(self) -> bool:"
-        },
-        "src.retrace_state.RetraceStateMachine._mark_sweep_used": {
-          "file": "src\\retrace_state.py",
-          "line_start": 77,
-          "line_end": 85,
-          "signature": "def _mark_sweep_used(self):"
-        },
-        "src.retrace_state.RetraceStateMachine.reset": {
-          "file": "src\\retrace_state.py",
-          "line_start": 87,
-          "line_end": 92,
-          "signature": "def reset(self):"
-        },
-        "src.retrace_state.RetraceStateMachine.on_sweep": {
-          "file": "src\\retrace_state.py",
-          "line_start": 94,
-          "line_end": 124,
-          "signature": "def on_sweep(self, direction: Literal['bullish', 'bearish'], level: float, bar_index: int | None=None):"
-        },
-        "src.retrace_state.RetraceStateMachine.on_sweep_confirmed": {
-          "file": "src\\retrace_state.py",
-          "line_start": 126,
-          "line_end": 219,
-          "signature": "def on_sweep_confirmed(self, bars_15m: list[Bar], sweep_bar: Bar, atr_val: float=0.0):"
-        },
         "tests.test_integration._bar": {
           "file": "tests\\test_integration.py",
           "line_start": 22,
@@ -4510,6 +4354,132 @@
           "line_end": 160,
           "signature": "@hub.on_user_data('ACCOUNT_UPDATE')"
         },
+        "src.session_router.is_high_quality_fvg": {
+          "file": "src\\session_router.py",
+          "line_start": 17,
+          "line_end": 26,
+          "signature": "def is_high_quality_fvg(fvg_pips: float, current_atr: float, symbol: str='') -> bool:"
+        },
+        "src.session_router.is_fvg_valid": {
+          "file": "src\\session_router.py",
+          "line_start": 29,
+          "line_end": 35,
+          "signature": "def is_fvg_valid(formation_bar_index: int, current_bar_index: int) -> bool:"
+        },
+        "src.session_router.get_cbdr_multiplier": {
+          "file": "src\\session_router.py",
+          "line_start": 38,
+          "line_end": 45,
+          "signature": "def get_cbdr_multiplier(symbol: str, cbdr_pct: float) -> float:"
+        },
+        "src.session_router.get_session_hours": {
+          "file": "src\\session_router.py",
+          "line_start": 48,
+          "line_end": 54,
+          "signature": "def get_session_hours(symbol: str) -> dict[str, int]:"
+        },
+        "src.session_router.should_trade": {
+          "file": "src\\session_router.py",
+          "line_start": 57,
+          "line_end": 74,
+          "signature": "def should_trade(symbol: str, cbdr_width_pct: float | None=None) -> tuple[bool, str]:"
+        },
+        "src.trading.signal_engine.SignalEngine.__init__": {
+          "file": "src\\trading\\signal_engine.py",
+          "line_start": 58,
+          "line_end": 59,
+          "signature": "def __init__(self, rsm: RetraceStateMachine):"
+        },
+        "src.trading.signal_engine.SignalEngine.progress_rsm": {
+          "file": "src\\trading\\signal_engine.py",
+          "line_start": 63,
+          "line_end": 82,
+          "signature": "def progress_rsm(self, bars_15m: list[Bar], current: Bar, ss: SessionState, atr_val: float=0.0, symbol: str='') -> None:"
+        },
+        "src.trading.signal_engine.SignalEngine.evaluate_trigger": {
+          "file": "src\\trading\\signal_engine.py",
+          "line_start": 86,
+          "line_end": 131,
+          "signature": "def evaluate_trigger(self, current: Bar, ss: SessionState) -> EvalResult:"
+        },
+        "src.state_manager._today": {
+          "file": "src\\state_manager.py",
+          "line_start": 36,
+          "line_end": 46,
+          "signature": "def _today() -> str:"
+        },
+        "src.state_manager._load": {
+          "file": "src\\state_manager.py",
+          "line_start": 49,
+          "line_end": 55,
+          "signature": "def _load() -> dict:"
+        },
+        "src.state_manager._save": {
+          "file": "src\\state_manager.py",
+          "line_start": 58,
+          "line_end": 63,
+          "signature": "def _save(state: dict):"
+        },
+        "src.state_manager.can_open_trade": {
+          "file": "src\\state_manager.py",
+          "line_start": 69,
+          "line_end": 83,
+          "signature": "def can_open_trade(symbol: str) -> bool:"
+        },
+        "src.state_manager.mark_trade_opened": {
+          "file": "src\\state_manager.py",
+          "line_start": 86,
+          "line_end": 100,
+          "signature": "def mark_trade_opened(symbol: str, entry_price: float=0.0):"
+        },
+        "src.state_manager.mark_trade_closed": {
+          "file": "src\\state_manager.py",
+          "line_start": 103,
+          "line_end": 113,
+          "signature": "def mark_trade_closed(symbol: str):"
+        },
+        "src.state_manager.is_sweep_used": {
+          "file": "src\\state_manager.py",
+          "line_start": 119,
+          "line_end": 130,
+          "signature": "def is_sweep_used(sweep_id: str) -> bool:"
+        },
+        "src.state_manager.mark_sweep_used": {
+          "file": "src\\state_manager.py",
+          "line_start": 133,
+          "line_end": 149,
+          "signature": "def mark_sweep_used(sweep_id: str):"
+        },
+        "src.state_manager.is_sweep_consumed": {
+          "file": "src\\state_manager.py",
+          "line_start": 152,
+          "line_end": 161,
+          "signature": "def is_sweep_consumed(direction: str, level: float) -> bool:"
+        },
+        "src.state_manager.mark_sweep_consumed": {
+          "file": "src\\state_manager.py",
+          "line_start": 164,
+          "line_end": 174,
+          "signature": "def mark_sweep_consumed(direction: str, level: float):"
+        },
+        "src.state_manager.reconcile_from_active": {
+          "file": "src\\state_manager.py",
+          "line_start": 180,
+          "line_end": 217,
+          "signature": "def reconcile_from_active(active_trades: dict):"
+        },
+        "src.state_manager.get_trade_count_today": {
+          "file": "src\\state_manager.py",
+          "line_start": 223,
+          "line_end": 238,
+          "signature": "def get_trade_count_today(symbol: str) -> int:"
+        },
+        "src.state_manager.dump_state": {
+          "file": "src\\state_manager.py",
+          "line_start": 244,
+          "line_end": 247,
+          "signature": "def dump_state() -> dict:"
+        },
         "tests.test_integration_v2._bar": {
           "file": "tests\\test_integration_v2.py",
           "line_start": 22,
@@ -4666,35 +4636,65 @@
           "line_end": 576,
           "signature": "def test_bearish_full_chain_direction_consistency(self):"
         },
-        "src.session_router.is_high_quality_fvg": {
-          "file": "src\\session_router.py",
-          "line_start": 17,
-          "line_end": 25,
-          "signature": "def is_high_quality_fvg(fvg_pips: float, current_atr: float, symbol: str='') -> bool:"
-        },
-        "src.session_router.is_fvg_valid": {
-          "file": "src\\session_router.py",
+        "src.retrace_state.HTFFVG.__init__": {
+          "file": "src\\retrace_state.py",
           "line_start": 28,
-          "line_end": 34,
-          "signature": "def is_fvg_valid(formation_bar_index: int, current_bar_index: int) -> bool:"
+          "line_end": 32,
+          "signature": "def __init__(self, top: float, bottom: float, direction: str, bar_index: int):"
         },
-        "src.session_router.get_cbdr_multiplier": {
-          "file": "src\\session_router.py",
-          "line_start": 37,
-          "line_end": 44,
-          "signature": "def get_cbdr_multiplier(symbol: str, cbdr_pct: float) -> float:"
+        "src.retrace_state.HTFFVG.__repr__": {
+          "file": "src\\retrace_state.py",
+          "line_start": 34,
+          "line_end": 35,
+          "signature": "def __repr__(self):"
         },
-        "src.session_router.get_session_hours": {
-          "file": "src\\session_router.py",
-          "line_start": 47,
-          "line_end": 53,
-          "signature": "def get_session_hours(symbol: str) -> dict[str, int]:"
+        "src.retrace_state.scan_htf_fvgs": {
+          "file": "src\\retrace_state.py",
+          "line_start": 38,
+          "line_end": 58,
+          "signature": "def scan_htf_fvgs(bars_15m: list[Bar], lookback: int=100, min_fvg_size: float=10.0, max_wick_ratio: float=1.0) -> list[HTFFVG]:"
         },
-        "src.session_router.should_trade": {
-          "file": "src\\session_router.py",
-          "line_start": 56,
-          "line_end": 73,
-          "signature": "def should_trade(symbol: str, cbdr_width_pct: float | None=None) -> tuple[bool, str]:"
+        "src.retrace_state.RetraceStateMachine.__init__": {
+          "file": "src\\retrace_state.py",
+          "line_start": 62,
+          "line_end": 68,
+          "signature": "def __init__(self, max_wick_ratio: float=1.0):"
+        },
+        "src.retrace_state.RetraceStateMachine.state_name": {
+          "file": "src\\retrace_state.py",
+          "line_start": 71,
+          "line_end": 72,
+          "signature": "@property"
+        },
+        "src.retrace_state.RetraceStateMachine.can_trigger": {
+          "file": "src\\retrace_state.py",
+          "line_start": 74,
+          "line_end": 75,
+          "signature": "def can_trigger(self) -> bool:"
+        },
+        "src.retrace_state.RetraceStateMachine._mark_sweep_used": {
+          "file": "src\\retrace_state.py",
+          "line_start": 77,
+          "line_end": 85,
+          "signature": "def _mark_sweep_used(self):"
+        },
+        "src.retrace_state.RetraceStateMachine.reset": {
+          "file": "src\\retrace_state.py",
+          "line_start": 87,
+          "line_end": 92,
+          "signature": "def reset(self):"
+        },
+        "src.retrace_state.RetraceStateMachine.on_sweep": {
+          "file": "src\\retrace_state.py",
+          "line_start": 94,
+          "line_end": 124,
+          "signature": "def on_sweep(self, direction: Literal['bullish', 'bearish'], level: float, bar_index: int | None=None):"
+        },
+        "src.retrace_state.RetraceStateMachine.on_sweep_confirmed": {
+          "file": "src\\retrace_state.py",
+          "line_start": 126,
+          "line_end": 219,
+          "signature": "def on_sweep_confirmed(self, bars_15m: list[Bar], sweep_bar: Bar, atr_val: float=0.0, symbol: str=''):"
         },
         "src.bot._save_fvg_state": {
           "file": "src\\bot.py",
@@ -4741,67 +4741,67 @@
         "src.bot.PaperTrader._on_15m_close": {
           "file": "src\\bot.py",
           "line_start": 264,
-          "line_end": 392,
+          "line_end": 400,
           "signature": "async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):"
         },
         "src.bot.PaperTrader._on_1m_close": {
           "file": "src\\bot.py",
-          "line_start": 396,
-          "line_end": 463,
+          "line_start": 404,
+          "line_end": 473,
           "signature": "async def _on_1m_close(self, sym: str, bars_1m: list[Bar]):"
         },
         "src.bot.PaperTrader._try_entry": {
           "file": "src\\bot.py",
-          "line_start": 467,
-          "line_end": 709,
+          "line_start": 477,
+          "line_end": 719,
           "signature": "async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):"
         },
         "src.bot.PaperTrader._exit_trade": {
           "file": "src\\bot.py",
-          "line_start": 711,
-          "line_end": 901,
+          "line_start": 721,
+          "line_end": 911,
           "signature": "async def _exit_trade(self, sym, trade, exit_timestamp: int):"
         },
         "src.bot.PaperTrader.on_15m": {
           "file": "src\\bot.py",
-          "line_start": 903,
-          "line_end": 906,
+          "line_start": 913,
+          "line_end": 916,
           "signature": "async def on_15m(self, sym: str, bars: list[Bar]):"
         },
         "src.bot.PaperTrader.on_1m": {
           "file": "src\\bot.py",
-          "line_start": 908,
-          "line_end": 911,
+          "line_start": 918,
+          "line_end": 921,
           "signature": "async def on_1m(self, sym: str, bars: list[Bar]):"
         },
         "src.bot.PaperTrader._prefill_bars": {
           "file": "src\\bot.py",
-          "line_start": 913,
-          "line_end": 937,
+          "line_start": 923,
+          "line_end": 947,
           "signature": "async def _prefill_bars(self, sym: str, timeframe: str='15m') -> Result[None]:"
         },
         "src.bot.PaperTrader._warmup_cbdr": {
           "file": "src\\bot.py",
-          "line_start": 939,
-          "line_end": 994,
+          "line_start": 949,
+          "line_end": 1004,
           "signature": "def _warmup_cbdr(self, sym: str):"
         },
         "src.bot.PaperTrader._set_leverage": {
           "file": "src\\bot.py",
-          "line_start": 996,
-          "line_end": 1013,
+          "line_start": 1006,
+          "line_end": 1023,
           "signature": "async def _set_leverage(self, symbol: str) -> Result[None]:"
         },
         "src.bot.PaperTrader.run": {
           "file": "src\\bot.py",
-          "line_start": 1015,
-          "line_end": 1159,
+          "line_start": 1025,
+          "line_end": 1169,
           "signature": "async def run(self):"
         },
         "src.bot.main": {
           "file": "src\\bot.py",
-          "line_start": 1162,
-          "line_end": 1172,
+          "line_start": 1172,
+          "line_end": 1182,
           "signature": "def main():"
         }
       },
@@ -4838,10 +4838,6 @@
           "last_modified": "2026-07-12T09:07:20",
           "hash": "sha256:a896bf26359bc13b"
         },
-        "src\\state_manager.py": {
-          "last_modified": "2026-07-03T14:11:49",
-          "hash": "sha256:b3026c6699d172d5"
-        },
         "src\\state_writer.py": {
           "last_modified": "2026-06-30T21:09:49",
           "hash": "sha256:ccafe1fef001605e"
@@ -4861,10 +4857,6 @@
         "src\\trading\\order_manager.py": {
           "last_modified": "2026-07-02T12:36:50",
           "hash": "sha256:12495700771dae98"
-        },
-        "src\\trading\\signal_engine.py": {
-          "last_modified": "2026-07-03T09:59:24",
-          "hash": "sha256:94d7f4ced9411ba3"
         },
         "src\\trading\\trailing_manager.py": {
           "last_modified": "2026-07-11T17:46:57",
@@ -4950,14 +4942,6 @@
           "last_modified": "2026-06-26T01:10:59",
           "hash": "sha256:6f1468bf97ef5dde"
         },
-        "src\\trading\\__init__.py": {
-          "last_modified": "2026-06-30T21:12:59",
-          "hash": "sha256:f61320312ed5e5b1"
-        },
-        "src\\retrace_state.py": {
-          "last_modified": "2026-07-13T17:00:48",
-          "hash": "sha256:bc83e0605225ff9e"
-        },
         "tests\\test_integration.py": {
           "last_modified": "2026-07-13T14:02:29",
           "hash": "sha256:9f210d1b0f3a3da7"
@@ -4966,21 +4950,37 @@
           "last_modified": "2026-07-12T12:13:09",
           "hash": "sha256:2e485928d7d0773b"
         },
+        "src\\session_router.py": {
+          "last_modified": "2026-07-13T19:33:58",
+          "hash": "sha256:d5fd86fb8f0dc5bb"
+        },
+        "src\\trading\\signal_engine.py": {
+          "last_modified": "2026-07-13T21:12:05",
+          "hash": "sha256:5f06be58b3b43c21"
+        },
+        "src\\trading\\__init__.py": {
+          "last_modified": "2026-06-30T21:12:59",
+          "hash": "sha256:f61320312ed5e5b1"
+        },
+        "src\\state_manager.py": {
+          "last_modified": "2026-07-03T14:11:49",
+          "hash": "sha256:b3026c6699d172d5"
+        },
         "tests\\test_integration_v2.py": {
           "last_modified": "2026-07-13T17:00:23",
           "hash": "sha256:566306066c0f779a"
         },
-        "src\\session_router.py": {
-          "last_modified": "2026-07-13T19:05:52",
-          "hash": "sha256:0026094476c765df"
+        "src\\config.py": {
+          "last_modified": "2026-07-13T23:09:15",
+          "hash": "sha256:3abfd89ff70f03df"
+        },
+        "src\\retrace_state.py": {
+          "last_modified": "2026-07-13T23:09:59",
+          "hash": "sha256:81c546b5f1ab672b"
         },
         "src\\bot.py": {
-          "last_modified": "2026-07-13T19:06:11",
-          "hash": "sha256:620290e8a2e19c76"
-        },
-        "src\\config.py": {
-          "last_modified": "2026-07-13T19:07:29",
-          "hash": "sha256:0d76d5ab0906c552"
+          "last_modified": "2026-07-13T23:12:11",
+          "hash": "sha256:6ebed6dfecc39429"
         }
       },
       "last_full_scan": "2026-07-12T23:30:10"

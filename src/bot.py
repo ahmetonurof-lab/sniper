@@ -311,11 +311,16 @@ class PaperTrader:
         engine = self.signal_engines[sym]
 
         # ── Blok 8: RSM state progression → SignalEngine ──
-        engine.progress_rsm(bars_15m, current, ss, atr_val)
+        engine.progress_rsm(bars_15m, current, ss, atr_val, sym)
 
         # ── Blok 9: FVG/Wick durum yazdırma → ConsoleReporter (Faz 6.2) ──
         self.reporter.display_fvg_status(
-            sym, rsm, max(atr_val * cfg.FVG_MIN_SIZE_ATR_MULT, 1e-8), current.close
+            sym,
+            rsm,
+            max(
+                atr_val * cfg.FVG_MIN_MULT_MAP.get(sym, cfg.FVG_MIN_SIZE_ATR_MULT), 1e-8
+            ),
+            current.close,
         )
 
         # ── Blok 10: Trigger check + filtreler → SignalEngine ──
@@ -368,7 +373,10 @@ class PaperTrader:
                 sl_atr,
                 tp_rr,
                 fvg_buf,
-                max(atr_val * cfg.FVG_MIN_SIZE_ATR_MULT, 1e-8),
+                max(
+                    atr_val * cfg.FVG_MIN_MULT_MAP.get(sym, cfg.FVG_MIN_SIZE_ATR_MULT),
+                    1e-8,
+                ),
             )
         elif result.decision == "SKIP":
             # Filtre reddetti → rsm zaten resetlendi, erken dönüş
@@ -403,7 +411,9 @@ class PaperTrader:
         atr_val = self._atr_state.get(
             sym, max(current.range, current.close * cfg.DEFAULT_ATR_FALLBACK_PCT)
         )
-        min_fvg = max(atr_val * cfg.FVG_MIN_SIZE_ATR_MULT, 1e-8)
+        min_fvg = max(
+            atr_val * cfg.FVG_MIN_MULT_MAP.get(sym, cfg.FVG_MIN_SIZE_ATR_MULT), 1e-8
+        )
 
         self._orphan_check_counter += 1
         if self._orphan_check_counter % 5 == 0:

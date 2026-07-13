@@ -61,12 +61,18 @@ class SignalEngine:
     # ── Blok 8: RSM state progression ──────────────────────────
 
     def progress_rsm(
-        self, bars_15m: list[Bar], current: Bar, ss: SessionState, atr_val: float = 0.0
+        self,
+        bars_15m: list[Bar],
+        current: Bar,
+        ss: SessionState,
+        atr_val: float = 0.0,
+        symbol: str = "",
     ) -> None:
         """RSM state machine'i ilerlet: IDLE → SWEEP_DETECTED → TRIGGER_READY.
 
         Orijinal _on_15m_close() Blok 8 ile birebir aynı mantık.
         atr_val: ATR-bazlı dinamik FVG eşiği için on_sweep_confirmed'e iletilir.
+        symbol: coin bazli FVG_SIZE_MAP lookup icin.
         """
         if self.rsm.state_name == "IDLE":
             self.rsm.on_sweep(
@@ -76,7 +82,7 @@ class SignalEngine:
             )
 
         if self.rsm.state_name == "SWEEP_DETECTED":
-            self.rsm.on_sweep_confirmed(bars_15m, current, atr_val)
+            self.rsm.on_sweep_confirmed(bars_15m, current, atr_val, symbol)
 
         ss.fvg_ready = self.rsm.state_name == "TRIGGER_READY"
 

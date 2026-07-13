@@ -124,12 +124,15 @@ class RetraceStateMachine:
         logger.info(f"[RST] SWEEP_DETECTED | dir={direction} level={level:.2f}")
 
     def on_sweep_confirmed(
-        self, bars_15m: list[Bar], sweep_bar: Bar, atr_val: float = 0.0
+        self,
+        bars_15m: list[Bar],
+        sweep_bar: Bar,
+        atr_val: float = 0.0,
+        symbol: str = "",
     ):
         """Sweep onaylandiginda FVG taramasi + govde-ici kapanis onayi.
 
-        min_fvg_size artik ATR-bazlı dinamik: atr_val * FVG_MIN_SIZE_ATR_MULT
-        """
+        min_fvg_size artik coin bazli: FVG_SIZE_MAP[symbol] veya FVG_MIN_SIZE_ATR_MULT fallback."""
         if self.state != RetraceState.SWEEP_DETECTED:
             return
 
@@ -150,10 +153,11 @@ class RetraceStateMachine:
                 self.reset()
                 return
 
-        # ── ATR-bazlı dinamik FVG eşiği ──
+        # ── Coin bazli dinamik FVG eşiği ──
         import config as _cfg
 
-        min_fvg_size = max(atr_val * _cfg.FVG_MIN_SIZE_ATR_MULT, 1e-8)
+        min_mult = _cfg.FVG_MIN_MULT_MAP.get(symbol, _cfg.FVG_MIN_SIZE_ATR_MULT)
+        min_fvg_size = max(atr_val * min_mult, 1e-8)
 
         htf_fvgs = scan_htf_fvgs(
             bars_15m,
