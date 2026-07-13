@@ -58,7 +58,7 @@ SYMBOLS = [
 
 # ── ATR-bazlı dinamik FVG eşiği (statik FVG_SIZE_MAP yerine) ──
 
-FVG_MIN_SIZE_ATR_MULT = 0.06
+FVG_MIN_SIZE_ATR_MULT = 0.08
 
 
 # ── CBDR Risk Matrisi (coin bazli session + bucket carpani) ─────
@@ -353,26 +353,26 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
 }
 
 FVG_SIZE_MAP: dict[str, float] = {
-    "AAVEUSDT": 0.24,
-    "ADAUSDT": 0.40,
-    "ALGOUSDT": 0.42,
-    "APTUSDT": 0.32,
-    "ARBUSDT": 0.43,
-    "ATOMUSDT": 0.59,
-    "AVAXUSDT": 0.60,
-    "BNBUSDT": 0.21,
-    "BTCUSDT": 0.51,
-    "DOGEUSDT": 0.50,
-    "DOTUSDT": 0.60,
-    "ETHUSDT": 0.44,
-    "INJUSDT": 0.60,
-    "LINKUSDT": 0.51,
-    "NEARUSDT": 0.48,
-    "OPUSDT": 0.60,
-    "SOLUSDT": 0.57,
-    "SUIUSDT": 0.31,
-    "UNIUSDT": 0.35,
-    "XRPUSDT": 0.22,
+    "AAVEUSDT": 0.030,
+    "ADAUSDT": 0.050,
+    "ALGOUSDT": 0.100,
+    "APTUSDT": 0.130,
+    "ARBUSDT": 0.040,
+    "ATOMUSDT": 0.080,
+    "AVAXUSDT": 0.080,
+    "BNBUSDT": 0.021,
+    "BTCUSDT": 0.060,
+    "DOGEUSDT": 0.100,
+    "DOTUSDT": 0.060,
+    "ETHUSDT": 0.110,
+    "INJUSDT": 0.160,
+    "LINKUSDT": 0.020,
+    "NEARUSDT": 0.048,
+    "OPUSDT": 0.080,
+    "SOLUSDT": 0.060,
+    "SUIUSDT": 0.050,
+    "UNIUSDT": 0.060,
+    "XRPUSDT": 0.022,
 }
 
 # ── Coin bazlı FVG_MIN_SIZE_ATR_MULT (min gap eşiği) ────────────
@@ -386,15 +386,15 @@ FVG_MIN_MULT_MAP: dict[str, float] = {
     "ATOMUSDT": 0.080,
     "AVAXUSDT": 0.080,
     "BNBUSDT": 0.190,
-    "BTCUSDT": 0.160,
+    "BTCUSDT": 0.060,
     "DOGEUSDT": 0.100,
-    "DOTUSDT": 0.020,
+    "DOTUSDT": 0.060,
     "ETHUSDT": 0.110,
     "INJUSDT": 0.160,
     "LINKUSDT": 0.020,
     "NEARUSDT": 0.060,
     "OPUSDT": 0.080,
-    "SOLUSDT": 0.040,
+    "SOLUSDT": 0.060,
     "SUIUSDT": 0.050,
     "UNIUSDT": 0.060,
     "XRPUSDT": 0.060,
