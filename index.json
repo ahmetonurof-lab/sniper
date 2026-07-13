@@ -4,264 +4,6 @@
   "repos": {
     "sniper": {
       "functions": {
-        "src.bot_binance._get_precision_places": {
-          "file": "src\\bot_binance.py",
-          "line_start": 42,
-          "line_end": 47,
-          "signature": "def _get_precision_places(value: float) -> int:"
-        },
-        "src.bot_binance._round_to_tick": {
-          "file": "src\\bot_binance.py",
-          "line_start": 50,
-          "line_end": 55,
-          "signature": "def _round_to_tick(value: float, tick: float) -> float:"
-        },
-        "src.bot_binance._round_step": {
-          "file": "src\\bot_binance.py",
-          "line_start": 58,
-          "line_end": 64,
-          "signature": "def _round_step(value: float, step: float) -> float:"
-        },
-        "src.bot_binance.BinanceRESTClient.__init__": {
-          "file": "src\\bot_binance.py",
-          "line_start": 76,
-          "line_end": 108,
-          "signature": "def __init__(self, api_key: str, api_secret: str, base_url: str, rate_limiter: Any, semaphore: asyncio.Semaphore, retry_config: RetryConfig | None=None, circuit_breaker: CircuitBreaker | None=None, co"
-        },
-        "src.bot_binance.BinanceRESTClient._ensure_session": {
-          "file": "src\\bot_binance.py",
-          "line_start": 114,
-          "line_end": 142,
-          "signature": "async def _ensure_session(self) -> aiohttp.ClientSession:"
-        },
-        "src.bot_binance.BinanceRESTClient.close": {
-          "file": "src\\bot_binance.py",
-          "line_start": 144,
-          "line_end": 148,
-          "signature": "async def close(self) -> None:"
-        },
-        "src.bot_binance.BinanceRESTClient.get_order_type": {
-          "file": "src\\bot_binance.py",
-          "line_start": 155,
-          "line_end": 157,
-          "signature": "@staticmethod"
-        },
-        "src.bot_binance.BinanceRESTClient.get_order_price": {
-          "file": "src\\bot_binance.py",
-          "line_start": 160,
-          "line_end": 162,
-          "signature": "@staticmethod"
-        },
-        "src.bot_binance.BinanceRESTClient.get_order_timestamp": {
-          "file": "src\\bot_binance.py",
-          "line_start": 165,
-          "line_end": 171,
-          "signature": "@staticmethod"
-        },
-        "src.bot_binance.BinanceRESTClient._load_exchange_info": {
-          "file": "src\\bot_binance.py",
-          "line_start": 177,
-          "line_end": 193,
-          "signature": "async def _load_exchange_info(self, force: bool=False) -> dict:"
-        },
-        "src.bot_binance.BinanceRESTClient.get_symbol_info": {
-          "file": "src\\bot_binance.py",
-          "line_start": 195,
-          "line_end": 198,
-          "signature": "async def get_symbol_info(self, symbol: str) -> dict | None:"
-        },
-        "src.bot_binance.BinanceRESTClient.get_tick_size": {
-          "file": "src\\bot_binance.py",
-          "line_start": 204,
-          "line_end": 212,
-          "signature": "async def get_tick_size(self, symbol: str) -> float:"
-        },
-        "src.bot_binance.BinanceRESTClient.get_step_size": {
-          "file": "src\\bot_binance.py",
-          "line_start": 214,
-          "line_end": 222,
-          "signature": "async def get_step_size(self, symbol: str) -> float:"
-        },
-        "src.bot_binance.BinanceRESTClient.get_min_qty": {
-          "file": "src\\bot_binance.py",
-          "line_start": 224,
-          "line_end": 232,
-          "signature": "async def get_min_qty(self, symbol: str) -> float:"
-        },
-        "src.bot_binance.BinanceRESTClient.apply_price_precision": {
-          "file": "src\\bot_binance.py",
-          "line_start": 234,
-          "line_end": 238,
-          "signature": "async def apply_price_precision(self, symbol: str, price: float) -> float:"
-        },
-        "src.bot_binance.BinanceRESTClient.apply_amount_precision": {
-          "file": "src\\bot_binance.py",
-          "line_start": 240,
-          "line_end": 244,
-          "signature": "async def apply_amount_precision(self, symbol: str, amount: float) -> float:"
-        },
-        "src.bot_binance.BinanceRESTClient.validate_min_amount": {
-          "file": "src\\bot_binance.py",
-          "line_start": 246,
-          "line_end": 256,
-          "signature": "async def validate_min_amount(self, symbol: str, amount: float) -> float:"
-        },
-        "src.bot_binance.BinanceRESTClient.get_min_notional": {
-          "file": "src\\bot_binance.py",
-          "line_start": 258,
-          "line_end": 266,
-          "signature": "async def get_min_notional(self, symbol: str) -> float:"
-        },
-        "src.bot_binance.BinanceRESTClient.validate_min_notional": {
-          "file": "src\\bot_binance.py",
-          "line_start": 268,
-          "line_end": 287,
-          "signature": "async def validate_min_notional(self, symbol: str, amount: float, price: float) -> float:"
-        },
-        "src.bot_binance.BinanceRESTClient.estimate_market_price": {
-          "file": "src\\bot_binance.py",
-          "line_start": 289,
-          "line_end": 294,
-          "signature": "async def estimate_market_price(self, symbol: str) -> float:"
-        },
-        "src.bot_binance.BinanceRESTClient._build_headers": {
-          "file": "src\\bot_binance.py",
-          "line_start": 300,
-          "line_end": 302,
-          "signature": "def _build_headers(self) -> dict[str, str]:"
-        },
-        "src.bot_binance.BinanceRESTClient._sign_params": {
-          "file": "src\\bot_binance.py",
-          "line_start": 304,
-          "line_end": 311,
-          "signature": "def _sign_params(self, params_str: str) -> str:"
-        },
-        "src.bot_binance.BinanceRESTClient._compute_backoff": {
-          "file": "src\\bot_binance.py",
-          "line_start": 313,
-          "line_end": 321,
-          "signature": "def _compute_backoff(self, attempt: int) -> float:"
-        },
-        "src.bot_binance.BinanceRESTClient._should_retry": {
-          "file": "src\\bot_binance.py",
-          "line_start": 323,
-          "line_end": 327,
-          "signature": "def _should_retry(self, status: int | None) -> bool:"
-        },
-        "src.bot_binance.BinanceRESTClient.get": {
-          "file": "src\\bot_binance.py",
-          "line_start": 329,
-          "line_end": 381,
-          "signature": "async def get(self, endpoint: str, params: str='') -> Result[dict]:"
-        },
-        "src.bot_binance.BinanceRESTClient.get._do_get": {
-          "file": "src\\bot_binance.py",
-          "line_start": 336,
-          "line_end": 373,
-          "signature": "async def _do_get() -> dict:"
-        },
-        "src.bot_binance.BinanceRESTClient.post": {
-          "file": "src\\bot_binance.py",
-          "line_start": 383,
-          "line_end": 445,
-          "signature": "async def post(self, endpoint: str, params: dict) -> Result[dict]:"
-        },
-        "src.bot_binance.BinanceRESTClient.post._do_post": {
-          "file": "src\\bot_binance.py",
-          "line_start": 390,
-          "line_end": 437,
-          "signature": "async def _do_post() -> dict:"
-        },
-        "src.bot_binance.BinanceRESTClient.delete": {
-          "file": "src\\bot_binance.py",
-          "line_start": 447,
-          "line_end": 499,
-          "signature": "async def delete(self, endpoint: str, params: str='') -> Result[dict]:"
-        },
-        "src.bot_binance.BinanceRESTClient.delete._do_delete": {
-          "file": "src\\bot_binance.py",
-          "line_start": 454,
-          "line_end": 491,
-          "signature": "async def _do_delete() -> dict:"
-        },
-        "src.bot_binance.BinanceRESTClient.get_open_orders": {
-          "file": "src\\bot_binance.py",
-          "line_start": 505,
-          "line_end": 514,
-          "signature": "async def get_open_orders(self, symbol: str) -> list:"
-        },
-        "src.bot_binance.BinanceRESTClient.get_all_orders": {
-          "file": "src\\bot_binance.py",
-          "line_start": 516,
-          "line_end": 528,
-          "signature": "async def get_all_orders(self, symbol: str) -> list:"
-        },
-        "src.bot_binance.BinanceRESTClient.get_balance": {
-          "file": "src\\bot_binance.py",
-          "line_start": 530,
-          "line_end": 538,
-          "signature": "async def get_balance(self) -> float:"
-        },
-        "src.bot_binance.BinanceRESTClient.get_positions": {
-          "file": "src\\bot_binance.py",
-          "line_start": 540,
-          "line_end": 549,
-          "signature": "async def get_positions(self) -> list[dict]:"
-        },
-        "src.bot_binance.BinanceRESTClient.place_market_order": {
-          "file": "src\\bot_binance.py",
-          "line_start": 551,
-          "line_end": 616,
-          "signature": "async def place_market_order(self, symbol: str, side: str, qty: float, reduce_only: bool=False) -> dict:"
-        },
-        "src.bot_binance.BinanceRESTClient.place_stop_order": {
-          "file": "src\\bot_binance.py",
-          "line_start": 618,
-          "line_end": 674,
-          "signature": "async def place_stop_order(self, symbol: str, side: str, qty: float, stop_price: float, client_id: str='') -> dict:"
-        },
-        "src.bot_binance.BinanceRESTClient.place_tp_order": {
-          "file": "src\\bot_binance.py",
-          "line_start": 676,
-          "line_end": 731,
-          "signature": "async def place_tp_order(self, symbol: str, side: str, qty: float, stop_price: float, client_id: str='') -> dict:"
-        },
-        "src.bot_binance.BinanceRESTClient.cancel_order": {
-          "file": "src\\bot_binance.py",
-          "line_start": 733,
-          "line_end": 807,
-          "signature": "async def cancel_order(self, order_id: Any, symbol: str, reason: str='', is_algo: bool=False) -> bool:"
-        },
-        "src.bot_binance.BinanceRESTClient.cancel_order._check_unknown": {
-          "file": "src\\bot_binance.py",
-          "line_start": 742,
-          "line_end": 743,
-          "signature": "def _check_unknown(err: str) -> bool:"
-        },
-        "src.bot_binance.BinanceRESTClient._unsigned_post": {
-          "file": "src\\bot_binance.py",
-          "line_start": 814,
-          "line_end": 826,
-          "signature": "async def _unsigned_post(self, endpoint: str) -> Result[dict]:"
-        },
-        "src.bot_binance.BinanceRESTClient._unsigned_put": {
-          "file": "src\\bot_binance.py",
-          "line_start": 828,
-          "line_end": 840,
-          "signature": "async def _unsigned_put(self, endpoint: str) -> Result[dict]:"
-        },
-        "src.bot_binance.BinanceRESTClient.get_listen_key": {
-          "file": "src\\bot_binance.py",
-          "line_start": 842,
-          "line_end": 851,
-          "signature": "async def get_listen_key(self) -> str:"
-        },
-        "src.bot_binance.BinanceRESTClient.renew_listen_key": {
-          "file": "src\\bot_binance.py",
-          "line_start": 853,
-          "line_end": 859,
-          "signature": "async def renew_listen_key(self, listen_key: str) -> None:"
-        },
         "src.bot_infra.get_lock": {
           "file": "src\\bot_infra.py",
           "line_start": 55,
@@ -3184,252 +2926,6 @@
           "line_end": 140,
           "signature": "def test_conversion_out_of_bounds_falls_to_price_lookup(self):"
         },
-        "tests.test_websocket._bar": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 27,
-          "line_end": 36,
-          "signature": "def _bar(index, open_, high, low, close, is_closed=True, timestamp=0):"
-        },
-        "tests.test_websocket._kline_msg": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 39,
-          "line_end": 60,
-          "signature": "def _kline_msg(symbol='btcusdt', interval='5m', close=100.0, is_closed=True, ts=None):"
-        },
-        "tests.test_websocket.TestCooldown.setup_method": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 69,
-          "line_end": 70,
-          "signature": "def setup_method(self):"
-        },
-        "tests.test_websocket.TestCooldown.test_is_cooldown_active_false_initially": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 72,
-          "line_end": 73,
-          "signature": "def test_is_cooldown_active_false_initially(self):"
-        },
-        "tests.test_websocket.TestCooldown.test_is_cooldown_active_true_after_register": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 75,
-          "line_end": 77,
-          "signature": "def test_is_cooldown_active_true_after_register(self):"
-        },
-        "tests.test_websocket.TestCooldown.test_is_cooldown_active_false_after_cooldown": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 79,
-          "line_end": 82,
-          "signature": "def test_is_cooldown_active_false_after_cooldown(self):"
-        },
-        "tests.test_websocket.TestCooldown.test_register_trade_updates_time": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 84,
-          "line_end": 90,
-          "signature": "def test_register_trade_updates_time(self):"
-        },
-        "tests.test_websocket.TestBarBuffer.setup_method": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 99,
-          "line_end": 100,
-          "signature": "def setup_method(self):"
-        },
-        "tests.test_websocket.TestBarBuffer._cb": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 102,
-          "line_end": 103,
-          "signature": "async def _cb(self, bars):"
-        },
-        "tests.test_websocket.TestBarBuffer.test_kline_to_bar_conversion": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 105,
-          "line_end": 114,
-          "signature": "def test_kline_to_bar_conversion(self):"
-        },
-        "tests.test_websocket.TestBarBuffer.test_feed_appends_closed_bar_and_calls_callback": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 117,
-          "line_end": 134,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_feed_does_not_call_callback_on_unclosed": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 137,
-          "line_end": 152,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_feed_skips_duplicate_timestamp": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 155,
-          "line_end": 171,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_feed_max_bars_eviction": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 174,
-          "line_end": 191,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_feed_next_index_management": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 194,
-          "line_end": 212,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 215,
-          "line_end": 239,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks.cb1": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 219,
-          "line_end": 220,
-          "signature": "async def cb1(bars):"
-        },
-        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks.cb2": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 222,
-          "line_end": 223,
-          "signature": "async def cb2(bars):"
-        },
-        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 242,
-          "line_end": 264,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks.bad_cb": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 245,
-          "line_end": 246,
-          "signature": "async def bad_cb(bars):"
-        },
-        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks.good_cb": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 248,
-          "line_end": 249,
-          "signature": "async def good_cb(bars):"
-        },
-        "tests.test_websocket.TestBinanceWSHubInit.test_default_initialization": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 273,
-          "line_end": 278,
-          "signature": "def test_default_initialization(self):"
-        },
-        "tests.test_websocket.TestBinanceWSHubInit.test_custom_timeframes": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 280,
-          "line_end": 282,
-          "signature": "def test_custom_timeframes(self):"
-        },
-        "tests.test_websocket.TestBinanceWSHubInit.test_symbols_uppercased": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 284,
-          "line_end": 286,
-          "signature": "def test_symbols_uppercased(self):"
-        },
-        "tests.test_websocket.TestBinanceWSHubInit.test_custom_base_url": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 288,
-          "line_end": 292,
-          "signature": "def test_custom_base_url(self):"
-        },
-        "tests.test_websocket.TestBuildUrl.test_single_symbol_single_timeframe": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 296,
-          "line_end": 299,
-          "signature": "def test_single_symbol_single_timeframe(self):"
-        },
-        "tests.test_websocket.TestBuildUrl.test_multi_symbol_multi_timeframe": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 301,
-          "line_end": 307,
-          "signature": "def test_multi_symbol_multi_timeframe(self):"
-        },
-        "tests.test_websocket.TestBuildUrl.test_invalid_timeframe_raises": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 309,
-          "line_end": 312,
-          "signature": "def test_invalid_timeframe_raises(self):"
-        },
-        "tests.test_websocket.TestDispatch.test_dispatch_routes_kline_to_correct_buffer": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 317,
-          "line_end": 324,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestDispatch.test_dispatch_ignores_non_kline_events": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 327,
-          "line_end": 337,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestDispatch.test_dispatch_handles_invalid_json": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 340,
-          "line_end": 343,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestDispatch.test_dispatch_updates_last_seen": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 346,
-          "line_end": 353,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestGetBarsPrefill.test_get_bars_empty_initially": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 357,
-          "line_end": 359,
-          "signature": "def test_get_bars_empty_initially(self):"
-        },
-        "tests.test_websocket.TestGetBarsPrefill.test_prefill_bars_sets_buffer": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 361,
-          "line_end": 367,
-          "signature": "def test_prefill_bars_sets_buffer(self):"
-        },
-        "tests.test_websocket.TestGetBarsPrefill.test_get_bars_returns_copy": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 369,
-          "line_end": 376,
-          "signature": "def test_get_bars_returns_copy(self):"
-        },
-        "tests.test_websocket.TestCallbackRegistration.test_register_callback": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 380,
-          "line_end": 390,
-          "signature": "def test_register_callback(self):"
-        },
-        "tests.test_websocket.TestCallbackRegistration.test_register_callback.handler": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 384,
-          "line_end": 385,
-          "signature": "async def handler(bars):"
-        },
-        "tests.test_websocket.TestCallbackRegistration.test_on_bar_decorator": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 392,
-          "line_end": 400,
-          "signature": "def test_on_bar_decorator(self):"
-        },
-        "tests.test_websocket.TestCallbackRegistration.test_on_bar_decorator.handler": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 396,
-          "line_end": 397,
-          "signature": "@hub.on_bar('BTCUSDT', '5m')"
-        },
-        "tests.test_websocket.TestStop.test_stop_sets_event": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 404,
-          "line_end": 408,
-          "signature": "def test_stop_sets_event(self):"
-        },
-        "tests.test_websocket.TestTfToStream.test_known_timeframes": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 417,
-          "line_end": 423,
-          "signature": "def test_known_timeframes(self):"
-        },
         "tests.test_bot._bar": {
           "file": "tests\\test_bot.py",
           "line_start": 20,
@@ -4647,13 +4143,669 @@
           "line_start": 498,
           "line_end": 564,
           "signature": "def test_bearish_full_flow_sweep_to_exit(self):"
+        },
+        "src.bot_binance._get_precision_places": {
+          "file": "src\\bot_binance.py",
+          "line_start": 42,
+          "line_end": 47,
+          "signature": "def _get_precision_places(value: float) -> int:"
+        },
+        "src.bot_binance._round_to_tick": {
+          "file": "src\\bot_binance.py",
+          "line_start": 50,
+          "line_end": 55,
+          "signature": "def _round_to_tick(value: float, tick: float) -> float:"
+        },
+        "src.bot_binance._round_step": {
+          "file": "src\\bot_binance.py",
+          "line_start": 58,
+          "line_end": 64,
+          "signature": "def _round_step(value: float, step: float) -> float:"
+        },
+        "src.bot_binance.BinanceRESTClient.__init__": {
+          "file": "src\\bot_binance.py",
+          "line_start": 76,
+          "line_end": 108,
+          "signature": "def __init__(self, api_key: str, api_secret: str, base_url: str, rate_limiter: Any, semaphore: asyncio.Semaphore, retry_config: RetryConfig | None=None, circuit_breaker: CircuitBreaker | None=None, co"
+        },
+        "src.bot_binance.BinanceRESTClient._ensure_session": {
+          "file": "src\\bot_binance.py",
+          "line_start": 114,
+          "line_end": 142,
+          "signature": "async def _ensure_session(self) -> aiohttp.ClientSession:"
+        },
+        "src.bot_binance.BinanceRESTClient.close": {
+          "file": "src\\bot_binance.py",
+          "line_start": 144,
+          "line_end": 148,
+          "signature": "async def close(self) -> None:"
+        },
+        "src.bot_binance.BinanceRESTClient.get_order_type": {
+          "file": "src\\bot_binance.py",
+          "line_start": 155,
+          "line_end": 157,
+          "signature": "@staticmethod"
+        },
+        "src.bot_binance.BinanceRESTClient.get_order_price": {
+          "file": "src\\bot_binance.py",
+          "line_start": 160,
+          "line_end": 162,
+          "signature": "@staticmethod"
+        },
+        "src.bot_binance.BinanceRESTClient.get_order_timestamp": {
+          "file": "src\\bot_binance.py",
+          "line_start": 165,
+          "line_end": 171,
+          "signature": "@staticmethod"
+        },
+        "src.bot_binance.BinanceRESTClient._load_exchange_info": {
+          "file": "src\\bot_binance.py",
+          "line_start": 177,
+          "line_end": 193,
+          "signature": "async def _load_exchange_info(self, force: bool=False) -> dict:"
+        },
+        "src.bot_binance.BinanceRESTClient.get_symbol_info": {
+          "file": "src\\bot_binance.py",
+          "line_start": 195,
+          "line_end": 198,
+          "signature": "async def get_symbol_info(self, symbol: str) -> dict | None:"
+        },
+        "src.bot_binance.BinanceRESTClient.get_tick_size": {
+          "file": "src\\bot_binance.py",
+          "line_start": 204,
+          "line_end": 212,
+          "signature": "async def get_tick_size(self, symbol: str) -> float:"
+        },
+        "src.bot_binance.BinanceRESTClient.get_step_size": {
+          "file": "src\\bot_binance.py",
+          "line_start": 214,
+          "line_end": 222,
+          "signature": "async def get_step_size(self, symbol: str) -> float:"
+        },
+        "src.bot_binance.BinanceRESTClient.get_min_qty": {
+          "file": "src\\bot_binance.py",
+          "line_start": 224,
+          "line_end": 232,
+          "signature": "async def get_min_qty(self, symbol: str) -> float:"
+        },
+        "src.bot_binance.BinanceRESTClient.apply_price_precision": {
+          "file": "src\\bot_binance.py",
+          "line_start": 234,
+          "line_end": 238,
+          "signature": "async def apply_price_precision(self, symbol: str, price: float) -> float:"
+        },
+        "src.bot_binance.BinanceRESTClient.apply_amount_precision": {
+          "file": "src\\bot_binance.py",
+          "line_start": 240,
+          "line_end": 244,
+          "signature": "async def apply_amount_precision(self, symbol: str, amount: float) -> float:"
+        },
+        "src.bot_binance.BinanceRESTClient.validate_min_amount": {
+          "file": "src\\bot_binance.py",
+          "line_start": 246,
+          "line_end": 256,
+          "signature": "async def validate_min_amount(self, symbol: str, amount: float) -> float:"
+        },
+        "src.bot_binance.BinanceRESTClient.get_min_notional": {
+          "file": "src\\bot_binance.py",
+          "line_start": 258,
+          "line_end": 266,
+          "signature": "async def get_min_notional(self, symbol: str) -> float:"
+        },
+        "src.bot_binance.BinanceRESTClient.validate_min_notional": {
+          "file": "src\\bot_binance.py",
+          "line_start": 268,
+          "line_end": 287,
+          "signature": "async def validate_min_notional(self, symbol: str, amount: float, price: float) -> float:"
+        },
+        "src.bot_binance.BinanceRESTClient.estimate_market_price": {
+          "file": "src\\bot_binance.py",
+          "line_start": 289,
+          "line_end": 294,
+          "signature": "async def estimate_market_price(self, symbol: str) -> float:"
+        },
+        "src.bot_binance.BinanceRESTClient._build_headers": {
+          "file": "src\\bot_binance.py",
+          "line_start": 300,
+          "line_end": 302,
+          "signature": "def _build_headers(self) -> dict[str, str]:"
+        },
+        "src.bot_binance.BinanceRESTClient._sign_params": {
+          "file": "src\\bot_binance.py",
+          "line_start": 304,
+          "line_end": 311,
+          "signature": "def _sign_params(self, params_str: str) -> str:"
+        },
+        "src.bot_binance.BinanceRESTClient._compute_backoff": {
+          "file": "src\\bot_binance.py",
+          "line_start": 313,
+          "line_end": 321,
+          "signature": "def _compute_backoff(self, attempt: int) -> float:"
+        },
+        "src.bot_binance.BinanceRESTClient._should_retry": {
+          "file": "src\\bot_binance.py",
+          "line_start": 323,
+          "line_end": 327,
+          "signature": "def _should_retry(self, status: int | None) -> bool:"
+        },
+        "src.bot_binance.BinanceRESTClient.get": {
+          "file": "src\\bot_binance.py",
+          "line_start": 329,
+          "line_end": 381,
+          "signature": "async def get(self, endpoint: str, params: str='') -> Result[dict]:"
+        },
+        "src.bot_binance.BinanceRESTClient.get._do_get": {
+          "file": "src\\bot_binance.py",
+          "line_start": 336,
+          "line_end": 373,
+          "signature": "async def _do_get() -> dict:"
+        },
+        "src.bot_binance.BinanceRESTClient.post": {
+          "file": "src\\bot_binance.py",
+          "line_start": 383,
+          "line_end": 445,
+          "signature": "async def post(self, endpoint: str, params: dict) -> Result[dict]:"
+        },
+        "src.bot_binance.BinanceRESTClient.post._do_post": {
+          "file": "src\\bot_binance.py",
+          "line_start": 390,
+          "line_end": 437,
+          "signature": "async def _do_post() -> dict:"
+        },
+        "src.bot_binance.BinanceRESTClient.delete": {
+          "file": "src\\bot_binance.py",
+          "line_start": 447,
+          "line_end": 499,
+          "signature": "async def delete(self, endpoint: str, params: str='') -> Result[dict]:"
+        },
+        "src.bot_binance.BinanceRESTClient.delete._do_delete": {
+          "file": "src\\bot_binance.py",
+          "line_start": 454,
+          "line_end": 491,
+          "signature": "async def _do_delete() -> dict:"
+        },
+        "src.bot_binance.BinanceRESTClient.get_open_orders": {
+          "file": "src\\bot_binance.py",
+          "line_start": 505,
+          "line_end": 514,
+          "signature": "async def get_open_orders(self, symbol: str) -> list:"
+        },
+        "src.bot_binance.BinanceRESTClient.get_all_orders": {
+          "file": "src\\bot_binance.py",
+          "line_start": 516,
+          "line_end": 528,
+          "signature": "async def get_all_orders(self, symbol: str) -> list:"
+        },
+        "src.bot_binance.BinanceRESTClient.get_balance": {
+          "file": "src\\bot_binance.py",
+          "line_start": 530,
+          "line_end": 538,
+          "signature": "async def get_balance(self) -> float:"
+        },
+        "src.bot_binance.BinanceRESTClient.get_positions": {
+          "file": "src\\bot_binance.py",
+          "line_start": 540,
+          "line_end": 549,
+          "signature": "async def get_positions(self) -> list[dict]:"
+        },
+        "src.bot_binance.BinanceRESTClient.place_market_order": {
+          "file": "src\\bot_binance.py",
+          "line_start": 551,
+          "line_end": 616,
+          "signature": "async def place_market_order(self, symbol: str, side: str, qty: float, reduce_only: bool=False) -> dict:"
+        },
+        "src.bot_binance.BinanceRESTClient.place_stop_order": {
+          "file": "src\\bot_binance.py",
+          "line_start": 618,
+          "line_end": 674,
+          "signature": "async def place_stop_order(self, symbol: str, side: str, qty: float, stop_price: float, client_id: str='') -> dict:"
+        },
+        "src.bot_binance.BinanceRESTClient.place_tp_order": {
+          "file": "src\\bot_binance.py",
+          "line_start": 676,
+          "line_end": 731,
+          "signature": "async def place_tp_order(self, symbol: str, side: str, qty: float, stop_price: float, client_id: str='') -> dict:"
+        },
+        "src.bot_binance.BinanceRESTClient.cancel_order": {
+          "file": "src\\bot_binance.py",
+          "line_start": 733,
+          "line_end": 807,
+          "signature": "async def cancel_order(self, order_id: Any, symbol: str, reason: str='', is_algo: bool=False) -> bool:"
+        },
+        "src.bot_binance.BinanceRESTClient.cancel_order._check_unknown": {
+          "file": "src\\bot_binance.py",
+          "line_start": 742,
+          "line_end": 743,
+          "signature": "def _check_unknown(err: str) -> bool:"
+        },
+        "src.bot_binance.BinanceRESTClient._unsigned_post": {
+          "file": "src\\bot_binance.py",
+          "line_start": 814,
+          "line_end": 826,
+          "signature": "async def _unsigned_post(self, endpoint: str) -> Result[dict]:"
+        },
+        "src.bot_binance.BinanceRESTClient._unsigned_put": {
+          "file": "src\\bot_binance.py",
+          "line_start": 828,
+          "line_end": 840,
+          "signature": "async def _unsigned_put(self, endpoint: str) -> Result[dict]:"
+        },
+        "src.bot_binance.BinanceRESTClient.get_listen_key": {
+          "file": "src\\bot_binance.py",
+          "line_start": 842,
+          "line_end": 851,
+          "signature": "async def get_listen_key(self) -> str:"
+        },
+        "src.bot_binance.BinanceRESTClient.renew_listen_key": {
+          "file": "src\\bot_binance.py",
+          "line_start": 853,
+          "line_end": 859,
+          "signature": "async def renew_listen_key(self, listen_key: str) -> None:"
+        },
+        "tests.test_websocket._bar": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 27,
+          "line_end": 36,
+          "signature": "def _bar(index, open_, high, low, close, is_closed=True, timestamp=0):"
+        },
+        "tests.test_websocket._kline_msg": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 39,
+          "line_end": 60,
+          "signature": "def _kline_msg(symbol='btcusdt', interval='5m', close=100.0, is_closed=True, ts=None):"
+        },
+        "tests.test_websocket.TestCooldown.setup_method": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 69,
+          "line_end": 70,
+          "signature": "def setup_method(self):"
+        },
+        "tests.test_websocket.TestCooldown.test_is_cooldown_active_false_initially": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 72,
+          "line_end": 73,
+          "signature": "def test_is_cooldown_active_false_initially(self):"
+        },
+        "tests.test_websocket.TestCooldown.test_is_cooldown_active_true_after_register": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 75,
+          "line_end": 77,
+          "signature": "def test_is_cooldown_active_true_after_register(self):"
+        },
+        "tests.test_websocket.TestCooldown.test_is_cooldown_active_false_after_cooldown": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 79,
+          "line_end": 82,
+          "signature": "def test_is_cooldown_active_false_after_cooldown(self):"
+        },
+        "tests.test_websocket.TestCooldown.test_register_trade_updates_time": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 84,
+          "line_end": 90,
+          "signature": "def test_register_trade_updates_time(self):"
+        },
+        "tests.test_websocket.TestBarBuffer.setup_method": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 99,
+          "line_end": 100,
+          "signature": "def setup_method(self):"
+        },
+        "tests.test_websocket.TestBarBuffer._cb": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 102,
+          "line_end": 103,
+          "signature": "async def _cb(self, bars):"
+        },
+        "tests.test_websocket.TestBarBuffer.test_kline_to_bar_conversion": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 105,
+          "line_end": 114,
+          "signature": "def test_kline_to_bar_conversion(self):"
+        },
+        "tests.test_websocket.TestBarBuffer.test_feed_appends_closed_bar_and_calls_callback": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 117,
+          "line_end": 134,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_feed_does_not_call_callback_on_unclosed": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 137,
+          "line_end": 152,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_feed_skips_duplicate_timestamp": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 155,
+          "line_end": 171,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_feed_max_bars_eviction": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 174,
+          "line_end": 191,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_feed_next_index_management": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 194,
+          "line_end": 212,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 215,
+          "line_end": 239,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks.cb1": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 219,
+          "line_end": 220,
+          "signature": "async def cb1(bars):"
+        },
+        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks.cb2": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 222,
+          "line_end": 223,
+          "signature": "async def cb2(bars):"
+        },
+        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 242,
+          "line_end": 264,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks.bad_cb": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 245,
+          "line_end": 246,
+          "signature": "async def bad_cb(bars):"
+        },
+        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks.good_cb": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 248,
+          "line_end": 249,
+          "signature": "async def good_cb(bars):"
+        },
+        "tests.test_websocket.TestBinanceWSHubInit.test_default_initialization": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 273,
+          "line_end": 278,
+          "signature": "def test_default_initialization(self):"
+        },
+        "tests.test_websocket.TestBinanceWSHubInit.test_custom_timeframes": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 280,
+          "line_end": 282,
+          "signature": "def test_custom_timeframes(self):"
+        },
+        "tests.test_websocket.TestBinanceWSHubInit.test_symbols_uppercased": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 284,
+          "line_end": 286,
+          "signature": "def test_symbols_uppercased(self):"
+        },
+        "tests.test_websocket.TestBinanceWSHubInit.test_custom_base_url": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 288,
+          "line_end": 292,
+          "signature": "def test_custom_base_url(self):"
+        },
+        "tests.test_websocket.TestBuildUrl.test_single_symbol_single_timeframe": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 296,
+          "line_end": 299,
+          "signature": "def test_single_symbol_single_timeframe(self):"
+        },
+        "tests.test_websocket.TestBuildUrl.test_multi_symbol_multi_timeframe": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 301,
+          "line_end": 307,
+          "signature": "def test_multi_symbol_multi_timeframe(self):"
+        },
+        "tests.test_websocket.TestBuildUrl.test_invalid_timeframe_raises": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 309,
+          "line_end": 312,
+          "signature": "def test_invalid_timeframe_raises(self):"
+        },
+        "tests.test_websocket.TestDispatch.test_dispatch_routes_kline_to_correct_buffer": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 317,
+          "line_end": 324,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestDispatch.test_dispatch_ignores_non_kline_events": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 327,
+          "line_end": 337,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestDispatch.test_dispatch_handles_invalid_json": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 340,
+          "line_end": 343,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestDispatch.test_dispatch_updates_last_seen": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 346,
+          "line_end": 353,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestGetBarsPrefill.test_get_bars_empty_initially": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 357,
+          "line_end": 359,
+          "signature": "def test_get_bars_empty_initially(self):"
+        },
+        "tests.test_websocket.TestGetBarsPrefill.test_prefill_bars_sets_buffer": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 361,
+          "line_end": 367,
+          "signature": "def test_prefill_bars_sets_buffer(self):"
+        },
+        "tests.test_websocket.TestGetBarsPrefill.test_get_bars_returns_copy": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 369,
+          "line_end": 376,
+          "signature": "def test_get_bars_returns_copy(self):"
+        },
+        "tests.test_websocket.TestCallbackRegistration.test_register_callback": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 380,
+          "line_end": 390,
+          "signature": "def test_register_callback(self):"
+        },
+        "tests.test_websocket.TestCallbackRegistration.test_register_callback.handler": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 384,
+          "line_end": 385,
+          "signature": "async def handler(bars):"
+        },
+        "tests.test_websocket.TestCallbackRegistration.test_on_bar_decorator": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 392,
+          "line_end": 400,
+          "signature": "def test_on_bar_decorator(self):"
+        },
+        "tests.test_websocket.TestCallbackRegistration.test_on_bar_decorator.handler": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 396,
+          "line_end": 397,
+          "signature": "@hub.on_bar('BTCUSDT', '5m')"
+        },
+        "tests.test_websocket.TestStop.test_stop_sets_event": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 404,
+          "line_end": 408,
+          "signature": "def test_stop_sets_event(self):"
+        },
+        "tests.test_websocket.TestTfToStream.test_known_timeframes": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 417,
+          "line_end": 423,
+          "signature": "def test_known_timeframes(self):"
+        },
+        "tests.test_integration_v2._bar": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 22,
+          "line_end": 31,
+          "signature": "def _bar(index, o, h, low, c, closed=True, ts=0):"
+        },
+        "tests.test_integration_v2._mock_rest": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 37,
+          "line_end": 58,
+          "signature": "def _mock_rest(**kwargs):"
+        },
+        "tests.test_integration_v2.TestEntryProtection.test_full_market_fill_sets_sl_tp_ids": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 70,
+          "line_end": 90,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_integration_v2.TestEntryProtection.test_parse_market_fill_various_formats": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 93,
+          "line_end": 117,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_integration_v2.TestEntryProtection.test_empty_response_returns_zero_fill": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 120,
+          "line_end": 126,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_integration_v2.TestEntryProtection.test_market_order_new_status_retries_via_positions": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 129,
+          "line_end": 147,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_integration_v2.TestEntryProtection.test_stale_order_id_no_crash": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 150,
+          "line_end": 170,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_integration_v2.TestEntryProtection.test_sl_placement_fails_still_returns_success": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 173,
+          "line_end": 197,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_integration_v2.TestEntryProtection.test_tp_failure_non_fatal": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 200,
+          "line_end": 222,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_integration_v2.TestOrderState._trade": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 228,
+          "line_end": 243,
+          "signature": "def _trade(self, side='long', sl_id='sl_001', tp_id='tp_001', **kw):"
+        },
+        "tests.test_integration_v2.TestOrderState.test_update_trail_long_updates_sl_up_tp_up": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 246,
+          "line_end": 262,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_integration_v2.TestOrderState.test_update_trail_short_updates_sl_down_tp_down": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 265,
+          "line_end": 276,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_integration_v2.TestOrderState.test_update_trail_paper_mode_updates_trade_directly": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 279,
+          "line_end": 289,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_integration_v2.TestOrderState.test_trail_sl_failure_updates_tp_keeps_old_sl": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 292,
+          "line_end": 304,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_integration_v2.TestOrderState.test_trail_both_fail_returns_false": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 307,
+          "line_end": 318,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_integration_v2.TestOrderState.test_repair_protection_missing_sl": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 321,
+          "line_end": 332,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_integration_v2.TestOrderState.test_repair_protection_duplicate_guard": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 335,
+          "line_end": 342,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_integration_v2.TestOrderState.test_cleanup_on_exit_removes_opposite_order": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 345,
+          "line_end": 354,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_integration_v2.TestOrderState.test_cleanup_on_exit_missing_trigger_id_sends_market_close": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 357,
+          "line_end": 364,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_integration_v2.TestOrderState.test_cancel_all_open_orders_in_paper_mode_skips": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 367,
+          "line_end": 372,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_integration_v2.TestDryFlowExtended._make_session": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 383,
+          "line_end": 394,
+          "signature": "def _make_session(self, bias='BULLISH'):"
+        },
+        "tests.test_integration_v2.TestDryFlowExtended._bars_with_bullish_fvg": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 396,
+          "line_end": 409,
+          "signature": "def _bars_with_bullish_fvg(self):"
+        },
+        "tests.test_integration_v2.TestDryFlowExtended.test_sweep_without_fvg_stays_in_sweep_detected": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 411,
+          "line_end": 421,
+          "signature": "def test_sweep_without_fvg_stays_in_sweep_detected(self):"
+        },
+        "tests.test_integration_v2.TestDryFlowExtended.test_fvg_no_close_confirm_blocks_trigger": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 423,
+          "line_end": 440,
+          "signature": "def test_fvg_no_close_confirm_blocks_trigger(self):"
+        },
+        "tests.test_integration_v2.TestDryFlowExtended.test_direction_consistency_through_full_chain": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 442,
+          "line_end": 505,
+          "signature": "def test_direction_consistency_through_full_chain(self):"
+        },
+        "tests.test_integration_v2.TestDryFlowExtended.test_bearish_full_chain_direction_consistency": {
+          "file": "tests\\test_integration_v2.py",
+          "line_start": 507,
+          "line_end": 578,
+          "signature": "def test_bearish_full_chain_direction_consistency(self):"
         }
       },
       "files": {
-        "src\\bot_binance.py": {
-          "last_modified": "2026-06-29T09:49:12",
-          "hash": "sha256:255531b5887b735f"
-        },
         "src\\bot_infra.py": {
           "last_modified": "2026-06-26T01:13:27",
           "hash": "sha256:9d0293d6683afbad"
@@ -4786,10 +4938,6 @@
           "last_modified": "2026-07-03T14:11:49",
           "hash": "sha256:c2b3429ccb3e0159"
         },
-        "tests\\test_websocket.py": {
-          "last_modified": "2026-06-26T01:10:59",
-          "hash": "sha256:6f1468bf97ef5dde"
-        },
         "tests\\test_bot.py": {
           "last_modified": "2026-07-13T11:57:25",
           "hash": "sha256:9e754406263a77c1"
@@ -4821,6 +4969,18 @@
         "tests\\test_integration.py": {
           "last_modified": "2026-07-13T14:02:29",
           "hash": "sha256:9f210d1b0f3a3da7"
+        },
+        "src\\bot_binance.py": {
+          "last_modified": "2026-06-29T09:49:12",
+          "hash": "sha256:255531b5887b735f"
+        },
+        "tests\\test_websocket.py": {
+          "last_modified": "2026-06-26T01:10:59",
+          "hash": "sha256:6f1468bf97ef5dde"
+        },
+        "tests\\test_integration_v2.py": {
+          "last_modified": "2026-07-13T14:33:07",
+          "hash": "sha256:8dfcb813f4a85160"
         }
       },
       "last_full_scan": "2026-07-12T23:30:10"
@@ -6839,13 +6999,13 @@
           "last_modified": "2026-07-13T01:30:22",
           "hash": "sha256:747d716c9548268a"
         },
-        "src\\analyzer_v5.py": {
-          "last_modified": "2026-07-13T09:34:16",
-          "hash": "sha256:0fa6696b61b71ab1"
-        },
         "src\\utils\\visualize_cbdr_zoom.py": {
           "last_modified": "2026-06-27T13:21:49",
           "hash": "sha256:6dacdce0362ca3db"
+        },
+        "src\\analyzer_v5.py": {
+          "last_modified": "2026-07-13T09:34:16",
+          "hash": "sha256:0fa6696b61b71ab1"
         }
       },
       "last_full_scan": "2026-07-11T21:18:06"
