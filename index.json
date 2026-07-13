@@ -1246,36 +1246,6 @@
           "line_end": 617,
           "signature": "async def main() -> None:"
         },
-        "src.snapshot.snapshot._fetch_ohlc": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 41,
-          "line_end": 99,
-          "signature": "def _fetch_ohlc(sym: str, anchor_ms: int) -> list[dict] | None:"
-        },
-        "src.snapshot.snapshot._find_bar": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 107,
-          "line_end": 123,
-          "signature": "def _find_bar(candles: list[dict], price: float, ts_ms: int | None=None) -> int:"
-        },
-        "src.snapshot.snapshot.normalize_trade": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 131,
-          "line_end": 146,
-          "signature": "def normalize_trade(trade: dict) -> dict:"
-        },
-        "src.snapshot.snapshot._resolve_fvg_bar_index": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 154,
-          "line_end": 200,
-          "signature": "def _resolve_fvg_bar_index(candles: list[dict], entry_bar: int, fvg_obj, trade: dict, fvg_top: float | None, fvg_bottom: float | None) -> int:"
-        },
-        "src.snapshot.snapshot.capture_snapshot": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 203,
-          "line_end": 376,
-          "signature": "def capture_snapshot(sym: str, trade: dict, pnl: float | None=None, session_state=None) -> str | None:"
-        },
         "src.trading.console_reporter.ConsoleReporter.__init__": {
           "file": "src\\trading\\console_reporter.py",
           "line_start": 32,
@@ -1324,48 +1294,6 @@
           "line_end": 228,
           "signature": "def display_fvg_status(self, sym: str, rsm: 'RetraceStateMachine', min_fvg: float, current_close: float) -> None:"
         },
-        "src.trading.entry_manager.EntryManager.__init__": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 60,
-          "line_end": 62,
-          "signature": "def __init__(self, rest_client, is_live: bool=False):"
-        },
-        "src.trading.entry_manager.EntryManager.validate_risk": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 67,
-          "line_end": 74,
-          "signature": "@staticmethod"
-        },
-        "src.trading.entry_manager.EntryManager.calculate_qty": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 79,
-          "line_end": 96,
-          "signature": "@staticmethod"
-        },
-        "src.trading.entry_manager.EntryManager.calculate_sl_tp": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 101,
-          "line_end": 162,
-          "signature": "@staticmethod"
-        },
-        "src.trading.entry_manager.EntryManager.parse_market_fill": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 167,
-          "line_end": 191,
-          "signature": "@staticmethod"
-        },
-        "src.trading.entry_manager.EntryManager.execute_live_entry": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 193,
-          "line_end": 347,
-          "signature": "async def execute_live_entry(self, sym: str, side: str, qty: float, sl: float, tp: float, entry_price: float | None=None, balance: float=0.0, leverage: int=1) -> EntryExecutionResult:"
-        },
-        "src.trading.entry_manager.EntryManager._bump_to_min_notional": {
-          "file": "src\\trading\\entry_manager.py",
-          "line_start": 351,
-          "line_end": 407,
-          "signature": "async def _bump_to_min_notional(self, sym: str, qty: float, price: float, balance: float, leverage: int) -> float:"
-        },
         "src.trading.order_manager.OrderManager.__init__": {
           "file": "src\\trading\\order_manager.py",
           "line_start": 32,
@@ -1395,30 +1323,6 @@
           "line_start": 233,
           "line_end": 286,
           "signature": "async def cleanup_on_exit(self, sym: str, trade: dict, result: str) -> None:"
-        },
-        "src.trading.recovery_manager.RecoveryManager.__init__": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 39,
-          "line_end": 57,
-          "signature": "def __init__(self, rest_client, symbols: list[str], cfgs: dict, states: dict, active_trades: dict, pl_callback, order_manager=None, atr_state: dict | None=None):"
-        },
-        "src.trading.recovery_manager.RecoveryManager.recover_positions": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 61,
-          "line_end": 209,
-          "signature": "async def recover_positions(self) -> None:"
-        },
-        "src.trading.recovery_manager.RecoveryManager.reconcile_ghost_positions": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 213,
-          "line_end": 303,
-          "signature": "async def reconcile_ghost_positions(self) -> None:"
-        },
-        "src.trading.recovery_manager.RecoveryManager.reconcile_orphan_orders": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 305,
-          "line_end": 342,
-          "signature": "async def reconcile_orphan_orders(self) -> None:"
         },
         "src.trading.signal_engine.SignalEngine.__init__": {
           "file": "src\\trading\\signal_engine.py",
@@ -1455,30 +1359,6 @@
           "line_start": 148,
           "line_end": 162,
           "signature": "@staticmethod"
-        },
-        "src.trading.user_data_handler.UserDataHandler.__init__": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 33,
-          "line_end": 45,
-          "signature": "def __init__(self, active_trades: dict[str, Any], pl_callback: Callable[[str, str, str], None], wallet_callback: Callable[[float], None], order_manager: Any, exit_callback: Callable[..., Any]):"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 47,
-          "line_end": 167,
-          "signature": "def register(self, hub: Any) -> None:"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register.on_order_update": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 52,
-          "line_end": 153,
-          "signature": "@hub.on_user_data('ORDER_TRADE_UPDATE')"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register.on_account_update": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 156,
-          "line_end": 160,
-          "signature": "@hub.on_user_data('ACCOUNT_UPDATE')"
         },
         "tests.conftest._isolate_logging": {
           "file": "tests\\conftest.py",
@@ -4330,6 +4210,84 @@
           "line_end": 423,
           "signature": "def test_known_timeframes(self):"
         },
+        "src.snapshot.snapshot._fetch_ohlc": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 41,
+          "line_end": 99,
+          "signature": "def _fetch_ohlc(sym: str, anchor_ms: int) -> list[dict] | None:"
+        },
+        "src.snapshot.snapshot._find_bar": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 107,
+          "line_end": 123,
+          "signature": "def _find_bar(candles: list[dict], price: float, ts_ms: int | None=None) -> int:"
+        },
+        "src.snapshot.snapshot.normalize_trade": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 131,
+          "line_end": 146,
+          "signature": "def normalize_trade(trade: dict) -> dict:"
+        },
+        "src.snapshot.snapshot._resolve_fvg_bar_index": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 154,
+          "line_end": 200,
+          "signature": "def _resolve_fvg_bar_index(candles: list[dict], entry_bar: int, fvg_obj, trade: dict, fvg_top: float | None, fvg_bottom: float | None) -> int:"
+        },
+        "src.snapshot.snapshot.capture_snapshot": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 203,
+          "line_end": 376,
+          "signature": "def capture_snapshot(sym: str, trade: dict, pnl: float | None=None, session_state=None) -> str | None:"
+        },
+        "src.trading.recovery_manager.RecoveryManager.__init__": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 39,
+          "line_end": 57,
+          "signature": "def __init__(self, rest_client, symbols: list[str], cfgs: dict, states: dict, active_trades: dict, pl_callback, order_manager=None, atr_state: dict | None=None):"
+        },
+        "src.trading.recovery_manager.RecoveryManager.recover_positions": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 61,
+          "line_end": 243,
+          "signature": "async def recover_positions(self) -> None:"
+        },
+        "src.trading.recovery_manager.RecoveryManager.reconcile_ghost_positions": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 247,
+          "line_end": 337,
+          "signature": "async def reconcile_ghost_positions(self) -> None:"
+        },
+        "src.trading.recovery_manager.RecoveryManager.reconcile_orphan_orders": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 339,
+          "line_end": 376,
+          "signature": "async def reconcile_orphan_orders(self) -> None:"
+        },
+        "src.trading.user_data_handler.UserDataHandler.__init__": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 33,
+          "line_end": 45,
+          "signature": "def __init__(self, active_trades: dict[str, Any], pl_callback: Callable[[str, str, str], None], wallet_callback: Callable[[float], None], order_manager: Any, exit_callback: Callable[..., Any]):"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 47,
+          "line_end": 167,
+          "signature": "def register(self, hub: Any) -> None:"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register.on_order_update": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 52,
+          "line_end": 153,
+          "signature": "@hub.on_user_data('ORDER_TRADE_UPDATE')"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register.on_account_update": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 156,
+          "line_end": 160,
+          "signature": "@hub.on_user_data('ACCOUNT_UPDATE')"
+        },
         "src.bot._save_fvg_state": {
           "file": "src\\bot.py",
           "line_start": 67,
@@ -4393,50 +4351,92 @@
         "src.bot.PaperTrader._exit_trade": {
           "file": "src\\bot.py",
           "line_start": 711,
-          "line_end": 889,
+          "line_end": 901,
           "signature": "async def _exit_trade(self, sym, trade, exit_timestamp: int):"
         },
         "src.bot.PaperTrader.on_15m": {
           "file": "src\\bot.py",
-          "line_start": 891,
-          "line_end": 894,
+          "line_start": 903,
+          "line_end": 906,
           "signature": "async def on_15m(self, sym: str, bars: list[Bar]):"
         },
         "src.bot.PaperTrader.on_1m": {
           "file": "src\\bot.py",
-          "line_start": 896,
-          "line_end": 899,
+          "line_start": 908,
+          "line_end": 911,
           "signature": "async def on_1m(self, sym: str, bars: list[Bar]):"
         },
         "src.bot.PaperTrader._prefill_bars": {
           "file": "src\\bot.py",
-          "line_start": 901,
-          "line_end": 925,
+          "line_start": 913,
+          "line_end": 937,
           "signature": "async def _prefill_bars(self, sym: str, timeframe: str='15m') -> Result[None]:"
         },
         "src.bot.PaperTrader._warmup_cbdr": {
           "file": "src\\bot.py",
-          "line_start": 927,
-          "line_end": 982,
+          "line_start": 939,
+          "line_end": 994,
           "signature": "def _warmup_cbdr(self, sym: str):"
         },
         "src.bot.PaperTrader._set_leverage": {
           "file": "src\\bot.py",
-          "line_start": 984,
-          "line_end": 1001,
+          "line_start": 996,
+          "line_end": 1013,
           "signature": "async def _set_leverage(self, symbol: str) -> Result[None]:"
         },
         "src.bot.PaperTrader.run": {
           "file": "src\\bot.py",
-          "line_start": 1003,
-          "line_end": 1147,
+          "line_start": 1015,
+          "line_end": 1159,
           "signature": "async def run(self):"
         },
         "src.bot.main": {
           "file": "src\\bot.py",
-          "line_start": 1150,
-          "line_end": 1160,
+          "line_start": 1162,
+          "line_end": 1172,
           "signature": "def main():"
+        },
+        "src.trading.entry_manager.EntryManager.__init__": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 61,
+          "line_end": 63,
+          "signature": "def __init__(self, rest_client, is_live: bool=False):"
+        },
+        "src.trading.entry_manager.EntryManager.validate_risk": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 68,
+          "line_end": 75,
+          "signature": "@staticmethod"
+        },
+        "src.trading.entry_manager.EntryManager.calculate_qty": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 80,
+          "line_end": 97,
+          "signature": "@staticmethod"
+        },
+        "src.trading.entry_manager.EntryManager.calculate_sl_tp": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 102,
+          "line_end": 163,
+          "signature": "@staticmethod"
+        },
+        "src.trading.entry_manager.EntryManager.parse_market_fill": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 168,
+          "line_end": 192,
+          "signature": "@staticmethod"
+        },
+        "src.trading.entry_manager.EntryManager.execute_live_entry": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 194,
+          "line_end": 381,
+          "signature": "async def execute_live_entry(self, sym: str, side: str, qty: float, sl: float, tp: float, entry_price: float | None=None, balance: float=0.0, leverage: int=1) -> EntryExecutionResult:"
+        },
+        "src.trading.entry_manager.EntryManager._bump_to_min_notional": {
+          "file": "src\\trading\\entry_manager.py",
+          "line_start": 385,
+          "line_end": 441,
+          "signature": "async def _bump_to_min_notional(self, sym: str, qty: float, price: float, balance: float, leverage: int) -> float:"
         }
       },
       "files": {
@@ -4504,10 +4504,6 @@
           "last_modified": "2026-07-12T12:05:40",
           "hash": "sha256:68ea06cfac6f8a10"
         },
-        "src\\snapshot\\snapshot.py": {
-          "last_modified": "2026-07-03T14:07:15",
-          "hash": "sha256:84bba635b438db53"
-        },
         "src\\snapshot\\__init__.py": {
           "last_modified": "2026-06-28T13:19:02",
           "hash": "sha256:e3b0c44298fc1c14"
@@ -4516,17 +4512,9 @@
           "last_modified": "2026-07-12T09:27:15",
           "hash": "sha256:3e13754e30112fae"
         },
-        "src\\trading\\entry_manager.py": {
-          "last_modified": "2026-07-12T12:14:24",
-          "hash": "sha256:1634be9697ebedee"
-        },
         "src\\trading\\order_manager.py": {
           "last_modified": "2026-07-02T12:36:50",
           "hash": "sha256:12495700771dae98"
-        },
-        "src\\trading\\recovery_manager.py": {
-          "last_modified": "2026-07-02T22:39:52",
-          "hash": "sha256:9f627ce59b90fd30"
         },
         "src\\trading\\signal_engine.py": {
           "last_modified": "2026-07-03T09:59:24",
@@ -4535,18 +4523,6 @@
         "src\\trading\\trailing_manager.py": {
           "last_modified": "2026-07-11T17:46:57",
           "hash": "sha256:674cc070a56d5502"
-        },
-        "src\\trading\\user_data_handler.py": {
-          "last_modified": "2026-07-12T12:13:09",
-          "hash": "sha256:2e485928d7d0773b"
-        },
-        "src\\trading\\_patch_entry.py": {
-          "last_modified": "2026-07-12T12:05:13",
-          "hash": "sha256:f088923353566b70"
-        },
-        "src\\trading\\__init__.py": {
-          "last_modified": "2026-06-30T21:12:59",
-          "hash": "sha256:f61320312ed5e5b1"
         },
         "tests\\conftest.py": {
           "last_modified": "2026-06-30T14:00:39",
@@ -4608,9 +4584,29 @@
           "last_modified": "2026-06-26T01:10:59",
           "hash": "sha256:6f1468bf97ef5dde"
         },
+        "src\\trading\\__init__.py": {
+          "last_modified": "2026-06-30T21:12:59",
+          "hash": "sha256:f61320312ed5e5b1"
+        },
+        "src\\snapshot\\snapshot.py": {
+          "last_modified": "2026-07-03T14:07:15",
+          "hash": "sha256:84bba635b438db53"
+        },
+        "src\\trading\\recovery_manager.py": {
+          "last_modified": "2026-07-13T09:51:26",
+          "hash": "sha256:36bdac69d9f6d21f"
+        },
+        "src\\trading\\user_data_handler.py": {
+          "last_modified": "2026-07-12T12:13:09",
+          "hash": "sha256:2e485928d7d0773b"
+        },
         "src\\bot.py": {
-          "last_modified": "2026-07-12T23:30:50",
-          "hash": "sha256:967a9efc5f477a93"
+          "last_modified": "2026-07-13T10:59:05",
+          "hash": "sha256:d2995646fbac3f89"
+        },
+        "src\\trading\\entry_manager.py": {
+          "last_modified": "2026-07-13T11:00:33",
+          "hash": "sha256:7a139d8efdba380a"
         }
       },
       "last_full_scan": "2026-07-12T23:30:10"
@@ -6625,13 +6621,17 @@
           "last_modified": "2026-07-12T02:54:27",
           "hash": "sha256:80cf2757382f511a"
         },
-        "src\\analyzer_v5.py": {
-          "last_modified": "2026-07-12T07:58:30",
-          "hash": "sha256:0fa6696b61b71ab1"
-        },
         "src\\utils\\visualize_cbdr_zoom.py": {
           "last_modified": "2026-06-27T13:21:49",
           "hash": "sha256:6dacdce0362ca3db"
+        },
+        "src\\_ds_comp.py": {
+          "last_modified": "2026-07-13T01:30:22",
+          "hash": "sha256:747d716c9548268a"
+        },
+        "src\\analyzer_v5.py": {
+          "last_modified": "2026-07-13T09:34:16",
+          "hash": "sha256:0fa6696b61b71ab1"
         }
       },
       "last_full_scan": "2026-07-11T21:18:06"

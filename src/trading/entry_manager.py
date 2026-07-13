@@ -20,6 +20,7 @@ Düzeltme (v2):
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 from dataclasses import dataclass
@@ -262,17 +263,20 @@ class EntryManager:
                     if p["symbol"] == sym:
                         pos_amt = abs(float(p.get("positionAmt", 0)))
                         if pos_amt > 0:
-                            close_resp = await self._rest.place_market_order(
+                            opp_side = "SELL" if mkt_side == "BUY" else "BUY"
+                            await self._rest.place_market_order(
                                 sym, opp_side, pos_amt, reduce_only=True
                             )
                             log.critical(
                                 "[MARKET-RECONCILE] %s pos=%.4f acik, orderId yok — "
                                 "acil kapatma gonderildi",
-                                sym, pos_amt,
+                                sym,
+                                pos_amt,
                             )
                             return EntryExecutionResult(
-                                success=False, error=f"MARKET orderId bulunamadi — "
-                                f"pos={pos_amt:.4f} acik kapatildi"
+                                success=False,
+                                error=f"MARKET orderId bulunamadi — "
+                                f"pos={pos_amt:.4f} acik kapatildi",
                             )
             except Exception as e:
                 log.critical("[MARKET-RECONCILE] %s pos sorgu hatasi: %s", sym, e)
@@ -281,19 +285,48 @@ class EntryManager:
                 )
 
         if not mkt_id or actual_qty <= 0 or actual_price <= 0:
-            err_detail = str(mkt_resp) if mkt_resp else "empty_response"
-            log.warning(
-                "[MARKET] %s basarisiz resp=%s qty=%.8f",
-                sym, err_detail, valid_qty
-            )
-            return EntryExecutionResult(
-                success=False, error=f"MARKET BASARISIZ — {err_detail}"
-            )
+            # Market orderId var ama REST henuz fill donmemis olabilir (status=NEW)
+            if mkt_id and actual_qty <= 0:
+                log.info("[MARKET] %s orderId=%s fill bekleniyor...", sym, mkt_id)
+                await asyncio.sleep(1.5)
+                try:
+                    positions = await self._rest.get_positions()
+                    for p in positions:
+                        if p["symbol"] == sym:
+                            pos_amt = abs(float(p.get("positionAmt", 0)))
+                            entry_px = float(p.get("entryPrice", 0))
+                            if pos_amt > 0 and entry_px > 0:
+                                actual_qty = pos_amt
+                                actual_price = entry_px
+                                quote_qty = actual_qty * actual_price
+                                log.info(
+                                    "[MARKET] %s gecikmeli fill tespit: qty=%.4f @ %.4f",
+                                    sym,
+                                    actual_qty,
+                                    actual_price,
+                                )
+                                break
+                except Exception as e:
+                    log.warning("[MARKET] %s pozisyon sorgu hatasi: %s", sym, e)
+
+            if actual_qty <= 0 or actual_price <= 0:
+                err_detail = str(mkt_resp) if mkt_resp else "empty_response"
+                log.warning(
+                    "[MARKET] %s basarisiz resp=%s qty=%.8f", sym, err_detail, valid_qty
+                )
+                return EntryExecutionResult(
+                    success=False, error=f"MARKET BASARISIZ — {err_detail}"
+                )
 
         log.info(
             "[ORDER] %s MARKET entry OK orderId=%s "
             "requested_qty=%.8f actual_qty=%.8f actual_price=%.6f quote_qty=%.2f",
-            sym, mkt_id, valid_qty, actual_qty, actual_price, quote_qty,
+            sym,
+            mkt_id,
+            valid_qty,
+            actual_qty,
+            actual_price,
+            quote_qty,
         )
 
         # ── SL ve TP emirleri (actual_qty ile) ────────────────────
@@ -304,7 +337,8 @@ class EntryManager:
         if not sl_id:
             log.critical(
                 "[ORDER] %s SL BASARISIZ! Acil pozisyon kapatiliyor. resp=%s",
-                sym, sl_resp,
+                sym,
+                sl_resp,
             )
             opp_side = "SELL" if mkt_side == "BUY" else "BUY"
             try:

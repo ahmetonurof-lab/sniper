@@ -164,6 +164,44 @@ class RecoveryManager:
                                 sym, sl_side, abs(amt), rounded_sl
                             )
                             sl_id = extract_order_id(sl_resp)
+                            # SL basarisizsa (fiyat coktan gecti), mevcut fiyata gore yeni SL dene
+                            if not sl_id:
+                                log.warning(
+                                    "[RECOVER] %s SL basarisiz (sl=%.4f), mevcut fiyata gore yeniden hesaplaniyor...",
+                                    sym,
+                                    sl,
+                                )
+                                try:
+                                    cur_px = await self._rest.estimate_market_price(sym)
+                                    if direction == "long" and cur_px < sl:
+                                        new_sl = await self._rest.apply_price_precision(
+                                            sym, cur_px * 0.97
+                                        )
+                                    elif direction == "short" and cur_px > sl:
+                                        new_sl = await self._rest.apply_price_precision(
+                                            sym, cur_px * 1.03
+                                        )
+                                    else:
+                                        new_sl = rounded_sl
+                                    sl_resp2 = await self._rest.place_stop_order(
+                                        sym, sl_side, abs(amt), new_sl
+                                    )
+                                    sl_id2 = extract_order_id(sl_resp2)
+                                    if sl_id2:
+                                        sl_id = sl_id2
+                                        sl = new_sl
+                                        log.info(
+                                            "[RECOVER] %s SL yeniden denendi: sl=%.4f -> id=%s",
+                                            sym,
+                                            new_sl,
+                                            sl_id,
+                                        )
+                                except Exception as e2:
+                                    log.warning(
+                                        "[RECOVER] %s SL yeniden deneme de basarisiz: %s",
+                                        sym,
+                                        e2,
+                                    )
 
                             tp_resp = await self._rest.place_tp_order(
                                 sym, sl_side, abs(amt), rounded_tp

@@ -773,6 +773,18 @@ class PaperTrader:
                     sym, mkt_side, trade["qty"], reduce_only=True
                 )
                 if close_resp and close_resp.get("orderId"):
+                    # MARKET close fill fiyatını PnL hesaplamasında kullan
+                    _q, _p, _ = EntryManager.parse_market_fill(close_resp)
+                    if _q > 0 and _p > 0:
+                        trade["exit_actual_price"] = _p
+                        trade["exit_actual_qty"] = _q
+                        trade["exit_price"] = _p
+                        log.info(
+                            "[EXIT] %s market close fill: qty=%.4f @ %.4f",
+                            sym,
+                            _q,
+                            _p,
+                        )
                     log_event(
                         "force_close",
                         sym,
