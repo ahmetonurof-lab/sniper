@@ -4443,6 +4443,210 @@
           "line_start": 613,
           "line_end": 617,
           "signature": "async def main() -> None:"
+        },
+        "tests.test_integration._bar": {
+          "file": "tests\\test_integration.py",
+          "line_start": 22,
+          "line_end": 25,
+          "signature": "def _bar(index, o, h, low, c, closed=True, ts=0):"
+        },
+        "tests.test_integration.TestSweepFVGTrigger.test_bullish_sweep_with_valid_fvg_reaches_trigger_ready": {
+          "file": "tests\\test_integration.py",
+          "line_start": 36,
+          "line_end": 62,
+          "signature": "def test_bullish_sweep_with_valid_fvg_reaches_trigger_ready(self):"
+        },
+        "tests.test_integration.TestSweepFVGTrigger.test_bearish_sweep_with_valid_fvg_reaches_trigger_ready": {
+          "file": "tests\\test_integration.py",
+          "line_start": 64,
+          "line_end": 91,
+          "signature": "def test_bearish_sweep_with_valid_fvg_reaches_trigger_ready(self):"
+        },
+        "tests.test_integration.TestSweepFVGTrigger.test_no_fvg_keeps_sweep_detected": {
+          "file": "tests\\test_integration.py",
+          "line_start": 93,
+          "line_end": 105,
+          "signature": "def test_no_fvg_keeps_sweep_detected(self):"
+        },
+        "tests.test_integration.TestSweepFVGTrigger.test_second_sweep_ignored_while_in_sweep_detected": {
+          "file": "tests\\test_integration.py",
+          "line_start": 107,
+          "line_end": 119,
+          "signature": "def test_second_sweep_ignored_while_in_sweep_detected(self):"
+        },
+        "tests.test_integration.TestSweepFVGTrigger.test_sweep_invalidated_when_close_breaks_opposite": {
+          "file": "tests\\test_integration.py",
+          "line_start": 121,
+          "line_end": 130,
+          "signature": "def test_sweep_invalidated_when_close_breaks_opposite(self):"
+        },
+        "tests.test_integration.TestSweepFVGTrigger.test_direction_mapping_bullish_sweep_leads_to_long": {
+          "file": "tests\\test_integration.py",
+          "line_start": 132,
+          "line_end": 140,
+          "signature": "def test_direction_mapping_bullish_sweep_leads_to_long(self):"
+        },
+        "tests.test_integration.TestSweepFVGTrigger.test_direction_mapping_bearish_sweep_leads_to_short": {
+          "file": "tests\\test_integration.py",
+          "line_start": 142,
+          "line_end": 149,
+          "signature": "def test_direction_mapping_bearish_sweep_leads_to_short(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_long_entry_calculates_correct_sl_tp": {
+          "file": "tests\\test_integration.py",
+          "line_start": 160,
+          "line_end": 177,
+          "signature": "def test_long_entry_calculates_correct_sl_tp(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_short_entry_calculates_correct_sl_tp": {
+          "file": "tests\\test_integration.py",
+          "line_start": 179,
+          "line_end": 196,
+          "signature": "def test_short_entry_calculates_correct_sl_tp(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_entry_without_fvg_uses_risk_fallback": {
+          "file": "tests\\test_integration.py",
+          "line_start": 198,
+          "line_end": 213,
+          "signature": "def test_entry_without_fvg_uses_risk_fallback(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_invalid_risk_dist_blocks_entry": {
+          "file": "tests\\test_integration.py",
+          "line_start": 215,
+          "line_end": 219,
+          "signature": "def test_invalid_risk_dist_blocks_entry(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_valid_risk_dist_allows_entry": {
+          "file": "tests\\test_integration.py",
+          "line_start": 221,
+          "line_end": 224,
+          "signature": "def test_valid_risk_dist_allows_entry(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_qty_calculation_scales_with_risk": {
+          "file": "tests\\test_integration.py",
+          "line_start": 226,
+          "line_end": 237,
+          "signature": "def test_qty_calculation_scales_with_risk(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_qty_zero_when_risk_dist_zero": {
+          "file": "tests\\test_integration.py",
+          "line_start": 239,
+          "line_end": 248,
+          "signature": "def test_qty_zero_when_risk_dist_zero(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_bullish_trigger_to_long_mapping_consistent": {
+          "file": "tests\\test_integration.py",
+          "line_start": 250,
+          "line_end": 255,
+          "signature": "def test_bullish_trigger_to_long_mapping_consistent(self):"
+        },
+        "tests.test_integration.TestTriggerEntry.test_bearish_trigger_to_short_mapping_consistent": {
+          "file": "tests\\test_integration.py",
+          "line_start": 257,
+          "line_end": 261,
+          "signature": "def test_bearish_trigger_to_short_mapping_consistent(self):"
+        },
+        "tests.test_integration.TestTrailingExit._make_trade": {
+          "file": "tests\\test_integration.py",
+          "line_start": 272,
+          "line_end": 285,
+          "signature": "def _make_trade(self, side='long', entry=100.0, sl=95.0, tp=110.0, trail_steps=None):"
+        },
+        "tests.test_integration.TestTrailingExit._bars_with_bullish_fvg": {
+          "file": "tests\\test_integration.py",
+          "line_start": 287,
+          "line_end": 297,
+          "signature": "def _bars_with_bullish_fvg(self, base=100.0):"
+        },
+        "tests.test_integration.TestTrailingExit._bars_with_bearish_fvg": {
+          "file": "tests\\test_integration.py",
+          "line_start": 299,
+          "line_end": 309,
+          "signature": "def _bars_with_bearish_fvg(self, base=100.0):"
+        },
+        "tests.test_integration.TestTrailingExit.test_long_trail_on_bullish_fvg_tightens_sl_up": {
+          "file": "tests\\test_integration.py",
+          "line_start": 311,
+          "line_end": 320,
+          "signature": "def test_long_trail_on_bullish_fvg_tightens_sl_up(self):"
+        },
+        "tests.test_integration.TestTrailingExit.test_short_trail_on_bearish_fvg_tightens_sl_down": {
+          "file": "tests\\test_integration.py",
+          "line_start": 322,
+          "line_end": 330,
+          "signature": "def test_short_trail_on_bearish_fvg_tightens_sl_down(self):"
+        },
+        "tests.test_integration.TestTrailingExit.test_check_exit_long_hit_sl": {
+          "file": "tests\\test_integration.py",
+          "line_start": 332,
+          "line_end": 338,
+          "signature": "def test_check_exit_long_hit_sl(self):"
+        },
+        "tests.test_integration.TestTrailingExit.test_check_exit_long_hit_tp": {
+          "file": "tests\\test_integration.py",
+          "line_start": 340,
+          "line_end": 346,
+          "signature": "def test_check_exit_long_hit_tp(self):"
+        },
+        "tests.test_integration.TestTrailingExit.test_check_exit_short_hit_sl": {
+          "file": "tests\\test_integration.py",
+          "line_start": 348,
+          "line_end": 354,
+          "signature": "def test_check_exit_short_hit_sl(self):"
+        },
+        "tests.test_integration.TestTrailingExit.test_check_exit_short_hit_tp": {
+          "file": "tests\\test_integration.py",
+          "line_start": 356,
+          "line_end": 362,
+          "signature": "def test_check_exit_short_hit_tp(self):"
+        },
+        "tests.test_integration.TestTrailingExit.test_check_exit_no_hit": {
+          "file": "tests\\test_integration.py",
+          "line_start": 364,
+          "line_end": 369,
+          "signature": "def test_check_exit_no_hit(self):"
+        },
+        "tests.test_integration.TestTrailingExit.test_short_bar_set_no_false_exit": {
+          "file": "tests\\test_integration.py",
+          "line_start": 371,
+          "line_end": 376,
+          "signature": "def test_short_bar_set_no_false_exit(self):"
+        },
+        "tests.test_integration.TestTrailingExit.test_trail_does_not_update_when_no_fvg": {
+          "file": "tests\\test_integration.py",
+          "line_start": 378,
+          "line_end": 386,
+          "signature": "def test_trail_does_not_update_when_no_fvg(self):"
+        },
+        "tests.test_integration.TestDryStrategyFlow._make_session_state": {
+          "file": "tests\\test_integration.py",
+          "line_start": 397,
+          "line_end": 410,
+          "signature": "def _make_session_state(self, bias: DailyBias, locked: bool=True):"
+        },
+        "tests.test_integration.TestDryStrategyFlow._bar": {
+          "file": "tests\\test_integration.py",
+          "line_start": 412,
+          "line_end": 416,
+          "signature": "def _bar(self, index, o, h, low, c, ts=None):"
+        },
+        "tests.test_integration.TestDryStrategyFlow._build_bullish_flow_bars": {
+          "file": "tests\\test_integration.py",
+          "line_start": 418,
+          "line_end": 430,
+          "signature": "def _build_bullish_flow_bars(self):"
+        },
+        "tests.test_integration.TestDryStrategyFlow.test_bullish_full_flow_sweep_to_exit": {
+          "file": "tests\\test_integration.py",
+          "line_start": 432,
+          "line_end": 496,
+          "signature": "def test_bullish_full_flow_sweep_to_exit(self):"
+        },
+        "tests.test_integration.TestDryStrategyFlow.test_bearish_full_flow_sweep_to_exit": {
+          "file": "tests\\test_integration.py",
+          "line_start": 498,
+          "line_end": 564,
+          "signature": "def test_bearish_full_flow_sweep_to_exit(self):"
         }
       },
       "files": {
@@ -4613,6 +4817,10 @@
         "src\\trading\\__init__.py": {
           "last_modified": "2026-06-30T21:12:59",
           "hash": "sha256:f61320312ed5e5b1"
+        },
+        "tests\\test_integration.py": {
+          "last_modified": "2026-07-13T14:02:29",
+          "hash": "sha256:9f210d1b0f3a3da7"
         }
       },
       "last_full_scan": "2026-07-12T23:30:10"
@@ -6627,10 +6835,6 @@
           "last_modified": "2026-07-12T02:54:27",
           "hash": "sha256:80cf2757382f511a"
         },
-        "src\\utils\\visualize_cbdr_zoom.py": {
-          "last_modified": "2026-06-27T13:21:49",
-          "hash": "sha256:6dacdce0362ca3db"
-        },
         "src\\_ds_comp.py": {
           "last_modified": "2026-07-13T01:30:22",
           "hash": "sha256:747d716c9548268a"
@@ -6638,6 +6842,10 @@
         "src\\analyzer_v5.py": {
           "last_modified": "2026-07-13T09:34:16",
           "hash": "sha256:0fa6696b61b71ab1"
+        },
+        "src\\utils\\visualize_cbdr_zoom.py": {
+          "last_modified": "2026-06-27T13:21:49",
+          "hash": "sha256:6dacdce0362ca3db"
         }
       },
       "last_full_scan": "2026-07-11T21:18:06"
