@@ -10,7 +10,7 @@ import logging
 from enum import Enum, auto
 from typing import Literal
 
-from fvg import detect_fvgs, fvg_close_confirmed
+from fvg import detect_fvgs
 from models import Bar
 
 logger = logging.getLogger("nexus.retrace_state")
@@ -203,11 +203,12 @@ class RetraceStateMachine:
                 logger.info("%s | reject=body_broke_fvg", _fvg_debug)
                 continue
 
-            if not fvg_close_confirmed(
-                fvg.direction, fvg.top, fvg.bottom, fvg.bar_index, bars_15m
-            ):
-                logger.info("%s | reject=no_close_inside_fvg", _fvg_debug)
-                continue
+            # NOTE: fvg_close_confirmed gecici olarak devre disi — backtest karsilastirmasi icin
+            # if not fvg_close_confirmed(
+            #     fvg.direction, fvg.top, fvg.bottom, fvg.bar_index, bars_15m
+            # ):
+            #     logger.info("%s | reject=no_close_inside_fvg", _fvg_debug)
+            #     continue
 
             logger.info("%s | ACCEPT=trigger_ready", _fvg_debug)
             self.state = RetraceState.TRIGGER_READY

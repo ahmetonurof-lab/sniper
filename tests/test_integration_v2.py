@@ -420,24 +420,22 @@ class TestDryFlowExtended:
         assert rsm.state == RetraceState.SWEEP_DETECTED
         assert rsm.can_trigger() is False
 
-    def test_fvg_no_close_confirm_blocks_trigger(self):
-        """FVG var ama icinde kapanis yok → trigger olusmaz."""
+    def test_fvg_no_close_confirm_no_longer_blocks(self):
+        """fvg_close_confirmed gecici devre disi: close olmasa da trigger olusur."""
         from retrace_state import RetraceStateMachine, RetraceState
 
         rsm = RetraceStateMachine()
         rsm.on_sweep("bullish", 105.0)
-        # Bars with FVG gap but NO candle closing inside FVG [103, 105]
         bars = [
             _bar(0, 100, 103, 99, 102, ts=0),
             _bar(1, 103, 105, 102, 104, ts=900000),
-            _bar(2, 106, 110, 105, 108, ts=1800000),  # close=108 > FVG top=105
+            _bar(2, 106, 110, 105, 108, ts=1800000),
             _bar(3, 108, 112, 107, 110, ts=2700000),
             _bar(4, 110, 113, 109, 112, ts=3600000),
         ]
         sweep_bar = _bar(5, 116, 118, 101, 117, ts=5 * 3600 * 1000)
         rsm.on_sweep_confirmed(bars, sweep_bar)
-        assert rsm.state == RetraceState.SWEEP_DETECTED  # no trigger
-        assert rsm.trigger_fvg is None
+        assert rsm.state == RetraceState.TRIGGER_READY
 
     def test_direction_consistency_through_full_chain(self):
         """Dry flow: bullish sweep → bullish FVG → long entry → long trail → SL exit."""
