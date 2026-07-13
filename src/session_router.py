@@ -16,11 +16,12 @@ logger = logging.getLogger("sniper.session_router")
 
 def is_high_quality_fvg(fvg_pips: float, current_atr: float, symbol: str = "") -> bool:
     """FVG kalitesini volatiliteye (ATR) gore kontrol et.
-    MIN_REL_FVG_THRESHOLD = 0.40 (global, coin bazli degil)."""
+    Coin bazli FVG_SIZE_MAP kullanir, yoksa MIN_REL_FVG_THRESHOLD fallback."""
     if current_atr <= 1e-8:
         return False
     rel_fvg = fvg_pips / current_atr
-    if rel_fvg < cfg.MIN_REL_FVG_THRESHOLD:
+    threshold = cfg.FVG_SIZE_MAP.get(symbol, cfg.MIN_REL_FVG_THRESHOLD)
+    if rel_fvg < threshold:
         return False
     return True
 
