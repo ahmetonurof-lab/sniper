@@ -162,12 +162,31 @@ class RetraceStateMachine:
             max_wick_ratio=self._max_wick_ratio,
         )
         if not htf_fvgs:
+            logger.info("[FVG-DEBUG] %s no FVG found in last 100 bars", self.direction)
             return  # sweep hala gecerli, bir sonraki bar'i bekle — RESET YOK
 
         for fvg in reversed(htf_fvgs):
+            # ── Debug: her FVG adayini logla ──
+            fvg_first = max(0, fvg.bar_index - 1)
+            fvg_third = fvg.bar_index + 1
+            _fvg_debug = (
+                f"[FVG-DEBUG] candidate |"
+                f" dir={fvg.direction} |"
+                f" bars=[{fvg_first},{fvg.bar_index},{fvg_third}] |"
+                f" FVG=[{fvg.bottom:.4f}-{fvg.top:.4f}] |"
+                f" sweep_bar_idx={last.index} |"
+                f" sweep_dir={self.direction}"
+            )
             if fvg.direction != self.direction:
+                logger.info("%s | reject=wrong_direction", _fvg_debug)
                 continue
             if fvg.bar_index >= last.index:
+                logger.info(
+                    "%s | reject=FVG_after_sweep (bar_idx=%d >= sweep=%d)",
+                    _fvg_debug,
+                    fvg.bar_index,
+                    last.index,
+                )
                 continue
 
             if self.direction == "bullish":
@@ -177,14 +196,23 @@ class RetraceStateMachine:
                 wick_touched = last.high >= fvg.bottom
                 body_broke_down = last.close > fvg.top
 
-            if wick_touched and not body_broke_down:
-                if not fvg_close_confirmed(
-                    fvg.direction, fvg.top, fvg.bottom, fvg.bar_index, bars_15m
-                ):
-                    continue
-                self.state = RetraceState.TRIGGER_READY
-                self.trigger_fvg = fvg
-                self._mark_sweep_used()
-                return
+            if not wick_touched:
+                logger.info("%s | reject=wick_not_touched", _fvg_debug)
+                continue
+            if body_broke_down:
+                logger.info("%s | reject=body_broke_fvg", _fvg_debug)
+                continue
+
+            if not fvg_close_confirmed(
+                fvg.direction, fvg.top, fvg.bottom, fvg.bar_index, bars_15m
+            ):
+                logger.info("%s | reject=no_close_inside_fvg", _fvg_debug)
+                continue
+
+            logger.info("%s | ACCEPT=trigger_ready", _fvg_debug)
+            self.state = RetraceState.TRIGGER_READY
+            self.trigger_fvg = fvg
+            self._mark_sweep_used()
+            return
 
         return  # bu bar'da hicbir FVG tetiklenmedi — SWEEP_DETECTED'de kal, reset YOK
