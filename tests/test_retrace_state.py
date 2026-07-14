@@ -234,23 +234,27 @@ class TestOnSweepConfirmed:
         pass
 
     def test_bullish_wick_rejection_triggers(self):
-        """Crafted scenario: bullish sweep + FVG with reaction (high>=bottom, close<bottom)."""
+        """Crafted scenario: bullish sweep + FVG with wick rejection + close inside FVG."""
         rsm = RetraceStateMachine()
-        rsm.on_sweep("bullish", 100.0)
+        rsm.on_sweep("bullish", 105.0)
+        # Craft bars with a clear bullish FVG detected by detect_fvgs
         # FVG: b_prev=bar(0) high=103, b_next=bar(2) low=105 → gap [103, 105]
+        # bar(1) is impulse candle
         bars = [
-            _bar(0, 100, 103, 99, 102),
-            _bar(1, 103, 105, 102, 104, is_closed=True),
-            _bar(2, 106, 110, 105, 105, is_closed=True),
+            _bar(0, 100, 103, 99, 102),  # b_prev
+            _bar(1, 103, 105, 102, 104, is_closed=True),  # impulse
+            _bar(2, 106, 110, 105, 105, is_closed=True),  # b_next (close=105 fills gap)
             _bar(3, 108, 112, 107, 110, is_closed=True),
             _bar(4, 110, 113, 109, 112, is_closed=True),
             _bar(5, 112, 115, 111, 114, is_closed=True),
             _bar(6, 114, 116, 113, 115, is_closed=True),
             _bar(7, 115, 117, 114, 116, is_closed=True),
-            _bar(8, 105, 107, 103, 104, is_closed=True, timestamp=8 * 900000),
         ]
-        # Sweep bar: high>=103 (enters FVG), close<103 (rejected), range large
-        sweep_bar = _bar(9, 102, 106, 100, 102, is_closed=True, timestamp=9 * 900000)
+        # Add a bar that closes INSIDE the FVG [103, 105] for fvg_close_confirmed
+        # bar(8): close=104 which is between FVG bottom(103) and top(105)
+        bars.append(_bar(8, 105, 107, 103, 104, is_closed=True, timestamp=8 * 900000))
+        # Sweep bar: wick goes down to 101 (within FVG top=105), body closes above FVG
+        sweep_bar = _bar(9, 116, 118, 101, 117, is_closed=True, timestamp=9 * 900000)
         rsm.on_sweep_confirmed(bars, sweep_bar)
         assert rsm.state == RetraceState.TRIGGER_READY
         assert rsm.trigger_fvg is not None
@@ -387,10 +391,11 @@ class TestFullFlow:
         assert rsm.state == RetraceState.IDLE
 
         with patch("state_manager.is_sweep_used", return_value=False):
-            rsm.on_sweep("bullish", 100.0, bar_index=5)
+            rsm.on_sweep("bullish", 105.0, bar_index=5)
         assert rsm.state == RetraceState.SWEEP_DETECTED
         assert rsm.can_trigger() is False
 
+        # Now confirm with bars that have matching FVG + wick rejection
         # FVG: bar(0) high=103, bar(2) low=105 → gap [103, 105]
         bars = [
             _bar(0, 100, 103, 99, 102),
@@ -401,9 +406,10 @@ class TestFullFlow:
             _bar(5, 112, 115, 111, 114),
             _bar(6, 114, 116, 113, 115),
             _bar(7, 115, 117, 114, 116),
+            # Bar that closes INSIDE FVG [103, 105] for fvg_close_confirmed
             _bar(8, 105, 107, 103, 104, is_closed=True, timestamp=8 * 900000),
         ]
-        sweep_bar = _bar(9, 102, 106, 100, 102, is_closed=True, timestamp=9 * 900000)
+        sweep_bar = _bar(9, 116, 118, 101, 117, is_closed=True, timestamp=9 * 900000)
 
         with patch("state_manager.mark_sweep_used"):
             rsm.on_sweep_confirmed(bars, sweep_bar)
