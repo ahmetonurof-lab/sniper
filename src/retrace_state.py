@@ -193,18 +193,14 @@ class RetraceStateMachine:
                 )
                 continue
 
-            if self.direction == "bullish":
-                wick_touched = last.low <= fvg.top
-                body_broke_down = last.close < fvg.bottom
-            else:
-                wick_touched = last.high >= fvg.bottom
-                body_broke_down = last.close > fvg.top
+            reaction_ok = (
+                last.high >= fvg.bottom and
+                last.close < fvg.bottom and
+                (last.high - last.low) >= atr_val * 0.8
+            )
 
-            if not wick_touched:
-                logger.info("%s | reject=wick_not_touched", _fvg_debug)
-                continue
-            if body_broke_down:
-                logger.info("%s | reject=body_broke_fvg", _fvg_debug)
+            if not reaction_ok:
+                logger.info("%s | reject=no_reaction", _fvg_debug)
                 continue
 
             # NOTE: fvg_close_confirmed gecici olarak devre disi — backtest karsilastirmasi icin

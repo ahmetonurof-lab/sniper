@@ -34,11 +34,11 @@ class TestSweepFVGTrigger:
     """RSM + fvg + signal_engine: sweep -> FVG taramasi -> trigger karari."""
 
     def test_bullish_sweep_with_valid_fvg_reaches_trigger_ready(self):
-        """Bullish sweep + FVG + wick rejection + close inside FVG = TRIGGER_READY."""
+        """Bullish sweep + FVG + reaction (high>=bottom, close<bottom) = TRIGGER_READY."""
         rsm = RetraceStateMachine()
-        rsm.on_sweep("bullish", 105.0)
+        rsm.on_sweep("bullish", 100.0)
 
-        # Bullish FVG: bar(0) high=103, bar(2) low=105 → gap [103, 105], bar(1) impulse
+        # Bullish FVG: bar(0) high=103, bar(2) low=105 → gap [103, 105]
         bars = [
             _bar(0, 100, 103, 99, 102, ts=0),
             _bar(1, 103, 105, 102, 104, ts=900000),
@@ -48,11 +48,10 @@ class TestSweepFVGTrigger:
             _bar(5, 112, 115, 111, 114, ts=4500000),
             _bar(6, 114, 116, 113, 115, ts=5400000),
             _bar(7, 115, 117, 114, 116, ts=6300000),
-            # Close inside FVG [103, 105] for fvg_close_confirmed
             _bar(8, 105, 107, 103, 104, ts=7200000),
         ]
-        # Sweep bar: wick touches FVG (low=101 <= top=105), body safe (close=117 > bottom=103)
-        sweep_bar = _bar(9, 116, 118, 101, 117, ts=8100000)
+        # Sweep bar: high>=103 (enters FVG), close<103 (rejected), range large
+        sweep_bar = _bar(9, 102, 106, 100, 102, ts=8100000)
 
         rsm.on_sweep_confirmed(bars, sweep_bar)
 
