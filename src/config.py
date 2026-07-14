@@ -56,7 +56,7 @@ SYMBOLS = [
 ]
 
 
-# ── ATR-bazlı dinamik FVG eşiği (statik FVG_SIZE_MAP yerine) ──
+# ── Global fallback: FVG.size / ATR eşiği (coin bazlı override yoksa) ──
 
 FVG_MIN_SIZE_ATR_MULT = 0.08
 
@@ -352,6 +352,10 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
     },
 }
 
+# ── Tek FVG eşik haritası (coin bazlı FVG.size / ATR) ──
+# on_sweep_confirmed() + trailing buradan okur.
+# Fallback: FVG_MIN_SIZE_ATR_MULT.
+
 FVG_SIZE_MAP: dict[str, float] = {
     "AAVEUSDT": 0.030,
     "ADAUSDT": 0.050,
@@ -360,36 +364,11 @@ FVG_SIZE_MAP: dict[str, float] = {
     "ARBUSDT": 0.040,
     "ATOMUSDT": 0.080,
     "AVAXUSDT": 0.080,
-    "BNBUSDT": 0.021,
+    "BNBUSDT": 0.110,
     "BTCUSDT": 0.060,
     "DOGEUSDT": 0.100,
     "DOTUSDT": 0.060,
-    "ETHUSDT": 0.110,
-    "INJUSDT": 0.160,
-    "LINKUSDT": 0.020,
-    "NEARUSDT": 0.048,
-    "OPUSDT": 0.080,
-    "SOLUSDT": 0.060,
-    "SUIUSDT": 0.050,
-    "UNIUSDT": 0.060,
-    "XRPUSDT": 0.022,
-}
-
-# ── Coin bazlı FVG_MIN_SIZE_ATR_MULT (min gap eşiği) ────────────
-
-FVG_MIN_MULT_MAP: dict[str, float] = {
-    "AAVEUSDT": 0.030,
-    "ADAUSDT": 0.050,
-    "ALGOUSDT": 0.100,
-    "APTUSDT": 0.130,
-    "ARBUSDT": 0.040,
-    "ATOMUSDT": 0.080,
-    "AVAXUSDT": 0.080,
-    "BNBUSDT": 0.190,
-    "BTCUSDT": 0.060,
-    "DOGEUSDT": 0.100,
-    "DOTUSDT": 0.060,
-    "ETHUSDT": 0.110,
+    "ETHUSDT": 0.080,
     "INJUSDT": 0.160,
     "LINKUSDT": 0.020,
     "NEARUSDT": 0.060,
@@ -399,6 +378,8 @@ FVG_MIN_MULT_MAP: dict[str, float] = {
     "UNIUSDT": 0.060,
     "XRPUSDT": 0.060,
 }
+
+
 # ── Risk parametreleri ─────────────────────────────────────────
 
 SL_ATR_MULT = 1.5

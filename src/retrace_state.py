@@ -156,7 +156,7 @@ class RetraceStateMachine:
         # ── Coin bazli dinamik FVG eşiği ──
         import config as _cfg
 
-        min_mult = _cfg.FVG_MIN_MULT_MAP.get(symbol, _cfg.FVG_MIN_SIZE_ATR_MULT)
+        min_mult = _cfg.FVG_SIZE_MAP.get(symbol, _cfg.FVG_MIN_SIZE_ATR_MULT)
         min_fvg_size = max(atr_val * min_mult, 1e-8)
 
         htf_fvgs = scan_htf_fvgs(

@@ -28,7 +28,6 @@ from session_router import (
     should_trade,
     get_cbdr_multiplier,
     get_session_hours,
-    is_high_quality_fvg,
     is_fvg_valid,
 )
 from state_manager import (
@@ -317,9 +316,7 @@ class PaperTrader:
         self.reporter.display_fvg_status(
             sym,
             rsm,
-            max(
-                atr_val * cfg.FVG_MIN_MULT_MAP.get(sym, cfg.FVG_MIN_SIZE_ATR_MULT), 1e-8
-            ),
+            max(atr_val * cfg.FVG_SIZE_MAP.get(sym, cfg.FVG_MIN_SIZE_ATR_MULT), 1e-8),
             current.close,
         )
 
@@ -327,20 +324,8 @@ class PaperTrader:
         result = engine.evaluate_trigger(current, ss)
 
         if result.decision == "TRIGGER":
-            # ── Dinamik FVG kalite filtresi (ATR bazli) ──
             tf = rsm.trigger_fvg
             if tf is not None:
-                if not is_high_quality_fvg(tf.top - tf.bottom, atr_val, sym):
-                    rel = (tf.top - tf.bottom) / atr_val if atr_val > 1e-8 else 0
-                    threshold = cfg.FVG_SIZE_MAP.get(sym, cfg.MIN_REL_FVG_THRESHOLD)
-                    log.info(
-                        "[FVG-FILTER] %s rel_fvg=%.2f < %.2f (gurultu, iptal)",
-                        sym,
-                        rel,
-                        threshold,
-                    )
-                    rsm.reset()
-                    return
                 if not is_fvg_valid(tf.bar_index, current.index):
                     log.info(
                         "[FVG-FILTER] %s FVG %d bar once olusmus, expiry=%d (iptal)",
@@ -374,7 +359,7 @@ class PaperTrader:
                 tp_rr,
                 fvg_buf,
                 max(
-                    atr_val * cfg.FVG_MIN_MULT_MAP.get(sym, cfg.FVG_MIN_SIZE_ATR_MULT),
+                    atr_val * cfg.FVG_SIZE_MAP.get(sym, cfg.FVG_MIN_SIZE_ATR_MULT),
                     1e-8,
                 ),
             )
@@ -412,7 +397,7 @@ class PaperTrader:
             sym, max(current.range, current.close * cfg.DEFAULT_ATR_FALLBACK_PCT)
         )
         min_fvg = max(
-            atr_val * cfg.FVG_MIN_MULT_MAP.get(sym, cfg.FVG_MIN_SIZE_ATR_MULT), 1e-8
+            atr_val * cfg.FVG_SIZE_MAP.get(sym, cfg.FVG_MIN_SIZE_ATR_MULT), 1e-8
         )
 
         self._orphan_check_counter += 1

@@ -53,6 +53,7 @@ def _trade(
         "initial_tp": init_tp,
         "risk_pts": rp,
         "trailing_count": trailing_count,
+        "trail_steps": [],
         "qty": 0.1,
     }
 
@@ -125,14 +126,15 @@ class TestEvaluateTrail:
         mock_cfg.ATR_TRAIL_MULT = 0.25
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
 
-        # 4 bars → chunk has 3 → only i=1 checked → single bullish FVG (top=105, bottom=103)
+        # 5 bars → chunk has 4 (indices 0-3) → FVG at bar1, confirmed by bar3 close in range
         bars = [
             _bar(0, 100, 103, 99, 102),
             _bar(1, 103, 105, 102, 104),
             _bar(
                 2, 106, 110, 105, 108
             ),  # bullish FVG: b_next.low=105 > b_prev.high=103
-            _bar(3, 108, 112, 107, 110),
+            _bar(3, 103, 106, 102, 104),  # close in FVG range → confirms FVG
+            _bar(4, 108, 112, 107, 110),  # current bar
         ]
 
         # atr_buffer = 0.3 * 0.25 = 0.075, new_sl = 103 - 0.075 = 102.925
@@ -198,7 +200,8 @@ class TestEvaluateTrail:
             _bar(0, 100, 103, 99, 102),
             _bar(1, 103, 105, 102, 104),
             _bar(2, 106, 110, 105, 108),
-            _bar(3, 108, 112, 107, 110),
+            _bar(3, 103, 106, 102, 104),  # close in FVG → confirms
+            _bar(4, 108, 112, 107, 110),
         ]
         result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
         assert result.updated is True
@@ -249,7 +252,8 @@ class TestEvaluateTrail:
             _bar(0, 100, 103, 99, 102),
             _bar(1, 103, 105, 102, 104),
             _bar(2, 106, 110, 105, 108),
-            _bar(3, 108, 112, 107, 110),
+            _bar(3, 103, 106, 102, 104),  # close in FVG → confirms
+            _bar(4, 108, 112, 107, 110),
         ]
         # Will trail → trail_count should become 3
         with patch("trading.trailing_manager.cfg") as mock_cfg:
@@ -409,7 +413,8 @@ class TestTrailAndExitSequence:
             _bar(0, 100, 103, 99, 102),
             _bar(1, 103, 105, 102, 104),
             _bar(2, 106, 110, 105, 108),
-            _bar(3, 108, 112, 107, 110),
+            _bar(3, 103, 106, 102, 104),  # close in FVG → confirms
+            _bar(4, 108, 112, 107, 110),
         ]
 
         trail = TrailingManager.evaluate_trail(bars_15m, trade, 0.3, 0.5)
@@ -439,7 +444,8 @@ class TestTrailAndExitSequence:
             _bar(0, 100, 103, 99, 102),
             _bar(1, 103, 105, 102, 104),
             _bar(2, 106, 110, 105, 108),
-            _bar(3, 108, 112, 107, 110),
+            _bar(3, 103, 106, 102, 104),  # close in FVG → confirms
+            _bar(4, 108, 112, 107, 110),
         ]
 
         trail = TrailingManager.evaluate_trail(bars_15m, trade, 0.3, 0.5)
