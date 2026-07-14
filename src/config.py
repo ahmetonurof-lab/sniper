@@ -33,7 +33,6 @@ LOG_LEVEL = "INFO"
 # ── Semboller (aktif trade listesi) ───────────────────────────
 
 SYMBOLS = [
-    "BTCUSDT",
     "BNBUSDT",
     "SOLUSDT",
     "AVAXUSDT",
@@ -44,7 +43,6 @@ SYMBOLS = [
     "APTUSDT",
     "DOTUSDT",
     "NEARUSDT",
-    "ETHUSDT",
     "SUIUSDT",
     "OPUSDT",
     "ARBUSDT",
@@ -90,19 +88,6 @@ SESSION_HOURS: dict[str, dict[str, int]] = {
 # weekend_mult:  kac kat uygulanacak (ornek: 1.5 = %50 fazla)
 
 CBDR_RISK_MATRIX: dict[str, dict] = {
-    "BTCUSDT": {
-        "session": "DEFAULT",
-        "weekend_bonus": False,
-        "weekend_mult": 1.0,
-        "buckets": [
-            (0.0, 1.0, 0.0),  # n=1693 WR=21.3% CI=[19.4%,23.3%]
-            (1.0, 1.5, 0.8),  # n=492 WR=33.3% CI=[29.3%,37.6%]
-            (1.5, 2.0, 0.8),  # n=186 WR=33.3% CI=[27.0%,40.4%]
-            (2.0, 3.0, 1.0),  # n=120 WR=35.8% CI=[27.8%,44.7%]
-            (3.0, 5.0, 1.0),  # n=58 WR=27.6% CI=[17.8%,40.2%]
-            (5.0, 999.0, 1.0),  # n=24 WR=50.0% CI=[31.4%,68.6%]
-        ],
-    },
     "BNBUSDT": {
         "session": "REAL_CBDR",
         "weekend_bonus": False,
@@ -233,19 +218,6 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
             (5.0, 999.0, 1.5),  # n=181 WR=53.0% CI=[45.8%,60.2%]
         ],
     },
-    "ETHUSDT": {
-        "session": "DEFAULT",
-        "weekend_bonus": False,
-        "weekend_mult": 1.0,
-        "buckets": [
-            (0.0, 1.0, 0.0),  # n=911 WR=23.5% CI=[20.9%,26.4%]
-            (1.0, 1.5, 0.5),  # n=663 WR=28.4% CI=[25.1%,31.9%]
-            (1.5, 2.0, 0.8),  # n=302 WR=32.5% CI=[27.4%,37.9%]
-            (2.0, 3.0, 0.5),  # n=275 WR=29.5% CI=[24.4%,35.1%]
-            (3.0, 5.0, 1.0),  # n=98 WR=31.6% CI=[23.3%,41.4%]
-            (5.0, 999.0, 1.0),  # n=28 WR=71.4% CI=[52.9%,84.7%]
-        ],
-    },
     "SUIUSDT": {
         "session": "ASIA_RANGE",
         "weekend_bonus": False,
@@ -365,10 +337,8 @@ FVG_SIZE_MAP: dict[str, float] = {
     "ATOMUSDT": 0.080,
     "AVAXUSDT": 0.080,
     "BNBUSDT": 0.110,
-    "BTCUSDT": 0.060,
     "DOGEUSDT": 0.100,
     "DOTUSDT": 0.060,
-    "ETHUSDT": 0.080,
     "INJUSDT": 0.160,
     "LINKUSDT": 0.020,
     "NEARUSDT": 0.060,
