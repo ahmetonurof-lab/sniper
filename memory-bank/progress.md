@@ -49,13 +49,17 @@
 | Dinamik FVG eşiği | ✅ `FVG_MIN_SIZE_ATR_MULT × atr_val` (eskiden statik FVG_SIZE_MAP) |
 | Session Router (session_router.py) | ✅ `get_cbdr_multiplier()`, `should_trade()`, `is_high_quality_fvg()`, `is_fvg_valid()`, `get_session_hours()` |
 | CBDR Risk Matrisi (13 coin × 6 bucket) | ✅ `config.py`'de `CBDR_RISK_MATRIX`, backtest WR/BE+/PnL verisiyle dolduruldu |
+| CBDR Risk Matrisi 10 yeni coin (2026-07-15) | ✅ TIA/SEI/ONDO/PYTH/RENDER/ENA/STRK/GMX/DYDX/LDO eklendi. ASIA_RANGE=7, DEFAULT=3. |
+| FVG_SIZE_MAP 10 yeni coin (2026-07-15) | ✅ Sweep ile optimum değerler bulundu: DYDX=0.040, ENA/GMX/LDO=0.020, ONDO=0.040, PYTH=0.130, RENDER/SEI/TIA=0.070, STRK=0.060. |
+| FVG_MIN_SIZE_ATR_MULT güncellendi (2026-07-15) | ✅ 0.08→0.06 (analyze_cbdr_thresholds.py ile aynı). |
+| SYMBOLS 10 yeni coin (2026-07-15) | ✅ 28 sembole genişletildi. |
 | 3 katmanlı risk motoru | ✅ Zaman(EL) × Kurulum(CBDR bucket) × Portföy(devre kesici). Defense mode: EL+Elite iptal |
 | Coin bazlı SessionState | ✅ Her coin `CBDR_RISK_MATRIX['session']` üzerinden kendi optimal saatlerini alır |
 | BOT_SESSION kaldırıldı | ✅ Yerine coin bazlı session assignment |
 | NaN fix + MIN_FVG_SIZE temizlik | ✅ Kullanılmayan sabitler silindi, NaN koruması eklendi |
 | Dinamik ATR bazlı FVG filtresi | ✅ `is_high_quality_fvg()` — `MIN_REL_FVG_THRESHOLD=0.50` |
 | FVG expiry filter | ✅ `GLOBAL_FVG_EXPIRY_BARS=45`, `is_fvg_valid()` |
-| Session assignment (13 coin) | ✅ DEFAULT=8, REAL_CBDR=2, ASIA_RANGE=3 |
+| Session assignment (13 coin) | ✅ DEFAULT=8, REAL_CBDR=2, ASIA_RANGE=3 → **10 yeni coin eklendi (toplam 28)** |
 | ETHUSDT/SUIUSDT geri eklendi | ✅ DEFAULT session'a atandı |
 | CBDR_RISK_MATRIX final commit | ✅ 13 coin bucket eşikleri + çarpanları tamamlandı |
 | bot.py _session_label ASIA fix (backtest uyumu) | ✅ `_session_label()`'deki 22-02="ASIA" blokajı kaldırıldı. Artık coin bazlı CBDR blokajı backtest'le birebir aynı. REAL_CBDR coin'lerde 01:00-02:00 arası hatalı blok düzeldi. |

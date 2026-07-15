@@ -51,12 +51,22 @@ SYMBOLS = [
     "AAVEUSDT",
     "UNIUSDT",
     "DOGEUSDT",
+    "TIAUSDT",
+    "SEIUSDT",
+    "ONDOUSDT",
+    "PYTHUSDT",
+    "RENDERUSDT",
+    "ENAUSDT",
+    "STRKUSDT",
+    "GMXUSDT",
+    "DYDXUSDT",
+    "LDOUSDT",
 ]
 
 
 # ── Global fallback: FVG.size / ATR eşiği (coin bazlı override yoksa) ──
 
-FVG_MIN_SIZE_ATR_MULT = 0.08
+FVG_MIN_SIZE_ATR_MULT = 0.06
 
 
 # ── CBDR Risk Matrisi (coin bazli session + bucket carpani) ─────
@@ -322,6 +332,136 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
             (5.0, 999.0, 1.5),  # n=200 WR=52.0% CI=[45.1%,58.8%]
         ],
     },
+    "TIAUSDT": {
+        "session": "ASIA_RANGE",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
+        "buckets": [
+            (0.0, 1.0, 0.0),
+            (1.0, 1.5, 0.8),
+            (1.5, 2.0, 1.2),
+            (2.0, 3.0, 1.2),
+            (3.0, 5.0, 1.5),
+            (5.0, 999.0, 0.8),
+        ],
+    },
+    "SEIUSDT": {
+        "session": "DEFAULT",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
+        "buckets": [
+            (0.0, 1.0, 0.0),
+            (1.0, 1.5, 0.0),
+            (1.5, 2.0, 0.8),
+            (2.0, 3.0, 1.2),
+            (3.0, 5.0, 1.2),
+            (5.0, 999.0, 1.0),
+        ],
+    },
+    "ONDOUSDT": {
+        "session": "ASIA_RANGE",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
+        "buckets": [
+            (0.0, 1.0, 0.0),
+            (1.0, 1.5, 0.8),
+            (1.5, 2.0, 1.0),
+            (2.0, 3.0, 1.2),
+            (3.0, 5.0, 1.2),
+            (5.0, 999.0, 1.0),
+        ],
+    },
+    "PYTHUSDT": {
+        "session": "ASIA_RANGE",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
+        "buckets": [
+            (0.0, 1.0, 0.0),
+            (1.0, 1.5, 0.0),
+            (1.5, 2.0, 0.8),
+            (2.0, 3.0, 1.2),
+            (3.0, 5.0, 1.5),
+            (5.0, 999.0, 0.8),
+        ],
+    },
+    "RENDERUSDT": {
+        "session": "ASIA_RANGE",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
+        "buckets": [
+            (0.0, 1.0, 0.0),
+            (1.0, 1.5, 0.0),
+            (1.5, 2.0, 1.0),
+            (2.0, 3.0, 1.2),
+            (3.0, 5.0, 1.5),
+            (5.0, 999.0, 0.8),
+        ],
+    },
+    "ENAUSDT": {
+        "session": "ASIA_RANGE",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
+        "buckets": [
+            (0.0, 1.0, 0.0),
+            (1.0, 1.5, 0.0),
+            (1.5, 2.0, 0.8),
+            (2.0, 3.0, 1.0),
+            (3.0, 5.0, 1.0),
+            (5.0, 999.0, 0.8),
+        ],
+    },
+    "STRKUSDT": {
+        "session": "ASIA_RANGE",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
+        "buckets": [
+            (0.0, 1.0, 0.0),
+            (1.0, 1.5, 0.5),
+            (1.5, 2.0, 0.8),
+            (2.0, 3.0, 1.0),
+            (3.0, 5.0, 1.0),
+            (5.0, 999.0, 0.8),
+        ],
+    },
+    "GMXUSDT": {
+        "session": "ASIA_RANGE",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
+        "buckets": [
+            (0.0, 1.0, 0.0),
+            (1.0, 1.5, 0.0),
+            (1.5, 2.0, 0.0),
+            (2.0, 3.0, 0.8),
+            (3.0, 5.0, 0.8),
+            (5.0, 999.0, 0.0),
+        ],
+    },
+    "DYDXUSDT": {
+        "session": "DEFAULT",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
+        "buckets": [
+            (0.0, 1.0, 0.0),
+            (1.0, 1.5, 0.0),
+            (1.5, 2.0, 0.5),
+            (2.0, 3.0, 0.8),
+            (3.0, 5.0, 0.8),
+            (5.0, 999.0, 0.5),
+        ],
+    },
+    "LDOUSDT": {
+        "session": "ASIA_RANGE",
+        "weekend_bonus": False,
+        "weekend_mult": 1.0,
+        "buckets": [
+            (0.0, 1.0, 0.0),
+            (1.0, 1.5, 0.5),
+            (1.5, 2.0, 0.8),
+            (2.0, 3.0, 1.0),
+            (3.0, 5.0, 1.2),
+            (5.0, 999.0, 0.8),
+        ],
+    },
 }
 
 # ── Tek FVG eşik haritası (coin bazlı FVG.size / ATR) ──
@@ -339,12 +479,22 @@ FVG_SIZE_MAP: dict[str, float] = {
     "BNBUSDT": 0.110,
     "DOGEUSDT": 0.100,
     "DOTUSDT": 0.060,
+    "DYDXUSDT": 0.040,
+    "ENAUSDT": 0.020,
+    "GMXUSDT": 0.020,
     "INJUSDT": 0.160,
+    "LDOUSDT": 0.020,
     "LINKUSDT": 0.020,
     "NEARUSDT": 0.060,
+    "ONDOUSDT": 0.040,
     "OPUSDT": 0.080,
+    "PYTHUSDT": 0.130,
+    "RENDERUSDT": 0.070,
+    "SEIUSDT": 0.070,
     "SOLUSDT": 0.060,
+    "STRKUSDT": 0.060,
     "SUIUSDT": 0.050,
+    "TIAUSDT": 0.070,
     "UNIUSDT": 0.060,
     "XRPUSDT": 0.060,
 }

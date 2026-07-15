@@ -4,7 +4,7 @@
 
 - **Bot çalışıyor mu?**: Testnet'te, canlı emir gönderimi aktif.
 - **Testnet bakiyesi**: ~5,000 USDT
-- **Sembol sayısı**: 13 (BTC/ETH/BNB/SOL/AVAX/LINK/XRP/ATOM/ADA/SUI/APT/DOT/NEAR)
+- **Sembol sayısı**: 28 (18 eski + 10 yeni: TIA/SEI/ONDO/PYTH/RENDER/ENA/STRK/GMX/DYDX/LDO)
 - **Kaldıraç**: 5x
 - **Strateji**: CBDR → Sweep → FVG Wick Rejection → Primary Entry → Trailing → Exit (V3 — retrade/LHR kaldırıldı)
 
@@ -83,6 +83,10 @@
 - **FVG marker konum bug'ı** (chart'ta gördüğümüz, 3 örnek: SOLUSDT aynı gün) — kök neden araştırılıyor.
 - **CBDR_RISK_MATRIX** canlı performansı gözlemlenecek — bucket çarpanlarının gerçek PnL'e uyumu kontrol edilecek.
 - **Session assignment** sonrası DEFAULT/REAL_CBDR/ASIA_RANGE geçişlerinde FVG bulunamama sorunu tekrarlarsa analiz edilecek.
+- **FVG_SIZE_MAP güncellemesi (2026-07-15):** 10 yeni coin optimum FVG eşikleri bulundu (DYDX=0.040, ENA/GMX/LDO=0.020, ONDO=0.040, PYTH=0.130, RENDER/SEI/TIA=0.070, STRK=0.060). Config'e yazıldı.
+- **CBDR_RISK_MATRIX genişletme (2026-07-15):** 10 yeni coin eklendi. Session assignments: ASIA_RANGE=7 (TIA/ONDO/PYTH/RENDER/ENA/STRK/GMX/LDO), DEFAULT=3 (SEI/DYDX).
+- **FVG_MIN_SIZE_ATR_MULT güncellendi (2026-07-15):** 0.08→0.06 (analyze_cbdr_thresholds.py ile aynı).
+- **SYMBOLS listesi genişletildi (2026-07-15):** 10 yeni coin eklendi (toplam 28).
 - **ict_cbdr_thresholds.md** — geçersiz (sahte ATR ile koşmuş), yeniden koşulacak (sırada bekliyor).
 - **v3_window_comparison.md** — geçersiz çıktı, yeniden koşulacak (sırada bekliyor).
 - **[FVG_SCAN] log formatı** — 16 haneli float basıyor, `.6f` ile sınırlanması istendi, teyit edilmedi.
