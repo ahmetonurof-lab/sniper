@@ -77,7 +77,7 @@ SESSION_HOURS: dict[str, dict[str, int]] = {
     "ASIA_RANGE": {"start": 1, "end": 5},
 }
 
-# Carpan mantigi (v2 — composite score + PF gate, WR/BE+ tabanli degil):
+# Carpan mantigi (v2 — composite score + PF gate, TP%/PTrail% tabanli degil):
 #
 #   Her bucket icin: PF(%41) + Sharpe(%27) + MaxDD(%17) + Confidence/n(%10) + PE(%5)
 #   agirlikli skor hesaplanir (sabit mutlak referans noktalariyla, coin-ici
@@ -102,7 +102,7 @@ SESSION_HOURS: dict[str, dict[str, int]] = {
 #   (analyzer_v5.py trade_records + daily_rows'undan, trailing dahil)
 #   Detayli gerekce: reports/bucket_risk_report.md — [tarih: 2026-07-16]
 #
-#   ESKI (v1, WR/BE+ tabanli) yontem: config_backup_pre_v2.py'de arsivlendi.
+#   ESKI (v1, TP%/PTrail% tabanli) yontem: config_backup_pre_v2.py'de arsivlendi.
 #
 # weekend_bonus: Cumartesi/Pazar gunleri cbdr_mult ek carpan
 # weekend_mult:  kac kat uygulanacak (ornek: 1.5 = %50 fazla)
