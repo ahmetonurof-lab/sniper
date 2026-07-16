@@ -265,7 +265,7 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
         ],
     },
     "GMXUSDT": {
-        "session": "DEFAULT",
+        "session": "REAL_CBDR",
         "weekend_bonus": False,
         "weekend_mult": 1.0,
         "buckets": [
@@ -356,7 +356,7 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
         ],
     },
     "PYTHUSDT": {
-        "session": "ASIA_RANGE",
+        "session": "REAL_CBDR",
         "weekend_bonus": False,
         "weekend_mult": 1.0,
         "buckets": [
