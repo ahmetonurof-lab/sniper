@@ -704,21 +704,50 @@ class PaperTrader:
         rsm.reset()
 
     async def _exit_trade(self, sym, trade, exit_timestamp: int):
-        # WS-FALLBACK guard: pozisyon hala aciksa stale event'tir
+        # WS-FALLBACK guard: pozisyon hala aciksa stale/phantom event'tir.
+        # REST sorgusu basarisiz olursa da FAIL-SAFE davran: asla sessizce
+        # normal exit/cancel_all akisina dusme (eski davranistaki asil bug buydu).
         if trade.get("result") == "WS_FALLBACK" and cfg.BINANCE_API_KEY:
             try:
-                positions = await self.rest.get_positions()
-                pos = next((p for p in positions if p.get("symbol") == sym), None)
-                if pos and abs(float(pos.get("positionAmt", 0))) > 1e-8:
-                    log.warning(
-                        "[EXIT] %s WS-FALLBACK stale event — pozisyon hala acik (%s), exit iptal",
-                        sym,
-                        pos.get("positionAmt"),
-                    )
-                    await self.order_manager.repair_protection(sym, trade, True, True)
-                    return
+                position_open = await self.order_manager.position_still_open(sym)
             except Exception as e:
-                log.warning("[EXIT] %s pozisyon sorgu hatasi (devam): %s", sym, e)
+                log.critical(
+                    "[EXIT] %s WS-FALLBACK pozisyon sorgusu basarisiz (%s) — "
+                    "guvenlik nedeniyle exit/cancel_all TETIKLENMIYOR",
+                    sym,
+                    e,
+                )
+                return
+
+            if position_open:
+                log.warning(
+                    "[EXIT] %s WS-FALLBACK stale event — pozisyon hala acik, exit iptal",
+                    sym,
+                )
+                try:
+                    sl_present, tp_present = await self.order_manager.verify_protection(
+                        sym, trade
+                    )
+                except Exception as e:
+                    log.critical(
+                        "[EXIT] %s WS-FALLBACK koruma dogrulamasi basarisiz (%s) — "
+                        "onarim atlanip guvenli tarafta kaliniyor",
+                        sym,
+                        e,
+                    )
+                    sl_present, tp_present = True, True
+                if not sl_present or not tp_present:
+                    log.warning(
+                        "[EXIT] %s koruma eksik (sl=%s tp=%s) — onariliyor",
+                        sym,
+                        sl_present,
+                        tp_present,
+                    )
+                    await self.order_manager.repair_protection(
+                        sym, trade, has_sl=sl_present, has_tp=tp_present
+                    )
+                trade["result"] = None
+                return
 
         trade = self.active_trades.pop(sym, None)
         if not trade:

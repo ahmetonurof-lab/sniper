@@ -176,6 +176,50 @@ class OrderManager:
         )
         return True
 
+    # ── Canlı doğrulama (WS-FALLBACK guard için) ──────────────
+
+    async def verify_protection(self, sym: str, trade: dict) -> tuple[bool, bool]:
+        """Binance'teki açık emirleri sorgulayıp sl_order_id / tp_order_id'nin
+        gerçekten hâlâ açık olup olmadığını döndürür: (sl_present, tp_present).
+
+        REST sorgusu başarısız olursa fail-safe: ikisini de True varsayar
+        (yani "dokunma", çağıran taraf yanlışlıkla cancel/exit tetiklemesin).
+        """
+        s_id = str(trade.get("sl_order_id", ""))
+        t_id = str(trade.get("tp_order_id", ""))
+        try:
+            orders = await self._rest.get_all_orders(sym)
+            open_ids = {str(o.get("algoId") or o.get("orderId") or "") for o in orders}
+            sl_present = (not s_id) or (s_id in open_ids)
+            tp_present = (not t_id) or (t_id in open_ids)
+            return sl_present, tp_present
+        except Exception as e:
+            log.warning(
+                "[VERIFY] %s acik emir sorgu hatasi: %s -> fail-safe (dokunma)",
+                sym,
+                e,
+            )
+            return True, True
+
+    async def position_still_open(self, sym: str) -> bool:
+        """Binance hesabında bu sembol için hâlâ açık pozisyon var mı?
+
+        REST sorgusu başarısız olursa fail-safe: pozisyon açıkmış gibi
+        davranır (True) — böylece belirsizlik anında asla yanlışlıkla
+        exit/cancel_all tetiklenmez.
+        """
+        try:
+            positions = await self._rest.get_positions()
+            pos = next((p for p in positions if p.get("symbol") == sym), None)
+            return bool(pos) and abs(float(pos.get("positionAmt", 0))) > 1e-8
+        except Exception as e:
+            log.warning(
+                "[VERIFY] %s pozisyon sorgu hatasi: %s -> fail-safe (acik varsay)",
+                sym,
+                e,
+            )
+            return True
+
     # ── Koruma onarımı ────────────────────────────────────────
 
     async def repair_protection(
