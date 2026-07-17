@@ -72,10 +72,19 @@ class UserDataHandler:
                     t_id = str(trade.get("tp_order_id", ""))
                     s_id_prev = str(trade.get("sl_order_id_prev", ""))
                     t_id_prev = str(trade.get("tp_order_id_prev", ""))
+                    s_id_hist = [str(x) for x in trade.get("sl_order_id_history", [])]
+                    t_id_hist = [str(x) for x in trade.get("tp_order_id_history", [])]
 
-                    if oid in (s_id, t_id, s_id_prev, t_id_prev):
+                    if oid in (
+                        s_id,
+                        t_id,
+                        s_id_prev,
+                        t_id_prev,
+                        *s_id_hist,
+                        *t_id_hist,
+                    ):
                         # Normal akis: ID eslesti (guncel veya gecis)
-                        result = "SL" if oid in (s_id, s_id_prev) else "TP"
+                        result = "SL" if oid in (s_id, s_id_prev, *s_id_hist) else "TP"
                         _pl(
                             sym,
                             "filled_confirm",
@@ -128,9 +137,11 @@ class UserDataHandler:
             t_id = str(trade.get("tp_order_id", ""))
             s_id_prev = str(trade.get("sl_order_id_prev", ""))
             t_id_prev = str(trade.get("tp_order_id_prev", ""))
+            s_id_hist = [str(x) for x in trade.get("sl_order_id_history", [])]
+            t_id_hist = [str(x) for x in trade.get("tp_order_id_history", [])]
 
             # Geçiş penceresindeki eski emrin CANCELED bildirimi → sessizce yok say
-            if oid in (s_id_prev, t_id_prev) and oid:
+            if oid in (s_id_prev, t_id_prev, *s_id_hist, *t_id_hist) and oid:
                 log.info(
                     "[WS-ORDER] %s eski %s emri iptal edildi (prev id=%s) — ignore",
                     sym,

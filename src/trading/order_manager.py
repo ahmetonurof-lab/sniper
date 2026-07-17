@@ -111,7 +111,10 @@ class OrderManager:
         if sl_ok:
             # Eski id'yi hemen silme — WS fill'i REST cancel'dan sonra gelebilir
             trade["sl"] = new_sl
-            trade["sl_order_id_prev"] = old_sl_id
+            if old_sl_id:
+                hist = trade.setdefault("sl_order_id_history", [])
+                hist.append(old_sl_id)
+                trade["sl_order_id_history"] = hist[-5:]
             trade["sl_order_id"] = new_sl_id
             if old_sl_id:
                 try:
@@ -125,13 +128,15 @@ class OrderManager:
                         old_sl_id,
                         e,
                     )
-            # FINALLY KALDIRILDI: prev ID bir sonraki trailing adimina kadar kalir.
-            # Cancel basarisizsa WS fill'i prev ID ile eslesir; basariliysa zaten
-            # eski emir borsada yok, WS mesaji gelmez. Temizlemek gereksiz ve riskli.
+            # Eski sl_order_id_prev tutuluyor (geriyedonuk uyumluluk)
+            trade["sl_order_id_prev"] = old_sl_id
 
         if tp_ok:
             trade["tp"] = new_tp
-            trade["tp_order_id_prev"] = old_tp_id
+            if old_tp_id:
+                hist = trade.setdefault("tp_order_id_history", [])
+                hist.append(old_tp_id)
+                trade["tp_order_id_history"] = hist[-5:]
             trade["tp_order_id"] = new_tp_id
             if old_tp_id:
                 try:
@@ -145,6 +150,7 @@ class OrderManager:
                         old_tp_id,
                         e,
                     )
+            trade["tp_order_id_prev"] = old_tp_id
             # FINALLY KALDIRILDI — ayni sebeple.
 
         if sl_ok or tp_ok:

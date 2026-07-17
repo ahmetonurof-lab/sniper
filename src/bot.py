@@ -704,6 +704,22 @@ class PaperTrader:
         rsm.reset()
 
     async def _exit_trade(self, sym, trade, exit_timestamp: int):
+        # WS-FALLBACK guard: pozisyon hala aciksa stale event'tir
+        if trade.get("result") == "WS_FALLBACK" and cfg.BINANCE_API_KEY:
+            try:
+                positions = await self.rest.get_positions()
+                pos = next((p for p in positions if p.get("symbol") == sym), None)
+                if pos and abs(float(pos.get("positionAmt", 0))) > 1e-8:
+                    log.warning(
+                        "[EXIT] %s WS-FALLBACK stale event — pozisyon hala acik (%s), exit iptal",
+                        sym,
+                        pos.get("positionAmt"),
+                    )
+                    await self.order_manager.repair_protection(sym, trade, True, True)
+                    return
+            except Exception as e:
+                log.warning("[EXIT] %s pozisyon sorgu hatasi (devam): %s", sym, e)
+
         trade = self.active_trades.pop(sym, None)
         if not trade:
             log.warning("[EXIT] %s zaten kapali, ikinci exit engellendi", sym)
