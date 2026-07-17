@@ -83,8 +83,8 @@
 - **FVG marker konum bug'ı** (chart'ta gördüğümüz, 3 örnek: SOLUSDT aynı gün) — kök neden araştırılıyor.
 - **CBDR_RISK_MATRIX** canlı performansı gözlemlenecek — bucket çarpanlarının gerçek PnL'e uyumu kontrol edilecek.
 - **Session assignment** sonrası DEFAULT/REAL_CBDR/ASIA_RANGE geçişlerinde FVG bulunamama sorunu tekrarlarsa analiz edilecek.
-- **FVG_SIZE_MAP güncellemesi (2026-07-15):** 10 yeni coin optimum FVG eşikleri bulundu (DYDX=0.040, ENA/GMX/LDO=0.020, ONDO=0.040, PYTH=0.130, RENDER/SEI/TIA=0.070, STRK=0.060). Config'e yazıldı.
-- **CBDR_RISK_MATRIX genişletme (2026-07-15):** 10 yeni coin eklendi. Session assignments: ASIA_RANGE=7 (TIA/ONDO/PYTH/RENDER/ENA/STRK/GMX/LDO), DEFAULT=3 (SEI/DYDX).
+- **FVG_SIZE_MAP güncellemesi (2026-07-17):** Tüm 28 coin best session FVG Size değerleriyle yenilendi.
+- **CBDR_RISK_MATRIX session sync (2026-07-17):** 9 coin'in session'ı best session analizine göre güncellendi. ATOM:ASIA→REAL, AVAX:REAL→DEFAULT, DOT:DEFAULT→REAL, INJ:ASIA→REAL, LINK:REAL→ASIA, NEAR:ASIA→REAL, OPUS:DEFAULT→REAL, UNI:DEFAULT→REAL, XRP:REAL→DEFAULT.
 - **FVG_MIN_SIZE_ATR_MULT güncellendi (2026-07-15):** 0.08→0.06 (analyze_cbdr_thresholds.py ile aynı).
 - **SYMBOLS listesi genişletildi (2026-07-15):** 10 yeni coin eklendi (toplam 28).
 - **ict_cbdr_thresholds.md** — geçersiz (sahte ATR ile koşmuş), yeniden koşulacak (sırada bekliyor).

@@ -174,7 +174,7 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
         ],
     },
     "ATOMUSDT": {
-        "session": "ASIA_RANGE",
+        "session": "REAL_CBDR",
         "weekend_bonus": False,
         "weekend_mult": 1.0,
         "buckets": [
@@ -187,7 +187,7 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
         ],
     },
     "AVAXUSDT": {
-        "session": "REAL_CBDR",
+        "session": "DEFAULT",
         "weekend_bonus": False,
         "weekend_mult": 1.0,
         "buckets": [
@@ -226,7 +226,7 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
         ],
     },
     "DOTUSDT": {
-        "session": "DEFAULT",
+        "session": "REAL_CBDR",
         "weekend_bonus": False,
         "weekend_mult": 1.0,
         "buckets": [
@@ -278,7 +278,7 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
         ],
     },
     "INJUSDT": {
-        "session": "ASIA_RANGE",
+        "session": "REAL_CBDR",
         "weekend_bonus": False,
         "weekend_mult": 1.0,
         "buckets": [
@@ -304,7 +304,7 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
         ],
     },
     "LINKUSDT": {
-        "session": "REAL_CBDR",
+        "session": "ASIA_RANGE",
         "weekend_bonus": False,
         "weekend_mult": 1.0,
         "buckets": [
@@ -317,7 +317,7 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
         ],
     },
     "NEARUSDT": {
-        "session": "ASIA_RANGE",
+        "session": "REAL_CBDR",
         "weekend_bonus": False,
         "weekend_mult": 1.0,
         "buckets": [
@@ -343,7 +343,7 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
         ],
     },
     "OPUSDT": {
-        "session": "DEFAULT",
+        "session": "REAL_CBDR",
         "weekend_bonus": False,
         "weekend_mult": 1.0,
         "buckets": [
@@ -447,7 +447,7 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
         ],
     },
     "UNIUSDT": {
-        "session": "DEFAULT",
+        "session": "REAL_CBDR",
         "weekend_bonus": False,
         "weekend_mult": 1.0,
         "buckets": [
@@ -460,7 +460,7 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
         ],
     },
     "XRPUSDT": {
-        "session": "REAL_CBDR",
+        "session": "DEFAULT",
         "weekend_bonus": False,
         "weekend_mult": 1.0,
         "buckets": [
@@ -479,34 +479,34 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
 # Fallback: FVG_MIN_SIZE_ATR_MULT.
 
 FVG_SIZE_MAP: dict[str, float] = {
-    "AAVEUSDT": 0.030,
-    "ADAUSDT": 0.050,
-    "ALGOUSDT": 0.100,
-    "APTUSDT": 0.130,
-    "ARBUSDT": 0.040,
-    "ATOMUSDT": 0.080,
-    "AVAXUSDT": 0.080,
-    "BNBUSDT": 0.110,
-    "DOGEUSDT": 0.100,
-    "DOTUSDT": 0.060,
-    "DYDXUSDT": 0.040,
-    "ENAUSDT": 0.020,
-    "GMXUSDT": 0.020,
-    "INJUSDT": 0.160,
-    "LDOUSDT": 0.020,
-    "LINKUSDT": 0.020,
-    "NEARUSDT": 0.060,
-    "ONDOUSDT": 0.040,
-    "OPUSDT": 0.080,
-    "PYTHUSDT": 0.130,
-    "RENDERUSDT": 0.070,
-    "SEIUSDT": 0.070,
-    "SOLUSDT": 0.060,
-    "STRKUSDT": 0.060,
-    "SUIUSDT": 0.050,
-    "TIAUSDT": 0.070,
-    "UNIUSDT": 0.060,
-    "XRPUSDT": 0.060,
+    "AAVEUSDT": 0.080,  # [DEFAULT] score=682
+    "ADAUSDT": 0.050,  # [DEFAULT] score=434
+    "ALGOUSDT": 0.080,  # [DEFAULT] score=617
+    "APTUSDT": 0.110,  # [REAL_CBDR] score=560
+    "ARBUSDT": 0.040,  # [DEFAULT] score=642
+    "ATOMUSDT": 0.020,  # [REAL_CBDR] score=487
+    "AVAXUSDT": 0.020,  # [DEFAULT] score=472
+    "BNBUSDT": 0.020,  # [REAL_CBDR] score=474
+    "DOGEUSDT": 0.080,  # [REAL_CBDR] score=859
+    "DOTUSDT": 0.020,  # [REAL_CBDR] score=426
+    "DYDXUSDT": 0.040,  # [ASIA_RANGE] score=723
+    "ENAUSDT": 0.020,  # [DEFAULT] score=1160
+    "GMXUSDT": 0.030,  # [REAL_CBDR] score=789
+    "INJUSDT": 0.040,  # [REAL_CBDR] score=607
+    "LDOUSDT": 0.020,  # [REAL_CBDR] score=1308
+    "LINKUSDT": 0.020,  # [ASIA_RANGE] score=407
+    "NEARUSDT": 0.020,  # [REAL_CBDR] score=674
+    "ONDOUSDT": 0.040,  # [ASIA_RANGE] score=364
+    "OPUSDT": 0.070,  # [REAL_CBDR] score=612
+    "PYTHUSDT": 0.050,  # [REAL_CBDR] score=1323
+    "RENDERUSDT": 0.070,  # [ASIA_RANGE] score=932
+    "SEIUSDT": 0.020,  # [REAL_CBDR] score=1166
+    "SOLUSDT": 0.030,  # [REAL_CBDR] score=466
+    "STRKUSDT": 0.040,  # [REAL_CBDR] score=933
+    "SUIUSDT": 0.020,  # [ASIA_RANGE] score=494
+    "TIAUSDT": 0.020,  # [REAL_CBDR] score=1208
+    "UNIUSDT": 0.020,  # [REAL_CBDR] score=489
+    "XRPUSDT": 0.060,  # [DEFAULT] score=450
 }
 
 
