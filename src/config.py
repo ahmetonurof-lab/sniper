@@ -170,7 +170,11 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
             (1.5, 2.0, 1.2),  # n=888 PF=2.955 Sharpe=0.303 MaxDD=1.36% Score=0.7251
             (2.0, 3.0, 1.2),  # n=1247 PF=3.135 Sharpe=0.3001 MaxDD=2.185% Score=0.7161
             (3.0, 5.0, 1.5),  # n=735 PF=3.852 Sharpe=0.3452 MaxDD=1.41% Score=0.8541
-            (5.0, 999.0, 1.5),  # n=241 PF=11.726 Sharpe=0.3327 MaxDD=1.392% Score=0.8342
+            (
+                5.0,
+                999.0,
+                1.5,
+            ),  # n=241 PF=11.726 Sharpe=0.3327 MaxDD=1.392% Score=0.8342
         ],
     },
     "ATOMUSDT": {
@@ -274,7 +278,11 @@ CBDR_RISK_MATRIX: dict[str, dict] = {
             (1.5, 2.0, 1.0),  # n=829 PF=2.975 Sharpe=0.2631 MaxDD=4.064% Score=0.5643
             (2.0, 3.0, 1.5),  # n=1248 PF=3.747 Sharpe=0.3088 MaxDD=1.172% Score=0.8601
             (3.0, 5.0, 1.5),  # n=775 PF=5.378 Sharpe=0.4111 MaxDD=0.752% Score=0.9542
-            (5.0, 999.0, 1.5),  # n=295 PF=11.337 Sharpe=0.5316 MaxDD=1.263% Score=0.8924
+            (
+                5.0,
+                999.0,
+                1.5,
+            ),  # n=295 PF=11.337 Sharpe=0.5316 MaxDD=1.263% Score=0.8924
         ],
     },
     "INJUSDT": {
@@ -550,6 +558,13 @@ MIN_RISK_DIST_ATR_MULT = 0.1
 MAX_SL_DIST_MULT = 2.0
 
 DEFAULT_ATR_FALLBACK_PCT = 0.0001
+
+# Restart recovery sirasinda gercek ATR yoksa (bot yeni acildi, henuz bar
+# birikmedi) kullanilan ACIL DURUM SL/TP mesafesi. DEFAULT_ATR_FALLBACK_PCT
+# (0.01%) bu amac icin kullanilirsa SL/TP fiilen giris fiyatina yapisir ve
+# Binance "immediately trigger" hatasiyla emri reddeder -> pozisyon
+# korumasiz kalir. Bu yuzden ayri, gercekci bir yuzde kullaniyoruz.
+RECOVERY_SL_FALLBACK_PCT = 0.02
 
 CBDR_SWEEP_ATR_TOLERANCE_MULT = 0.5
 

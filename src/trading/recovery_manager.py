@@ -138,13 +138,16 @@ class RecoveryManager:
                         "recover",
                         f"\u26a0\ufe0f {direction.upper()} @ {entry:.2f} | SL/TP bulunamadi (pozisyon korumasiz)",
                     )
-                    # Gerçek ATR varsa kullan, yoksa eski fallback
+                    # Gercek ATR varsa kullan. Yoksa DEFAULT_ATR_FALLBACK_PCT (0.01%)
+                    # KULLANMA: SL/TP giris fiyatina yapisir, Binance "immediately
+                    # trigger" hatasiyla reddeder ve pozisyon sessizce korumasiz kalir.
+                    # Bunun yerine ayri, gercekci bir acil durum mesafesi kullan.
                     real_atr = self._atr_state.get(sym, 0.0)
                     if real_atr > 0:
                         atr_est = real_atr
+                        risk_pts = atr_est * self._cfgs[sym]["SL_ATR_MULT"]
                     else:
-                        atr_est = entry * cfg.DEFAULT_ATR_FALLBACK_PCT
-                    risk_pts = atr_est * self._cfgs[sym]["SL_ATR_MULT"]
+                        risk_pts = entry * cfg.RECOVERY_SL_FALLBACK_PCT
                     if direction == "long":
                         sl = entry - risk_pts * 2
                         tp = entry + risk_pts * self._cfgs[sym]["TP_RR"]
@@ -207,6 +210,42 @@ class RecoveryManager:
                                 sym, sl_side, abs(amt), rounded_tp
                             )
                             tp_id = extract_order_id(tp_resp)
+                            # TP basarisizsa (SL ile ayni sebep) mevcut fiyata gore yeni TP dene
+                            if not tp_id:
+                                log.warning(
+                                    "[RECOVER] %s TP basarisiz (tp=%.4f), mevcut fiyata gore yeniden hesaplaniyor...",
+                                    sym,
+                                    tp,
+                                )
+                                try:
+                                    cur_px = await self._rest.estimate_market_price(sym)
+                                    if direction == "long":
+                                        new_tp = await self._rest.apply_price_precision(
+                                            sym, max(rounded_tp, cur_px * 1.01)
+                                        )
+                                    else:
+                                        new_tp = await self._rest.apply_price_precision(
+                                            sym, min(rounded_tp, cur_px * 0.99)
+                                        )
+                                    tp_resp2 = await self._rest.place_tp_order(
+                                        sym, sl_side, abs(amt), new_tp
+                                    )
+                                    tp_id2 = extract_order_id(tp_resp2)
+                                    if tp_id2:
+                                        tp_id = tp_id2
+                                        tp = new_tp
+                                        log.info(
+                                            "[RECOVER] %s TP yeniden denendi: tp=%.4f -> id=%s",
+                                            sym,
+                                            new_tp,
+                                            tp_id,
+                                        )
+                                except Exception as e2:
+                                    log.warning(
+                                        "[RECOVER] %s TP yeniden deneme de basarisiz: %s",
+                                        sym,
+                                        e2,
+                                    )
 
                             log.info(
                                 "[RECOVER] %s icin Binance uzerinde SL/TP emirleri olusturuldu (sl_id=%s, tp_id=%s)",
@@ -220,6 +259,48 @@ class RecoveryManager:
                                 sym,
                                 e,
                             )
+
+                    if not sl_id:
+                        # SL hicbir sekilde kurulamadi. Pozisyonu "korumali" gibi
+                        # envantere alip yoluna devam ETME — acil market kapanisi yap.
+                        log.critical(
+                            "[RECOVER] %s SL hicbir sekilde kurulamadi -- pozisyon "
+                            "korumasiz kalmasin diye ACIL MARKET KAPANISI yapiliyor (qty=%.6f)",
+                            sym,
+                            abs(amt),
+                        )
+                        self._pl(
+                            sym,
+                            "recover_emergency_close",
+                            f"\U0001f6a8 {direction.upper()} @ {entry:.2f} | SL kurulamadi -> ACIL KAPANIS tetiklendi",
+                        )
+                        try:
+                            close_side = "SELL" if direction == "long" else "BUY"
+                            await self._rest.place_market_order(
+                                sym, close_side, abs(amt), reduce_only=True
+                            )
+                            if tp_id:
+                                try:
+                                    await self._rest.cancel_order(
+                                        tp_id,
+                                        sym,
+                                        reason="recover_emergency_close",
+                                        is_algo=True,
+                                    )
+                                except Exception:
+                                    pass
+                        except Exception as e:
+                            log.critical(
+                                "[RECOVER] %s ACIL KAPANIS BASARISIZ -- MANUEL MUDAHALE GEREKLI: %s",
+                                sym,
+                                e,
+                            )
+                            self._pl(
+                                sym,
+                                "recover_emergency_close_failed",
+                                f"\U0001f6a8\U0001f6a8 {sym}: ACIL KAPANIS BASARISIZ -- HEMEN MANUEL KONTROL ET: {e}",
+                            )
+                        continue
 
                     self._active_trades[sym] = ActiveTrade(
                         symbol=sym,
@@ -238,10 +319,11 @@ class RecoveryManager:
                         sl_order_id=sl_id,
                         tp_order_id=tp_id,
                     )
+                    protection_note = "" if tp_id else " (TP kurulamadi, sadece SL var)"
                     self._pl(
                         sym,
                         "recover",
-                        f"\U0001f512 {direction.upper()} @ {entry:.2f} | SL={sl:.2f} (id={sl_id}) TP={tp:.2f} (id={tp_id}) kuruldu",
+                        f"\U0001f512 {direction.upper()} @ {entry:.2f} | SL={sl:.2f} (id={sl_id}) TP={tp:.2f} (id={tp_id}){protection_note} kuruldu",
                     )
         except Exception as e:
             self._pl("SYSTEM", "recover", f"\u274c Pozisyon kurtarma hatasi: {e}")
