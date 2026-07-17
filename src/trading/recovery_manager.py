@@ -274,11 +274,17 @@ class RecoveryManager:
                             "recover_emergency_close",
                             f"\U0001f6a8 {direction.upper()} @ {entry:.2f} | SL kurulamadi -> ACIL KAPANIS tetiklendi",
                         )
+                        close_result = None
+                        close_error = None
                         try:
                             close_side = "SELL" if direction == "long" else "BUY"
-                            await self._rest.place_market_order(
+                            close_result = await self._rest.place_market_order(
                                 sym, close_side, abs(amt), reduce_only=True
                             )
+                        except Exception as e:
+                            close_error = str(e)
+
+                        if close_result:
                             if tp_id:
                                 try:
                                     await self._rest.cancel_order(
@@ -289,17 +295,44 @@ class RecoveryManager:
                                     )
                                 except Exception:
                                     pass
-                        except Exception as e:
-                            log.critical(
-                                "[RECOVER] %s ACIL KAPANIS BASARISIZ -- MANUEL MUDAHALE GEREKLI: %s",
-                                sym,
-                                e,
-                            )
-                            self._pl(
-                                sym,
-                                "recover_emergency_close_failed",
-                                f"\U0001f6a8\U0001f6a8 {sym}: ACIL KAPANIS BASARISIZ -- HEMEN MANUEL KONTROL ET: {e}",
-                            )
+                            continue
+
+                        # place_market_order basarisiz: ya exception atti ya da
+                        # {} dondu (minQty/minNotional/POST hatasi -- exception
+                        # ATMAZ). Ikisinde de pozisyon Binance'de hala acik
+                        # olabilir. "kapandi" varsayip continue ETME --
+                        # pozisyonu (korumasiz da olsa) active_trades'e alip
+                        # state'te birak ki ghost/orphan taramasi ve bir
+                        # sonraki recover_positions() dongusu bunu tekrar
+                        # yakalayabilsin.
+                        reason = close_error or "place_market_order bos dict ({}) dondu"
+                        log.critical(
+                            "[RECOVER] %s ACIL KAPANIS BASARISIZ -- MANUEL MUDAHALE GEREKLI: %s",
+                            sym,
+                            reason,
+                        )
+                        self._pl(
+                            sym,
+                            "recover_emergency_close_failed",
+                            f"\U0001f6a8\U0001f6a8 {sym}: ACIL KAPANIS BASARISIZ -- HEMEN MANUEL KONTROL ET: {reason}",
+                        )
+                        self._active_trades[sym] = ActiveTrade(
+                            symbol=sym,
+                            entry_bar_index=0,
+                            entry_price=entry,
+                            sl=sl,
+                            tp=tp,
+                            qty=abs(amt),
+                            side=direction,
+                            trigger_fvg=None,
+                            initial_sl=sl,
+                            initial_tp=tp,
+                            trailing_count=0,
+                            risk_pts=risk_pts,
+                            is_recovered=True,
+                            sl_order_id="",
+                            tp_order_id=tp_id,
+                        )
                         continue
 
                     self._active_trades[sym] = ActiveTrade(
