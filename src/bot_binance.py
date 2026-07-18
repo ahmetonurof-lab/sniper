@@ -857,3 +857,55 @@ class BinanceRESTClient:
             log.debug("[LISTEN_KEY] Key yenilendi")
         else:
             log.warning("[LISTEN_KEY] Yenileme hatasi: %s", r.error)
+
+    async def place_force_close_order(
+        self, symbol: str, mkt_side: str, position_side: str
+    ) -> bool:
+        """closePosition=true ile STOP_MARKET emri gonderir.
+
+        Miktar gonderilmez — LOT_SIZE/MIN_NOTIONAL filtrelerinden muaftir.
+        Aninda tetiklenmesi icin trigger fiyati piyasa fiyatinin tersi yonunde
+        (long ise cok alti, short ise cok ustu) ayarlanir.
+        Bu yontem, dust (minNotional alti) pozisyonlari kapatmak icin
+        place_market_order'daki minQty/minNotional engelini asar.
+
+        Returns: True if accepted, False otherwise.
+        """
+        try:
+            cur_price = await self.estimate_market_price(symbol)
+            if cur_price <= 0:
+                log.warning("[FORCE_CLOSE] %s fiyat alinamadi", symbol)
+                return False
+            # Aninda trigger icin piyasadan cok uzaga koy
+            if position_side == "long":
+                trigger_price = await self.apply_price_precision(
+                    symbol, cur_price * 0.01
+                )
+            else:
+                trigger_price = await self.apply_price_precision(
+                    symbol, cur_price * 100
+                )
+            params = {
+                "symbol": symbol,
+                "side": mkt_side.upper(),
+                "type": "STOP_MARKET",
+                "algoType": "CONDITIONAL",
+                "workingType": "MARK_PRICE",
+                "triggerPrice": str(trigger_price),
+                "closePosition": "true",
+                "timeInForce": "GTC",
+                "newClientOrderId": f"force_close_{symbol}_{int(time.time())}",
+            }
+            r = await self.post("/fapi/v1/algoOrder", params)
+            if r.is_err:
+                log.warning("[FORCE_CLOSE] %s basarisiz: %s", symbol, r.error)
+                return False
+            log.info(
+                "[FORCE_CLOSE] %s closePosition emri kabul edildi (trigger=%s)",
+                symbol,
+                trigger_price,
+            )
+            return True
+        except Exception as e:
+            log.warning("[FORCE_CLOSE] %s hata: %s", symbol, e)
+            return False

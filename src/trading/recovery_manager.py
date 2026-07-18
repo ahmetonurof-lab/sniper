@@ -284,6 +284,26 @@ class RecoveryManager:
                         except Exception as e:
                             close_error = str(e)
 
+                        if not close_result:
+                            # market order basarisizsa closePosition ile dene
+                            log.warning(
+                                "[RECOVER] %s market close basarisiz, closePosition deneniyor...",
+                                sym,
+                            )
+                            try:
+                                forced = await self._rest.place_force_close_order(
+                                    sym, close_side, direction
+                                )
+                                if forced:
+                                    log.info(
+                                        "[RECOVER] %s closePosition kabul edildi", sym
+                                    )
+                                    close_result = {"closePosition": True}
+                            except Exception as e2:
+                                close_error = (
+                                    f"{close_error or ''} + closePosition: {e2}"
+                                )
+
                         if close_result:
                             if tp_id:
                                 try:

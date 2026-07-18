@@ -842,8 +842,22 @@ class PaperTrader:
                         success=False,
                     )
                     log.warning(
-                        "[EXIT] %s reduceOnly market BASARISIZ — cleanup devam", sym
+                        "[EXIT] %s reduceOnly market BASARISIZ -- muhtemelen "
+                        "minNotional/dust, closePosition ile deneniyor...",
+                        sym,
                     )
+                    try:
+                        forced = await self.rest.place_force_close_order(
+                            sym, mkt_side, trade["side"]
+                        )
+                        if forced:
+                            log.info(
+                                "[EXIT] %s closePosition force-close kabul edildi", sym
+                            )
+                    except Exception as e:
+                        log.warning(
+                            "[EXIT] %s closePosition force-close hatasi: %s", sym, e
+                        )
             except Exception as e:
                 log.warning("[EXIT] %s reduceOnly market HATASI (devam): %s", sym, e)
 
@@ -882,6 +896,15 @@ class PaperTrader:
                     f"\U0001f6a8 CRITICAL: {sym} kapanmadi!",
                     force=True,
                 )
+                # Pozisyon fiilen KAPANMADI -> yukarida hesaplanan PNL hayali.
+                # Geri almazsak gercek kapanis oldugunda PNL cift sayilir.
+                self._available_balance -= pnl
+                # Trade'i SESSIZCE DUSURME — SL/TP zaten iptal edildi, pozisyon
+                # Binance'de korumasiz acik. Isaretleyip state'e geri koy.
+                trade["sl_order_id"] = ""
+                trade["tp_order_id"] = ""
+                trade["result"] = None
+                self.active_trades[sym] = trade
                 return
 
         log_event(
