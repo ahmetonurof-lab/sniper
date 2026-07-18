@@ -864,8 +864,9 @@ class BinanceRESTClient:
         """closePosition=true ile STOP_MARKET emri gonderir.
 
         Miktar gonderilmez — LOT_SIZE/MIN_NOTIONAL filtrelerinden muaftir.
-        Aninda tetiklenmesi icin trigger fiyati piyasa fiyatinin tersi yonunde
-        (long ise cok alti, short ise cok ustu) ayarlanir.
+        SELL STOP_MARKET fiyat <= trigger'da, BUY STOP_MARKET fiyat >= trigger'da
+        tetiklenir. Aninda tetiklenmesi icin trigger, LONG kapanisinda (SELL)
+        mevcut fiyatin HEMEN USTUNE, SHORT kapanisinda (BUY) HEMEN ALTINA konur.
         Bu yontem, dust (minNotional alti) pozisyonlari kapatmak icin
         place_market_order'daki minQty/minNotional engelini asar.
 
@@ -876,14 +877,15 @@ class BinanceRESTClient:
             if cur_price <= 0:
                 log.warning("[FORCE_CLOSE] %s fiyat alinamadi", symbol)
                 return False
-            # Aninda trigger icin piyasadan cok uzaga koy
+            # Aninda trigger icin dogru yonde, kucuk bir marjla koy
+            # (PERCENT_PRICE filtreleri asiri uzak trigger'lari reddeder)
             if position_side == "long":
                 trigger_price = await self.apply_price_precision(
-                    symbol, cur_price * 0.01
+                    symbol, cur_price * 1.01
                 )
             else:
                 trigger_price = await self.apply_price_precision(
-                    symbol, cur_price * 100
+                    symbol, cur_price * 0.99
                 )
             params = {
                 "symbol": symbol,
