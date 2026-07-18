@@ -383,9 +383,9 @@ class TestComputeBackoff:
         )
         # 10 çağrıda en az biri 1.0'dan farklı olmalı (jitter)
         values = [c._compute_backoff(0) for _ in range(20)]
-        assert any(abs(v - 1.0) > 0.01 for v in values), (
-            f"Jitter yok gibi: {values[:5]}"
-        )
+        assert any(
+            abs(v - 1.0) > 0.01 for v in values
+        ), f"Jitter yok gibi: {values[:5]}"
 
     def test_jitter_not_negative(self):
         """Jitter delay'i negatif yapamaz."""
@@ -665,4 +665,83 @@ class TestCancelOrder:
         _inject_session(client, delete_fn=mock_delete)
 
         result = asyncio.run(client.cancel_order("123", "BTCUSDT"))
+        assert result is False
+
+
+# ═══════════════════════════════════════════════════════════════
+# place_force_close_order trigger yönü (31c5e19)
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestPlaceForceCloseOrder:
+    """Force close trigger fiyat yönü: long→*1.01, short→*0.99"""
+
+    def test_long_trigger_above_price(self, client):
+        """Long pozisyonda SELL STOP_MARKET trigger = cur_price * 1.01"""
+
+        async def mock_estimate(symbol):
+            return 100.0
+
+        async def mock_precision(symbol, price):
+            return round(price, 2)
+
+        async def mock_post(url, data, headers):
+            assert "triggerPrice=101.0" in data
+            assert "side=SELL" in data
+            assert "closePosition=true" in data
+            return _mock_response(200, {"orderId": 999})
+
+        client.estimate_market_price = mock_estimate
+        client.apply_price_precision = mock_precision
+        _inject_session(client, post_fn=mock_post)
+
+        result = asyncio.run(client.place_force_close_order("BTCUSDT", "SELL", "long"))
+        assert result is True
+
+    def test_short_trigger_below_price(self, client):
+        """Short pozisyonda BUY STOP_MARKET trigger = cur_price * 0.99"""
+
+        async def mock_estimate(symbol):
+            return 100.0
+
+        async def mock_precision(symbol, price):
+            return round(price, 2)
+
+        async def mock_post(url, data, headers):
+            assert "triggerPrice=99.0" in data
+            assert "side=BUY" in data
+            assert "closePosition=true" in data
+            return _mock_response(200, {"orderId": 999})
+
+        client.estimate_market_price = mock_estimate
+        client.apply_price_precision = mock_precision
+        _inject_session(client, post_fn=mock_post)
+
+        result = asyncio.run(client.place_force_close_order("BTCUSDT", "BUY", "short"))
+        assert result is True
+
+    def test_returns_false_when_price_zero(self, client):
+        async def mock_estimate(symbol):
+            return 0.0
+
+        client.estimate_market_price = mock_estimate
+
+        result = asyncio.run(client.place_force_close_order("BTCUSDT", "SELL", "long"))
+        assert result is False
+
+    def test_returns_false_on_api_error(self, client):
+        async def mock_estimate(symbol):
+            return 100.0
+
+        async def mock_precision(symbol, price):
+            return round(price, 2)
+
+        async def mock_post(url, data, headers):
+            return _mock_response(400, {"code": -1000, "msg": "error"})
+
+        client.estimate_market_price = mock_estimate
+        client.apply_price_precision = mock_precision
+        _inject_session(client, post_fn=mock_post)
+
+        result = asyncio.run(client.place_force_close_order("BTCUSDT", "SELL", "long"))
         assert result is False

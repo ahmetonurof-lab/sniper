@@ -63,6 +63,13 @@
 | ETHUSDT/SUIUSDT geri eklendi | ✅ DEFAULT session'a atandı |
 | CBDR_RISK_MATRIX final commit | ✅ 13 coin bucket eşikleri + çarpanları tamamlandı |
 | bot.py _session_label ASIA fix (backtest uyumu) | ✅ `_session_label()`'deki 22-02="ASIA" blokajı kaldırıldı. Artık coin bazlı CBDR blokajı backtest'le birebir aynı. REAL_CBDR coin'lerde 01:00-02:00 arası hatalı blok düzeldi. |
+| peak_equity geri alma fix (e6ef7fe) | ✅ pos_closed=False'ta hayali PNL ile peak_equity şişmesi engellendi |
+| force close trigger yönü fix (31c5e19) | ✅ long→cur_price×1.01, short→cur_price×0.99 (tersi reddedilirdi) |
+| dust closePosition fallback (06067c6) | ✅ market close başarısızsa closePosition ile kapanış denemesi (bot.py + recovery_manager.py) |
+| Unit test: pos_closed=False revert | ✅ balance revert + peak_equity rollback + peak korunma (2 test) |
+| Unit test: dust closePosition fallback | ✅ place_force_close_order çağrısı doğrulandı |
+| Unit test: force_close trigger yönü | ✅ long/short yön + zero price + API error (4 test) |
+| Unit test: recovery_manager closePosition | ✅ market fail→force close + success passthrough + her ikisi başarısız + exception (4 test) |
 
 ## Kalan İşler 🔧
 

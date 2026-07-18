@@ -566,6 +566,209 @@ class TestExitTrade:
 
 
 # ═══════════════════════════════════════════════════════════════════
+# _exit_trade — pos_closed=False balance/peak revert (e6ef7fe)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestExitTradePosNotClosed:
+    """peak_equity rollback + balance revert when position fails to close."""
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.EntryManager")
+    @patch("bot.mark_trade_closed")
+    @patch("bot.log")
+    def test_balance_reverted_and_peak_rolled_back(
+        self,
+        mock_log,
+        mock_mark_closed,
+        mock_entry_mgr,
+        mock_cfg,
+        mock_hub_cls,
+        mock_rest_cls,
+    ):
+        _setup_minimal_cfg(mock_cfg)
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_entry_mgr.parse_market_fill.return_value = (0.1, 51000.0, None)
+
+        with patch("bot.INITIAL_CAPITAL", 1000.0), patch("bot.RISK_PER_TRADE", 0.01):
+            from bot import PaperTrader
+
+            bot = PaperTrader(symbols=["BTCUSDT"])
+
+        bot.reporter.emit = MagicMock()
+        bot._available_balance = 1000.0
+
+        trade = ActiveTrade(
+            symbol="BTCUSDT",
+            side="long",
+            entry_price=50000.0,
+            sl=49000.0,
+            tp=52000.0,
+            qty=0.1,
+            exit_price=51000.0,
+            exit_bar=50,
+            result="TRAIL",
+            trailing_count=0,
+        )
+        bot.active_trades["BTCUSDT"] = trade
+
+        bot.order_manager.cancel_all_open_orders = AsyncMock()
+        bot.rest.place_market_order = AsyncMock(return_value={"orderId": 12345})
+        bot.rest.get_positions = AsyncMock(
+            return_value=[{"symbol": "BTCUSDT", "positionAmt": "0.1"}]
+        )
+
+        initial_peak = 1000.0
+        bot.risk_mgr.peak_equity = initial_peak
+
+        def _update_peak(val):
+            if val > bot.risk_mgr.peak_equity:
+                bot.risk_mgr.peak_equity = val
+
+        bot.risk_mgr.update_peak = _update_peak
+        bot.risk_mgr._save_state = MagicMock()
+
+        asyncio.run(bot._exit_trade("BTCUSDT", trade, 50))
+
+        assert abs(bot._available_balance - 1000.0) < 1e-6
+        assert abs(bot.risk_mgr.peak_equity - initial_peak) < 1e-6
+        bot.risk_mgr._save_state.assert_called()
+        assert "BTCUSDT" in bot.active_trades
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.EntryManager")
+    @patch("bot.mark_trade_closed")
+    @patch("bot.log")
+    def test_peak_not_rolled_back_when_another_trade_updated_it(
+        self,
+        mock_log,
+        mock_mark_closed,
+        mock_entry_mgr,
+        mock_cfg,
+        mock_hub_cls,
+        mock_rest_cls,
+    ):
+        _setup_minimal_cfg(mock_cfg)
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_entry_mgr.parse_market_fill.return_value = (0.1, 51000.0, None)
+
+        with patch("bot.INITIAL_CAPITAL", 1000.0), patch("bot.RISK_PER_TRADE", 0.01):
+            from bot import PaperTrader
+
+            bot = PaperTrader(symbols=["BTCUSDT"])
+
+        bot.reporter.emit = MagicMock()
+        bot._available_balance = 1000.0
+
+        trade = ActiveTrade(
+            symbol="BTCUSDT",
+            side="long",
+            entry_price=50000.0,
+            sl=49000.0,
+            tp=52000.0,
+            qty=0.1,
+            exit_price=51000.0,
+            exit_bar=50,
+            result="TRAIL",
+            trailing_count=0,
+        )
+        bot.active_trades["BTCUSDT"] = trade
+
+        bot.order_manager.cancel_all_open_orders = AsyncMock()
+        bot.rest.place_market_order = AsyncMock(return_value={"orderId": 12345})
+        bot.rest.get_positions = AsyncMock(
+            return_value=[{"symbol": "BTCUSDT", "positionAmt": "0.1"}]
+        )
+
+        higher_peak = 1200.0
+        bot.risk_mgr.peak_equity = higher_peak
+
+        def _update_peak(val):
+            if val > bot.risk_mgr.peak_equity:
+                bot.risk_mgr.peak_equity = val
+
+        bot.risk_mgr.update_peak = _update_peak
+        bot.risk_mgr._save_state = MagicMock()
+
+        asyncio.run(bot._exit_trade("BTCUSDT", trade, 50))
+
+        assert abs(bot._available_balance - 1000.0) < 1e-6
+        assert abs(bot.risk_mgr.peak_equity - higher_peak) < 1e-6
+        bot.risk_mgr._save_state.assert_not_called()
+
+
+# ═══════════════════════════════════════════════════════════════════
+# _exit_trade — dust closePosition fallback (06067c6)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestExitTradeDustFallback:
+    """When reduceOnly market fails (dust), closePosition fallback is used."""
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.EntryManager")
+    @patch("bot.mark_trade_closed")
+    @patch("bot.log")
+    def test_force_close_called_on_market_failure(
+        self,
+        mock_log,
+        mock_mark_closed,
+        mock_entry_mgr,
+        mock_cfg,
+        mock_hub_cls,
+        mock_rest_cls,
+    ):
+        _setup_minimal_cfg(mock_cfg)
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_entry_mgr.parse_market_fill.return_value = (0, 0, None)
+
+        with patch("bot.INITIAL_CAPITAL", 1000.0), patch("bot.RISK_PER_TRADE", 0.01):
+            from bot import PaperTrader
+
+            bot = PaperTrader(symbols=["BTCUSDT"])
+
+        bot.reporter.emit = MagicMock()
+        bot._available_balance = 1000.0
+
+        trade = ActiveTrade(
+            symbol="BTCUSDT",
+            side="long",
+            entry_price=50000.0,
+            sl=49000.0,
+            tp=52000.0,
+            qty=0.1,
+            exit_price=51000.0,
+            exit_bar=50,
+            result="TRAIL",
+            trailing_count=0,
+        )
+        bot.active_trades["BTCUSDT"] = trade
+
+        bot.order_manager.cancel_all_open_orders = AsyncMock()
+        bot.rest.place_market_order = AsyncMock(return_value=None)
+        bot.rest.place_force_close_order = AsyncMock(return_value=True)
+        bot.rest.get_positions = AsyncMock(
+            return_value=[{"symbol": "BTCUSDT", "positionAmt": "0.1"}]
+        )
+
+        bot.risk_mgr.peak_equity = 1000.0
+        bot.risk_mgr.update_peak = lambda v: None
+        bot.risk_mgr._save_state = MagicMock()
+
+        asyncio.run(bot._exit_trade("BTCUSDT", trade, 50))
+
+        bot.rest.place_force_close_order.assert_called_once_with(
+            "BTCUSDT", "SELL", "long"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════
 # _warmup_cbdr tests
 # ═══════════════════════════════════════════════════════════════════
 
