@@ -778,6 +778,8 @@ class PaperTrader:
         trade["exit_fee"] = round(exit_fee, 2)
         trade["fee"] = round(total_fee, 2)
         self._available_balance += pnl
+        _peak_before_exit = self.risk_mgr.peak_equity
+        _balance_after_fictional_pnl = self._available_balance
         self.risk_mgr.update_peak(self._available_balance)
         self._pl(
             sym,
@@ -899,8 +901,13 @@ class PaperTrader:
                 # Pozisyon fiilen KAPANMADI -> yukarida hesaplanan PNL hayali.
                 # Geri almazsak gercek kapanis oldugunda PNL cift sayilir.
                 self._available_balance -= pnl
-                # Trade'i SESSIZCE DUSURME — SL/TP zaten iptal edildi, pozisyon
-                # Binance'de korumasiz acik. Isaretleyip state'e geri koy.
+                # peak_equity de bu hayali PNL ile sismis olabilir (drawdown %
+                # hesabini bozar, circuit breaker'i gereksiz yere tetikleyebilir).
+                # Baska bir islem araya girip zirveyi gercekten yukselttiyse
+                # (deger artik bizim yazdigimizdan farkliysa) DOKUNMA.
+                if abs(self.risk_mgr.peak_equity - _balance_after_fictional_pnl) < 1e-9:
+                    self.risk_mgr.peak_equity = _peak_before_exit
+                    self.risk_mgr._save_state()
                 trade["sl_order_id"] = ""
                 trade["tp_order_id"] = ""
                 trade["result"] = None
