@@ -165,7 +165,7 @@
 
 ---
 ### MADDE A8 — cleanup_on_exit() result türüne göre doğru davranacak
-- [ ] Bot
+- [x] Bot
 - **Dosya:** `src/trading/order_manager.py`
 - **Fonksiyon:** `cleanup_on_exit()`
 - **Satır:** `283-336`
@@ -183,8 +183,8 @@
   - `TRAIL_CLOSE path’inde yanlış trigger varsayımı yapılmasın`
 
 ---
-### MADDE A9 — market close başarısızlığında trade doğrudan ACTIVE’e dönmeyecek
-- [ ] Bot
+### MADDE A9 — Failed market close trade’i ACTIVE bırakmayacak
+- [x] Bot
 - **Dosya:** `src/bot.py`
 - **Fonksiyon:** `_exit_trade()`
 - **Satır:** `890-915`

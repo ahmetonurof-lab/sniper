@@ -29,6 +29,7 @@ from models import (
     STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
     STATUS_EXIT_VERIFYING,
     STATUS_REPAIR_REQUIRED,
+    UNRESTRICTED_STATUSES,
 )
 from retrace_state import RetraceStateMachine
 from session import SessionState
@@ -411,44 +412,54 @@ class PaperTrader:
 
         self._orphan_check_counter += 1
         if self._orphan_check_counter % 5 == 0:
-            await self.recovery_manager.reconcile_orphan_orders()
+            if trade.get("status") in UNRESTRICTED_STATUSES:
+                await self.recovery_manager.reconcile_orphan_orders()
 
-        # ── FVG Trailing → TrailingManager (ATR bazlı buffer) ──
-        bars_15m = self.hub.get_bars(sym, "15m")
-        if bars_15m:
-            trail_result = TrailingManager.evaluate_trail(
-                bars_15m,
-                trade,
-                atr_val,
-                min_fvg,
+        if trade.get("status") not in UNRESTRICTED_STATUSES:
+            log.info(
+                "[1M] %s status=%s -> trailing ve normal exit akislari atlaniyor",
+                sym,
+                trade.get("status"),
             )
-
-            if trail_result.updated:
-                await self.order_manager.update_trail_orders(
-                    sym,
+        else:
+            # ── FVG Trailing → TrailingManager (ATR bazlı buffer) ──
+            bars_15m = self.hub.get_bars(sym, "15m")
+            if bars_15m:
+                trail_result = TrailingManager.evaluate_trail(
+                    bars_15m,
                     trade,
-                    trail_result.new_sl,
-                    trail_result.new_tp,
-                    trail_result.trail_count,
+                    atr_val,
+                    min_fvg,
                 )
 
-            elif trail_result.exit_now:
-                log.info("[TRAIL] %s trailing FVG kirildi -> aninda market close", sym)
-                trade["exit_price"] = current.close
+                if trail_result.updated:
+                    await self.order_manager.update_trail_orders(
+                        sym,
+                        trade,
+                        trail_result.new_sl,
+                        trail_result.new_tp,
+                        trail_result.trail_count,
+                    )
+
+                elif trail_result.exit_now:
+                    log.info(
+                        "[TRAIL] %s trailing FVG kirildi -> aninda market close", sym
+                    )
+                    trade["exit_price"] = current.close
+                    trade["exit_bar"] = current.index
+                    trade["exit_timestamp"] = current.timestamp
+                    trade["result"] = "TRAIL_CLOSE"
+                    await self._exit_trade(sym, trade, current.timestamp)
+                    return
+
+            # ── Exit kontrolü → TrailingManager ──
+            exit_decision = TrailingManager.check_exit(current, trade)
+            if exit_decision.triggered:
+                trade["exit_price"] = exit_decision.exit_price
                 trade["exit_bar"] = current.index
                 trade["exit_timestamp"] = current.timestamp
-                trade["result"] = "TRAIL_CLOSE"
+                trade["result"] = exit_decision.result
                 await self._exit_trade(sym, trade, current.timestamp)
-                return
-
-        # ── Exit kontrolü → TrailingManager ──
-        exit_decision = TrailingManager.check_exit(current, trade)
-        if exit_decision.triggered:
-            trade["exit_price"] = exit_decision.exit_price
-            trade["exit_bar"] = current.index
-            trade["exit_timestamp"] = current.timestamp
-            trade["result"] = exit_decision.result
-            await self._exit_trade(sym, trade, current.timestamp)
 
         # UPNL + state writer — her 1m bar'da güncellenir
         trade = self.active_trades.get(sym)
@@ -892,14 +903,31 @@ class PaperTrader:
                     f"\U0001f6a8 CRITICAL: {sym} kapanmadi!",
                     force=True,
                 )
-                # FIX (A1): geri alinacak bir pnl/balance/peak_equity commit'i
-                # ARTIK YOK — hicbiri henuz yazilmadi. Trade hic pop
-                # edilmedigi icin yeniden eklemeye de gerek yok, zaten
-                # active_trades[sym] ile ayni referans.
-                trade["sl_order_id"] = ""
-                trade["tp_order_id"] = ""
-                trade["result"] = None
+                # FIX (A9): geri alinacak bir pnl/balance/peak_equity commit'i
+                # ARTIK YOK. Ancak basarisiz close sonrasi koruma (SL/TP)
+                # emirlerinin bosaltilmamasi ve trade'in normal ACTIVE olarak
+                # isleme devam etmemesi gerekir.
                 trade["status"] = STATUS_REPAIR_REQUIRED
+                try:
+                    sl_present, tp_present = await self.order_manager.verify_protection(
+                        sym, trade
+                    )
+                    if not sl_present or not tp_present:
+                        log.warning(
+                            "[EXIT] %s market close basarisiz, koruma eksik (sl=%s tp=%s) — onariliyor",
+                            sym,
+                            sl_present,
+                            tp_present,
+                        )
+                        await self.order_manager.repair_protection(
+                            sym, trade, has_sl=sl_present, has_tp=tp_present
+                        )
+                except Exception as e:
+                    log.critical(
+                        "[EXIT] %s market close basarisiz, protection onarimi hata aldi: %s",
+                        sym,
+                        e,
+                    )
                 return
 
         # ── BURADAN ITIBAREN kapanis Binance tarafindan DOGRULANMIS demektir

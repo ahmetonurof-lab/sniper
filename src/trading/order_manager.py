@@ -290,61 +290,89 @@ class OrderManager:
 
     # ── Exit temizliği ─────────────────────────────────────────
 
+    # FIX (A8): Result sınıfları — SL/TP tetiklenmesi vs synthetic/market
+    # exit path'leri için doğru iptal hedefleri.
+    _TRIGGERED_RESULTS = frozenset({"SL", "TP"})
+
     async def cleanup_on_exit(self, sym: str, trade: dict, result: str) -> None:
         """Exit sonrası Binance emir temizliği.
 
-        - Karşı koruma emrini iptal et
-        - Tetiklenen emrin ID'si yoksa acil piyasa kapanışı yap
-        - FIX (A7): son adım olarak broad-sweep (cancel_all_open_orders) —
-          eskiden _exit_trade() başında, close DOĞRULANMADAN ÖNCE çalışıyordu.
-          Artık yalnızca buradan, exit commit edildikten SONRA çalışıyor.
+        FIX (A8): Davranış 3 sınıfa ayrıldı:
+          1. result == "SL"  → kalan TP iptal et
+          2. result == "TP"  → kalan SL iptal et
+          3. TRAIL_CLOSE / WS_FALLBACK / TIMEOUT / MANUAL_CLOSE vb.
+             → ne SL ne TP tetiklendi, her ikisini de iptal etmeye çalış
 
-        Orijinal _exit_trade() içindeki "if cfg.BINANCE_API_KEY and live" bloğu
-        ile birebir aynı mantık.
+        Acil market close fallback yalnızca result in ("SL", "TP") ve
+        tetiklenen tarafın Binance ID'si yoksa düşünülür — synthetic/market
+        path'lerde pozisyon zaten _exit_trade() tarafından kapatılmıştır.
+
+        FIX (A7): Son adım olarak cancel_all_open_orders broad-sweep —
+        exit commit edildikten SONRA çalışır.
         """
         if not cfg.BINANCE_API_KEY or not self._is_live:
             return
 
         try:
-            remaining_id = (
-                trade.get("tp_order_id") if result == "SL" else trade.get("sl_order_id")
-            )
-            if remaining_id:
-                try:
-                    await self._rest.cancel_order(
-                        remaining_id, sym, reason="exit_close", is_algo=True
-                    )
-                    log.info(
-                        "[CANCEL] %s kalan koruma emri iptal edildi (id=%s)",
-                        sym,
-                        remaining_id,
-                    )
-                except Exception as e:
-                    log.warning(
-                        "[CANCEL] %s kalan emir iptal hatasi (id=%s): %s",
-                        sym,
-                        remaining_id,
-                        e,
-                    )
+            # ── Kalan emirleri belirle ──
+            if result == "SL":
+                # SL tetiklendi → kalan TP'yi iptal et
+                remaining_ids = [trade.get("tp_order_id")]
+            elif result == "TP":
+                # TP tetiklendi → kalan SL'yi iptal et
+                remaining_ids = [trade.get("sl_order_id")]
+            else:
+                # Synthetic/market path (TRAIL_CLOSE, WS_FALLBACK, TIMEOUT,
+                # MANUAL_CLOSE vb.) — ne SL ne TP tetiklendi, ikisi de
+                # borsada hâlâ açık olabilir.
+                remaining_ids = [
+                    trade.get("sl_order_id"),
+                    trade.get("tp_order_id"),
+                ]
 
-            # Eger tetiklenen yonun Binance emri yoksa (örn: kurtarilmis/sentetik/unprotected pozisyon)
-            # pozisyonun acik kalmamasi icin piyasa fiyatindan manuel kapatiyoruz.
-            trigger_id = (
-                trade.get("sl_order_id") if result == "SL" else trade.get("tp_order_id")
-            )
-            if not trigger_id:
-                log.warning(
-                    "[CLOSE] %s tetiklenen %s emri Binance ID'si olmadigi icin acil market kapanisi yapiliyor...",
-                    sym,
-                    result,
+            for rid in remaining_ids:
+                if rid:
+                    try:
+                        await self._rest.cancel_order(
+                            rid, sym, reason="exit_close", is_algo=True
+                        )
+                        log.info(
+                            "[CANCEL] %s kalan koruma emri iptal edildi (id=%s)",
+                            sym,
+                            rid,
+                        )
+                    except Exception as e:
+                        log.warning(
+                            "[CANCEL] %s kalan emir iptal hatasi (id=%s): %s",
+                            sym,
+                            rid,
+                            e,
+                        )
+
+            # ── Acil market close: YALNIZCA SL/TP tetiklenme path'inde ──
+            # Synthetic/market path'lerde pozisyon zaten _exit_trade()
+            # tarafından kapatılmıştır — burada tekrar market close yollamak
+            # gereksiz ve potansiyel olarak zararlıdır.
+            if result in self._TRIGGERED_RESULTS:
+                trigger_id = (
+                    trade.get("sl_order_id")
+                    if result == "SL"
+                    else trade.get("tp_order_id")
                 )
-                mkt_side = "SELL" if trade["side"] == "long" else "BUY"
-                try:
-                    await self._rest.place_market_order(
-                        sym, mkt_side, trade["qty"], reduce_only=True
+                if not trigger_id:
+                    log.warning(
+                        "[CLOSE] %s tetiklenen %s emri Binance ID'si olmadigi icin "
+                        "acil market kapanisi yapiliyor...",
+                        sym,
+                        result,
                     )
-                except Exception as e:
-                    log.warning("[CLOSE] %s acil kapanis emri hatasi: %s", sym, e)
+                    mkt_side = "SELL" if trade["side"] == "long" else "BUY"
+                    try:
+                        await self._rest.place_market_order(
+                            sym, mkt_side, trade["qty"], reduce_only=True
+                        )
+                    except Exception as e:
+                        log.warning("[CLOSE] %s acil kapanis emri hatasi: %s", sym, e)
         except Exception as e:
             log.warning("[CLOSE] %s exit temizleme hatasi: %s", sym, e)
 

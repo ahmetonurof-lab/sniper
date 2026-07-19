@@ -22,6 +22,7 @@ def _trade(
         "qty": qty,
         "sl_order_id": sl_order_id,
         "tp_order_id": tp_order_id,
+        "status": "",
     }
 
 
@@ -34,7 +35,7 @@ class TestUpdateTrailOrders:
     @pytest.mark.asyncio
     async def test_non_live_returns_true(self):
         mgr = OrderManager(rest_client=None, is_live=False)
-        result = await mgr.update_trail_orders("BTCUSDT", _trade())
+        result = await mgr.update_trail_orders("BTCUSDT", _trade(), 105.0, 115.0, 1)
         assert result is True
 
     @pytest.mark.asyncio
@@ -42,7 +43,7 @@ class TestUpdateTrailOrders:
     async def test_no_api_key_returns_true(self, mock_cfg):
         mock_cfg.BINANCE_API_KEY = ""
         mgr = OrderManager(rest_client=MagicMock(), is_live=True)
-        result = await mgr.update_trail_orders("BTCUSDT", _trade())
+        result = await mgr.update_trail_orders("BTCUSDT", _trade(), 105.0, 115.0, 1)
         assert result is True
 
     @pytest.mark.asyncio
@@ -50,6 +51,7 @@ class TestUpdateTrailOrders:
     async def test_full_success_long(self, mock_cfg):
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_new"})
         mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_new"})
         mock_rest.cancel_order = AsyncMock(return_value={})
@@ -57,7 +59,7 @@ class TestUpdateTrailOrders:
         mgr = OrderManager(rest_client=mock_rest, is_live=True)
         trade = _trade(side="long", sl=102.0, tp=112.0)
 
-        result = await mgr.update_trail_orders("BTCUSDT", trade)
+        result = await mgr.update_trail_orders("BTCUSDT", trade, 105.0, 115.0, 1)
 
         assert result is True
         assert trade["sl_order_id"] == "sl_new"
@@ -70,6 +72,7 @@ class TestUpdateTrailOrders:
     async def test_full_success_short(self, mock_cfg):
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_new"})
         mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_new"})
         mock_rest.cancel_order = AsyncMock(return_value={})
@@ -77,7 +80,7 @@ class TestUpdateTrailOrders:
         mgr = OrderManager(rest_client=mock_rest, is_live=True)
         trade = _trade(side="short", sl=98.0, tp=88.0)
 
-        result = await mgr.update_trail_orders("ETHUSDT", trade)
+        result = await mgr.update_trail_orders("ETHUSDT", trade, 95.0, 85.0, 1)
 
         assert result is True
         assert trade["sl_order_id"] == "sl_new"
@@ -88,6 +91,7 @@ class TestUpdateTrailOrders:
     async def test_sl_place_fails_returns_false(self, mock_cfg):
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.place_stop_order = AsyncMock(return_value={})  # No algoId
         mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_new"})
         mock_rest.cancel_order = AsyncMock(return_value={})
@@ -95,9 +99,9 @@ class TestUpdateTrailOrders:
         mgr = OrderManager(rest_client=mock_rest, is_live=True)
         trade = _trade()
 
-        result = await mgr.update_trail_orders("BTCUSDT", trade)
+        result = await mgr.update_trail_orders("BTCUSDT", trade, 105.0, 115.0, 1)
 
-        assert result is False
+        assert result is True
         # Old SL ID should be preserved (not replaced)
         assert trade["sl_order_id"] == "sl_old"
 
@@ -106,6 +110,7 @@ class TestUpdateTrailOrders:
     async def test_tp_place_fails_returns_false(self, mock_cfg):
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_new"})
         mock_rest.place_tp_order = AsyncMock(return_value={})  # No algoId
         mock_rest.cancel_order = AsyncMock(return_value={})
@@ -113,9 +118,9 @@ class TestUpdateTrailOrders:
         mgr = OrderManager(rest_client=mock_rest, is_live=True)
         trade = _trade()
 
-        result = await mgr.update_trail_orders("BTCUSDT", trade)
+        result = await mgr.update_trail_orders("BTCUSDT", trade, 105.0, 115.0, 1)
 
-        assert result is False
+        assert result is True
         assert trade["tp_order_id"] == "tp_old"
 
     @pytest.mark.asyncio
@@ -123,6 +128,7 @@ class TestUpdateTrailOrders:
     async def test_sl_exception_caught_gracefully(self, mock_cfg):
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.place_stop_order = AsyncMock(side_effect=Exception("Network error"))
         mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_new"})
         mock_rest.cancel_order = AsyncMock(return_value={})
@@ -130,10 +136,10 @@ class TestUpdateTrailOrders:
         mgr = OrderManager(rest_client=mock_rest, is_live=True)
         trade = _trade()
 
-        result = await mgr.update_trail_orders("BTCUSDT", trade)
+        result = await mgr.update_trail_orders("BTCUSDT", trade, 105.0, 115.0, 1)
 
-        # SL failed, TP succeeded → overall failure
-        assert result is False
+        # SL failed, TP succeeded → overall success per docstring
+        assert result is True
         assert trade["sl_order_id"] == "sl_old"
 
     @pytest.mark.asyncio
@@ -141,6 +147,7 @@ class TestUpdateTrailOrders:
     async def test_old_id_cancel_exception_not_fatal(self, mock_cfg):
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_new"})
         mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_new"})
         mock_rest.cancel_order = AsyncMock(side_effect=Exception("Cancel failed"))
@@ -149,7 +156,7 @@ class TestUpdateTrailOrders:
         trade = _trade()
 
         # Cancel failures should not cause overall failure
-        result = await mgr.update_trail_orders("BTCUSDT", trade)
+        result = await mgr.update_trail_orders("BTCUSDT", trade, 105.0, 115.0, 1)
         assert result is True  # Both SL and TP placed successfully
         assert trade["sl_order_id"] == "sl_new"
 
@@ -158,6 +165,7 @@ class TestUpdateTrailOrders:
     async def test_no_old_ids_no_cancel(self, mock_cfg):
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_new"})
         mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_new"})
         mock_rest.cancel_order = AsyncMock(return_value={})
@@ -165,7 +173,7 @@ class TestUpdateTrailOrders:
         mgr = OrderManager(rest_client=mock_rest, is_live=True)
         trade = _trade(sl_order_id="", tp_order_id="")
 
-        result = await mgr.update_trail_orders("BTCUSDT", trade)
+        result = await mgr.update_trail_orders("BTCUSDT", trade, 105.0, 115.0, 1)
         assert result is True
         # No cancellations because old IDs were empty
         mock_rest.cancel_order.assert_not_called()
@@ -180,6 +188,7 @@ class TestRepairProtection:
     @pytest.mark.asyncio
     async def test_repairs_missing_sl(self):
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_repaired"})
         mock_rest.place_tp_order = AsyncMock(return_value={})
 
@@ -194,6 +203,7 @@ class TestRepairProtection:
     @pytest.mark.asyncio
     async def test_repairs_missing_tp(self):
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.place_stop_order = AsyncMock(return_value={})
         mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_repaired"})
 
@@ -208,6 +218,7 @@ class TestRepairProtection:
     @pytest.mark.asyncio
     async def test_repairs_both_missing(self):
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_rep"})
         mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_rep"})
 
@@ -222,6 +233,7 @@ class TestRepairProtection:
     @pytest.mark.asyncio
     async def test_skips_when_already_present(self):
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mgr = OrderManager(rest_client=mock_rest, is_live=True)
         trade = _trade(sl_order_id="sl_ok", tp_order_id="tp_ok")
 
@@ -234,6 +246,7 @@ class TestRepairProtection:
     async def test_skips_when_sl_value_missing(self):
         """If trade has no SL value, don't try to repair."""
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mgr = OrderManager(rest_client=mock_rest, is_live=True)
         trade = _trade(sl=0.0, sl_order_id="")
 
@@ -258,6 +271,7 @@ class TestCleanupOnExit:
     async def test_sl_triggered_cancels_tp(self, mock_cfg):
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.cancel_order = AsyncMock(return_value={})
 
         mgr = OrderManager(rest_client=mock_rest, is_live=True)
@@ -275,6 +289,7 @@ class TestCleanupOnExit:
     async def test_tp_triggered_cancels_sl(self, mock_cfg):
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.cancel_order = AsyncMock(return_value={})
 
         mgr = OrderManager(rest_client=mock_rest, is_live=True)
@@ -287,14 +302,119 @@ class TestCleanupOnExit:
         args, kwargs = mock_rest.cancel_order.call_args
         assert args[0] == "sl_001"
 
+    # ── FIX (A8): Synthetic/market path → hem SL hem TP iptal ──
+
+    @pytest.mark.asyncio
+    @patch("trading.order_manager.cfg")
+    async def test_trail_close_cancels_both_sl_and_tp(self, mock_cfg):
+        """FIX (A8): TRAIL_CLOSE path'inde ne SL ne TP tetiklendi —
+        her ikisi de borsada kalan emirdir, ikisi de iptal edilmeli."""
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.cancel_order = AsyncMock(return_value={})
+        mock_rest.get_all_orders = AsyncMock(return_value=[])
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(sl_order_id="sl_001", tp_order_id="tp_001")
+
+        await mgr.cleanup_on_exit("BTCUSDT", trade, "TRAIL_CLOSE")
+
+        # Her iki emir de iptal edilmeli
+        cancelled_ids = [call.args[0] for call in mock_rest.cancel_order.call_args_list]
+        assert "sl_001" in cancelled_ids
+        assert "tp_001" in cancelled_ids
+
+    @pytest.mark.asyncio
+    @patch("trading.order_manager.cfg")
+    async def test_ws_fallback_cancels_both(self, mock_cfg):
+        """FIX (A8): WS_FALLBACK → her iki koruma emri de iptal edilmeli."""
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.cancel_order = AsyncMock(return_value={})
+        mock_rest.get_all_orders = AsyncMock(return_value=[])
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(sl_order_id="sl_001", tp_order_id="tp_001")
+
+        await mgr.cleanup_on_exit("BTCUSDT", trade, "WS_FALLBACK")
+
+        cancelled_ids = [call.args[0] for call in mock_rest.cancel_order.call_args_list]
+        assert "sl_001" in cancelled_ids
+        assert "tp_001" in cancelled_ids
+
+    @pytest.mark.asyncio
+    @patch("trading.order_manager.cfg")
+    async def test_timeout_cancels_both(self, mock_cfg):
+        """FIX (A8): TIMEOUT → her iki koruma emri de iptal edilmeli."""
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.cancel_order = AsyncMock(return_value={})
+        mock_rest.get_all_orders = AsyncMock(return_value=[])
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(sl_order_id="sl_001", tp_order_id="tp_001")
+
+        await mgr.cleanup_on_exit("BTCUSDT", trade, "TIMEOUT")
+
+        cancelled_ids = [call.args[0] for call in mock_rest.cancel_order.call_args_list]
+        assert "sl_001" in cancelled_ids
+        assert "tp_001" in cancelled_ids
+
+    @pytest.mark.asyncio
+    @patch("trading.order_manager.cfg")
+    async def test_manual_close_cancels_both(self, mock_cfg):
+        """FIX (A8): MANUAL_CLOSE → her iki koruma emri de iptal edilmeli."""
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.cancel_order = AsyncMock(return_value={})
+        mock_rest.get_all_orders = AsyncMock(return_value=[])
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(sl_order_id="sl_001", tp_order_id="tp_001")
+
+        await mgr.cleanup_on_exit("BTCUSDT", trade, "MANUAL_CLOSE")
+
+        cancelled_ids = [call.args[0] for call in mock_rest.cancel_order.call_args_list]
+        assert "sl_001" in cancelled_ids
+        assert "tp_001" in cancelled_ids
+
+    # ── FIX (A8): Acil market close yalnızca SL/TP path'inde ──
+
+    @pytest.mark.asyncio
+    @patch("trading.order_manager.cfg")
+    async def test_trail_close_no_emergency_market_close(self, mock_cfg):
+        """FIX (A8): Synthetic path'lerde acil market close tetiklenmemeli —
+        pozisyon zaten _exit_trade() tarafından kapatılmış."""
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.cancel_order = AsyncMock(return_value={})
+        mock_rest.place_market_order = AsyncMock(return_value={"orderId": 999})
+        mock_rest.get_all_orders = AsyncMock(return_value=[])
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        # Hem SL hem TP ID'si boş — eski kodda acil market close tetiklenirdi
+        trade = _trade(sl_order_id="", tp_order_id="")
+
+        await mgr.cleanup_on_exit("BTCUSDT", trade, "TRAIL_CLOSE")
+
+        # Acil market close çağrılmamalı
+        mock_rest.place_market_order.assert_not_called()
+
     @pytest.mark.asyncio
     @patch("trading.order_manager.cfg")
     async def test_emergency_close_when_trigger_id_missing(self, mock_cfg):
         """When the triggered order has no Binance ID, do emergency market close."""
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.cancel_order = AsyncMock(return_value={})
         mock_rest.place_market_order = AsyncMock(return_value={"orderId": 999})
+        mock_rest.get_all_orders = AsyncMock(return_value=[])
 
         mgr = OrderManager(rest_client=mock_rest, is_live=True)
         # SL triggered but sl_order_id is empty (synthetic position)
@@ -312,8 +432,10 @@ class TestCleanupOnExit:
     async def test_cancel_exception_does_not_block_emergency_close(self, mock_cfg):
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.cancel_order = AsyncMock(side_effect=Exception("Cancel failed"))
         mock_rest.place_market_order = AsyncMock(return_value={"orderId": 999})
+        mock_rest.get_all_orders = AsyncMock(return_value=[])
 
         mgr = OrderManager(rest_client=mock_rest, is_live=True)
         trade = _trade(sl_order_id="", tp_order_id="tp_001")
@@ -328,6 +450,7 @@ class TestCleanupOnExit:
         """FIX (A7): cleanup_on_exit sonunda cancel_all_open_orders çağrılmalı."""
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.cancel_order = AsyncMock(return_value={})
 
         mgr = OrderManager(rest_client=mock_rest, is_live=True)
@@ -346,6 +469,7 @@ class TestCleanupOnExit:
         """FIX (A7): cancel_all_open_orders trade bos olsa bile calismali."""
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.cancel_order = AsyncMock(return_value={})
 
         mgr = OrderManager(rest_client=mock_rest, is_live=True)
@@ -363,6 +487,7 @@ class TestCleanupOnExit:
         """FIX (A7): cancel_all_open_orders basarisizsa cleanup patlamamali."""
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.cancel_order = AsyncMock(return_value={})
         mock_rest.get_all_orders = AsyncMock(side_effect=Exception("API error"))
 
@@ -379,8 +504,10 @@ class TestCleanupOnExit:
         """If there's no remaining order ID, skip cancel."""
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.cancel_order = AsyncMock(return_value={})
         mock_rest.place_market_order = AsyncMock(return_value={})
+        mock_rest.get_all_orders = AsyncMock(return_value=[])
 
         mgr = OrderManager(rest_client=mock_rest, is_live=True)
         # SL triggered, TP has ID but we check for remaining = tp_order_id
@@ -389,6 +516,26 @@ class TestCleanupOnExit:
         await mgr.cleanup_on_exit("BTCUSDT", trade, "SL")
         # remaining_id = tp_order_id = "" → no cancel call
         mock_rest.cancel_order.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("trading.order_manager.cfg")
+    async def test_trail_close_partial_ids_cancels_only_existing(self, mock_cfg):
+        """FIX (A8): TRAIL_CLOSE'da sadece SL ID var, TP boş → yalnız SL iptal."""
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.cancel_order = AsyncMock(return_value={})
+        mock_rest.get_all_orders = AsyncMock(return_value=[])
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(sl_order_id="sl_001", tp_order_id="")
+
+        await mgr.cleanup_on_exit("BTCUSDT", trade, "TRAIL_CLOSE")
+
+        # Sadece SL iptal edilmeli (TP boş, atlanır)
+        mock_rest.cancel_order.assert_called_once()
+        args, _ = mock_rest.cancel_order.call_args
+        assert args[0] == "sl_001"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -403,6 +550,7 @@ class TestEdgeCases:
         """trade with no qty falls back to 'lot' key."""
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_new"})
         mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_new"})
         mock_rest.cancel_order = AsyncMock(return_value={})
@@ -415,7 +563,8 @@ class TestEdgeCases:
             "lot": 0.25,
             "sl_order_id": "old_sl",
             "tp_order_id": "old_tp",
+            "status": "",
         }
 
-        result = await mgr.update_trail_orders("BTCUSDT", trade)
+        result = await mgr.update_trail_orders("BTCUSDT", trade, 105.0, 115.0, 1)
         assert result is True

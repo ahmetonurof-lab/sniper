@@ -391,6 +391,17 @@ class ActiveTrade:
     def get(self, key: str, default=None):
         return getattr(self, key, default)
 
+    def setdefault(self, key: str, default=None):
+        """Dict-uyumlu setdefault: attribute yoksa veya None ise default ata."""
+        try:
+            val = getattr(self, key)
+        except AttributeError:
+            val = None
+        if val is None:
+            setattr(self, key, default)
+            return default
+        return val
+
     def __contains__(self, key: str) -> bool:
         return hasattr(self, key)
 

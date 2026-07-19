@@ -238,6 +238,7 @@ class TestOrderState:
             "initial_sl": 95.0,
             "initial_tp": 110.0,
             "trail_steps": [],
+            "status": "",
         }
         t.update(kw)
         return t
