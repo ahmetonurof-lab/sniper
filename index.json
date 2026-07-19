@@ -1036,36 +1036,6 @@
           "line_end": 617,
           "signature": "async def main() -> None:"
         },
-        "src.snapshot.snapshot._fetch_ohlc": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 41,
-          "line_end": 99,
-          "signature": "def _fetch_ohlc(sym: str, anchor_ms: int) -> list[dict] | None:"
-        },
-        "src.snapshot.snapshot._find_bar": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 107,
-          "line_end": 123,
-          "signature": "def _find_bar(candles: list[dict], price: float, ts_ms: int | None=None) -> int:"
-        },
-        "src.snapshot.snapshot.normalize_trade": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 131,
-          "line_end": 146,
-          "signature": "def normalize_trade(trade: dict) -> dict:"
-        },
-        "src.snapshot.snapshot._resolve_fvg_bar_index": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 154,
-          "line_end": 205,
-          "signature": "def _resolve_fvg_bar_index(candles: list[dict], entry_bar: int, fvg_obj, trade: dict, fvg_top: float | None, fvg_bottom: float | None) -> int:"
-        },
-        "src.snapshot.snapshot.capture_snapshot": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 208,
-          "line_end": 381,
-          "signature": "def capture_snapshot(sym: str, trade: dict, pnl: float | None=None, session_state=None) -> str | None:"
-        },
         "src.trading.console_reporter.ConsoleReporter.__init__": {
           "file": "src\\trading\\console_reporter.py",
           "line_start": 32,
@@ -4312,252 +4282,6 @@
           "line_end": 66,
           "signature": "def write_state(states: dict, active_trades: dict, available_balance: float, wallet_balance: float, symbols: list[str]) -> None:"
         },
-        "tests.test_websocket._bar": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 27,
-          "line_end": 36,
-          "signature": "def _bar(index, open_, high, low, close, is_closed=True, timestamp=0):"
-        },
-        "tests.test_websocket._kline_msg": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 39,
-          "line_end": 60,
-          "signature": "def _kline_msg(symbol='btcusdt', interval='5m', close=100.0, is_closed=True, ts=None):"
-        },
-        "tests.test_websocket.TestCooldown.setup_method": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 69,
-          "line_end": 70,
-          "signature": "def setup_method(self):"
-        },
-        "tests.test_websocket.TestCooldown.test_is_cooldown_active_false_initially": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 72,
-          "line_end": 73,
-          "signature": "def test_is_cooldown_active_false_initially(self):"
-        },
-        "tests.test_websocket.TestCooldown.test_is_cooldown_active_true_after_register": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 75,
-          "line_end": 77,
-          "signature": "def test_is_cooldown_active_true_after_register(self):"
-        },
-        "tests.test_websocket.TestCooldown.test_is_cooldown_active_false_after_cooldown": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 79,
-          "line_end": 82,
-          "signature": "def test_is_cooldown_active_false_after_cooldown(self):"
-        },
-        "tests.test_websocket.TestCooldown.test_register_trade_updates_time": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 84,
-          "line_end": 90,
-          "signature": "def test_register_trade_updates_time(self):"
-        },
-        "tests.test_websocket.TestBarBuffer.setup_method": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 99,
-          "line_end": 100,
-          "signature": "def setup_method(self):"
-        },
-        "tests.test_websocket.TestBarBuffer._cb": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 102,
-          "line_end": 103,
-          "signature": "async def _cb(self, bars):"
-        },
-        "tests.test_websocket.TestBarBuffer.test_kline_to_bar_conversion": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 105,
-          "line_end": 114,
-          "signature": "def test_kline_to_bar_conversion(self):"
-        },
-        "tests.test_websocket.TestBarBuffer.test_feed_appends_closed_bar_and_calls_callback": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 117,
-          "line_end": 134,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_feed_does_not_call_callback_on_unclosed": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 137,
-          "line_end": 152,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_feed_skips_duplicate_timestamp": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 155,
-          "line_end": 171,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_feed_max_bars_eviction": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 174,
-          "line_end": 191,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_feed_next_index_management": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 194,
-          "line_end": 212,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 215,
-          "line_end": 239,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks.cb1": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 219,
-          "line_end": 220,
-          "signature": "async def cb1(bars):"
-        },
-        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks.cb2": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 222,
-          "line_end": 223,
-          "signature": "async def cb2(bars):"
-        },
-        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 242,
-          "line_end": 264,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks.bad_cb": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 245,
-          "line_end": 246,
-          "signature": "async def bad_cb(bars):"
-        },
-        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks.good_cb": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 248,
-          "line_end": 249,
-          "signature": "async def good_cb(bars):"
-        },
-        "tests.test_websocket.TestBinanceWSHubInit.test_default_initialization": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 273,
-          "line_end": 278,
-          "signature": "def test_default_initialization(self):"
-        },
-        "tests.test_websocket.TestBinanceWSHubInit.test_custom_timeframes": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 280,
-          "line_end": 282,
-          "signature": "def test_custom_timeframes(self):"
-        },
-        "tests.test_websocket.TestBinanceWSHubInit.test_symbols_uppercased": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 284,
-          "line_end": 286,
-          "signature": "def test_symbols_uppercased(self):"
-        },
-        "tests.test_websocket.TestBinanceWSHubInit.test_custom_base_url": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 288,
-          "line_end": 292,
-          "signature": "def test_custom_base_url(self):"
-        },
-        "tests.test_websocket.TestBuildUrl.test_single_symbol_single_timeframe": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 296,
-          "line_end": 299,
-          "signature": "def test_single_symbol_single_timeframe(self):"
-        },
-        "tests.test_websocket.TestBuildUrl.test_multi_symbol_multi_timeframe": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 301,
-          "line_end": 307,
-          "signature": "def test_multi_symbol_multi_timeframe(self):"
-        },
-        "tests.test_websocket.TestBuildUrl.test_invalid_timeframe_raises": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 309,
-          "line_end": 312,
-          "signature": "def test_invalid_timeframe_raises(self):"
-        },
-        "tests.test_websocket.TestDispatch.test_dispatch_routes_kline_to_correct_buffer": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 317,
-          "line_end": 324,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestDispatch.test_dispatch_ignores_non_kline_events": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 327,
-          "line_end": 337,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestDispatch.test_dispatch_handles_invalid_json": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 340,
-          "line_end": 343,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestDispatch.test_dispatch_updates_last_seen": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 346,
-          "line_end": 353,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_websocket.TestGetBarsPrefill.test_get_bars_empty_initially": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 357,
-          "line_end": 359,
-          "signature": "def test_get_bars_empty_initially(self):"
-        },
-        "tests.test_websocket.TestGetBarsPrefill.test_prefill_bars_sets_buffer": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 361,
-          "line_end": 367,
-          "signature": "def test_prefill_bars_sets_buffer(self):"
-        },
-        "tests.test_websocket.TestGetBarsPrefill.test_get_bars_returns_copy": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 369,
-          "line_end": 376,
-          "signature": "def test_get_bars_returns_copy(self):"
-        },
-        "tests.test_websocket.TestCallbackRegistration.test_register_callback": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 380,
-          "line_end": 390,
-          "signature": "def test_register_callback(self):"
-        },
-        "tests.test_websocket.TestCallbackRegistration.test_register_callback.handler": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 384,
-          "line_end": 385,
-          "signature": "async def handler(bars):"
-        },
-        "tests.test_websocket.TestCallbackRegistration.test_on_bar_decorator": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 392,
-          "line_end": 400,
-          "signature": "def test_on_bar_decorator(self):"
-        },
-        "tests.test_websocket.TestCallbackRegistration.test_on_bar_decorator.handler": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 396,
-          "line_end": 397,
-          "signature": "@hub.on_bar('BTCUSDT', '5m')"
-        },
-        "tests.test_websocket.TestStop.test_stop_sets_event": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 404,
-          "line_end": 408,
-          "signature": "def test_stop_sets_event(self):"
-        },
-        "tests.test_websocket.TestTfToStream.test_known_timeframes": {
-          "file": "tests\\test_websocket.py",
-          "line_start": 417,
-          "line_end": 423,
-          "signature": "def test_known_timeframes(self):"
-        },
         "src.models.Result.ok": {
           "file": "src\\models.py",
           "line_start": 43,
@@ -4965,6 +4689,282 @@
           "line_start": 502,
           "line_end": 541,
           "signature": "async def reconcile_orphan_orders(self) -> None:"
+        },
+        "tests.test_websocket._bar": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 27,
+          "line_end": 36,
+          "signature": "def _bar(index, open_, high, low, close, is_closed=True, timestamp=0):"
+        },
+        "tests.test_websocket._kline_msg": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 39,
+          "line_end": 60,
+          "signature": "def _kline_msg(symbol='btcusdt', interval='5m', close=100.0, is_closed=True, ts=None):"
+        },
+        "tests.test_websocket.TestCooldown.setup_method": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 69,
+          "line_end": 70,
+          "signature": "def setup_method(self):"
+        },
+        "tests.test_websocket.TestCooldown.test_is_cooldown_active_false_initially": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 72,
+          "line_end": 73,
+          "signature": "def test_is_cooldown_active_false_initially(self):"
+        },
+        "tests.test_websocket.TestCooldown.test_is_cooldown_active_true_after_register": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 75,
+          "line_end": 77,
+          "signature": "def test_is_cooldown_active_true_after_register(self):"
+        },
+        "tests.test_websocket.TestCooldown.test_is_cooldown_active_false_after_cooldown": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 79,
+          "line_end": 82,
+          "signature": "def test_is_cooldown_active_false_after_cooldown(self):"
+        },
+        "tests.test_websocket.TestCooldown.test_register_trade_updates_time": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 84,
+          "line_end": 90,
+          "signature": "def test_register_trade_updates_time(self):"
+        },
+        "tests.test_websocket.TestBarBuffer.setup_method": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 99,
+          "line_end": 100,
+          "signature": "def setup_method(self):"
+        },
+        "tests.test_websocket.TestBarBuffer._cb": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 102,
+          "line_end": 103,
+          "signature": "async def _cb(self, bars):"
+        },
+        "tests.test_websocket.TestBarBuffer.test_kline_to_bar_conversion": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 105,
+          "line_end": 114,
+          "signature": "def test_kline_to_bar_conversion(self):"
+        },
+        "tests.test_websocket.TestBarBuffer.test_feed_appends_closed_bar_and_calls_callback": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 117,
+          "line_end": 134,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_feed_does_not_call_callback_on_unclosed": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 137,
+          "line_end": 152,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_feed_skips_duplicate_timestamp": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 155,
+          "line_end": 171,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_feed_max_bars_eviction": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 174,
+          "line_end": 191,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_feed_next_index_management": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 194,
+          "line_end": 212,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 215,
+          "line_end": 239,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks.cb1": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 219,
+          "line_end": 220,
+          "signature": "async def cb1(bars):"
+        },
+        "tests.test_websocket.TestBarBuffer.test_multiple_callbacks.cb2": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 222,
+          "line_end": 223,
+          "signature": "async def cb2(bars):"
+        },
+        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 242,
+          "line_end": 264,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks.bad_cb": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 245,
+          "line_end": 246,
+          "signature": "async def bad_cb(bars):"
+        },
+        "tests.test_websocket.TestBarBuffer.test_callback_exception_does_not_block_other_callbacks.good_cb": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 248,
+          "line_end": 249,
+          "signature": "async def good_cb(bars):"
+        },
+        "tests.test_websocket.TestBinanceWSHubInit.test_default_initialization": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 273,
+          "line_end": 278,
+          "signature": "def test_default_initialization(self):"
+        },
+        "tests.test_websocket.TestBinanceWSHubInit.test_custom_timeframes": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 280,
+          "line_end": 282,
+          "signature": "def test_custom_timeframes(self):"
+        },
+        "tests.test_websocket.TestBinanceWSHubInit.test_symbols_uppercased": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 284,
+          "line_end": 286,
+          "signature": "def test_symbols_uppercased(self):"
+        },
+        "tests.test_websocket.TestBinanceWSHubInit.test_custom_base_url": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 288,
+          "line_end": 292,
+          "signature": "def test_custom_base_url(self):"
+        },
+        "tests.test_websocket.TestBuildUrl.test_single_symbol_single_timeframe": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 296,
+          "line_end": 299,
+          "signature": "def test_single_symbol_single_timeframe(self):"
+        },
+        "tests.test_websocket.TestBuildUrl.test_multi_symbol_multi_timeframe": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 301,
+          "line_end": 307,
+          "signature": "def test_multi_symbol_multi_timeframe(self):"
+        },
+        "tests.test_websocket.TestBuildUrl.test_invalid_timeframe_raises": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 309,
+          "line_end": 312,
+          "signature": "def test_invalid_timeframe_raises(self):"
+        },
+        "tests.test_websocket.TestDispatch.test_dispatch_routes_kline_to_correct_buffer": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 317,
+          "line_end": 324,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestDispatch.test_dispatch_ignores_non_kline_events": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 327,
+          "line_end": 337,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestDispatch.test_dispatch_handles_invalid_json": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 340,
+          "line_end": 343,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestDispatch.test_dispatch_updates_last_seen": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 346,
+          "line_end": 353,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_websocket.TestGetBarsPrefill.test_get_bars_empty_initially": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 357,
+          "line_end": 359,
+          "signature": "def test_get_bars_empty_initially(self):"
+        },
+        "tests.test_websocket.TestGetBarsPrefill.test_prefill_bars_sets_buffer": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 361,
+          "line_end": 367,
+          "signature": "def test_prefill_bars_sets_buffer(self):"
+        },
+        "tests.test_websocket.TestGetBarsPrefill.test_get_bars_returns_copy": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 369,
+          "line_end": 376,
+          "signature": "def test_get_bars_returns_copy(self):"
+        },
+        "tests.test_websocket.TestCallbackRegistration.test_register_callback": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 380,
+          "line_end": 390,
+          "signature": "def test_register_callback(self):"
+        },
+        "tests.test_websocket.TestCallbackRegistration.test_register_callback.handler": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 384,
+          "line_end": 385,
+          "signature": "async def handler(bars):"
+        },
+        "tests.test_websocket.TestCallbackRegistration.test_on_bar_decorator": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 392,
+          "line_end": 400,
+          "signature": "def test_on_bar_decorator(self):"
+        },
+        "tests.test_websocket.TestCallbackRegistration.test_on_bar_decorator.handler": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 396,
+          "line_end": 397,
+          "signature": "@hub.on_bar('BTCUSDT', '5m')"
+        },
+        "tests.test_websocket.TestStop.test_stop_sets_event": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 404,
+          "line_end": 408,
+          "signature": "def test_stop_sets_event(self):"
+        },
+        "tests.test_websocket.TestTfToStream.test_known_timeframes": {
+          "file": "tests\\test_websocket.py",
+          "line_start": 417,
+          "line_end": 423,
+          "signature": "def test_known_timeframes(self):"
+        },
+        "src.snapshot.snapshot._fetch_ohlc": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 41,
+          "line_end": 99,
+          "signature": "def _fetch_ohlc(sym: str, anchor_ms: int) -> list[dict] | None:"
+        },
+        "src.snapshot.snapshot._find_bar": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 107,
+          "line_end": 123,
+          "signature": "def _find_bar(candles: list[dict], price: float, ts_ms: int | None=None) -> int:"
+        },
+        "src.snapshot.snapshot.normalize_trade": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 131,
+          "line_end": 146,
+          "signature": "def normalize_trade(trade: dict) -> dict:"
+        },
+        "src.snapshot.snapshot._resolve_fvg_bar_index": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 154,
+          "line_end": 211,
+          "signature": "def _resolve_fvg_bar_index(candles: list[dict], entry_bar: int, fvg_obj, trade: dict, fvg_top: float | None, fvg_bottom: float | None) -> int | None:"
+        },
+        "src.snapshot.snapshot.capture_snapshot": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 214,
+          "line_end": 413,
+          "signature": "def capture_snapshot(sym: str, trade: dict, pnl: float | None=None, session_state=None) -> str | None:"
         }
       },
       "files": {
@@ -5019,10 +5019,6 @@
         "src\\websocket.py": {
           "last_modified": "2026-06-26T01:17:29",
           "hash": "sha256:de70ea222cfe2e42"
-        },
-        "src\\snapshot\\snapshot.py": {
-          "last_modified": "2026-07-19T11:02:46",
-          "hash": "sha256:d498a429fcda2330"
         },
         "src\\snapshot\\__init__.py": {
           "last_modified": "2026-06-28T13:19:02",
@@ -5116,10 +5112,6 @@
           "last_modified": "2026-06-30T21:09:49",
           "hash": "sha256:ccafe1fef001605e"
         },
-        "tests\\test_websocket.py": {
-          "last_modified": "2026-06-26T01:10:59",
-          "hash": "sha256:6f1468bf97ef5dde"
-        },
         "src\\trading\\__init__.py": {
           "last_modified": "2026-06-30T21:12:59",
           "hash": "sha256:f61320312ed5e5b1"
@@ -5143,6 +5135,14 @@
         "src\\trading\\recovery_manager.py": {
           "last_modified": "2026-07-19T19:23:59",
           "hash": "sha256:ee88c429e5aa5f69"
+        },
+        "tests\\test_websocket.py": {
+          "last_modified": "2026-06-26T01:10:59",
+          "hash": "sha256:6f1468bf97ef5dde"
+        },
+        "src\\snapshot\\snapshot.py": {
+          "last_modified": "2026-07-19T20:22:34",
+          "hash": "sha256:5a5700038caa8965"
         }
       },
       "last_full_scan": "2026-07-19T15:38:36"

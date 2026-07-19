@@ -122,7 +122,7 @@
 
 ---
 ### MADDE A6 — update_trail_orders() pending replacement farkındalığı kazanacak
-- [ ] Bot
+- [X] Bot
 - **Dosya:** `src/trading/order_manager.py` + `src/models.py`
 - **Fonksiyon:** `update_trail_orders()`
 - **Satır:** `38-177`

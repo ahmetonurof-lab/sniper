@@ -210,7 +210,9 @@ if (DATA.priceMin != null && DATA.priceMax != null) {
 
 // ── Markers ───────────────────────────────────────────────────────────────
 const markers = [];
-if (DATA.fvgBarIndex != null && DATA.fvgBarIndex >= 0 && DATA.candles[DATA.fvgBarIndex]) {
+
+// FVG Marker: Artık fvgTop ve fvgBottom boş değilse çizilecek (Hayalet nokta çözümü)
+if (DATA.fvgBarIndex != null && DATA.fvgBarIndex >= 0 && DATA.candles[DATA.fvgBarIndex] && DATA.fvgTop != null && DATA.fvgBottom != null) {
   markers.push({
     time: DATA.candles[DATA.fvgBarIndex].time,
     position: isBullFvg(DATA) ? 'belowBar' : 'aboveBar',
@@ -219,23 +221,11 @@ if (DATA.fvgBarIndex != null && DATA.fvgBarIndex >= 0 && DATA.candles[DATA.fvgBa
   });
 }
 
-// Sweep bar: snapshot.py bar index göndermiyor, bu yüzden sweepLevel'a
-// ilk değen barı candle verisinden buluyoruz (high/low aralığı sweepLevel'ı kapsayan ilk bar).
-function findSweepBarIndex(candles, sweepLevel, entryBar) {
-  if (sweepLevel == null) return -1;
-  // FIX: pencerenin başından değil entryBar'dan GERİYE doğru ara.
-  // Sweep entry'den hemen önce olur; baştan arama chop bölgelerde
-  // yanlış (çok daha erken) bir mumu yakalıyordu.
-  const start = (entryBar != null) ? Math.min(entryBar, candles.length - 1) : candles.length - 1;
-  for (let i = start; i >= 0; i--) {
-    const c = candles[i];
-    if (c.low <= sweepLevel && sweepLevel <= c.high) return i;
-  }
-  return -1;
-}
-const sweepBarIndex = findSweepBarIndex(DATA.candles, DATA.sweepLevel, DATA.entryBar);
-if (sweepBarIndex >= 0 && DATA.candles[sweepBarIndex]) {
-  const sweepBull = DATA.fvgDirection === 'bullish';
+// Sweep Marker: Python tarafında bulunup sweepBarIndex olarak bize gönderiliyor (Ok kaybolma çözümü)
+const sweepBarIndex = DATA.sweepBarIndex;
+if (sweepBarIndex != null && sweepBarIndex >= 0 && DATA.candles[sweepBarIndex]) {
+  // fvgDirection eksik kalırsa, yönü side verisinden tahmin et
+  const sweepBull = DATA.fvgDirection ? DATA.fvgDirection === 'bullish' : side === 'LONG';
   markers.push({
     time: DATA.candles[sweepBarIndex].time,
     position: sweepBull ? 'belowBar' : 'aboveBar',

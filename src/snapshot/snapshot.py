@@ -158,7 +158,7 @@ def _resolve_fvg_bar_index(
     trade: dict,
     fvg_top: float | None,
     fvg_bottom: float | None,
-) -> int:
+) -> int | None:
     """
     FVG marker'in hangi bar'a konulacağını belirler.
 
@@ -172,10 +172,16 @@ def _resolve_fvg_bar_index(
     doğru çalışır. Bar offset (2-3) sadece aynı bars_15m array'i kullanılırken
     geçerlidir — restart sonrası indeksler anlamsızlaşır.
     """
-    # 1. Fiyat aralığına göre bul (restart-proof)
-    # FIX: pencerenin başından değil, entry_bar'dan GERİYE doğru ara.
-    # FVG mantıken entry'den hemen önce oluşur; ileriye/baştan arama
-    # chop bölgelerde yanlış (çok daha erken) bir mumu yakalıyordu.
+    # FIX: FVG verisi hiç yoksa varsayılan bar atama, doğrudan None dön.
+    has_fvg = (
+        (fvg_top is not None)
+        or (fvg_bottom is not None)
+        or (fvg_obj is not None)
+        or (trade.get("fvg_bar_index") is not None)
+    )
+    if not has_fvg:
+        return None
+
     if fvg_top is not None and fvg_bottom is not None:
         lo = min(fvg_top, fvg_bottom)
         hi = max(fvg_top, fvg_bottom)
@@ -243,14 +249,7 @@ def capture_snapshot(
     entry_bar = _find_bar(candles, entry_price, entry_ts_ms or None)
     exit_bar = _find_bar(candles, exit_price, exit_ts_ms or None)
 
-    # Pencereyi kırp: entry-PAD … exit+PAD
-    start = max(0, entry_bar - _PAD_BARS)
-    end = min(len(candles), exit_bar + _PAD_BARS + 1)
-    candles = candles[start:end]
-    entry_bar -= start
-    exit_bar -= start
-
-    # FVG
+    # ── FVG ──
     fvg = trade.get("trigger_fvg")
     fvg_direction = None
     fvg_top = None
@@ -271,7 +270,24 @@ def capture_snapshot(
         candles, entry_bar, fvg, trade, fvg_top, fvg_bottom
     )
 
-    # CBDR
+    # FIX: Sweep mumunu grafik penceresi kesilmeden ÖNCE bul
+    sweep_level = trade.get("sweep_level")
+    sweep_bar_index = None
+    if sweep_level is not None:
+        side_val = trade.get("side", "long").upper()
+        for i in range(entry_bar, -1, -1):
+            c = candles[i]
+            if c["low"] <= sweep_level <= c["high"]:
+                sweep_bar_index = i
+                break
+            elif side_val == "LONG" and c["low"] <= sweep_level:
+                sweep_bar_index = i
+                break
+            elif side_val == "SHORT" and c["high"] >= sweep_level:
+                sweep_bar_index = i
+                break
+
+    # ── CBDR ──
     cbdr_high = (
         trade.get("cbdr_high") or trade.get("cbdrHigh") or trade.get("cbdr_body_high")
     )
@@ -284,7 +300,22 @@ def capture_snapshot(
     if cbdr_low is None and session_state is not None:
         cbdr_low = getattr(session_state, "cbdr_body_low", None)
 
-    sweep_level = trade.get("sweep_level")
+    # Pencereyi kırp: entry, fvg_bar ve sweep_bar dışarıda kalmasın!
+    min_bar = entry_bar
+    if fvg_bar_index is not None:
+        min_bar = min(min_bar, fvg_bar_index)
+    if sweep_bar_index is not None:
+        min_bar = min(min_bar, sweep_bar_index)
+
+    start = max(0, min_bar - _PAD_BARS)
+    end = min(len(candles), exit_bar + _PAD_BARS + 1)
+    candles = candles[start:end]
+    entry_bar -= start
+    exit_bar -= start
+    if fvg_bar_index is not None:
+        fvg_bar_index -= start
+    if sweep_bar_index is not None:
+        sweep_bar_index -= start
 
     # Trail steps
     entry_bar_idx_abs = trade.get("entry_bar_index", 0)
@@ -342,6 +373,7 @@ def capture_snapshot(
             "fvgDirection": fvg_direction,
             "fvgBarIndex": fvg_bar_index,
             "sweepLevel": sweep_level,
+            "sweepBarIndex": sweep_bar_index,
             "entryBar": entry_bar,
             "exitBar": exit_bar,
             "trailSteps": mapped_steps,
