@@ -104,16 +104,17 @@ class UserDataHandler:
                             trade["result"] = result
                             await _exit_trade(sym, trade, int(time.time() * 1000))
                     else:
-                        # FIX #3: ID eslesmiyor AMA reduceOnly FILLED geldi!
+                        # FIX #3 + FIX (A3): confirmed alanlar degil, pending_*
+                        # alanlar yazilir. _exit_trade dogrularsa promote eder.
                         if is_reduce_only:
-                            trade["exit_price"] = price
-                            trade["exit_actual_price"] = price
+                            trade["pending_exit_reason"] = "ws_unmatched_reduce_only"
+                            trade["pending_exit_price"] = price
                             if cum_qty > 0:
-                                trade["exit_actual_qty"] = cum_qty
+                                trade["pending_exit_qty"] = cum_qty
                             if cum_quote > 0:
                                 trade["exit_quote_qty"] = cum_quote
-                            trade["exit_order_id"] = oid
-                            trade["exit_timestamp"] = int(time.time() * 1000)
+                            trade["pending_exit_order_id"] = oid
+                            trade["pending_exit_timestamp"] = int(time.time() * 1000)
                             trade["result"] = "WS_FALLBACK"
                             await _exit_trade(sym, trade, int(time.time() * 1000))
                             raise WSFallbackError(sym, oid, s_id, t_id)

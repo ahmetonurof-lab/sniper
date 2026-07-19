@@ -756,8 +756,30 @@ class PaperTrader:
                     await self.order_manager.repair_protection(
                         sym, trade, has_sl=sl_present, has_tp=tp_present
                     )
+                trade["pending_exit_reason"] = None
+                trade["pending_exit_price"] = None
+                trade["pending_exit_qty"] = None
+                trade["pending_exit_order_id"] = None
+                trade["pending_exit_timestamp"] = None
                 trade["result"] = None
                 return
+
+            # FIX (A3): position_open == False -> gercek kapanis, pending
+            # exit verisi confirmed alanlara promote edilir.
+            if trade.get("pending_exit_price"):
+                trade["exit_price"] = trade["pending_exit_price"]
+                trade["exit_actual_price"] = trade["pending_exit_price"]
+            if trade.get("pending_exit_qty"):
+                trade["exit_actual_qty"] = trade["pending_exit_qty"]
+            if trade.get("pending_exit_order_id"):
+                trade["exit_order_id"] = trade["pending_exit_order_id"]
+            if trade.get("pending_exit_timestamp"):
+                trade["exit_timestamp"] = trade["pending_exit_timestamp"]
+            trade["pending_exit_reason"] = None
+            trade["pending_exit_price"] = None
+            trade["pending_exit_qty"] = None
+            trade["pending_exit_order_id"] = None
+            trade["pending_exit_timestamp"] = None
 
         # FIX (A1): artik burada pop ETMIYORUZ. Trade, kapanis Binance
         # tarafindan DOGRULANANA kadar active_trades'te kaliyor. Boylece:

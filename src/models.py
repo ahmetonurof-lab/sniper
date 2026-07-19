@@ -371,6 +371,11 @@ class ActiveTrade:
     exit_actual_qty: float = 0.0
     exit_actual_price: float = 0.0
     exit_quote_qty: float = 0.0
+    pending_exit_reason: str | None = None
+    pending_exit_price: float | None = None
+    pending_exit_qty: float | None = None
+    pending_exit_order_id: str | None = None
+    pending_exit_timestamp: int | None = None
 
     # ── Dict uyumluluğu ───────────────────────────────────────
 
