@@ -173,10 +173,15 @@ def _resolve_fvg_bar_index(
     geçerlidir — restart sonrası indeksler anlamsızlaşır.
     """
     # 1. Fiyat aralığına göre bul (restart-proof)
+    # FIX: pencerenin başından değil, entry_bar'dan GERİYE doğru ara.
+    # FVG mantıken entry'den hemen önce oluşur; ileriye/baştan arama
+    # chop bölgelerde yanlış (çok daha erken) bir mumu yakalıyordu.
     if fvg_top is not None and fvg_bottom is not None:
         lo = min(fvg_top, fvg_bottom)
         hi = max(fvg_top, fvg_bottom)
-        for i, c in enumerate(candles):
+        search_start = entry_bar if entry_bar is not None else len(candles) - 1
+        for i in range(min(search_start, len(candles) - 1), -1, -1):
+            c = candles[i]
             if c["high"] >= lo and c["low"] <= hi:
                 return i
 
