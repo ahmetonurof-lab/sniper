@@ -195,11 +195,13 @@ class OrderManager:
         """
         s_id = str(trade.get("sl_order_id", ""))
         t_id = str(trade.get("tp_order_id", ""))
+        expects_sl = bool(trade.get("sl"))
+        expects_tp = bool(trade.get("tp"))
         try:
             orders = await self._rest.get_all_orders(sym)
             open_ids = {str(o.get("algoId") or o.get("orderId") or "") for o in orders}
-            sl_present = (not s_id) or (s_id in open_ids)
-            tp_present = (not t_id) or (t_id in open_ids)
+            sl_present = (not expects_sl) or (bool(s_id) and s_id in open_ids)
+            tp_present = (not expects_tp) or (bool(t_id) and t_id in open_ids)
             return sl_present, tp_present
         except Exception as e:
             log.warning(

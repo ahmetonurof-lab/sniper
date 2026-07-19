@@ -77,7 +77,7 @@
 
 ---
 ### MADDE A4 — verify_protection() presence mantığından çıkarılacak
-- [ ] Bot
+- [X] Bot
 - **Dosya:** `src/trading/order_manager.py`
 - **Fonksiyon:** `verify_protection()`
 - **Satır:** `181-202` (özellikle `188-195`)
