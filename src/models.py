@@ -307,6 +307,20 @@ class AnalysisResult:
         )
 
 
+# ── Trade lifecycle status sabitleri (Sprint A2 — minimal, tam state machine degil) ──
+
+STATUS_ACTIVE: Final[str] = "ACTIVE"
+STATUS_PENDING: Final[str] = "PENDING"
+STATUS_TRAIL_REPLACING: Final[str] = "TRAIL_REPLACING"
+STATUS_EXIT_VERIFYING: Final[str] = "EXIT_VERIFYING"
+STATUS_REPAIR_REQUIRED: Final[str] = "REPAIR_REQUIRED"
+STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED: Final[str] = (
+    "BROKEN_MANUAL_INTERVENTION_REQUIRED"
+)
+
+UNRESTRICTED_STATUSES: Final[frozenset[str]] = frozenset({STATUS_ACTIVE, ""})
+
+
 # ── ActiveTrade dataclass (Faz 1.1) ──────────────────────────────
 
 

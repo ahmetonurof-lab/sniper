@@ -20,7 +20,16 @@ import config as cfg
 from bot_binance import BinanceRESTClient
 from bot_infra import _close_ohlc_writers, _RateLimiter
 from indicators import calculate_true_range, update_atr
-from models import ActiveTrade, Bar, PendingLock, Result
+from models import (
+    ActiveTrade,
+    Bar,
+    PendingLock,
+    Result,
+    STATUS_ACTIVE,
+    STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
+    STATUS_EXIT_VERIFYING,
+    STATUS_REPAIR_REQUIRED,
+)
 from retrace_state import RetraceStateMachine
 from session import SessionState
 from risk_manager import RiskManager
@@ -659,6 +668,7 @@ class PaperTrader:
         self.active_trades[sym] = ActiveTrade(
             symbol=sym,
             side=side,
+            status=STATUS_ACTIVE,
             entry_price=entry_price,
             entry_bar_index=current.index,
             sl=sl,
@@ -762,6 +772,7 @@ class PaperTrader:
 
         # ── Bazı exit tipleri zaten Binance tarafindan kapatilmistir ──
         _exit_already_closed = trade.get("result") in ("SL", "TP", "WS_FALLBACK")
+        trade["status"] = STATUS_EXIT_VERIFYING
 
         # ── Önce tüm açık emirleri iptal et (SL/TP çakışmasını önle) ──
         # NOT: bu blogun konumu A1 kapsami disinda (A7'nin konusu), bilerek
@@ -872,6 +883,7 @@ class PaperTrader:
                 trade["sl_order_id"] = ""
                 trade["tp_order_id"] = ""
                 trade["result"] = None
+                trade["status"] = STATUS_REPAIR_REQUIRED
                 return
 
         # ── BURADAN ITIBAREN kapanis Binance tarafindan DOGRULANMIS demektir
@@ -904,6 +916,7 @@ class PaperTrader:
                 sym,
             )
             trade["result"] = None
+            trade["status"] = STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED
             trade["exit_unconfirmed_reason"] = "invalid_fill_data"
             self.active_trades[sym] = trade
             self._pl(

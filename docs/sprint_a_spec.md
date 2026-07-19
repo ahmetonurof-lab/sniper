@@ -6,7 +6,7 @@
 ## SPRINT A — CANLI RİSKİ HEMEN AZALTACAK DEĞİŞİKLİKLER
 
 ### MADDE A1 — _exit_trade içinde erken pop + erken muhasebe commit kaldırılacak
-- [ ] Bot
+- [X] Bot
 - **Dosya:** `src/bot.py`
 - **Fonksiyon:** `_exit_trade()`
 - **Satır:** `706-915` (özellikle `752`, `773-780`, `801-915`)
@@ -27,7 +27,7 @@
 
 ---
 ### MADDE A2 — _exit_trade için minimal status tabanlı ara durumlar eklenecek
-- [ ] Bot
+- [X] Bot
 - **Dosya:** `src/models.py` + `src/bot.py`
 - **Model Alanı:** `ActiveTrade`
 - **Satır:** `models.py 349-359` (mevcut `status` alanı kullanılabilir, gerekirse yanına ek alanlar eklenir)
@@ -47,7 +47,7 @@
 
 ---
 ### MADDE A3 — WS_FALLBACK path’i trade core alanlarını doğrudan kirletmeyecek
-- [ ] Bot
+- [X] Bot
 - **Dosya:** `src/trading/user_data_handler.py` + `src/models.py`
 - **Fonksiyon:** `on_order_update()`
 - **Satır:** `62-119` (özellikle `106-119`)

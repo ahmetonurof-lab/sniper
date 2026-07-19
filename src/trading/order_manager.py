@@ -17,6 +17,7 @@ import time
 import config as cfg
 from bot_infra import extract_order_id
 from event_log import log_event
+from models import UNRESTRICTED_STATUSES
 
 log = logging.getLogger("sniper.order_manager")
 
@@ -44,6 +45,13 @@ class OrderManager:
 
         Returns: True if at least one order (SL or TP) was updated successfully.
         """
+        if trade.get("status") not in UNRESTRICTED_STATUSES:
+            log.info(
+                "[TRAIL] %s status=%s — trailing atlaniyor (baska bir akis yonetiyor)",
+                sym,
+                trade.get("status"),
+            )
+            return False
         if not cfg.BINANCE_API_KEY or not self._is_live:
             trade["sl"] = new_sl
             trade["tp"] = new_tp

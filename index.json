@@ -1360,72 +1360,6 @@
           "line_end": 441,
           "signature": "async def _bump_to_min_notional(self, sym: str, qty: float, price: float, balance: float, leverage: int) -> float:"
         },
-        "src.trading.order_manager.OrderManager.__init__": {
-          "file": "src\\trading\\order_manager.py",
-          "line_start": 32,
-          "line_end": 34,
-          "signature": "def __init__(self, rest_client, is_live: bool=False):"
-        },
-        "src.trading.order_manager.OrderManager.update_trail_orders": {
-          "file": "src\\trading\\order_manager.py",
-          "line_start": 38,
-          "line_end": 177,
-          "signature": "async def update_trail_orders(self, sym: str, trade: dict, new_sl: float, new_tp: float, new_trail_count: int) -> bool:"
-        },
-        "src.trading.order_manager.OrderManager.verify_protection": {
-          "file": "src\\trading\\order_manager.py",
-          "line_start": 181,
-          "line_end": 202,
-          "signature": "async def verify_protection(self, sym: str, trade: dict) -> tuple[bool, bool]:"
-        },
-        "src.trading.order_manager.OrderManager.position_still_open": {
-          "file": "src\\trading\\order_manager.py",
-          "line_start": 204,
-          "line_end": 221,
-          "signature": "async def position_still_open(self, sym: str) -> bool:"
-        },
-        "src.trading.order_manager.OrderManager.repair_protection": {
-          "file": "src\\trading\\order_manager.py",
-          "line_start": 225,
-          "line_end": 257,
-          "signature": "async def repair_protection(self, sym: str, trade: dict, has_sl: bool, has_tp: bool) -> None:"
-        },
-        "src.trading.order_manager.OrderManager.cancel_all_open_orders": {
-          "file": "src\\trading\\order_manager.py",
-          "line_start": 261,
-          "line_end": 279,
-          "signature": "async def cancel_all_open_orders(self, sym: str) -> None:"
-        },
-        "src.trading.order_manager.OrderManager.cleanup_on_exit": {
-          "file": "src\\trading\\order_manager.py",
-          "line_start": 283,
-          "line_end": 336,
-          "signature": "async def cleanup_on_exit(self, sym: str, trade: dict, result: str) -> None:"
-        },
-        "src.trading.recovery_manager.RecoveryManager.__init__": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 39,
-          "line_end": 57,
-          "signature": "def __init__(self, rest_client, symbols: list[str], cfgs: dict, states: dict, active_trades: dict, pl_callback, order_manager=None, atr_state: dict | None=None):"
-        },
-        "src.trading.recovery_manager.RecoveryManager.recover_positions": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 61,
-          "line_end": 382,
-          "signature": "async def recover_positions(self) -> None:"
-        },
-        "src.trading.recovery_manager.RecoveryManager.reconcile_ghost_positions": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 386,
-          "line_end": 476,
-          "signature": "async def reconcile_ghost_positions(self) -> None:"
-        },
-        "src.trading.recovery_manager.RecoveryManager.reconcile_orphan_orders": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 478,
-          "line_end": 515,
-          "signature": "async def reconcile_orphan_orders(self) -> None:"
-        },
         "src.trading.signal_engine.SignalEngine.__init__": {
           "file": "src\\trading\\signal_engine.py",
           "line_start": 58,
@@ -1461,30 +1395,6 @@
           "line_start": 148,
           "line_end": 162,
           "signature": "@staticmethod"
-        },
-        "src.trading.user_data_handler.UserDataHandler.__init__": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 33,
-          "line_end": 45,
-          "signature": "def __init__(self, active_trades: dict[str, Any], pl_callback: Callable[[str, str, str], None], wallet_callback: Callable[[float], None], order_manager: Any, exit_callback: Callable[..., Any]):"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 47,
-          "line_end": 178,
-          "signature": "def register(self, hub: Any) -> None:"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register.on_order_update": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 52,
-          "line_end": 164,
-          "signature": "@hub.on_user_data('ORDER_TRADE_UPDATE')"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register.on_account_update": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 167,
-          "line_end": 171,
-          "signature": "@hub.on_user_data('ACCOUNT_UPDATE')"
         },
         "tests.conftest._isolate_logging": {
           "file": "tests\\conftest.py",
@@ -4854,111 +4764,201 @@
         },
         "src.bot._save_fvg_state": {
           "file": "src\\bot.py",
-          "line_start": 66,
-          "line_end": 77,
+          "line_start": 75,
+          "line_end": 86,
           "signature": "def _save_fvg_state(sym: str, fvg_data: dict) -> None:"
         },
         "src.bot._load_fvg_state": {
           "file": "src\\bot.py",
-          "line_start": 80,
-          "line_end": 88,
+          "line_start": 89,
+          "line_end": 97,
           "signature": "def _load_fvg_state(sym: str) -> dict:"
         },
         "src.bot._setup_logging": {
           "file": "src\\bot.py",
-          "line_start": 91,
-          "line_end": 144,
+          "line_start": 100,
+          "line_end": 153,
           "signature": "def _setup_logging() -> logging.Logger:"
         },
         "src.bot.PaperTrader.__init__": {
           "file": "src\\bot.py",
-          "line_start": 154,
-          "line_end": 233,
+          "line_start": 163,
+          "line_end": 242,
           "signature": "def __init__(self, symbols: list[str] | None=None):"
         },
         "src.bot.PaperTrader._pl": {
           "file": "src\\bot.py",
-          "line_start": 235,
-          "line_end": 237,
+          "line_start": 244,
+          "line_end": 246,
           "signature": "def _pl(self, sym: str, key: str, msg: str, force: bool=False):"
         },
         "src.bot.PaperTrader._session_label": {
           "file": "src\\bot.py",
-          "line_start": 239,
-          "line_end": 243,
+          "line_start": 248,
+          "line_end": 252,
           "signature": "def _session_label(self, hour: int) -> str:"
         },
         "src.bot.PaperTrader._load_history": {
           "file": "src\\bot.py",
-          "line_start": 245,
-          "line_end": 259,
+          "line_start": 254,
+          "line_end": 268,
           "signature": "def _load_history(self):"
         },
         "src.bot.PaperTrader._on_15m_close": {
           "file": "src\\bot.py",
-          "line_start": 263,
-          "line_end": 385,
+          "line_start": 272,
+          "line_end": 394,
           "signature": "async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):"
         },
         "src.bot.PaperTrader._on_1m_close": {
           "file": "src\\bot.py",
-          "line_start": 389,
-          "line_end": 458,
+          "line_start": 398,
+          "line_end": 467,
           "signature": "async def _on_1m_close(self, sym: str, bars_1m: list[Bar]):"
         },
         "src.bot.PaperTrader._try_entry": {
           "file": "src\\bot.py",
-          "line_start": 462,
-          "line_end": 704,
+          "line_start": 471,
+          "line_end": 714,
           "signature": "async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):"
         },
         "src.bot.PaperTrader._exit_trade": {
           "file": "src\\bot.py",
-          "line_start": 706,
-          "line_end": 1004,
+          "line_start": 716,
+          "line_end": 1014,
           "signature": "async def _exit_trade(self, sym, trade, exit_timestamp: int):"
         },
         "src.bot.PaperTrader.on_15m": {
           "file": "src\\bot.py",
-          "line_start": 1006,
-          "line_end": 1009,
+          "line_start": 1016,
+          "line_end": 1019,
           "signature": "async def on_15m(self, sym: str, bars: list[Bar]):"
         },
         "src.bot.PaperTrader.on_1m": {
           "file": "src\\bot.py",
-          "line_start": 1011,
-          "line_end": 1014,
+          "line_start": 1021,
+          "line_end": 1024,
           "signature": "async def on_1m(self, sym: str, bars: list[Bar]):"
         },
         "src.bot.PaperTrader._prefill_bars": {
           "file": "src\\bot.py",
-          "line_start": 1016,
-          "line_end": 1040,
+          "line_start": 1026,
+          "line_end": 1050,
           "signature": "async def _prefill_bars(self, sym: str, timeframe: str='15m') -> Result[None]:"
         },
         "src.bot.PaperTrader._warmup_cbdr": {
           "file": "src\\bot.py",
-          "line_start": 1042,
-          "line_end": 1097,
+          "line_start": 1052,
+          "line_end": 1107,
           "signature": "def _warmup_cbdr(self, sym: str):"
         },
         "src.bot.PaperTrader._set_leverage": {
           "file": "src\\bot.py",
-          "line_start": 1099,
-          "line_end": 1116,
+          "line_start": 1109,
+          "line_end": 1126,
           "signature": "async def _set_leverage(self, symbol: str) -> Result[None]:"
         },
         "src.bot.PaperTrader.run": {
           "file": "src\\bot.py",
-          "line_start": 1118,
-          "line_end": 1262,
+          "line_start": 1128,
+          "line_end": 1272,
           "signature": "async def run(self):"
         },
         "src.bot.main": {
           "file": "src\\bot.py",
-          "line_start": 1265,
-          "line_end": 1275,
+          "line_start": 1275,
+          "line_end": 1285,
           "signature": "def main():"
+        },
+        "src.trading.recovery_manager.RecoveryManager.__init__": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 39,
+          "line_end": 57,
+          "signature": "def __init__(self, rest_client, symbols: list[str], cfgs: dict, states: dict, active_trades: dict, pl_callback, order_manager=None, atr_state: dict | None=None):"
+        },
+        "src.trading.recovery_manager.RecoveryManager.recover_positions": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 61,
+          "line_end": 382,
+          "signature": "async def recover_positions(self) -> None:"
+        },
+        "src.trading.recovery_manager.RecoveryManager.reconcile_ghost_positions": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 386,
+          "line_end": 476,
+          "signature": "async def reconcile_ghost_positions(self) -> None:"
+        },
+        "src.trading.recovery_manager.RecoveryManager.reconcile_orphan_orders": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 478,
+          "line_end": 515,
+          "signature": "async def reconcile_orphan_orders(self) -> None:"
+        },
+        "src.trading.user_data_handler.UserDataHandler.__init__": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 33,
+          "line_end": 45,
+          "signature": "def __init__(self, active_trades: dict[str, Any], pl_callback: Callable[[str, str, str], None], wallet_callback: Callable[[float], None], order_manager: Any, exit_callback: Callable[..., Any]):"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 47,
+          "line_end": 185,
+          "signature": "def register(self, hub: Any) -> None:"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register.on_order_update": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 52,
+          "line_end": 171,
+          "signature": "@hub.on_user_data('ORDER_TRADE_UPDATE')"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register.on_account_update": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 174,
+          "line_end": 178,
+          "signature": "@hub.on_user_data('ACCOUNT_UPDATE')"
+        },
+        "src.trading.order_manager.OrderManager.__init__": {
+          "file": "src\\trading\\order_manager.py",
+          "line_start": 33,
+          "line_end": 35,
+          "signature": "def __init__(self, rest_client, is_live: bool=False):"
+        },
+        "src.trading.order_manager.OrderManager.update_trail_orders": {
+          "file": "src\\trading\\order_manager.py",
+          "line_start": 39,
+          "line_end": 185,
+          "signature": "async def update_trail_orders(self, sym: str, trade: dict, new_sl: float, new_tp: float, new_trail_count: int) -> bool:"
+        },
+        "src.trading.order_manager.OrderManager.verify_protection": {
+          "file": "src\\trading\\order_manager.py",
+          "line_start": 189,
+          "line_end": 210,
+          "signature": "async def verify_protection(self, sym: str, trade: dict) -> tuple[bool, bool]:"
+        },
+        "src.trading.order_manager.OrderManager.position_still_open": {
+          "file": "src\\trading\\order_manager.py",
+          "line_start": 212,
+          "line_end": 229,
+          "signature": "async def position_still_open(self, sym: str) -> bool:"
+        },
+        "src.trading.order_manager.OrderManager.repair_protection": {
+          "file": "src\\trading\\order_manager.py",
+          "line_start": 233,
+          "line_end": 265,
+          "signature": "async def repair_protection(self, sym: str, trade: dict, has_sl: bool, has_tp: bool) -> None:"
+        },
+        "src.trading.order_manager.OrderManager.cancel_all_open_orders": {
+          "file": "src\\trading\\order_manager.py",
+          "line_start": 269,
+          "line_end": 287,
+          "signature": "async def cancel_all_open_orders(self, sym: str) -> None:"
+        },
+        "src.trading.order_manager.OrderManager.cleanup_on_exit": {
+          "file": "src\\trading\\order_manager.py",
+          "line_start": 291,
+          "line_end": 344,
+          "signature": "async def cleanup_on_exit(self, sym: str, trade: dict, result: str) -> None:"
         }
       },
       "files": {
@@ -5034,14 +5034,6 @@
           "last_modified": "2026-07-13T11:00:33",
           "hash": "sha256:7a139d8efdba380a"
         },
-        "src\\trading\\order_manager.py": {
-          "last_modified": "2026-07-18T00:03:01",
-          "hash": "sha256:f841027facd70a1e"
-        },
-        "src\\trading\\recovery_manager.py": {
-          "last_modified": "2026-07-18T14:50:09",
-          "hash": "sha256:6cfb2898fcecb742"
-        },
         "src\\trading\\signal_engine.py": {
           "last_modified": "2026-07-13T23:12:11",
           "hash": "sha256:a1642cf9445d472e"
@@ -5049,10 +5041,6 @@
         "src\\trading\\trailing_manager.py": {
           "last_modified": "2026-07-11T17:46:57",
           "hash": "sha256:674cc070a56d5502"
-        },
-        "src\\trading\\user_data_handler.py": {
-          "last_modified": "2026-07-17T20:25:36",
-          "hash": "sha256:efb9de52d54f3c25"
         },
         "src\\trading\\__init__.py": {
           "last_modified": "2026-06-30T21:12:59",
@@ -5135,12 +5123,20 @@
           "hash": "sha256:6f1468bf97ef5dde"
         },
         "src\\bot.py": {
-          "last_modified": "2026-07-19T18:12:44",
-          "hash": "sha256:365af1251e3a0632"
+          "last_modified": "2026-07-19T18:30:14",
+          "hash": "sha256:81a4dee1055571e5"
         },
-        "docs\\_writer.py": {
-          "last_modified": "2026-07-19T18:14:56",
-          "hash": "sha256:58a44735ffdfa6b1"
+        "src\\trading\\recovery_manager.py": {
+          "last_modified": "2026-07-19T18:30:19",
+          "hash": "sha256:008a74037ac8ea1b"
+        },
+        "src\\trading\\user_data_handler.py": {
+          "last_modified": "2026-07-19T18:30:23",
+          "hash": "sha256:2c776a3180bb2175"
+        },
+        "src\\trading\\order_manager.py": {
+          "last_modified": "2026-07-19T18:31:12",
+          "hash": "sha256:8e292621aeaa5c04"
         }
       },
       "last_full_scan": "2026-07-19T15:38:36"

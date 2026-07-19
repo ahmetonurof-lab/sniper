@@ -17,7 +17,7 @@ import logging
 import config as cfg
 from bot_infra import extract_order_id
 from event_log import log_event
-from models import ActiveTrade
+from models import ActiveTrade, UNRESTRICTED_STATUSES
 
 log = logging.getLogger("sniper.recovery_manager")
 
@@ -489,6 +489,14 @@ class RecoveryManager:
                     known_ids.add(str(oid))
 
         for sym in self._symbols:
+            trade = self._active_trades.get(sym)
+            if trade is not None and trade.get("status") not in UNRESTRICTED_STATUSES:
+                log.info(
+                    "[ORPHAN] %s status=%s — orphan sweep bu sembolde atlaniyor",
+                    sym,
+                    trade.get("status"),
+                )
+                continue
             try:
                 orders = await self._rest.get_all_orders(sym)
             except Exception:
