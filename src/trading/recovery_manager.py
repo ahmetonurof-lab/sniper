@@ -475,18 +475,35 @@ class RecoveryManager:
             except Exception as e:
                 log.warning("[GHOST] %s sorgu hatasi: %s", sym, e)
 
+    def _known_protection_ids(self) -> set[str]:
+        """Aktif trade'lerin sahip olabileceği tüm SL/TP order ID
+        kaynaklarını toplar: current, prev, history, (varsa) pending.
+        Geçiş halindeki (henüz cancel edilmemiş eski / henüz confirm
+        edilmemiş yeni) ID'lerin orphan sanılmaması içindir (A5)."""
+        known_ids: set[str] = set()
+        for t in self._active_trades.values():
+            for k in (
+                "sl_order_id",
+                "tp_order_id",
+                "sl_order_id_prev",
+                "tp_order_id_prev",
+                "pending_sl_order_id",
+                "pending_tp_order_id",
+            ):
+                oid = t.get(k)
+                if oid:
+                    known_ids.add(str(oid))
+            for k in ("sl_order_id_history", "tp_order_id_history"):
+                for oid in t.get(k) or []:
+                    if oid:
+                        known_ids.add(str(oid))
+        return known_ids
+
     async def reconcile_orphan_orders(self) -> None:
         """Binance'teki acik tum emirleri tara, bot'un bildigi
         trade'lere ait olmayanlari iptal et (crash sonrasi birikme onlenir)."""
         if not cfg.BINANCE_API_KEY:
             return
-
-        known_ids: set[str] = set()
-        for t in self._active_trades.values():
-            for k in ("sl_order_id", "tp_order_id"):
-                oid = t.get(k)
-                if oid:
-                    known_ids.add(str(oid))
 
         for sym in self._symbols:
             trade = self._active_trades.get(sym)
@@ -497,6 +514,7 @@ class RecoveryManager:
                     trade.get("status"),
                 )
                 continue
+            known_ids = self._known_protection_ids()
             try:
                 orders = await self._rest.get_all_orders(sym)
             except Exception:

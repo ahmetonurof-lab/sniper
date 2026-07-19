@@ -99,7 +99,7 @@
 
 ---
 ### MADDE A5 — orphan cleanup current ID ile sınırlı kalmayacak
-- [ ] Bot
+- [X] Bot
 - **Dosya:** `src/trading/recovery_manager.py`
 - **Fonksiyon:** `reconcile_orphan_orders()`
 - **Satır:** `478-515`
@@ -129,16 +129,21 @@
 - **Şu an:**
   - yeni emir place ediliyor, sonra current ID direkt değişiyor
   - transition bilgisi dış dünyaya açık şekilde modellenmiyor
+  - `trade.setdefault("sl_order_id_history", [])` → `ActiveTrade` dataclass'ında `setdefault` METODU YOK (AttributeError)
+  - Aynı sorun `tp_order_id_history` için de geçerli (satır 145)
+  - Bu yüzden `sl_order_id_prev`/`history` alanları pratikte HİÇ DOLMUYOR — trailing replacement'larda WS fill eşleşmesi için kritik olan prev/history ID'ler boş kalıyor
 - **İstenen:**
   - Sprint A seviyesinde minimal pending alanlar eklenebilir:
     - `pending_sl_order_id`
     - `pending_tp_order_id`
-  - yeni emir alındığında önce pending’e yazılsın
+  - yeni emir alındığında önce pending'e yazılsın
   - eski emir cancel + yeni emir visible olduktan sonra current alana promote edilsin
   - `status = TRAIL_REPLACING` kısa süreli set edilsin
   - iki taraf da fail olursa status eski haline dönsün, `trail_fail_streak` artsın
+  - `setdefault` hatası düzeltilsin: `history` listesini manuel başlat (`if not trade.get("sl_order_id_history"): trade["sl_order_id_history"] = []`)
 - **Test:**
   - `SL yeni id alındı, TP gecikti → orphan bunu orphan sanmamalı`
+  - `trailing replacement sonrası prev/history ID'ler dolu olmalı (setdefault hatası giderilmeli)`
 
 ---
 ### MADDE A7 — cancel_all_open_orders erken broad-cancel olmaktan çıkarılacak

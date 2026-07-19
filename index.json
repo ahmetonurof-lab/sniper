@@ -4558,30 +4558,6 @@
           "line_end": 423,
           "signature": "def test_known_timeframes(self):"
         },
-        "src.trading.recovery_manager.RecoveryManager.__init__": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 39,
-          "line_end": 57,
-          "signature": "def __init__(self, rest_client, symbols: list[str], cfgs: dict, states: dict, active_trades: dict, pl_callback, order_manager=None, atr_state: dict | None=None):"
-        },
-        "src.trading.recovery_manager.RecoveryManager.recover_positions": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 61,
-          "line_end": 382,
-          "signature": "async def recover_positions(self) -> None:"
-        },
-        "src.trading.recovery_manager.RecoveryManager.reconcile_ghost_positions": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 386,
-          "line_end": 476,
-          "signature": "async def reconcile_ghost_positions(self) -> None:"
-        },
-        "src.trading.recovery_manager.RecoveryManager.reconcile_orphan_orders": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 478,
-          "line_end": 515,
-          "signature": "async def reconcile_orphan_orders(self) -> None:"
-        },
         "src.models.Result.ok": {
           "file": "src\\models.py",
           "line_start": 43,
@@ -4959,6 +4935,36 @@
           "line_start": 293,
           "line_end": 346,
           "signature": "async def cleanup_on_exit(self, sym: str, trade: dict, result: str) -> None:"
+        },
+        "src.trading.recovery_manager.RecoveryManager.__init__": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 39,
+          "line_end": 57,
+          "signature": "def __init__(self, rest_client, symbols: list[str], cfgs: dict, states: dict, active_trades: dict, pl_callback, order_manager=None, atr_state: dict | None=None):"
+        },
+        "src.trading.recovery_manager.RecoveryManager.recover_positions": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 61,
+          "line_end": 382,
+          "signature": "async def recover_positions(self) -> None:"
+        },
+        "src.trading.recovery_manager.RecoveryManager.reconcile_ghost_positions": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 386,
+          "line_end": 476,
+          "signature": "async def reconcile_ghost_positions(self) -> None:"
+        },
+        "src.trading.recovery_manager.RecoveryManager._known_protection_ids": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 478,
+          "line_end": 500,
+          "signature": "def _known_protection_ids(self) -> set[str]:"
+        },
+        "src.trading.recovery_manager.RecoveryManager.reconcile_orphan_orders": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 502,
+          "line_end": 541,
+          "signature": "async def reconcile_orphan_orders(self) -> None:"
         }
       },
       "files": {
@@ -5114,10 +5120,6 @@
           "last_modified": "2026-06-26T01:10:59",
           "hash": "sha256:6f1468bf97ef5dde"
         },
-        "src\\trading\\recovery_manager.py": {
-          "last_modified": "2026-07-19T18:30:19",
-          "hash": "sha256:008a74037ac8ea1b"
-        },
         "src\\trading\\__init__.py": {
           "last_modified": "2026-06-30T21:12:59",
           "hash": "sha256:f61320312ed5e5b1"
@@ -5137,6 +5139,10 @@
         "src\\trading\\order_manager.py": {
           "last_modified": "2026-07-19T19:07:34",
           "hash": "sha256:fd573a6cae9618cb"
+        },
+        "src\\trading\\recovery_manager.py": {
+          "last_modified": "2026-07-19T19:23:59",
+          "hash": "sha256:ee88c429e5aa5f69"
         }
       },
       "last_full_scan": "2026-07-19T15:38:36"
