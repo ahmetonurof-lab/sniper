@@ -4,114 +4,6 @@
   "repos": {
     "sniper": {
       "functions": {
-        "src.bot._save_fvg_state": {
-          "file": "src\\bot.py",
-          "line_start": 66,
-          "line_end": 77,
-          "signature": "def _save_fvg_state(sym: str, fvg_data: dict) -> None:"
-        },
-        "src.bot._load_fvg_state": {
-          "file": "src\\bot.py",
-          "line_start": 80,
-          "line_end": 88,
-          "signature": "def _load_fvg_state(sym: str) -> dict:"
-        },
-        "src.bot._setup_logging": {
-          "file": "src\\bot.py",
-          "line_start": 91,
-          "line_end": 144,
-          "signature": "def _setup_logging() -> logging.Logger:"
-        },
-        "src.bot.PaperTrader.__init__": {
-          "file": "src\\bot.py",
-          "line_start": 154,
-          "line_end": 233,
-          "signature": "def __init__(self, symbols: list[str] | None=None):"
-        },
-        "src.bot.PaperTrader._pl": {
-          "file": "src\\bot.py",
-          "line_start": 235,
-          "line_end": 237,
-          "signature": "def _pl(self, sym: str, key: str, msg: str, force: bool=False):"
-        },
-        "src.bot.PaperTrader._session_label": {
-          "file": "src\\bot.py",
-          "line_start": 239,
-          "line_end": 243,
-          "signature": "def _session_label(self, hour: int) -> str:"
-        },
-        "src.bot.PaperTrader._load_history": {
-          "file": "src\\bot.py",
-          "line_start": 245,
-          "line_end": 259,
-          "signature": "def _load_history(self):"
-        },
-        "src.bot.PaperTrader._on_15m_close": {
-          "file": "src\\bot.py",
-          "line_start": 263,
-          "line_end": 385,
-          "signature": "async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):"
-        },
-        "src.bot.PaperTrader._on_1m_close": {
-          "file": "src\\bot.py",
-          "line_start": 389,
-          "line_end": 458,
-          "signature": "async def _on_1m_close(self, sym: str, bars_1m: list[Bar]):"
-        },
-        "src.bot.PaperTrader._try_entry": {
-          "file": "src\\bot.py",
-          "line_start": 462,
-          "line_end": 704,
-          "signature": "async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):"
-        },
-        "src.bot.PaperTrader._exit_trade": {
-          "file": "src\\bot.py",
-          "line_start": 706,
-          "line_end": 971,
-          "signature": "async def _exit_trade(self, sym, trade, exit_timestamp: int):"
-        },
-        "src.bot.PaperTrader.on_15m": {
-          "file": "src\\bot.py",
-          "line_start": 973,
-          "line_end": 976,
-          "signature": "async def on_15m(self, sym: str, bars: list[Bar]):"
-        },
-        "src.bot.PaperTrader.on_1m": {
-          "file": "src\\bot.py",
-          "line_start": 978,
-          "line_end": 981,
-          "signature": "async def on_1m(self, sym: str, bars: list[Bar]):"
-        },
-        "src.bot.PaperTrader._prefill_bars": {
-          "file": "src\\bot.py",
-          "line_start": 983,
-          "line_end": 1007,
-          "signature": "async def _prefill_bars(self, sym: str, timeframe: str='15m') -> Result[None]:"
-        },
-        "src.bot.PaperTrader._warmup_cbdr": {
-          "file": "src\\bot.py",
-          "line_start": 1009,
-          "line_end": 1064,
-          "signature": "def _warmup_cbdr(self, sym: str):"
-        },
-        "src.bot.PaperTrader._set_leverage": {
-          "file": "src\\bot.py",
-          "line_start": 1066,
-          "line_end": 1083,
-          "signature": "async def _set_leverage(self, symbol: str) -> Result[None]:"
-        },
-        "src.bot.PaperTrader.run": {
-          "file": "src\\bot.py",
-          "line_start": 1085,
-          "line_end": 1229,
-          "signature": "async def run(self):"
-        },
-        "src.bot.main": {
-          "file": "src\\bot.py",
-          "line_start": 1232,
-          "line_end": 1242,
-          "signature": "def main():"
-        },
         "src.bot_binance._get_precision_places": {
           "file": "src\\bot_binance.py",
           "line_start": 42,
@@ -1192,12 +1084,6 @@
           "line_end": 247,
           "signature": "def dump_state() -> dict:"
         },
-        "src.state_writer.write_state": {
-          "file": "src\\state_writer.py",
-          "line_start": 9,
-          "line_end": 66,
-          "signature": "def write_state(states: dict, active_trades: dict, available_balance: float, wallet_balance: float, symbols: list[str]) -> None:"
-        },
         "src.websocket.is_cooldown_active": {
           "file": "src\\websocket.py",
           "line_start": 51,
@@ -1375,13 +1261,13 @@
         "src.snapshot.snapshot._resolve_fvg_bar_index": {
           "file": "src\\snapshot\\snapshot.py",
           "line_start": 154,
-          "line_end": 200,
+          "line_end": 205,
           "signature": "def _resolve_fvg_bar_index(candles: list[dict], entry_bar: int, fvg_obj, trade: dict, fvg_top: float | None, fvg_bottom: float | None) -> int:"
         },
         "src.snapshot.snapshot.capture_snapshot": {
           "file": "src\\snapshot\\snapshot.py",
-          "line_start": 203,
-          "line_end": 376,
+          "line_start": 208,
+          "line_end": 381,
           "signature": "def capture_snapshot(sym: str, trade: dict, pnl: float | None=None, session_state=None) -> str | None:"
         },
         "src.trading.console_reporter.ConsoleReporter.__init__": {
@@ -1605,6 +1491,834 @@
           "line_start": 13,
           "line_end": 25,
           "signature": "@pytest.fixture(autouse=True)"
+        },
+        "tests.test_bot._bar": {
+          "file": "tests\\test_bot.py",
+          "line_start": 20,
+          "line_end": 29,
+          "signature": "def _bar(index, open_, high, low, close, is_closed=True, timestamp=0):"
+        },
+        "tests.test_bot._make_15m_bars_sweep_bullish": {
+          "file": "tests\\test_bot.py",
+          "line_start": 32,
+          "line_end": 43,
+          "signature": "def _make_15m_bars_sweep_bullish(n=30, base=100.0):"
+        },
+        "tests.test_bot.TestPaperTraderInit.test_init_sets_up_symbols_states_rsms": {
+          "file": "tests\\test_bot.py",
+          "line_start": 56,
+          "line_end": 72,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestPaperTraderInit.test_init_custom_symbols": {
+          "file": "tests\\test_bot.py",
+          "line_start": 77,
+          "line_end": 98,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestSessionLabel.test_labels": {
+          "file": "tests\\test_bot.py",
+          "line_start": 110,
+          "line_end": 124,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestOn15mClose.test_skips_asia_session": {
+          "file": "tests\\test_bot.py",
+          "line_start": 136,
+          "line_end": 150,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestOn15mClose.test_skips_when_cbdr_not_locked": {
+          "file": "tests\\test_bot.py",
+          "line_start": 155,
+          "line_end": 167,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestOn15mClose.test_skips_when_trade_active": {
+          "file": "tests\\test_bot.py",
+          "line_start": 172,
+          "line_end": 189,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestTryEntry.test_skips_when_trade_already_active": {
+          "file": "tests\\test_bot.py",
+          "line_start": 202,
+          "line_end": 228,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestTryEntry.test_calculates_sl_tp_long": {
+          "file": "tests\\test_bot.py",
+          "line_start": 233,
+          "line_end": 270,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestTryEntry.test_calculates_sl_tp_short": {
+          "file": "tests\\test_bot.py",
+          "line_start": 275,
+          "line_end": 310,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestTryEntry.test_skips_when_qty_zero": {
+          "file": "tests\\test_bot.py",
+          "line_start": 317,
+          "line_end": 352,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestOn1mClose.test_skips_when_no_active_trade": {
+          "file": "tests\\test_bot.py",
+          "line_start": 364,
+          "line_end": 370,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestOn1mClose.test_calls_trail_check_when_active": {
+          "file": "tests\\test_bot.py",
+          "line_start": 377,
+          "line_end": 412,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestOn1mClose.test_orphan_check_counter_triggers_every_5_calls": {
+          "file": "tests\\test_bot.py",
+          "line_start": 418,
+          "line_end": 449,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestExitTrade.test_pnl_calc_long": {
+          "file": "tests\\test_bot.py",
+          "line_start": 462,
+          "line_end": 494,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestExitTrade.test_pnl_calc_short": {
+          "file": "tests\\test_bot.py",
+          "line_start": 500,
+          "line_end": 530,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestExitTrade.test_trade_appended_to_history": {
+          "file": "tests\\test_bot.py",
+          "line_start": 536,
+          "line_end": 565,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestExitTradePosNotClosed.test_balance_reverted_and_peak_rolled_back": {
+          "file": "tests\\test_bot.py",
+          "line_start": 582,
+          "line_end": 638,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestExitTradePosNotClosed.test_balance_reverted_and_peak_rolled_back._update_peak": {
+          "file": "tests\\test_bot.py",
+          "line_start": 626,
+          "line_end": 628,
+          "signature": "def _update_peak(val):"
+        },
+        "tests.test_bot.TestExitTradePosNotClosed.test_peak_not_rolled_back_when_another_trade_updated_it": {
+          "file": "tests\\test_bot.py",
+          "line_start": 646,
+          "line_end": 701,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestExitTradePosNotClosed.test_peak_not_rolled_back_when_another_trade_updated_it._update_peak": {
+          "file": "tests\\test_bot.py",
+          "line_start": 690,
+          "line_end": 692,
+          "signature": "def _update_peak(val):"
+        },
+        "tests.test_bot.TestExitTradeDustFallback.test_force_close_called_on_market_failure": {
+          "file": "tests\\test_bot.py",
+          "line_start": 718,
+          "line_end": 768,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestWarmupCbdr.test_noop_when_no_bars": {
+          "file": "tests\\test_bot.py",
+          "line_start": 780,
+          "line_end": 786,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestWarmupCbdr.test_feeds_bars_to_session_state": {
+          "file": "tests\\test_bot.py",
+          "line_start": 792,
+          "line_end": 809,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestPrefillBars.test_prefill_success": {
+          "file": "tests\\test_bot.py",
+          "line_start": 821,
+          "line_end": 847,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestPrefillBars.test_prefill_failure": {
+          "file": "tests\\test_bot.py",
+          "line_start": 852,
+          "line_end": 862,
+          "signature": "@patch('bot.BinanceRESTClient')"
+        },
+        "tests.test_bot.TestActiveTradeDict.test_getitem": {
+          "file": "tests\\test_bot.py",
+          "line_start": 871,
+          "line_end": 875,
+          "signature": "def test_getitem(self):"
+        },
+        "tests.test_bot.TestActiveTradeDict.test_setitem": {
+          "file": "tests\\test_bot.py",
+          "line_start": 877,
+          "line_end": 880,
+          "signature": "def test_setitem(self):"
+        },
+        "tests.test_bot.TestActiveTradeDict.test_get_with_default": {
+          "file": "tests\\test_bot.py",
+          "line_start": 882,
+          "line_end": 885,
+          "signature": "def test_get_with_default(self):"
+        },
+        "tests.test_bot.TestActiveTradeDict.test_contains": {
+          "file": "tests\\test_bot.py",
+          "line_start": 887,
+          "line_end": 890,
+          "signature": "def test_contains(self):"
+        },
+        "tests.test_bot.TestActiveTradeDict.test_keyerror_on_missing_attr": {
+          "file": "tests\\test_bot.py",
+          "line_start": 892,
+          "line_end": 895,
+          "signature": "def test_keyerror_on_missing_attr(self):"
+        },
+        "tests.test_bot.TestPendingLock.test_enters_sets_pending": {
+          "file": "tests\\test_bot.py",
+          "line_start": 904,
+          "line_end": 912,
+          "signature": "def test_enters_sets_pending(self):"
+        },
+        "tests.test_bot.TestPendingLock.test_commit_preserves_pending": {
+          "file": "tests\\test_bot.py",
+          "line_start": 914,
+          "line_end": 922,
+          "signature": "def test_commit_preserves_pending(self):"
+        },
+        "tests.test_bot.TestPendingLock.test_exception_cleans_up": {
+          "file": "tests\\test_bot.py",
+          "line_start": 924,
+          "line_end": 933,
+          "signature": "def test_exception_cleans_up(self):"
+        },
+        "tests.test_bot._setup_minimal_cfg": {
+          "file": "tests\\test_bot.py",
+          "line_start": 939,
+          "line_end": 956,
+          "signature": "def _setup_minimal_cfg(mock_cfg, balance=1000.0, symbols=None):"
+        },
+        "tests.test_bot_binance.client": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 30,
+          "line_end": 40,
+          "signature": "@pytest.fixture"
+        },
+        "tests.test_bot_binance._MockResponse.__init__": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 46,
+          "line_end": 48,
+          "signature": "def __init__(self, status=200, body=None):"
+        },
+        "tests.test_bot_binance._MockResponse.text": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 50,
+          "line_end": 53,
+          "signature": "async def text(self):"
+        },
+        "tests.test_bot_binance._MockResponse.__aenter__": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 55,
+          "line_end": 56,
+          "signature": "async def __aenter__(self):"
+        },
+        "tests.test_bot_binance._MockResponse.__aexit__": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 58,
+          "line_end": 59,
+          "signature": "async def __aexit__(self, *args):"
+        },
+        "tests.test_bot_binance._mock_response": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 62,
+          "line_end": 64,
+          "signature": "def _mock_response(status=200, body=None):"
+        },
+        "tests.test_bot_binance._inject_session": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 67,
+          "line_end": 106,
+          "signature": "def _inject_session(client, get_fn=None, post_fn=None, delete_fn=None):"
+        },
+        "tests.test_bot_binance._inject_session._wrap": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 79,
+          "line_end": 98,
+          "signature": "def _wrap(fn):"
+        },
+        "tests.test_bot_binance._inject_session._wrap._Ctx.__init__": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 84,
+          "line_end": 87,
+          "signature": "def __init__(self, fn, *args, **kwargs):"
+        },
+        "tests.test_bot_binance._inject_session._wrap._Ctx.__aenter__": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 89,
+          "line_end": 90,
+          "signature": "async def __aenter__(self):"
+        },
+        "tests.test_bot_binance._inject_session._wrap._Ctx.__aexit__": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 92,
+          "line_end": 93,
+          "signature": "async def __aexit__(self, *args):"
+        },
+        "tests.test_bot_binance._inject_session._wrap.wrapper": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 95,
+          "line_end": 96,
+          "signature": "def wrapper(*args, **kwargs):"
+        },
+        "tests.test_bot_binance.TestRoundToTick.test_basic": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 115,
+          "line_end": 116,
+          "signature": "def test_basic(self):"
+        },
+        "tests.test_bot_binance.TestRoundToTick.test_round_up": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 118,
+          "line_end": 119,
+          "signature": "def test_round_up(self):"
+        },
+        "tests.test_bot_binance.TestRoundToTick.test_zero_tick": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 121,
+          "line_end": 122,
+          "signature": "def test_zero_tick(self):"
+        },
+        "tests.test_bot_binance.TestRoundToTick.test_negative_tick": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 124,
+          "line_end": 125,
+          "signature": "def test_negative_tick(self):"
+        },
+        "tests.test_bot_binance.TestRoundToTick.test_small_tick": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 127,
+          "line_end": 128,
+          "signature": "def test_small_tick(self):"
+        },
+        "tests.test_bot_binance.TestRoundStep.test_basic": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 132,
+          "line_end": 133,
+          "signature": "def test_basic(self):"
+        },
+        "tests.test_bot_binance.TestRoundStep.test_exact": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 135,
+          "line_end": 136,
+          "signature": "def test_exact(self):"
+        },
+        "tests.test_bot_binance.TestRoundStep.test_zero_step": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 138,
+          "line_end": 139,
+          "signature": "def test_zero_step(self):"
+        },
+        "tests.test_bot_binance.TestRoundStep.test_negative_step": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 141,
+          "line_end": 142,
+          "signature": "def test_negative_step(self):"
+        },
+        "tests.test_bot_binance.TestGetOrderType.test_standard_type": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 151,
+          "line_end": 152,
+          "signature": "def test_standard_type(self):"
+        },
+        "tests.test_bot_binance.TestGetOrderType.test_algo_order_type": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 154,
+          "line_end": 158,
+          "signature": "def test_algo_order_type(self):"
+        },
+        "tests.test_bot_binance.TestGetOrderType.test_standard_priority": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 160,
+          "line_end": 165,
+          "signature": "def test_standard_priority(self):"
+        },
+        "tests.test_bot_binance.TestGetOrderType.test_empty": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 167,
+          "line_end": 168,
+          "signature": "def test_empty(self):"
+        },
+        "tests.test_bot_binance.TestGetOrderPrice.test_trigger_price": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 172,
+          "line_end": 173,
+          "signature": "def test_trigger_price(self):"
+        },
+        "tests.test_bot_binance.TestGetOrderPrice.test_stop_price_fallback": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 175,
+          "line_end": 176,
+          "signature": "def test_stop_price_fallback(self):"
+        },
+        "tests.test_bot_binance.TestGetOrderPrice.test_trigger_priority": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 178,
+          "line_end": 184,
+          "signature": "def test_trigger_priority(self):"
+        },
+        "tests.test_bot_binance.TestGetOrderPrice.test_empty": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 186,
+          "line_end": 187,
+          "signature": "def test_empty(self):"
+        },
+        "tests.test_bot_binance.TestGetOrderTimestamp.test_update_time": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 191,
+          "line_end": 195,
+          "signature": "def test_update_time(self):"
+        },
+        "tests.test_bot_binance.TestGetOrderTimestamp.test_time_fallback": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 197,
+          "line_end": 201,
+          "signature": "def test_time_fallback(self):"
+        },
+        "tests.test_bot_binance.TestGetOrderTimestamp.test_update_priority": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 203,
+          "line_end": 209,
+          "signature": "def test_update_priority(self):"
+        },
+        "tests.test_bot_binance.TestGetOrderTimestamp.test_empty": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 211,
+          "line_end": 212,
+          "signature": "def test_empty(self):"
+        },
+        "tests.test_bot_binance.TestGetOrderTimestamp.test_none_values": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 214,
+          "line_end": 215,
+          "signature": "def test_none_values(self):"
+        },
+        "tests.test_bot_binance.TestGetOrderTimestamp.test_invalid_string": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 217,
+          "line_end": 218,
+          "signature": "def test_invalid_string(self):"
+        },
+        "tests.test_bot_binance.TestConstructor.test_defaults": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 227,
+          "line_end": 240,
+          "signature": "def test_defaults(self):"
+        },
+        "tests.test_bot_binance.TestConstructor.test_custom_params": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 242,
+          "line_end": 263,
+          "signature": "def test_custom_params(self):"
+        },
+        "tests.test_bot_binance.TestBuildHeaders.test_api_key_header": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 272,
+          "line_end": 274,
+          "signature": "def test_api_key_header(self, client):"
+        },
+        "tests.test_bot_binance.TestSignParams.test_has_timestamp_and_signature": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 278,
+          "line_end": 282,
+          "signature": "def test_has_timestamp_and_signature(self, client):"
+        },
+        "tests.test_bot_binance.TestSignParams.test_empty_params": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 284,
+          "line_end": 287,
+          "signature": "def test_empty_params(self, client):"
+        },
+        "tests.test_bot_binance.TestSignParams.test_signature_valid_hmac": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 289,
+          "line_end": 299,
+          "signature": "def test_signature_valid_hmac(self, client):"
+        },
+        "tests.test_bot_binance.TestShouldRetry.test_retry_on_429": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 308,
+          "line_end": 309,
+          "signature": "def test_retry_on_429(self, client):"
+        },
+        "tests.test_bot_binance.TestShouldRetry.test_retry_on_5xx": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 311,
+          "line_end": 313,
+          "signature": "def test_retry_on_5xx(self, client):"
+        },
+        "tests.test_bot_binance.TestShouldRetry.test_no_retry_on_4xx": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 315,
+          "line_end": 317,
+          "signature": "def test_no_retry_on_4xx(self, client):"
+        },
+        "tests.test_bot_binance.TestShouldRetry.test_no_retry_on_200": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 319,
+          "line_end": 320,
+          "signature": "def test_no_retry_on_200(self, client):"
+        },
+        "tests.test_bot_binance.TestShouldRetry.test_retry_on_none": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 322,
+          "line_end": 324,
+          "signature": "def test_retry_on_none(self, client):"
+        },
+        "tests.test_bot_binance.TestShouldRetry.test_custom_retry_codes": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 326,
+          "line_end": 337,
+          "signature": "def test_custom_retry_codes(self):"
+        },
+        "tests.test_bot_binance.TestComputeBackoff.test_first_attempt": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 346,
+          "line_end": 348,
+          "signature": "def test_first_attempt(self, client):"
+        },
+        "tests.test_bot_binance.TestComputeBackoff.test_second_attempt": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 350,
+          "line_end": 352,
+          "signature": "def test_second_attempt(self, client):"
+        },
+        "tests.test_bot_binance.TestComputeBackoff.test_third_attempt": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 354,
+          "line_end": 356,
+          "signature": "def test_third_attempt(self, client):"
+        },
+        "tests.test_bot_binance.TestComputeBackoff.test_respects_max_delay": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 358,
+          "line_end": 371,
+          "signature": "def test_respects_max_delay(self):"
+        },
+        "tests.test_bot_binance.TestComputeBackoff.test_jitter_adds_variation": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 373,
+          "line_end": 388,
+          "signature": "def test_jitter_adds_variation(self):"
+        },
+        "tests.test_bot_binance.TestComputeBackoff.test_jitter_not_negative": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 390,
+          "line_end": 403,
+          "signature": "def test_jitter_not_negative(self):"
+        },
+        "tests.test_bot_binance.TestGet.test_success": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 412,
+          "line_end": 422,
+          "signature": "def test_success(self, client):"
+        },
+        "tests.test_bot_binance.TestGet.test_success.mock_get": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 415,
+          "line_end": 416,
+          "signature": "async def mock_get(url, headers):"
+        },
+        "tests.test_bot_binance.TestGet.test_http_error_no_retry": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 424,
+          "line_end": 437,
+          "signature": "def test_http_error_no_retry(self, client):"
+        },
+        "tests.test_bot_binance.TestGet.test_http_error_no_retry.mock_get": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 428,
+          "line_end": 431,
+          "signature": "async def mock_get(url, headers):"
+        },
+        "tests.test_bot_binance.TestGet.test_http_5xx_retry_then_success": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 439,
+          "line_end": 454,
+          "signature": "def test_http_5xx_retry_then_success(self, client):"
+        },
+        "tests.test_bot_binance.TestGet.test_http_5xx_retry_then_success.mock_get": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 443,
+          "line_end": 448,
+          "signature": "async def mock_get(url, headers):"
+        },
+        "tests.test_bot_binance.TestGet.test_http_all_retries_exhausted": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 456,
+          "line_end": 469,
+          "signature": "def test_http_all_retries_exhausted(self, client):"
+        },
+        "tests.test_bot_binance.TestGet.test_http_all_retries_exhausted.mock_get": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 460,
+          "line_end": 463,
+          "signature": "async def mock_get(url, headers):"
+        },
+        "tests.test_bot_binance.TestGet.test_network_error_retry": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 471,
+          "line_end": 485,
+          "signature": "def test_network_error_retry(self, client):"
+        },
+        "tests.test_bot_binance.TestGet.test_network_error_retry.mock_get": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 475,
+          "line_end": 480,
+          "signature": "async def mock_get(url, headers):"
+        },
+        "tests.test_bot_binance.TestGet.test_circuit_breaker_blocks": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 487,
+          "line_end": 509,
+          "signature": "def test_circuit_breaker_blocks(self):"
+        },
+        "tests.test_bot_binance.TestGet.test_circuit_breaker_blocks.mock_get": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 502,
+          "line_end": 503,
+          "signature": "async def mock_get(url, headers):"
+        },
+        "tests.test_bot_binance.TestPost.test_success": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 518,
+          "line_end": 527,
+          "signature": "def test_success(self, client):"
+        },
+        "tests.test_bot_binance.TestPost.test_success.mock_post": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 519,
+          "line_end": 520,
+          "signature": "async def mock_post(url, data, headers):"
+        },
+        "tests.test_bot_binance.TestPost.test_http_error": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 529,
+          "line_end": 536,
+          "signature": "def test_http_error(self, client):"
+        },
+        "tests.test_bot_binance.TestPost.test_http_error.mock_post": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 530,
+          "line_end": 531,
+          "signature": "async def mock_post(url, data, headers):"
+        },
+        "tests.test_bot_binance.TestPost.test_network_error_then_success": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 538,
+          "line_end": 552,
+          "signature": "def test_network_error_then_success(self, client):"
+        },
+        "tests.test_bot_binance.TestPost.test_network_error_then_success.mock_post": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 541,
+          "line_end": 546,
+          "signature": "async def mock_post(url, data, headers):"
+        },
+        "tests.test_bot_binance.TestDelete.test_success": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 561,
+          "line_end": 568,
+          "signature": "def test_success(self, client):"
+        },
+        "tests.test_bot_binance.TestDelete.test_success.mock_delete": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 562,
+          "line_end": 563,
+          "signature": "async def mock_delete(url, headers):"
+        },
+        "tests.test_bot_binance.TestDelete.test_not_found": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 570,
+          "line_end": 577,
+          "signature": "def test_not_found(self, client):"
+        },
+        "tests.test_bot_binance.TestDelete.test_not_found.mock_delete": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 571,
+          "line_end": 572,
+          "signature": "async def mock_delete(url, headers):"
+        },
+        "tests.test_bot_binance.TestDelete.test_5xx_retry": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 579,
+          "line_end": 592,
+          "signature": "def test_5xx_retry(self, client):"
+        },
+        "tests.test_bot_binance.TestDelete.test_5xx_retry.mock_delete": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 582,
+          "line_end": 587,
+          "signature": "async def mock_delete(url, headers):"
+        },
+        "tests.test_bot_binance.TestSessionManagement.test_ensure_session_creates_once": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 601,
+          "line_end": 605,
+          "signature": "def test_ensure_session_creates_once(self, client):"
+        },
+        "tests.test_bot_binance.TestSessionManagement.test_close_cleans_up": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 607,
+          "line_end": 615,
+          "signature": "def test_close_cleans_up(self, client):"
+        },
+        "tests.test_bot_binance.TestSessionManagement.test_ensure_session_recreates_after_close": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 617,
+          "line_end": 621,
+          "signature": "def test_ensure_session_recreates_after_close(self, client):"
+        },
+        "tests.test_bot_binance.TestCancelOrder.test_cancel_normal_success": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 630,
+          "line_end": 637,
+          "signature": "def test_cancel_normal_success(self, client):"
+        },
+        "tests.test_bot_binance.TestCancelOrder.test_cancel_normal_success.mock_delete": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 631,
+          "line_end": 632,
+          "signature": "async def mock_delete(url, headers):"
+        },
+        "tests.test_bot_binance.TestCancelOrder.test_cancel_algo_success": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 639,
+          "line_end": 648,
+          "signature": "def test_cancel_algo_success(self, client):"
+        },
+        "tests.test_bot_binance.TestCancelOrder.test_cancel_algo_success.mock_delete": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 640,
+          "line_end": 641,
+          "signature": "async def mock_delete(url, headers):"
+        },
+        "tests.test_bot_binance.TestCancelOrder.test_cancel_unknown_order_returns_true": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 650,
+          "line_end": 659,
+          "signature": "def test_cancel_unknown_order_returns_true(self, client):"
+        },
+        "tests.test_bot_binance.TestCancelOrder.test_cancel_unknown_order_returns_true.mock_delete": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 653,
+          "line_end": 654,
+          "signature": "async def mock_delete(url, headers):"
+        },
+        "tests.test_bot_binance.TestCancelOrder.test_cancel_real_error_returns_false": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 661,
+          "line_end": 668,
+          "signature": "def test_cancel_real_error_returns_false(self, client):"
+        },
+        "tests.test_bot_binance.TestCancelOrder.test_cancel_real_error_returns_false.mock_delete": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 662,
+          "line_end": 663,
+          "signature": "async def mock_delete(url, headers):"
+        },
+        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_long_trigger_above_price": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 679,
+          "line_end": 699,
+          "signature": "def test_long_trigger_above_price(self, client):"
+        },
+        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_long_trigger_above_price.mock_estimate": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 682,
+          "line_end": 683,
+          "signature": "async def mock_estimate(symbol):"
+        },
+        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_long_trigger_above_price.mock_precision": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 685,
+          "line_end": 686,
+          "signature": "async def mock_precision(symbol, price):"
+        },
+        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_long_trigger_above_price.mock_post": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 688,
+          "line_end": 692,
+          "signature": "async def mock_post(url, data, headers):"
+        },
+        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_short_trigger_below_price": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 701,
+          "line_end": 721,
+          "signature": "def test_short_trigger_below_price(self, client):"
+        },
+        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_short_trigger_below_price.mock_estimate": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 704,
+          "line_end": 705,
+          "signature": "async def mock_estimate(symbol):"
+        },
+        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_short_trigger_below_price.mock_precision": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 707,
+          "line_end": 708,
+          "signature": "async def mock_precision(symbol, price):"
+        },
+        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_short_trigger_below_price.mock_post": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 710,
+          "line_end": 714,
+          "signature": "async def mock_post(url, data, headers):"
+        },
+        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_returns_false_when_price_zero": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 723,
+          "line_end": 730,
+          "signature": "def test_returns_false_when_price_zero(self, client):"
+        },
+        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_returns_false_when_price_zero.mock_estimate": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 724,
+          "line_end": 725,
+          "signature": "async def mock_estimate(symbol):"
+        },
+        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_returns_false_on_api_error": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 732,
+          "line_end": 747,
+          "signature": "def test_returns_false_on_api_error(self, client):"
+        },
+        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_returns_false_on_api_error.mock_estimate": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 733,
+          "line_end": 734,
+          "signature": "async def mock_estimate(symbol):"
+        },
+        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_returns_false_on_api_error.mock_precision": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 736,
+          "line_end": 737,
+          "signature": "async def mock_precision(symbol, price):"
+        },
+        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_returns_false_on_api_error.mock_post": {
+          "file": "tests\\test_bot_binance.py",
+          "line_start": 739,
+          "line_end": 740,
+          "signature": "async def mock_post(url, data, headers):"
         },
         "tests.test_bot_infra.TestRetryConfig.test_defaults": {
           "file": "tests\\test_bot_infra.py",
@@ -3012,32 +3726,32 @@
         },
         "tests.test_recovery_manager._pl_noop": {
           "file": "tests\\test_recovery_manager.py",
-          "line_start": 16,
-          "line_end": 17,
+          "line_start": 12,
+          "line_end": 13,
           "signature": "def _pl_noop(*args, **kwargs):"
         },
         "tests.test_recovery_manager.TestRecoverPositionsCloseFallback.test_force_close_called_when_market_close_returns_none": {
           "file": "tests\\test_recovery_manager.py",
-          "line_start": 29,
-          "line_end": 69,
+          "line_start": 25,
+          "line_end": 63,
           "signature": "@patch('trading.recovery_manager.cfg')"
         },
         "tests.test_recovery_manager.TestRecoverPositionsCloseFallback.test_force_close_not_called_when_market_close_succeeds": {
           "file": "tests\\test_recovery_manager.py",
-          "line_start": 72,
-          "line_end": 110,
+          "line_start": 66,
+          "line_end": 104,
           "signature": "@patch('trading.recovery_manager.cfg')"
         },
         "tests.test_recovery_manager.TestRecoverPositionsCloseFallback.test_position_stays_when_both_close_methods_fail": {
           "file": "tests\\test_recovery_manager.py",
-          "line_start": 113,
-          "line_end": 150,
+          "line_start": 107,
+          "line_end": 146,
           "signature": "@patch('trading.recovery_manager.cfg')"
         },
         "tests.test_recovery_manager.TestRecoverPositionsCloseFallback.test_force_close_exception_handled": {
           "file": "tests\\test_recovery_manager.py",
-          "line_start": 153,
-          "line_end": 191,
+          "line_start": 149,
+          "line_end": 187,
           "signature": "@patch('trading.recovery_manager.cfg')"
         },
         "tests.test_retrace_state._bar": {
@@ -3886,6 +4600,12 @@
           "line_end": 482,
           "signature": "@patch('trading.trailing_manager.cfg')"
         },
+        "src.state_writer.write_state": {
+          "file": "src\\state_writer.py",
+          "line_start": 9,
+          "line_end": 66,
+          "signature": "def write_state(states: dict, active_trades: dict, available_balance: float, wallet_balance: float, symbols: list[str]) -> None:"
+        },
         "tests.test_websocket._bar": {
           "file": "tests\\test_websocket.py",
           "line_start": 27,
@@ -4132,840 +4852,116 @@
           "line_end": 423,
           "signature": "def test_known_timeframes(self):"
         },
-        "tests.test_bot._bar": {
-          "file": "tests\\test_bot.py",
-          "line_start": 20,
-          "line_end": 29,
-          "signature": "def _bar(index, open_, high, low, close, is_closed=True, timestamp=0):"
+        "src.bot._save_fvg_state": {
+          "file": "src\\bot.py",
+          "line_start": 66,
+          "line_end": 77,
+          "signature": "def _save_fvg_state(sym: str, fvg_data: dict) -> None:"
         },
-        "tests.test_bot._make_15m_bars_sweep_bullish": {
-          "file": "tests\\test_bot.py",
-          "line_start": 32,
-          "line_end": 43,
-          "signature": "def _make_15m_bars_sweep_bullish(n=30, base=100.0):"
+        "src.bot._load_fvg_state": {
+          "file": "src\\bot.py",
+          "line_start": 80,
+          "line_end": 88,
+          "signature": "def _load_fvg_state(sym: str) -> dict:"
         },
-        "tests.test_bot.TestPaperTraderInit.test_init_sets_up_symbols_states_rsms": {
-          "file": "tests\\test_bot.py",
-          "line_start": 56,
-          "line_end": 72,
-          "signature": "@patch('bot.BinanceRESTClient')"
+        "src.bot._setup_logging": {
+          "file": "src\\bot.py",
+          "line_start": 91,
+          "line_end": 144,
+          "signature": "def _setup_logging() -> logging.Logger:"
         },
-        "tests.test_bot.TestPaperTraderInit.test_init_custom_symbols": {
-          "file": "tests\\test_bot.py",
-          "line_start": 77,
-          "line_end": 98,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestSessionLabel.test_labels": {
-          "file": "tests\\test_bot.py",
-          "line_start": 110,
-          "line_end": 124,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestOn15mClose.test_skips_asia_session": {
-          "file": "tests\\test_bot.py",
-          "line_start": 136,
-          "line_end": 150,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestOn15mClose.test_skips_when_cbdr_not_locked": {
-          "file": "tests\\test_bot.py",
-          "line_start": 155,
-          "line_end": 167,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestOn15mClose.test_skips_when_trade_active": {
-          "file": "tests\\test_bot.py",
-          "line_start": 172,
-          "line_end": 189,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestTryEntry.test_skips_when_trade_already_active": {
-          "file": "tests\\test_bot.py",
-          "line_start": 202,
-          "line_end": 228,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestTryEntry.test_calculates_sl_tp_long": {
-          "file": "tests\\test_bot.py",
-          "line_start": 233,
-          "line_end": 270,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestTryEntry.test_calculates_sl_tp_short": {
-          "file": "tests\\test_bot.py",
-          "line_start": 275,
-          "line_end": 310,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestTryEntry.test_skips_when_qty_zero": {
-          "file": "tests\\test_bot.py",
-          "line_start": 317,
-          "line_end": 352,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestOn1mClose.test_skips_when_no_active_trade": {
-          "file": "tests\\test_bot.py",
-          "line_start": 364,
-          "line_end": 370,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestOn1mClose.test_calls_trail_check_when_active": {
-          "file": "tests\\test_bot.py",
-          "line_start": 377,
-          "line_end": 412,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestOn1mClose.test_orphan_check_counter_triggers_every_5_calls": {
-          "file": "tests\\test_bot.py",
-          "line_start": 418,
-          "line_end": 449,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestExitTrade.test_pnl_calc_long": {
-          "file": "tests\\test_bot.py",
-          "line_start": 462,
-          "line_end": 494,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestExitTrade.test_pnl_calc_short": {
-          "file": "tests\\test_bot.py",
-          "line_start": 500,
-          "line_end": 530,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestExitTrade.test_trade_appended_to_history": {
-          "file": "tests\\test_bot.py",
-          "line_start": 536,
-          "line_end": 565,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestExitTradePosNotClosed.test_balance_reverted_and_peak_rolled_back": {
-          "file": "tests\\test_bot.py",
-          "line_start": 582,
-          "line_end": 638,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestExitTradePosNotClosed.test_balance_reverted_and_peak_rolled_back._update_peak": {
-          "file": "tests\\test_bot.py",
-          "line_start": 626,
-          "line_end": 628,
-          "signature": "def _update_peak(val):"
-        },
-        "tests.test_bot.TestExitTradePosNotClosed.test_peak_not_rolled_back_when_another_trade_updated_it": {
-          "file": "tests\\test_bot.py",
-          "line_start": 646,
-          "line_end": 701,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestExitTradePosNotClosed.test_peak_not_rolled_back_when_another_trade_updated_it._update_peak": {
-          "file": "tests\\test_bot.py",
-          "line_start": 690,
-          "line_end": 692,
-          "signature": "def _update_peak(val):"
-        },
-        "tests.test_bot.TestExitTradeDustFallback.test_force_close_called_on_market_failure": {
-          "file": "tests\\test_bot.py",
-          "line_start": 718,
-          "line_end": 768,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestWarmupCbdr.test_noop_when_no_bars": {
-          "file": "tests\\test_bot.py",
-          "line_start": 780,
-          "line_end": 786,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestWarmupCbdr.test_feeds_bars_to_session_state": {
-          "file": "tests\\test_bot.py",
-          "line_start": 792,
-          "line_end": 809,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestPrefillBars.test_prefill_success": {
-          "file": "tests\\test_bot.py",
-          "line_start": 821,
-          "line_end": 847,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestPrefillBars.test_prefill_failure": {
-          "file": "tests\\test_bot.py",
-          "line_start": 852,
-          "line_end": 862,
-          "signature": "@patch('bot.BinanceRESTClient')"
-        },
-        "tests.test_bot.TestActiveTradeDict.test_getitem": {
-          "file": "tests\\test_bot.py",
-          "line_start": 871,
-          "line_end": 875,
-          "signature": "def test_getitem(self):"
-        },
-        "tests.test_bot.TestActiveTradeDict.test_setitem": {
-          "file": "tests\\test_bot.py",
-          "line_start": 877,
-          "line_end": 880,
-          "signature": "def test_setitem(self):"
-        },
-        "tests.test_bot.TestActiveTradeDict.test_get_with_default": {
-          "file": "tests\\test_bot.py",
-          "line_start": 882,
-          "line_end": 885,
-          "signature": "def test_get_with_default(self):"
-        },
-        "tests.test_bot.TestActiveTradeDict.test_contains": {
-          "file": "tests\\test_bot.py",
-          "line_start": 887,
-          "line_end": 890,
-          "signature": "def test_contains(self):"
-        },
-        "tests.test_bot.TestActiveTradeDict.test_keyerror_on_missing_attr": {
-          "file": "tests\\test_bot.py",
-          "line_start": 892,
-          "line_end": 895,
-          "signature": "def test_keyerror_on_missing_attr(self):"
-        },
-        "tests.test_bot.TestPendingLock.test_enters_sets_pending": {
-          "file": "tests\\test_bot.py",
-          "line_start": 904,
-          "line_end": 912,
-          "signature": "def test_enters_sets_pending(self):"
-        },
-        "tests.test_bot.TestPendingLock.test_commit_preserves_pending": {
-          "file": "tests\\test_bot.py",
-          "line_start": 914,
-          "line_end": 922,
-          "signature": "def test_commit_preserves_pending(self):"
-        },
-        "tests.test_bot.TestPendingLock.test_exception_cleans_up": {
-          "file": "tests\\test_bot.py",
-          "line_start": 924,
-          "line_end": 933,
-          "signature": "def test_exception_cleans_up(self):"
-        },
-        "tests.test_bot._setup_minimal_cfg": {
-          "file": "tests\\test_bot.py",
-          "line_start": 939,
-          "line_end": 956,
-          "signature": "def _setup_minimal_cfg(mock_cfg, balance=1000.0, symbols=None):"
-        },
-        "tests.test_bot_binance.client": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 30,
-          "line_end": 40,
-          "signature": "@pytest.fixture"
-        },
-        "tests.test_bot_binance._MockResponse.__init__": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 46,
-          "line_end": 48,
-          "signature": "def __init__(self, status=200, body=None):"
-        },
-        "tests.test_bot_binance._MockResponse.text": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 50,
-          "line_end": 53,
-          "signature": "async def text(self):"
-        },
-        "tests.test_bot_binance._MockResponse.__aenter__": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 55,
-          "line_end": 56,
-          "signature": "async def __aenter__(self):"
-        },
-        "tests.test_bot_binance._MockResponse.__aexit__": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 58,
-          "line_end": 59,
-          "signature": "async def __aexit__(self, *args):"
-        },
-        "tests.test_bot_binance._mock_response": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 62,
-          "line_end": 64,
-          "signature": "def _mock_response(status=200, body=None):"
-        },
-        "tests.test_bot_binance._inject_session": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 67,
-          "line_end": 106,
-          "signature": "def _inject_session(client, get_fn=None, post_fn=None, delete_fn=None):"
-        },
-        "tests.test_bot_binance._inject_session._wrap": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 79,
-          "line_end": 98,
-          "signature": "def _wrap(fn):"
-        },
-        "tests.test_bot_binance._inject_session._wrap._Ctx.__init__": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 84,
-          "line_end": 87,
-          "signature": "def __init__(self, fn, *args, **kwargs):"
-        },
-        "tests.test_bot_binance._inject_session._wrap._Ctx.__aenter__": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 89,
-          "line_end": 90,
-          "signature": "async def __aenter__(self):"
-        },
-        "tests.test_bot_binance._inject_session._wrap._Ctx.__aexit__": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 92,
-          "line_end": 93,
-          "signature": "async def __aexit__(self, *args):"
-        },
-        "tests.test_bot_binance._inject_session._wrap.wrapper": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 95,
-          "line_end": 96,
-          "signature": "def wrapper(*args, **kwargs):"
-        },
-        "tests.test_bot_binance.TestRoundToTick.test_basic": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 115,
-          "line_end": 116,
-          "signature": "def test_basic(self):"
-        },
-        "tests.test_bot_binance.TestRoundToTick.test_round_up": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 118,
-          "line_end": 119,
-          "signature": "def test_round_up(self):"
-        },
-        "tests.test_bot_binance.TestRoundToTick.test_zero_tick": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 121,
-          "line_end": 122,
-          "signature": "def test_zero_tick(self):"
-        },
-        "tests.test_bot_binance.TestRoundToTick.test_negative_tick": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 124,
-          "line_end": 125,
-          "signature": "def test_negative_tick(self):"
-        },
-        "tests.test_bot_binance.TestRoundToTick.test_small_tick": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 127,
-          "line_end": 128,
-          "signature": "def test_small_tick(self):"
-        },
-        "tests.test_bot_binance.TestRoundStep.test_basic": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 132,
-          "line_end": 133,
-          "signature": "def test_basic(self):"
-        },
-        "tests.test_bot_binance.TestRoundStep.test_exact": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 135,
-          "line_end": 136,
-          "signature": "def test_exact(self):"
-        },
-        "tests.test_bot_binance.TestRoundStep.test_zero_step": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 138,
-          "line_end": 139,
-          "signature": "def test_zero_step(self):"
-        },
-        "tests.test_bot_binance.TestRoundStep.test_negative_step": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 141,
-          "line_end": 142,
-          "signature": "def test_negative_step(self):"
-        },
-        "tests.test_bot_binance.TestGetOrderType.test_standard_type": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 151,
-          "line_end": 152,
-          "signature": "def test_standard_type(self):"
-        },
-        "tests.test_bot_binance.TestGetOrderType.test_algo_order_type": {
-          "file": "tests\\test_bot_binance.py",
+        "src.bot.PaperTrader.__init__": {
+          "file": "src\\bot.py",
           "line_start": 154,
-          "line_end": 158,
-          "signature": "def test_algo_order_type(self):"
-        },
-        "tests.test_bot_binance.TestGetOrderType.test_standard_priority": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 160,
-          "line_end": 165,
-          "signature": "def test_standard_priority(self):"
-        },
-        "tests.test_bot_binance.TestGetOrderType.test_empty": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 167,
-          "line_end": 168,
-          "signature": "def test_empty(self):"
-        },
-        "tests.test_bot_binance.TestGetOrderPrice.test_trigger_price": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 172,
-          "line_end": 173,
-          "signature": "def test_trigger_price(self):"
-        },
-        "tests.test_bot_binance.TestGetOrderPrice.test_stop_price_fallback": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 175,
-          "line_end": 176,
-          "signature": "def test_stop_price_fallback(self):"
-        },
-        "tests.test_bot_binance.TestGetOrderPrice.test_trigger_priority": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 178,
-          "line_end": 184,
-          "signature": "def test_trigger_priority(self):"
-        },
-        "tests.test_bot_binance.TestGetOrderPrice.test_empty": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 186,
-          "line_end": 187,
-          "signature": "def test_empty(self):"
-        },
-        "tests.test_bot_binance.TestGetOrderTimestamp.test_update_time": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 191,
-          "line_end": 195,
-          "signature": "def test_update_time(self):"
-        },
-        "tests.test_bot_binance.TestGetOrderTimestamp.test_time_fallback": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 197,
-          "line_end": 201,
-          "signature": "def test_time_fallback(self):"
-        },
-        "tests.test_bot_binance.TestGetOrderTimestamp.test_update_priority": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 203,
-          "line_end": 209,
-          "signature": "def test_update_priority(self):"
-        },
-        "tests.test_bot_binance.TestGetOrderTimestamp.test_empty": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 211,
-          "line_end": 212,
-          "signature": "def test_empty(self):"
-        },
-        "tests.test_bot_binance.TestGetOrderTimestamp.test_none_values": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 214,
-          "line_end": 215,
-          "signature": "def test_none_values(self):"
-        },
-        "tests.test_bot_binance.TestGetOrderTimestamp.test_invalid_string": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 217,
-          "line_end": 218,
-          "signature": "def test_invalid_string(self):"
-        },
-        "tests.test_bot_binance.TestConstructor.test_defaults": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 227,
-          "line_end": 240,
-          "signature": "def test_defaults(self):"
-        },
-        "tests.test_bot_binance.TestConstructor.test_custom_params": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 242,
-          "line_end": 263,
-          "signature": "def test_custom_params(self):"
-        },
-        "tests.test_bot_binance.TestBuildHeaders.test_api_key_header": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 272,
-          "line_end": 274,
-          "signature": "def test_api_key_header(self, client):"
-        },
-        "tests.test_bot_binance.TestSignParams.test_has_timestamp_and_signature": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 278,
-          "line_end": 282,
-          "signature": "def test_has_timestamp_and_signature(self, client):"
-        },
-        "tests.test_bot_binance.TestSignParams.test_empty_params": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 284,
-          "line_end": 287,
-          "signature": "def test_empty_params(self, client):"
-        },
-        "tests.test_bot_binance.TestSignParams.test_signature_valid_hmac": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 289,
-          "line_end": 299,
-          "signature": "def test_signature_valid_hmac(self, client):"
-        },
-        "tests.test_bot_binance.TestShouldRetry.test_retry_on_429": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 308,
-          "line_end": 309,
-          "signature": "def test_retry_on_429(self, client):"
-        },
-        "tests.test_bot_binance.TestShouldRetry.test_retry_on_5xx": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 311,
-          "line_end": 313,
-          "signature": "def test_retry_on_5xx(self, client):"
-        },
-        "tests.test_bot_binance.TestShouldRetry.test_no_retry_on_4xx": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 315,
-          "line_end": 317,
-          "signature": "def test_no_retry_on_4xx(self, client):"
-        },
-        "tests.test_bot_binance.TestShouldRetry.test_no_retry_on_200": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 319,
-          "line_end": 320,
-          "signature": "def test_no_retry_on_200(self, client):"
-        },
-        "tests.test_bot_binance.TestShouldRetry.test_retry_on_none": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 322,
-          "line_end": 324,
-          "signature": "def test_retry_on_none(self, client):"
-        },
-        "tests.test_bot_binance.TestShouldRetry.test_custom_retry_codes": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 326,
-          "line_end": 337,
-          "signature": "def test_custom_retry_codes(self):"
-        },
-        "tests.test_bot_binance.TestComputeBackoff.test_first_attempt": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 346,
-          "line_end": 348,
-          "signature": "def test_first_attempt(self, client):"
-        },
-        "tests.test_bot_binance.TestComputeBackoff.test_second_attempt": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 350,
-          "line_end": 352,
-          "signature": "def test_second_attempt(self, client):"
-        },
-        "tests.test_bot_binance.TestComputeBackoff.test_third_attempt": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 354,
-          "line_end": 356,
-          "signature": "def test_third_attempt(self, client):"
-        },
-        "tests.test_bot_binance.TestComputeBackoff.test_respects_max_delay": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 358,
-          "line_end": 371,
-          "signature": "def test_respects_max_delay(self):"
-        },
-        "tests.test_bot_binance.TestComputeBackoff.test_jitter_adds_variation": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 373,
-          "line_end": 388,
-          "signature": "def test_jitter_adds_variation(self):"
-        },
-        "tests.test_bot_binance.TestComputeBackoff.test_jitter_not_negative": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 390,
-          "line_end": 403,
-          "signature": "def test_jitter_not_negative(self):"
-        },
-        "tests.test_bot_binance.TestGet.test_success": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 412,
-          "line_end": 422,
-          "signature": "def test_success(self, client):"
-        },
-        "tests.test_bot_binance.TestGet.test_success.mock_get": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 415,
-          "line_end": 416,
-          "signature": "async def mock_get(url, headers):"
-        },
-        "tests.test_bot_binance.TestGet.test_http_error_no_retry": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 424,
-          "line_end": 437,
-          "signature": "def test_http_error_no_retry(self, client):"
-        },
-        "tests.test_bot_binance.TestGet.test_http_error_no_retry.mock_get": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 428,
-          "line_end": 431,
-          "signature": "async def mock_get(url, headers):"
-        },
-        "tests.test_bot_binance.TestGet.test_http_5xx_retry_then_success": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 439,
-          "line_end": 454,
-          "signature": "def test_http_5xx_retry_then_success(self, client):"
-        },
-        "tests.test_bot_binance.TestGet.test_http_5xx_retry_then_success.mock_get": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 443,
-          "line_end": 448,
-          "signature": "async def mock_get(url, headers):"
-        },
-        "tests.test_bot_binance.TestGet.test_http_all_retries_exhausted": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 456,
-          "line_end": 469,
-          "signature": "def test_http_all_retries_exhausted(self, client):"
-        },
-        "tests.test_bot_binance.TestGet.test_http_all_retries_exhausted.mock_get": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 460,
-          "line_end": 463,
-          "signature": "async def mock_get(url, headers):"
-        },
-        "tests.test_bot_binance.TestGet.test_network_error_retry": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 471,
-          "line_end": 485,
-          "signature": "def test_network_error_retry(self, client):"
-        },
-        "tests.test_bot_binance.TestGet.test_network_error_retry.mock_get": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 475,
-          "line_end": 480,
-          "signature": "async def mock_get(url, headers):"
-        },
-        "tests.test_bot_binance.TestGet.test_circuit_breaker_blocks": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 487,
-          "line_end": 509,
-          "signature": "def test_circuit_breaker_blocks(self):"
-        },
-        "tests.test_bot_binance.TestGet.test_circuit_breaker_blocks.mock_get": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 502,
-          "line_end": 503,
-          "signature": "async def mock_get(url, headers):"
-        },
-        "tests.test_bot_binance.TestPost.test_success": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 518,
-          "line_end": 527,
-          "signature": "def test_success(self, client):"
-        },
-        "tests.test_bot_binance.TestPost.test_success.mock_post": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 519,
-          "line_end": 520,
-          "signature": "async def mock_post(url, data, headers):"
-        },
-        "tests.test_bot_binance.TestPost.test_http_error": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 529,
-          "line_end": 536,
-          "signature": "def test_http_error(self, client):"
-        },
-        "tests.test_bot_binance.TestPost.test_http_error.mock_post": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 530,
-          "line_end": 531,
-          "signature": "async def mock_post(url, data, headers):"
-        },
-        "tests.test_bot_binance.TestPost.test_network_error_then_success": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 538,
-          "line_end": 552,
-          "signature": "def test_network_error_then_success(self, client):"
-        },
-        "tests.test_bot_binance.TestPost.test_network_error_then_success.mock_post": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 541,
-          "line_end": 546,
-          "signature": "async def mock_post(url, data, headers):"
-        },
-        "tests.test_bot_binance.TestDelete.test_success": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 561,
-          "line_end": 568,
-          "signature": "def test_success(self, client):"
-        },
-        "tests.test_bot_binance.TestDelete.test_success.mock_delete": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 562,
-          "line_end": 563,
-          "signature": "async def mock_delete(url, headers):"
-        },
-        "tests.test_bot_binance.TestDelete.test_not_found": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 570,
-          "line_end": 577,
-          "signature": "def test_not_found(self, client):"
-        },
-        "tests.test_bot_binance.TestDelete.test_not_found.mock_delete": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 571,
-          "line_end": 572,
-          "signature": "async def mock_delete(url, headers):"
-        },
-        "tests.test_bot_binance.TestDelete.test_5xx_retry": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 579,
-          "line_end": 592,
-          "signature": "def test_5xx_retry(self, client):"
-        },
-        "tests.test_bot_binance.TestDelete.test_5xx_retry.mock_delete": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 582,
-          "line_end": 587,
-          "signature": "async def mock_delete(url, headers):"
-        },
-        "tests.test_bot_binance.TestSessionManagement.test_ensure_session_creates_once": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 601,
-          "line_end": 605,
-          "signature": "def test_ensure_session_creates_once(self, client):"
-        },
-        "tests.test_bot_binance.TestSessionManagement.test_close_cleans_up": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 607,
-          "line_end": 615,
-          "signature": "def test_close_cleans_up(self, client):"
-        },
-        "tests.test_bot_binance.TestSessionManagement.test_ensure_session_recreates_after_close": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 617,
-          "line_end": 621,
-          "signature": "def test_ensure_session_recreates_after_close(self, client):"
-        },
-        "tests.test_bot_binance.TestCancelOrder.test_cancel_normal_success": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 630,
-          "line_end": 637,
-          "signature": "def test_cancel_normal_success(self, client):"
-        },
-        "tests.test_bot_binance.TestCancelOrder.test_cancel_normal_success.mock_delete": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 631,
-          "line_end": 632,
-          "signature": "async def mock_delete(url, headers):"
-        },
-        "tests.test_bot_binance.TestCancelOrder.test_cancel_algo_success": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 639,
-          "line_end": 648,
-          "signature": "def test_cancel_algo_success(self, client):"
-        },
-        "tests.test_bot_binance.TestCancelOrder.test_cancel_algo_success.mock_delete": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 640,
-          "line_end": 641,
-          "signature": "async def mock_delete(url, headers):"
-        },
-        "tests.test_bot_binance.TestCancelOrder.test_cancel_unknown_order_returns_true": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 650,
-          "line_end": 659,
-          "signature": "def test_cancel_unknown_order_returns_true(self, client):"
-        },
-        "tests.test_bot_binance.TestCancelOrder.test_cancel_unknown_order_returns_true.mock_delete": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 653,
-          "line_end": 654,
-          "signature": "async def mock_delete(url, headers):"
-        },
-        "tests.test_bot_binance.TestCancelOrder.test_cancel_real_error_returns_false": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 661,
-          "line_end": 668,
-          "signature": "def test_cancel_real_error_returns_false(self, client):"
-        },
-        "tests.test_bot_binance.TestCancelOrder.test_cancel_real_error_returns_false.mock_delete": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 662,
-          "line_end": 663,
-          "signature": "async def mock_delete(url, headers):"
-        },
-        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_long_trigger_above_price": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 679,
-          "line_end": 699,
-          "signature": "def test_long_trigger_above_price(self, client):"
-        },
-        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_long_trigger_above_price.mock_estimate": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 682,
-          "line_end": 683,
-          "signature": "async def mock_estimate(symbol):"
-        },
-        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_long_trigger_above_price.mock_precision": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 685,
-          "line_end": 686,
-          "signature": "async def mock_precision(symbol, price):"
-        },
-        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_long_trigger_above_price.mock_post": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 688,
-          "line_end": 692,
-          "signature": "async def mock_post(url, data, headers):"
-        },
-        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_short_trigger_below_price": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 701,
-          "line_end": 721,
-          "signature": "def test_short_trigger_below_price(self, client):"
-        },
-        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_short_trigger_below_price.mock_estimate": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 704,
-          "line_end": 705,
-          "signature": "async def mock_estimate(symbol):"
-        },
-        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_short_trigger_below_price.mock_precision": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 707,
-          "line_end": 708,
-          "signature": "async def mock_precision(symbol, price):"
-        },
-        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_short_trigger_below_price.mock_post": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 710,
-          "line_end": 714,
-          "signature": "async def mock_post(url, data, headers):"
-        },
-        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_returns_false_when_price_zero": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 723,
-          "line_end": 730,
-          "signature": "def test_returns_false_when_price_zero(self, client):"
-        },
-        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_returns_false_when_price_zero.mock_estimate": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 724,
-          "line_end": 725,
-          "signature": "async def mock_estimate(symbol):"
-        },
-        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_returns_false_on_api_error": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 732,
-          "line_end": 747,
-          "signature": "def test_returns_false_on_api_error(self, client):"
-        },
-        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_returns_false_on_api_error.mock_estimate": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 733,
-          "line_end": 734,
-          "signature": "async def mock_estimate(symbol):"
-        },
-        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_returns_false_on_api_error.mock_precision": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 736,
-          "line_end": 737,
-          "signature": "async def mock_precision(symbol, price):"
-        },
-        "tests.test_bot_binance.TestPlaceForceCloseOrder.test_returns_false_on_api_error.mock_post": {
-          "file": "tests\\test_bot_binance.py",
-          "line_start": 739,
-          "line_end": 740,
-          "signature": "async def mock_post(url, data, headers):"
+          "line_end": 233,
+          "signature": "def __init__(self, symbols: list[str] | None=None):"
+        },
+        "src.bot.PaperTrader._pl": {
+          "file": "src\\bot.py",
+          "line_start": 235,
+          "line_end": 237,
+          "signature": "def _pl(self, sym: str, key: str, msg: str, force: bool=False):"
+        },
+        "src.bot.PaperTrader._session_label": {
+          "file": "src\\bot.py",
+          "line_start": 239,
+          "line_end": 243,
+          "signature": "def _session_label(self, hour: int) -> str:"
+        },
+        "src.bot.PaperTrader._load_history": {
+          "file": "src\\bot.py",
+          "line_start": 245,
+          "line_end": 259,
+          "signature": "def _load_history(self):"
+        },
+        "src.bot.PaperTrader._on_15m_close": {
+          "file": "src\\bot.py",
+          "line_start": 263,
+          "line_end": 385,
+          "signature": "async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):"
+        },
+        "src.bot.PaperTrader._on_1m_close": {
+          "file": "src\\bot.py",
+          "line_start": 389,
+          "line_end": 458,
+          "signature": "async def _on_1m_close(self, sym: str, bars_1m: list[Bar]):"
+        },
+        "src.bot.PaperTrader._try_entry": {
+          "file": "src\\bot.py",
+          "line_start": 462,
+          "line_end": 704,
+          "signature": "async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):"
+        },
+        "src.bot.PaperTrader._exit_trade": {
+          "file": "src\\bot.py",
+          "line_start": 706,
+          "line_end": 1004,
+          "signature": "async def _exit_trade(self, sym, trade, exit_timestamp: int):"
+        },
+        "src.bot.PaperTrader.on_15m": {
+          "file": "src\\bot.py",
+          "line_start": 1006,
+          "line_end": 1009,
+          "signature": "async def on_15m(self, sym: str, bars: list[Bar]):"
+        },
+        "src.bot.PaperTrader.on_1m": {
+          "file": "src\\bot.py",
+          "line_start": 1011,
+          "line_end": 1014,
+          "signature": "async def on_1m(self, sym: str, bars: list[Bar]):"
+        },
+        "src.bot.PaperTrader._prefill_bars": {
+          "file": "src\\bot.py",
+          "line_start": 1016,
+          "line_end": 1040,
+          "signature": "async def _prefill_bars(self, sym: str, timeframe: str='15m') -> Result[None]:"
+        },
+        "src.bot.PaperTrader._warmup_cbdr": {
+          "file": "src\\bot.py",
+          "line_start": 1042,
+          "line_end": 1097,
+          "signature": "def _warmup_cbdr(self, sym: str):"
+        },
+        "src.bot.PaperTrader._set_leverage": {
+          "file": "src\\bot.py",
+          "line_start": 1099,
+          "line_end": 1116,
+          "signature": "async def _set_leverage(self, symbol: str) -> Result[None]:"
+        },
+        "src.bot.PaperTrader.run": {
+          "file": "src\\bot.py",
+          "line_start": 1118,
+          "line_end": 1262,
+          "signature": "async def run(self):"
+        },
+        "src.bot.main": {
+          "file": "src\\bot.py",
+          "line_start": 1265,
+          "line_end": 1275,
+          "signature": "def main():"
         }
       },
       "files": {
-        "src\\bot.py": {
-          "last_modified": "2026-07-18T15:31:16",
-          "hash": "sha256:af805417a423f37f"
-        },
         "src\\bot_binance.py": {
           "last_modified": "2026-07-18T15:17:25",
           "hash": "sha256:3caec2312c0ab677"
@@ -4973,6 +4969,10 @@
         "src\\bot_infra.py": {
           "last_modified": "2026-06-26T01:13:27",
           "hash": "sha256:9d0293d6683afbad"
+        },
+        "src\\config.py": {
+          "last_modified": "2026-07-19T02:46:50",
+          "hash": "sha256:6b025353b69ce570"
         },
         "src\\debug_balance.py": {
           "last_modified": "2026-07-02T00:12:45",
@@ -5014,17 +5014,13 @@
           "last_modified": "2026-07-03T14:11:49",
           "hash": "sha256:b3026c6699d172d5"
         },
-        "src\\state_writer.py": {
-          "last_modified": "2026-06-30T21:09:49",
-          "hash": "sha256:ccafe1fef001605e"
-        },
         "src\\websocket.py": {
           "last_modified": "2026-06-26T01:17:29",
           "hash": "sha256:de70ea222cfe2e42"
         },
         "src\\snapshot\\snapshot.py": {
-          "last_modified": "2026-07-03T14:07:15",
-          "hash": "sha256:84bba635b438db53"
+          "last_modified": "2026-07-19T11:02:46",
+          "hash": "sha256:d498a429fcda2330"
         },
         "src\\snapshot\\__init__.py": {
           "last_modified": "2026-06-28T13:19:02",
@@ -5066,6 +5062,14 @@
           "last_modified": "2026-06-30T14:00:39",
           "hash": "sha256:b60ef76cacc43db8"
         },
+        "tests\\test_bot.py": {
+          "last_modified": "2026-07-19T02:45:27",
+          "hash": "sha256:3190fd796101f492"
+        },
+        "tests\\test_bot_binance.py": {
+          "last_modified": "2026-07-19T02:48:14",
+          "hash": "sha256:ed20162dae8f0c99"
+        },
         "tests\\test_bot_infra.py": {
           "last_modified": "2026-06-26T01:13:27",
           "hash": "sha256:24f8e94cc53be86b"
@@ -5099,8 +5103,8 @@
           "hash": "sha256:766e1204994cacf3"
         },
         "tests\\test_recovery_manager.py": {
-          "last_modified": "2026-07-19T02:36:34",
-          "hash": "sha256:cd8f193a8bfa14a4"
+          "last_modified": "2026-07-19T02:45:27",
+          "hash": "sha256:a2f7e47610367cec"
         },
         "tests\\test_retrace_state.py": {
           "last_modified": "2026-07-14T21:06:03",
@@ -5122,24 +5126,24 @@
           "last_modified": "2026-07-14T18:50:46",
           "hash": "sha256:58c88f16427c96a8"
         },
+        "src\\state_writer.py": {
+          "last_modified": "2026-06-30T21:09:49",
+          "hash": "sha256:ccafe1fef001605e"
+        },
         "tests\\test_websocket.py": {
           "last_modified": "2026-06-26T01:10:59",
           "hash": "sha256:6f1468bf97ef5dde"
         },
-        "tests\\test_bot.py": {
-          "last_modified": "2026-07-19T02:44:59",
-          "hash": "sha256:3190fd796101f492"
+        "src\\bot.py": {
+          "last_modified": "2026-07-19T18:12:44",
+          "hash": "sha256:365af1251e3a0632"
         },
-        "src\\config.py": {
-          "last_modified": "2026-07-19T02:46:50",
-          "hash": "sha256:6b025353b69ce570"
-        },
-        "tests\\test_bot_binance.py": {
-          "last_modified": "2026-07-19T02:48:14",
-          "hash": "sha256:ed20162dae8f0c99"
+        "docs\\_writer.py": {
+          "last_modified": "2026-07-19T18:14:56",
+          "hash": "sha256:58a44735ffdfa6b1"
         }
       },
-      "last_full_scan": "2026-07-19T02:43:15"
+      "last_full_scan": "2026-07-19T15:38:36"
     },
     "backtest-sniper": {
       "functions": {

@@ -749,56 +749,23 @@ class PaperTrader:
                 trade["result"] = None
                 return
 
-        trade = self.active_trades.pop(sym, None)
+        # FIX (A1): artik burada pop ETMIYORUZ. Trade, kapanis Binance
+        # tarafindan DOGRULANANA kadar active_trades'te kaliyor. Boylece:
+        #   - invalid fill / basarisiz market close durumunda trade
+        #     sessizce dict'ten dusmuyor
+        #   - pnl/balance/peak_equity commit'i, gercek fill fiyati belli
+        #     olmadan calismiyor
+        trade = self.active_trades.get(sym)
         if not trade:
             log.warning("[EXIT] %s zaten kapali, ikinci exit engellendi", sym)
             return
-
-        actual_entry_price = trade.get("entry_actual_price", 0) or trade["entry_price"]
-        actual_entry_qty = trade.get("entry_actual_qty", 0) or trade["qty"]
-        actual_exit_price = trade.get("exit_actual_price", 0) or trade["exit_price"]
-        actual_exit_qty = trade.get("exit_actual_qty", 0) or actual_entry_qty
-        if actual_entry_price <= 0 or actual_exit_price <= 0 or actual_entry_qty <= 0:
-            log.critical("[EXIT] %s gecersiz fill verisi — PnL hesaplanamadi", sym)
-            return
-        pnl_qty = min(actual_entry_qty, actual_exit_qty)
-        diff = (
-            (actual_exit_price - actual_entry_price)
-            if trade["side"] == "long"
-            else (actual_entry_price - actual_exit_price)
-        )
-        entry_fee = actual_entry_price * pnl_qty * COMMISSION_RATE
-        exit_fee = actual_exit_price * pnl_qty * COMMISSION_RATE
-        total_fee = entry_fee + exit_fee
-        pnl = round(diff * pnl_qty - total_fee, 2)
-        trade["entry_price"] = actual_entry_price
-        trade["qty"] = pnl_qty
-        trade["exit_price"] = actual_exit_price
-        trade["entry_fee"] = round(entry_fee, 2)
-        trade["exit_fee"] = round(exit_fee, 2)
-        trade["fee"] = round(total_fee, 2)
-        self._available_balance += pnl
-        _peak_before_exit = self.risk_mgr.peak_equity
-        _balance_after_fictional_pnl = self._available_balance
-        self.risk_mgr.update_peak(self._available_balance)
-        self._pl(
-            sym,
-            f"exit_{exit_timestamp}",
-            f"\U0001f7e5 EXIT: {trade['result']} | PRICE: {trade['exit_price']:.2f} | PNL: {pnl:+.2f} | AVL: {self._available_balance:.2f} | WAL: {self._wallet_balance:.2f} | TRAIL: {trade['trailing_count']}",
-        )
-        log.info(
-            "[PAPER] %s %s exit=%s pnl=%.2f available=%.2f",
-            sym,
-            trade["result"],
-            trade["exit_price"],
-            pnl,
-            self._available_balance,
-        )
 
         # ── Bazı exit tipleri zaten Binance tarafindan kapatilmistir ──
         _exit_already_closed = trade.get("result") in ("SL", "TP", "WS_FALLBACK")
 
         # ── Önce tüm açık emirleri iptal et (SL/TP çakışmasını önle) ──
+        # NOT: bu blogun konumu A1 kapsami disinda (A7'nin konusu), bilerek
+        # dokunulmadi.
         if cfg.BINANCE_API_KEY:
             try:
                 await self.order_manager.cancel_all_open_orders(sym)
@@ -898,21 +865,87 @@ class PaperTrader:
                     f"\U0001f6a8 CRITICAL: {sym} kapanmadi!",
                     force=True,
                 )
-                # Pozisyon fiilen KAPANMADI -> yukarida hesaplanan PNL hayali.
-                # Geri almazsak gercek kapanis oldugunda PNL cift sayilir.
-                self._available_balance -= pnl
-                # peak_equity de bu hayali PNL ile sismis olabilir (drawdown %
-                # hesabini bozar, circuit breaker'i gereksiz yere tetikleyebilir).
-                # Baska bir islem araya girip zirveyi gercekten yukselttiyse
-                # (deger artik bizim yazdigimizdan farkliysa) DOKUNMA.
-                if abs(self.risk_mgr.peak_equity - _balance_after_fictional_pnl) < 1e-9:
-                    self.risk_mgr.peak_equity = _peak_before_exit
-                    self.risk_mgr._save_state()
+                # FIX (A1): geri alinacak bir pnl/balance/peak_equity commit'i
+                # ARTIK YOK — hicbiri henuz yazilmadi. Trade hic pop
+                # edilmedigi icin yeniden eklemeye de gerek yok, zaten
+                # active_trades[sym] ile ayni referans.
                 trade["sl_order_id"] = ""
                 trade["tp_order_id"] = ""
                 trade["result"] = None
-                self.active_trades[sym] = trade
                 return
+
+        # ── BURADAN ITIBAREN kapanis Binance tarafindan DOGRULANMIS demektir
+        # (WS ile onceden, ya da yukaridaki market close + pozisyon
+        # dogrulamasiyla). Muhasebe SADECE burada, TEK SEFER, exit_price'in
+        # NIHAI (varsa gercek market fill ile guncellenmis) haliyle
+        # hesaplaniyor. ──
+
+        trade = self.active_trades.pop(sym, None)
+        if not trade:
+            log.warning(
+                "[EXIT] %s dogrulama sirasinda ikinci exit ile kapanmis, atlaniyor",
+                sym,
+            )
+            return
+
+        actual_entry_price = trade.get("entry_actual_price", 0) or trade["entry_price"]
+        actual_entry_qty = trade.get("entry_actual_qty", 0) or trade["qty"]
+        actual_exit_price = trade.get("exit_actual_price", 0) or trade["exit_price"]
+        actual_exit_qty = trade.get("exit_actual_qty", 0) or actual_entry_qty
+        if actual_entry_price <= 0 or actual_exit_price <= 0 or actual_entry_qty <= 0:
+            # FIX (A1): trade artik SESSIZCE KAYBOLMUYOR. Pozisyon borsada
+            # dogrulanmis sekilde kapali ama fill verisi gecersiz oldugu
+            # icin PNL commit edilemiyor — trade INCELENEBILIR halde geri
+            # birakiliyor. Bu gecici bir alan; A2 ile gercek status enum'una
+            # (EXIT_UNCONFIRMED / BROKEN_MANUAL_INTERVENTION_REQUIRED) tasinacak.
+            log.critical(
+                "[EXIT] %s gecersiz fill verisi — PnL hesaplanamadi, pozisyon "
+                "kapali ama muhasebe commit edilmedi (manuel kontrol gerekli)",
+                sym,
+            )
+            trade["result"] = None
+            trade["exit_unconfirmed_reason"] = "invalid_fill_data"
+            self.active_trades[sym] = trade
+            self._pl(
+                sym,
+                f"exit_unconfirmed_{exit_timestamp}",
+                f"\U0001f6a8 EXIT_UNCONFIRMED: {sym} pozisyon kapandi ama fill verisi "
+                f"gecersiz — PNL commit edilmedi, manuel kontrol gerekli",
+                force=True,
+            )
+            return
+
+        pnl_qty = min(actual_entry_qty, actual_exit_qty)
+        diff = (
+            (actual_exit_price - actual_entry_price)
+            if trade["side"] == "long"
+            else (actual_entry_price - actual_exit_price)
+        )
+        entry_fee = actual_entry_price * pnl_qty * COMMISSION_RATE
+        exit_fee = actual_exit_price * pnl_qty * COMMISSION_RATE
+        total_fee = entry_fee + exit_fee
+        pnl = round(diff * pnl_qty - total_fee, 2)
+        trade["entry_price"] = actual_entry_price
+        trade["qty"] = pnl_qty
+        trade["exit_price"] = actual_exit_price
+        trade["entry_fee"] = round(entry_fee, 2)
+        trade["exit_fee"] = round(exit_fee, 2)
+        trade["fee"] = round(total_fee, 2)
+        self._available_balance += pnl
+        self.risk_mgr.update_peak(self._available_balance)
+        self._pl(
+            sym,
+            f"exit_{exit_timestamp}",
+            f"\U0001f7e5 EXIT: {trade['result']} | PRICE: {trade['exit_price']:.2f} | PNL: {pnl:+.2f} | AVL: {self._available_balance:.2f} | WAL: {self._wallet_balance:.2f} | TRAIL: {trade['trailing_count']}",
+        )
+        log.info(
+            "[PAPER] %s %s exit=%s pnl=%.2f available=%.2f",
+            sym,
+            trade["result"],
+            trade["exit_price"],
+            pnl,
+            self._available_balance,
+        )
 
         log_event(
             "exit",
