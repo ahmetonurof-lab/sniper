@@ -29,6 +29,8 @@ from models import (
     STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
     STATUS_EXIT_VERIFYING,
     STATUS_REPAIR_REQUIRED,
+    INCIDENT_EXIT_UNCONFIRMED,
+    INCIDENT_PROTECTION_BROKEN,
     UNRESTRICTED_STATUSES,
 )
 from retrace_state import RetraceStateMachine
@@ -816,7 +818,17 @@ class PaperTrader:
         if cfg.BINANCE_API_KEY and not _exit_already_closed:
             mkt_side = "SELL" if trade["side"] == "long" else "BUY"
             close_resp = {}
+            log.info(
+                "[INTENT] %s pozisyonunu kapatma istegi (side=%s, qty=%.6f)",
+                sym,
+                mkt_side,
+                trade["qty"],
+            )
             try:
+                log.debug(
+                    "[EXECUTION] %s place_market_order (reduceOnly=True) baslatiliyor...",
+                    sym,
+                )
                 close_resp = await self.rest.place_market_order(
                     sym, mkt_side, trade["qty"], reduce_only=True
                 )
@@ -855,13 +867,14 @@ class PaperTrader:
 
             elif adapter_status == "EXECUTION_CONFIRMED":
                 # orderId mevcut — fill varsa PnL'e yaz
+                log.info("[CONFIRMATION] %s reduceOnly market order basarili", sym)
                 _q, _p, _ = EntryManager.parse_market_fill(close_resp)
                 if _q > 0 and _p > 0:
                     trade["exit_actual_price"] = _p
                     trade["exit_actual_qty"] = _q
                     trade["exit_price"] = _p
                     log.info(
-                        "[EXIT] %s market close fill: qty=%.4f @ %.4f",
+                        "[CONFIRMATION] %s market close fill: qty=%.4f @ %.4f",
                         sym,
                         _q,
                         _p,
@@ -946,13 +959,14 @@ class PaperTrader:
 
             if not pos_closed:
                 log.critical(
-                    "[CRITICAL] %s pozisyon 5 denemede kapanmadi — manual müdahale gerekli",
+                    "[%s] %s pozisyon 5 denemede kapanmadi — manual müdahale gerekli",
+                    INCIDENT_EXIT_UNCONFIRMED,
                     sym,
                 )
                 self._pl(
                     sym,
                     f"critical_{sym}",
-                    f"\U0001f6a8 CRITICAL: {sym} kapanmadi!",
+                    f"\U0001f6a8 {INCIDENT_EXIT_UNCONFIRMED}: {sym} kapanmadi!",
                     force=True,
                 )
                 # FIX (A9): geri alinacak bir pnl/balance/peak_equity commit'i
@@ -966,7 +980,8 @@ class PaperTrader:
                     )
                     if not sl_present or not tp_present:
                         log.warning(
-                            "[EXIT] %s market close basarisiz, koruma eksik (sl=%s tp=%s) — onariliyor",
+                            "[REPAIR] [%s] %s market close basarisiz, koruma eksik (sl=%s tp=%s) — onariliyor",
+                            INCIDENT_PROTECTION_BROKEN,
                             sym,
                             sl_present,
                             tp_present,
@@ -976,7 +991,8 @@ class PaperTrader:
                         )
                 except Exception as e:
                     log.critical(
-                        "[EXIT] %s market close basarisiz, protection onarimi hata aldi: %s",
+                        "[REPAIR] [%s] %s market close basarisiz, protection onarimi hata aldi: %s",
+                        INCIDENT_PROTECTION_BROKEN,
                         sym,
                         e,
                     )
@@ -991,11 +1007,14 @@ class PaperTrader:
         trade = self.active_trades.pop(sym, None)
         if not trade:
             log.warning(
-                "[EXIT] %s dogrulama sirasinda ikinci exit ile kapanmis, atlaniyor",
+                "[CONFIRMATION] %s dogrulama sirasinda ikinci exit ile kapanmis, atlaniyor",
                 sym,
             )
             return
 
+        log.info(
+            "[COMMIT] %s pnl hesaplama ve muhasebe defterine kayit basliyor...", sym
+        )
         actual_entry_price = trade.get("entry_actual_price", 0) or trade["entry_price"]
         actual_entry_qty = trade.get("entry_actual_qty", 0) or trade["qty"]
         actual_exit_price = trade.get("exit_actual_price", 0) or trade["exit_price"]

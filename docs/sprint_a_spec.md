@@ -262,7 +262,7 @@
 
 ---
 ### MADDE A13 — incident sabitleri ve log dili standardize edilecek
-- [ ] Bot
+- [x] Bot
 - **Dosya:** yeni yardımcı dosya veya `src/bot.py` üst kısmı + ilgili modüller
 - **İstenen:**
   - Incident tipleri tanımlansın:
@@ -282,7 +282,7 @@
 
 ---
 ### MADDE A14 — symbol freeze / safety brake eklenecek
-- [ ] Bot
+- [x] Bot
 - **Dosya:** `src/bot.py` + gerekirse `src/models.py`
 - **Fonksiyon:** `_on_1m_close()`
 - **Satır:** `403-445`

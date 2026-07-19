@@ -17,7 +17,11 @@ import logging
 import config as cfg
 from bot_infra import extract_order_id
 from event_log import log_event
-from models import ActiveTrade, UNRESTRICTED_STATUSES
+from models import (
+    INCIDENT_POSITION_OPEN_BUT_STATE_MISSING,
+    ActiveTrade,
+    UNRESTRICTED_STATUSES,
+)
 
 log = logging.getLogger("sniper.recovery_manager")
 
@@ -136,7 +140,7 @@ class RecoveryManager:
                     self._pl(
                         sym,
                         "recover",
-                        f"\u26a0\ufe0f {direction.upper()} @ {entry:.2f} | SL/TP bulunamadi (pozisyon korumasiz)",
+                        f"[{INCIDENT_POSITION_OPEN_BUT_STATE_MISSING}] \u26a0\ufe0f {direction.upper()} @ {entry:.2f} | SL/TP bulunamadi (pozisyon korumasiz)",
                     )
                     # Gercek ATR varsa kullan. Yoksa DEFAULT_ATR_FALLBACK_PCT (0.01%)
                     # KULLANMA: SL/TP giris fiyatina yapisir, Binance "immediately

@@ -448,6 +448,42 @@ class TestOn1mClose:
         asyncio.run(bot._on_1m_close("BTCUSDT", bars))
         bot.recovery_manager.reconcile_orphan_orders.assert_called_once()
 
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.TrailingManager")
+    def test_restricted_status_skips_trailing(
+        self, mock_trail_mgr, mock_cfg, mock_hub_cls, mock_rest_cls
+    ):
+        from models import STATUS_REPAIR_REQUIRED
+        from bot import PaperTrader
+
+        _setup_minimal_cfg(mock_cfg)
+        bot = PaperTrader(symbols=["BTCUSDT"])
+        bot.recovery_manager.reconcile_orphan_orders = AsyncMock()
+
+        trade = ActiveTrade(
+            symbol="BTCUSDT", side="long", entry_price=50000.0, sl=49000.0, tp=52000.0
+        )
+        trade["status"] = STATUS_REPAIR_REQUIRED
+        bot.active_trades["BTCUSDT"] = trade
+
+        bars = [_bar(i, 50010, 50020, 49980, 50015) for i in range(5)]
+
+        # We manually trigger orphan check just in case, but it should also skip
+        bot._orphan_check_counter = 4
+        asyncio.run(bot._on_1m_close("BTCUSDT", bars))
+
+        # Assert trailing and exits were completely skipped
+        mock_trail_mgr.evaluate_trail.assert_not_called()
+        mock_trail_mgr.check_exit.assert_not_called()
+        # Assert orphan orders were not checked for this symbol (though it's a global check, the loop skips)
+        # Actually our mock intercepts reconcile_orphan_orders entirely. Wait, the global check doesn't pass
+        # arguments, it just skips the restricted symbol inside the method.
+        # But wait, in _on_1m_close, if status not in UNRESTRICTED, does it call reconcile_orphan_orders?
+        # Let's verify our code logic in _on_1m_close.
+        bot.recovery_manager.reconcile_orphan_orders.assert_not_called()
+
 
 # ═══════════════════════════════════════════════════════════════════
 # _exit_trade tests

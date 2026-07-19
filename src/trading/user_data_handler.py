@@ -14,7 +14,13 @@ import logging
 import time
 from typing import Any, Callable
 
-from models import UNRESTRICTED_STATUSES, STATUS_REPAIR_REQUIRED, WSFallbackError
+from models import (
+    UNRESTRICTED_STATUSES,
+    STATUS_REPAIR_REQUIRED,
+    WSFallbackError,
+    INCIDENT_WS_UNMATCHED_REDUCE_ONLY,
+    INCIDENT_ORPHAN_CANCEL_DURING_TRANSITION,
+)
 
 log = logging.getLogger("sniper.user_data")
 
@@ -107,7 +113,9 @@ class UserDataHandler:
                         # FIX #3 + FIX (A3): confirmed alanlar degil, pending_*
                         # alanlar yazilir. _exit_trade dogrularsa promote eder.
                         if is_reduce_only:
-                            trade["pending_exit_reason"] = "ws_unmatched_reduce_only"
+                            trade["pending_exit_reason"] = (
+                                INCIDENT_WS_UNMATCHED_REDUCE_ONLY
+                            )
                             trade["pending_exit_price"] = price
                             if cum_qty > 0:
                                 trade["pending_exit_qty"] = cum_qty
@@ -158,7 +166,8 @@ class UserDataHandler:
                 and trade.get("status") != STATUS_REPAIR_REQUIRED
             ):
                 log.info(
-                    "[WS-ORDER] %s status=%s — otomatik repair atlaniyor (baska bir akis yonetiyor)",
+                    "[%s] %s status=%s — otomatik repair atlaniyor (baska bir akis yonetiyor)",
+                    INCIDENT_ORPHAN_CANCEL_DURING_TRANSITION,
                     sym,
                     trade.get("status"),
                 )
