@@ -204,7 +204,7 @@
 
 ---
 ### MADDE A10 — adapter belirsizliği explicit ambiguous state yaratacak
-- [ ] Bot
+- [x] Bot
 - **Dosya:** `src/bot_binance.py` + `src/bot.py`
 - **Fonksiyon:** `place_market_order()` + `_exit_trade()`
 - **Satır:**
@@ -243,7 +243,7 @@
 
 ---
 ### MADDE A12 — state_writer operatöre minimal güvenlik görünürlüğü verecek
-- [ ] Bot
+- [x] Bot
 - **Dosya:** `src/state_writer.py`
 - **Fonksiyon:** `write_state()`
 - **Satır:** `16-66` (özellikle symbol payload bölümü `33-63`)

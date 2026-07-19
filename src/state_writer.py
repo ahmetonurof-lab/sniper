@@ -1,6 +1,11 @@
 import json
 import os
 from datetime import UTC, datetime
+from models import (
+    STATUS_EXIT_VERIFYING,
+    STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
+    STATUS_REPAIR_REQUIRED,
+)
 
 _OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "output")
 _STATE_FILE = os.path.join(_OUTPUT_DIR, "live_state.json")
@@ -57,6 +62,15 @@ def write_state(
                 "fvg_bottom": trade.get("fvg_bottom"),
                 "trailing_count": trade.get("trailing_count", 0),
                 "upnl": trade.get("upnl"),
+                "status": trade.get("status", ""),
+                "sl_order_id_present": bool(trade.get("sl_order_id")),
+                "tp_order_id_present": bool(trade.get("tp_order_id")),
+                "exit_unconfirmed": trade.get("status")
+                in (
+                    STATUS_EXIT_VERIFYING,
+                    STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
+                ),
+                "repair_required": trade.get("status") == STATUS_REPAIR_REQUIRED,
             }
             if trade
             else None,

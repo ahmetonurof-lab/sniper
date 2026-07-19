@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from models import Bar, ActiveTrade
+from models import Bar, ActiveTrade, STATUS_REPAIR_REQUIRED
 from retrace_state import RetraceState, HTFFVG
 from session import SessionState
 
@@ -934,6 +934,147 @@ class TestPendingLock:
 
 
 # ── Helpers ───────────────────────────────────────────────────────
+
+
+# ═══════════════════════════════════════════════════════════════════
+# _exit_trade — A10 adapter ambiguity tests
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestExitTradeAdapterAmbiguity:
+    """A10: adapter belirsizliği explicit ambiguous state yaratacak.
+
+    Boş/kimliksiz response → commit yapılmamalı, trade ACTIVE'e dönmemeli.
+    """
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.EntryManager")
+    @patch("bot.mark_trade_closed")
+    @patch("bot.log")
+    def test_empty_response_no_commit(
+        self,
+        mock_log,
+        mock_mark_closed,
+        mock_entry_mgr,
+        mock_cfg,
+        mock_hub_cls,
+        mock_rest_cls,
+    ):
+        """place_market_order {} (boş) dönerse → no commit, trade active kalır."""
+        _setup_minimal_cfg(mock_cfg)
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_entry_mgr.parse_market_fill.return_value = (0, 0, None)
+
+        with patch("bot.INITIAL_CAPITAL", 1000.0), patch("bot.RISK_PER_TRADE", 0.01):
+            from bot import PaperTrader
+
+            bot = PaperTrader(symbols=["BTCUSDT"])
+
+        bot.reporter.emit = MagicMock()
+        bot._available_balance = 1000.0
+
+        trade = ActiveTrade(
+            symbol="BTCUSDT",
+            side="long",
+            entry_price=50000.0,
+            sl=49000.0,
+            tp=52000.0,
+            qty=0.1,
+            exit_price=51000.0,
+            exit_bar=50,
+            result="TRAIL_CLOSE",
+            trailing_count=0,
+        )
+        bot.active_trades["BTCUSDT"] = trade
+
+        # Adapter boş dict dönüyor — _status alanı yok
+        bot.order_manager.cancel_all_open_orders = AsyncMock()
+        bot.rest.place_market_order = AsyncMock(return_value={})
+        bot.rest.place_force_close_order = AsyncMock(return_value=True)
+        bot.rest.get_positions = AsyncMock(
+            return_value=[{"symbol": "BTCUSDT", "positionAmt": "0.1"}]
+        )
+        bot.order_manager.verify_protection = AsyncMock(return_value=(True, True))
+        bot.order_manager.repair_protection = AsyncMock()
+
+        bot.risk_mgr.peak_equity = 1000.0
+        bot.risk_mgr.update_peak = lambda v: None
+        bot.risk_mgr._save_state = MagicMock()
+
+        asyncio.run(bot._exit_trade("BTCUSDT", trade, 50))
+
+        # Trade commit edilmemiş olmalı — active_trades'te kalmalı
+        assert "BTCUSDT" in bot.active_trades
+        assert bot.active_trades["BTCUSDT"]["status"] == STATUS_REPAIR_REQUIRED
+        assert bot._available_balance == 1000.0  # balance değişmemeli
+        mock_mark_closed.assert_not_called()
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.EntryManager")
+    @patch("bot.mark_trade_closed")
+    @patch("bot.log")
+    def test_order_acknowledged_position_open_no_commit(
+        self,
+        mock_log,
+        mock_mark_closed,
+        mock_entry_mgr,
+        mock_cfg,
+        mock_hub_cls,
+        mock_rest_cls,
+    ):
+        """ORDER_ACKNOWLEDGED response + pozisyon açık → no commit."""
+        _setup_minimal_cfg(mock_cfg)
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_entry_mgr.parse_market_fill.return_value = (0, 0, None)
+
+        with patch("bot.INITIAL_CAPITAL", 1000.0), patch("bot.RISK_PER_TRADE", 0.01):
+            from bot import PaperTrader
+
+            bot = PaperTrader(symbols=["BTCUSDT"])
+
+        bot.reporter.emit = MagicMock()
+        bot._available_balance = 1000.0
+
+        trade = ActiveTrade(
+            symbol="BTCUSDT",
+            side="long",
+            entry_price=50000.0,
+            sl=49000.0,
+            tp=52000.0,
+            qty=0.1,
+            exit_price=51000.0,
+            exit_bar=50,
+            result="TRAIL_CLOSE",
+            trailing_count=0,
+        )
+        bot.active_trades["BTCUSDT"] = trade
+
+        # Adapter ORDER_ACKNOWLEDGED dönüyor — orderId yok
+        bot.order_manager.cancel_all_open_orders = AsyncMock()
+        bot.rest.place_market_order = AsyncMock(
+            return_value={"_status": "ORDER_ACKNOWLEDGED", "status": "NEW"}
+        )
+        bot.rest.get_positions = AsyncMock(
+            return_value=[{"symbol": "BTCUSDT", "positionAmt": "0.1"}]
+        )
+        bot.order_manager.verify_protection = AsyncMock(return_value=(True, True))
+        bot.order_manager.repair_protection = AsyncMock()
+
+        bot.risk_mgr.peak_equity = 1000.0
+        bot.risk_mgr.update_peak = lambda v: None
+        bot.risk_mgr._save_state = MagicMock()
+
+        asyncio.run(bot._exit_trade("BTCUSDT", trade, 50))
+
+        # Trade commit edilmemiş olmalı — active_trades'te REPAIR_REQUIRED
+        assert "BTCUSDT" in bot.active_trades
+        assert bot.active_trades["BTCUSDT"]["status"] == STATUS_REPAIR_REQUIRED
+        assert bot._available_balance == 1000.0
+        mock_mark_closed.assert_not_called()
 
 
 def _setup_minimal_cfg(mock_cfg, balance=1000.0, symbols=None):

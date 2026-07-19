@@ -815,58 +815,110 @@ class PaperTrader:
         # ── Pozisyon kapatma (reduceOnly market) — SL/TP ile kapandıysa atla ──
         if cfg.BINANCE_API_KEY and not _exit_already_closed:
             mkt_side = "SELL" if trade["side"] == "long" else "BUY"
+            close_resp = {}
             try:
                 close_resp = await self.rest.place_market_order(
                     sym, mkt_side, trade["qty"], reduce_only=True
                 )
-                if close_resp and close_resp.get("orderId"):
-                    # MARKET close fill fiyatını PnL hesaplamasında kullan
-                    _q, _p, _ = EntryManager.parse_market_fill(close_resp)
-                    if _q > 0 and _p > 0:
-                        trade["exit_actual_price"] = _p
-                        trade["exit_actual_qty"] = _q
-                        trade["exit_price"] = _p
-                        log.info(
-                            "[EXIT] %s market close fill: qty=%.4f @ %.4f",
-                            sym,
-                            _q,
-                            _p,
-                        )
-                    log_event(
-                        "force_close",
-                        sym,
-                        side=trade["side"],
-                        qty=trade["qty"],
-                        success=True,
-                    )
-                    log.info("[EXIT] %s reduceOnly market BASARILI", sym)
-                else:
-                    log_event(
-                        "force_close",
-                        sym,
-                        side=trade["side"],
-                        qty=trade["qty"],
-                        success=False,
-                    )
-                    log.warning(
-                        "[EXIT] %s reduceOnly market BASARISIZ -- muhtemelen "
-                        "minNotional/dust, closePosition ile deneniyor...",
-                        sym,
-                    )
-                    try:
-                        forced = await self.rest.place_force_close_order(
-                            sym, mkt_side, trade["side"]
-                        )
-                        if forced:
-                            log.info(
-                                "[EXIT] %s closePosition force-close kabul edildi", sym
-                            )
-                    except Exception as e:
-                        log.warning(
-                            "[EXIT] %s closePosition force-close hatasi: %s", sym, e
-                        )
             except Exception as e:
                 log.warning("[EXIT] %s reduceOnly market HATASI (devam): %s", sym, e)
+
+            # FIX (A10): adapter'dan gelen _status alanı ile belirsizlik ayrımı
+            adapter_status = close_resp.get("_status", "")
+
+            if adapter_status == "REJECTED":
+                # Emir borsaya hiç gönderilmedi (qty/precision sorunu)
+                # → force close ile dene
+                log.warning(
+                    "[EXIT] %s market order REJECTED — force close deneniyor...",
+                    sym,
+                )
+                log_event(
+                    "force_close",
+                    sym,
+                    side=trade["side"],
+                    qty=trade["qty"],
+                    success=False,
+                )
+                try:
+                    forced = await self.rest.place_force_close_order(
+                        sym, mkt_side, trade["side"]
+                    )
+                    if forced:
+                        log.info(
+                            "[EXIT] %s closePosition force-close kabul edildi", sym
+                        )
+                except Exception as e:
+                    log.warning(
+                        "[EXIT] %s closePosition force-close hatasi: %s", sym, e
+                    )
+
+            elif adapter_status == "EXECUTION_CONFIRMED":
+                # orderId mevcut — fill varsa PnL'e yaz
+                _q, _p, _ = EntryManager.parse_market_fill(close_resp)
+                if _q > 0 and _p > 0:
+                    trade["exit_actual_price"] = _p
+                    trade["exit_actual_qty"] = _q
+                    trade["exit_price"] = _p
+                    log.info(
+                        "[EXIT] %s market close fill: qty=%.4f @ %.4f",
+                        sym,
+                        _q,
+                        _p,
+                    )
+                log_event(
+                    "force_close",
+                    sym,
+                    side=trade["side"],
+                    qty=trade["qty"],
+                    success=True,
+                )
+                log.info("[EXIT] %s reduceOnly market BASARILI", sym)
+
+            elif adapter_status in ("REQUEST_SENT", "ORDER_ACKNOWLEDGED"):
+                # FIX (A10): emir gönderildi ama kimlik/fill yok — belirsiz
+                # Pozisyon doğrulamasına geçeceğiz ama commit yapılmayacak
+                log.warning(
+                    "[EXIT] %s market close AMBIGUOUS (_status=%s) — "
+                    "pozisyon dogrulamasi ile kontrol edilecek",
+                    sym,
+                    adapter_status,
+                )
+                log_event(
+                    "force_close",
+                    sym,
+                    side=trade["side"],
+                    qty=trade["qty"],
+                    success=False,
+                    ambiguous_status=adapter_status,
+                )
+
+            else:
+                # Tamamen boş response ({}) — adapter hiçbir şey dönmedi
+                log.warning(
+                    "[EXIT] %s market close yaniti bos/bilinmiyor — "
+                    "force close deneniyor...",
+                    sym,
+                )
+                log_event(
+                    "force_close",
+                    sym,
+                    side=trade["side"],
+                    qty=trade["qty"],
+                    success=False,
+                )
+                try:
+                    forced = await self.rest.place_force_close_order(
+                        sym, mkt_side, trade["side"]
+                    )
+                    if forced:
+                        log.info(
+                            "[EXIT] %s closePosition force-close kabul edildi", sym
+                        )
+                except Exception as e:
+                    log.warning(
+                        "[EXIT] %s closePosition force-close hatasi: %s", sym, e
+                    )
 
             # ── Pozisyon doğrulama: 5 deneme, 200ms bekle, positionAmt == 0 ──
             pos_closed = False
