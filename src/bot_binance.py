@@ -560,7 +560,7 @@ class BinanceRESTClient:
         valid_qty = await self.validate_min_amount(symbol, rounded_qty)
         if valid_qty <= 0:
             log.warning("[MARKET] %s qty=%.8f minQty altinda, iptal", symbol, qty)
-            return {}
+            return {"_status": "REJECTED"}
 
         # MIN_NOTIONAL kontrolü entry_manager._bump_to_min_notional() tarafından
         # yapılıyor. Burada tekrar kontrol etmek farklı anlık fiyat nedeniyle
@@ -570,7 +570,7 @@ class BinanceRESTClient:
         qty_str = f"{valid_qty:.{decimals}f}".rstrip("0").rstrip(".")
         if not qty_str or qty_str == "0":
             log.warning("[MARKET] %s qty format hatasi: %s", symbol, qty_str)
-            return {}
+            return {"_status": "REJECTED"}
 
         params = {
             "symbol": symbol,
@@ -584,9 +584,10 @@ class BinanceRESTClient:
         r = await self.post("/fapi/v1/order", params)
         if r.is_err:
             log.warning("[MARKET] %s MARKET hatasi: %s", symbol, r.error)
-            return {}
+            return {"_status": "REQUEST_SENT", "error": r.error}
         result = r.value
         if result.get("orderId") or result.get("id"):
+            result["_status"] = "EXECUTION_CONFIRMED"
             return result
         # Demo API: responder bazen orderId dönmez, 1 sn bekle sonra dene
         for attempt in range(2):
@@ -599,8 +600,10 @@ class BinanceRESTClient:
                         and o.get("side", "").upper() == side.upper()
                     ):
                         if o.get("type", "").upper() == "MARKET":
+                            o["_status"] = "EXECUTION_CONFIRMED"
                             return o
                         if o.get("origType", "").upper() == "MARKET":
+                            o["_status"] = "EXECUTION_CONFIRMED"
                             return o
             except Exception:
                 pass
@@ -613,6 +616,7 @@ class BinanceRESTClient:
                 if k in ("clientOrderId", "status", "executedQty")
             },
         )
+        result["_status"] = "ORDER_ACKNOWLEDGED"
         return result
 
     async def place_stop_order(

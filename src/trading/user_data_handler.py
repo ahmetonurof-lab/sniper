@@ -14,7 +14,7 @@ import logging
 import time
 from typing import Any, Callable
 
-from models import UNRESTRICTED_STATUSES, WSFallbackError
+from models import UNRESTRICTED_STATUSES, STATUS_REPAIR_REQUIRED, WSFallbackError
 
 log = logging.getLogger("sniper.user_data")
 
@@ -153,7 +153,10 @@ class UserDataHandler:
 
             if oid not in (s_id, t_id):
                 return
-            if trade.get("status") not in UNRESTRICTED_STATUSES:
+            if (
+                trade.get("status") not in UNRESTRICTED_STATUSES
+                and trade.get("status") != STATUS_REPAIR_REQUIRED
+            ):
                 log.info(
                     "[WS-ORDER] %s status=%s — otomatik repair atlaniyor (baska bir akis yonetiyor)",
                     sym,

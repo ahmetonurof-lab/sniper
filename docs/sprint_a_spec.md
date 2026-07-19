@@ -226,7 +226,7 @@
 
 ---
 ### MADDE A11 — on_order_update cancel/repair logic’i status farkındalığı kazanacak
-- [ ] Bot
+- [x] Bot
 - **Dosya:** `src/trading/user_data_handler.py`
 - **Fonksiyon:** `on_order_update()`
 - **Satır:** `131-164`
