@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Final, Generic, Literal, TypeVar
 
 logger = logging.getLogger("sniper.models")
@@ -326,6 +327,143 @@ INCIDENT_EXIT_UNCONFIRMED: Final[str] = "EXIT_UNCONFIRMED"
 INCIDENT_PROTECTION_BROKEN: Final[str] = "PROTECTION_BROKEN"
 INCIDENT_WS_UNMATCHED_REDUCE_ONLY: Final[str] = "WS_UNMATCHED_REDUCE_ONLY"
 INCIDENT_ORPHAN_CANCEL_DURING_TRANSITION: Final[str] = "ORPHAN_CANCEL_DURING_TRANSITION"
+
+
+# ── Patch Set 1: yeni state taşıyıcıları (ActiveTrade'e HENÜZ bağlı değil) ──
+# Bu sınıflar şimdilik bağımsızdır ve hiçbir yerde import edilip kullanılmaz.
+# ActiveTrade'e "confirmed"/"runtime" olarak bağlanması Patch 2/3'te
+# exit_lifecycle.py ve protection_lifecycle.py gerçek mantığı taşırken
+# yapılacak. Bu patch'te ActiveTrade'e DOKUNULMAZ.
+
+
+class TradeStatus(str, Enum):
+    """Mevcut STATUS_* sabitleriyle birebir eşleşir + yeni CLOSED değeri."""
+
+    ACTIVE = "ACTIVE"
+    PENDING = "PENDING"
+    TRAIL_REPLACING = "TRAIL_REPLACING"
+    EXIT_VERIFYING = "EXIT_VERIFYING"
+    REPAIR_REQUIRED = "REPAIR_REQUIRED"
+    BROKEN_MANUAL_INTERVENTION_REQUIRED = "BROKEN_MANUAL_INTERVENTION_REQUIRED"
+    CLOSED = "CLOSED"  # yeni — bugün string tarafında karşılığı yok
+
+
+class ProtectionSlot(str, Enum):
+    CURRENT = "CURRENT"
+    PENDING = "PENDING"
+    PREVIOUS = "PREVIOUS"
+
+
+@dataclass
+class ProtectionRef:
+    order_id: str
+    kind: Literal["SL", "TP"]
+    slot: ProtectionSlot
+    created_ms: int | None = None
+
+
+@dataclass
+class ProtectionState:
+    """Bugünkü sl_order_id / tp_order_id / *_prev / *_history alanlarının
+    hedef (henüz bağlanmamış) karşılığı."""
+
+    sl_current: ProtectionRef | None = None
+    sl_pending: ProtectionRef | None = None
+    sl_previous: ProtectionRef | None = None
+    tp_current: ProtectionRef | None = None
+    tp_pending: ProtectionRef | None = None
+    tp_previous: ProtectionRef | None = None
+    history: list[ProtectionRef] = field(default_factory=list)
+
+    @property
+    def sl_present(self) -> bool:
+        return self.sl_current is not None
+
+    @property
+    def tp_present(self) -> bool:
+        return self.tp_current is not None
+
+    def known_ids(self) -> set[str]:
+        """user_data_handler.py'daki mevcut oid-eşleştirme kontrolüyle
+        (current + prev + history, SL+TP) birebir aynı küme."""
+        refs = (
+            self.sl_current,
+            self.sl_pending,
+            self.sl_previous,
+            self.tp_current,
+            self.tp_pending,
+            self.tp_previous,
+        )
+        ids = {r.order_id for r in refs if r is not None}
+        ids.update(r.order_id for r in self.history)
+        return ids
+
+
+@dataclass
+class PendingExitContext:
+    """Bugünkü pending_exit_reason / price / qty / order_id / timestamp
+    alanlarının hedef karşılığı. Patch 2'de exit_lifecycle.py'nin
+    REQUEST_SENT/ACKNOWLEDGED/VERIFYING adımlarını ayrıca takip etmesi
+    gerekirse buraya alan eklenecek — o karar bu patch'in kapsamı dışında."""
+
+    reason: str | None = None
+    price: float | None = None
+    qty: float | None = None
+    order_id: str | None = None
+    timestamp_ms: int | None = None
+
+
+@dataclass
+class TradeConfirmedState:
+    """Entry/exit'in exchange tarafından doğrulanmış hali.
+    sl/tp/trailing seviyelerinin confirmed'e mi runtime'a mı ait olduğu
+    henüz karara bağlanmadı (bkz. aşağıdaki 'Açık kalan noktalar')."""
+
+    symbol: str
+    side: Literal["long", "short"]
+    entry_price: float
+    entry_qty: float
+    entry_order_id: str = ""
+    exit_price: float | None = None
+    exit_qty: float | None = None
+    exit_quote_qty: float | None = None
+    exit_order_id: str = ""
+    exit_timestamp_ms: int | None = None
+    result: str | None = None  # "SL" | "TP" | "WS_FALLBACK" | ...
+
+
+@dataclass
+class TradeRuntimeState:
+    status: TradeStatus = TradeStatus.ACTIVE
+    frozen: bool = False
+    pending_exit: PendingExitContext | None = None
+    protection: ProtectionState = field(default_factory=ProtectionState)
+    pending_events: list["NormalizedOrderEvent"] = field(default_factory=list)
+
+
+@dataclass
+class NormalizedOrderEvent:
+    """on_order_update()'in bugün doğrudan okuduğu ham Binance alanlarının
+    normalize edilmiş hedef karşılığı. Bu patch sadece şekli tanımlar;
+    gerçek normalize_order_event() fonksiyonu Patch 4'te yazılacak."""
+
+    symbol: str
+    order_id: str
+    client_order_id: str
+    status: str
+    reduce_only: bool = False
+    avg_price: float | None = None
+    last_price: float | None = None
+    cum_qty: float | None = None
+    cum_quote_qty: float | None = None
+    ts_ms: int | None = None
+    raw: dict | None = None
+
+    @property
+    def fill_price(self) -> float:
+        if self.avg_price and self.avg_price > 0:
+            return self.avg_price
+        return self.last_price or 0.0
 
 
 # ── ActiveTrade dataclass (Faz 1.1) ──────────────────────────────

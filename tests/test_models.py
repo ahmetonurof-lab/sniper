@@ -1,12 +1,26 @@
 import pytest
 from models import (
     Bar,
-    FVG,
     CHoCH,
-    SwingPoint,
+    FVG,
     FVGQuality,
     AnalysisResult,
+    SwingPoint,
+    TradeStatus,
+    ProtectionSlot,
+    ProtectionRef,
+    ProtectionState,
+    PendingExitContext,
+    TradeConfirmedState,
+    TradeRuntimeState,
+    NormalizedOrderEvent,
     tf_params,
+    STATUS_ACTIVE,
+    STATUS_PENDING,
+    STATUS_TRAIL_REPLACING,
+    STATUS_EXIT_VERIFYING,
+    STATUS_REPAIR_REQUIRED,
+    STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
 )
 
 
@@ -202,3 +216,108 @@ class TestTfParams:
 
     def test_unknown_timeframe_default(self):
         assert tf_params("13m") == (15, 10, 2)
+
+
+class TestTradeStatus:
+    def test_matches_legacy_string_constants(self):
+        assert TradeStatus.ACTIVE == STATUS_ACTIVE
+        assert TradeStatus.PENDING == STATUS_PENDING
+        assert TradeStatus.TRAIL_REPLACING == STATUS_TRAIL_REPLACING
+        assert TradeStatus.EXIT_VERIFYING == STATUS_EXIT_VERIFYING
+        assert TradeStatus.REPAIR_REQUIRED == STATUS_REPAIR_REQUIRED
+        assert (
+            TradeStatus.BROKEN_MANUAL_INTERVENTION_REQUIRED
+            == STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED
+        )
+
+    def test_closed_is_new_value(self):
+        assert TradeStatus.CLOSED.value == "CLOSED"
+
+
+class TestProtectionState:
+    def test_defaults_are_empty(self):
+        state = ProtectionState()
+        assert state.sl_present is False
+        assert state.tp_present is False
+        assert state.known_ids() == set()
+
+    def test_sl_present_when_current_set(self):
+        ref = ProtectionRef(order_id="1", kind="SL", slot=ProtectionSlot.CURRENT)
+        state = ProtectionState(sl_current=ref)
+        assert state.sl_present is True
+        assert state.tp_present is False
+
+    def test_known_ids_covers_current_pending_previous_and_history(self):
+        state = ProtectionState(
+            sl_current=ProtectionRef(
+                order_id="1", kind="SL", slot=ProtectionSlot.CURRENT
+            ),
+            sl_previous=ProtectionRef(
+                order_id="2", kind="SL", slot=ProtectionSlot.PREVIOUS
+            ),
+            tp_pending=ProtectionRef(
+                order_id="3", kind="TP", slot=ProtectionSlot.PENDING
+            ),
+            history=[
+                ProtectionRef(order_id="0", kind="SL", slot=ProtectionSlot.PREVIOUS)
+            ],
+        )
+        assert state.known_ids() == {"0", "1", "2", "3"}
+
+
+class TestPendingExitContext:
+    def test_defaults_are_none(self):
+        ctx = PendingExitContext()
+        assert ctx.reason is None
+        assert ctx.price is None
+        assert ctx.order_id is None
+
+
+class TestTradeConfirmedState:
+    def test_required_fields(self):
+        c = TradeConfirmedState(
+            symbol="BTCUSDT", side="long", entry_price=100.0, entry_qty=0.01
+        )
+        assert c.exit_price is None
+        assert c.result is None
+
+
+class TestTradeRuntimeState:
+    def test_defaults(self):
+        rt = TradeRuntimeState()
+        assert rt.status == TradeStatus.ACTIVE
+        assert rt.frozen is False
+        assert rt.pending_exit is None
+        assert rt.pending_events == []
+        assert rt.protection.sl_present is False
+
+
+class TestNormalizedOrderEvent:
+    def test_optional_fields_default_safely(self):
+        evt = NormalizedOrderEvent(
+            symbol="BTCUSDT", order_id="1", client_order_id="c1", status="FILLED"
+        )
+        assert evt.reduce_only is False
+        assert evt.fill_price == 0.0
+
+    def test_fill_price_prefers_avg_price(self):
+        evt = NormalizedOrderEvent(
+            symbol="BTCUSDT",
+            order_id="1",
+            client_order_id="c1",
+            status="FILLED",
+            avg_price=100.0,
+            last_price=99.0,
+        )
+        assert evt.fill_price == 100.0
+
+    def test_fill_price_falls_back_to_last_price(self):
+        evt = NormalizedOrderEvent(
+            symbol="BTCUSDT",
+            order_id="1",
+            client_order_id="c1",
+            status="FILLED",
+            avg_price=0.0,
+            last_price=99.0,
+        )
+        assert evt.fill_price == 99.0
