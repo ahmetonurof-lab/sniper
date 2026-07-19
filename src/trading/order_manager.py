@@ -295,6 +295,9 @@ class OrderManager:
 
         - Karşı koruma emrini iptal et
         - Tetiklenen emrin ID'si yoksa acil piyasa kapanışı yap
+        - FIX (A7): son adım olarak broad-sweep (cancel_all_open_orders) —
+          eskiden _exit_trade() başında, close DOĞRULANMADAN ÖNCE çalışıyordu.
+          Artık yalnızca buradan, exit commit edildikten SONRA çalışıyor.
 
         Orijinal _exit_trade() içindeki "if cfg.BINANCE_API_KEY and live" bloğu
         ile birebir aynı mantık.
@@ -344,3 +347,14 @@ class OrderManager:
                     log.warning("[CLOSE] %s acil kapanis emri hatasi: %s", sym, e)
         except Exception as e:
             log.warning("[CLOSE] %s exit temizleme hatasi: %s", sym, e)
+
+        # FIX (A7): _exit_trade() başında koşulsuz çalışan broad cancel buraya
+        # taşındı — exit doğrulanıp commit edildikten SONRA, yukarıdaki
+        # hedefli iptal/acil-kapanış denemelerinden bağımsız son bir güvenlik
+        # süpürmesi. cancel_all_open_orders() açık emirleri Binance'ten taze
+        # çeker; yukarıda zaten iptal edilmiş emirler tekrar hataya yol
+        # açmadan atlanır (idempotent).
+        try:
+            await self.cancel_all_open_orders(sym)
+        except Exception as e:
+            log.warning("[CLEANUP] %s cancel_all_open_orders hatasi: %s", sym, e)

@@ -147,7 +147,7 @@
 
 ---
 ### MADDE A7 — cancel_all_open_orders erken broad-cancel olmaktan çıkarılacak
-- [ ] Bot
+- [X] Bot
 - **Dosya:** `src/bot.py` + `src/trading/order_manager.py`
 - **Fonksiyon:** `_exit_trade()` + `cleanup_on_exit()`
 - **Satır:**

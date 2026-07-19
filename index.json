@@ -4,6 +4,114 @@
   "repos": {
     "sniper": {
       "functions": {
+        "src.bot._save_fvg_state": {
+          "file": "src\\bot.py",
+          "line_start": 75,
+          "line_end": 86,
+          "signature": "def _save_fvg_state(sym: str, fvg_data: dict) -> None:"
+        },
+        "src.bot._load_fvg_state": {
+          "file": "src\\bot.py",
+          "line_start": 89,
+          "line_end": 97,
+          "signature": "def _load_fvg_state(sym: str) -> dict:"
+        },
+        "src.bot._setup_logging": {
+          "file": "src\\bot.py",
+          "line_start": 100,
+          "line_end": 153,
+          "signature": "def _setup_logging() -> logging.Logger:"
+        },
+        "src.bot.PaperTrader.__init__": {
+          "file": "src\\bot.py",
+          "line_start": 163,
+          "line_end": 242,
+          "signature": "def __init__(self, symbols: list[str] | None=None):"
+        },
+        "src.bot.PaperTrader._pl": {
+          "file": "src\\bot.py",
+          "line_start": 244,
+          "line_end": 246,
+          "signature": "def _pl(self, sym: str, key: str, msg: str, force: bool=False):"
+        },
+        "src.bot.PaperTrader._session_label": {
+          "file": "src\\bot.py",
+          "line_start": 248,
+          "line_end": 252,
+          "signature": "def _session_label(self, hour: int) -> str:"
+        },
+        "src.bot.PaperTrader._load_history": {
+          "file": "src\\bot.py",
+          "line_start": 254,
+          "line_end": 268,
+          "signature": "def _load_history(self):"
+        },
+        "src.bot.PaperTrader._on_15m_close": {
+          "file": "src\\bot.py",
+          "line_start": 272,
+          "line_end": 394,
+          "signature": "async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):"
+        },
+        "src.bot.PaperTrader._on_1m_close": {
+          "file": "src\\bot.py",
+          "line_start": 398,
+          "line_end": 467,
+          "signature": "async def _on_1m_close(self, sym: str, bars_1m: list[Bar]):"
+        },
+        "src.bot.PaperTrader._try_entry": {
+          "file": "src\\bot.py",
+          "line_start": 471,
+          "line_end": 714,
+          "signature": "async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):"
+        },
+        "src.bot.PaperTrader._exit_trade": {
+          "file": "src\\bot.py",
+          "line_start": 716,
+          "line_end": 1033,
+          "signature": "async def _exit_trade(self, sym, trade, exit_timestamp: int):"
+        },
+        "src.bot.PaperTrader.on_15m": {
+          "file": "src\\bot.py",
+          "line_start": 1035,
+          "line_end": 1038,
+          "signature": "async def on_15m(self, sym: str, bars: list[Bar]):"
+        },
+        "src.bot.PaperTrader.on_1m": {
+          "file": "src\\bot.py",
+          "line_start": 1040,
+          "line_end": 1043,
+          "signature": "async def on_1m(self, sym: str, bars: list[Bar]):"
+        },
+        "src.bot.PaperTrader._prefill_bars": {
+          "file": "src\\bot.py",
+          "line_start": 1045,
+          "line_end": 1069,
+          "signature": "async def _prefill_bars(self, sym: str, timeframe: str='15m') -> Result[None]:"
+        },
+        "src.bot.PaperTrader._warmup_cbdr": {
+          "file": "src\\bot.py",
+          "line_start": 1071,
+          "line_end": 1126,
+          "signature": "def _warmup_cbdr(self, sym: str):"
+        },
+        "src.bot.PaperTrader._set_leverage": {
+          "file": "src\\bot.py",
+          "line_start": 1128,
+          "line_end": 1145,
+          "signature": "async def _set_leverage(self, symbol: str) -> Result[None]:"
+        },
+        "src.bot.PaperTrader.run": {
+          "file": "src\\bot.py",
+          "line_start": 1147,
+          "line_end": 1291,
+          "signature": "async def run(self):"
+        },
+        "src.bot.main": {
+          "file": "src\\bot.py",
+          "line_start": 1294,
+          "line_end": 1304,
+          "signature": "def main():"
+        },
         "src.bot_binance._get_precision_places": {
           "file": "src\\bot_binance.py",
           "line_start": 42,
@@ -454,6 +562,210 @@
           "line_end": 73,
           "signature": "def build_atr_from_bars(bars: list[Bar], period: int=ATR_PERIOD) -> float:"
         },
+        "src.models.Result.ok": {
+          "file": "src\\models.py",
+          "line_start": 43,
+          "line_end": 44,
+          "signature": "@staticmethod"
+        },
+        "src.models.Result.fail": {
+          "file": "src\\models.py",
+          "line_start": 47,
+          "line_end": 48,
+          "signature": "@staticmethod"
+        },
+        "src.models.Result.is_ok": {
+          "file": "src\\models.py",
+          "line_start": 51,
+          "line_end": 52,
+          "signature": "@property"
+        },
+        "src.models.Result.is_err": {
+          "file": "src\\models.py",
+          "line_start": 55,
+          "line_end": 56,
+          "signature": "@property"
+        },
+        "src.models.WSFallbackError.__init__": {
+          "file": "src\\models.py",
+          "line_start": 71,
+          "line_end": 79,
+          "signature": "def __init__(self, symbol: str, oid: str, expected_sl: str, expected_tp: str):"
+        },
+        "src.models.tf_params": {
+          "file": "src\\models.py",
+          "line_start": 96,
+          "line_end": 97,
+          "signature": "def tf_params(timeframe: str) -> tuple[int, int, int]:"
+        },
+        "src.models.Bar.body": {
+          "file": "src\\models.py",
+          "line_start": 120,
+          "line_end": 121,
+          "signature": "@property"
+        },
+        "src.models.Bar.upper_wick": {
+          "file": "src\\models.py",
+          "line_start": 124,
+          "line_end": 125,
+          "signature": "@property"
+        },
+        "src.models.Bar.lower_wick": {
+          "file": "src\\models.py",
+          "line_start": 128,
+          "line_end": 129,
+          "signature": "@property"
+        },
+        "src.models.Bar.range": {
+          "file": "src\\models.py",
+          "line_start": 132,
+          "line_end": 133,
+          "signature": "@property"
+        },
+        "src.models.Bar.__post_init__": {
+          "file": "src\\models.py",
+          "line_start": 135,
+          "line_end": 147,
+          "signature": "def __post_init__(self) -> None:"
+        },
+        "src.models.FVG.__post_init__": {
+          "file": "src\\models.py",
+          "line_start": 161,
+          "line_end": 167,
+          "signature": "def __post_init__(self) -> None:"
+        },
+        "src.models.FVG.size": {
+          "file": "src\\models.py",
+          "line_start": 170,
+          "line_end": 171,
+          "signature": "@property"
+        },
+        "src.models.FVG.midpoint": {
+          "file": "src\\models.py",
+          "line_start": 174,
+          "line_end": 175,
+          "signature": "@property"
+        },
+        "src.models.FVG.is_active": {
+          "file": "src\\models.py",
+          "line_start": 178,
+          "line_end": 179,
+          "signature": "@property"
+        },
+        "src.models.FVG.mark_filled": {
+          "file": "src\\models.py",
+          "line_start": 181,
+          "line_end": 190,
+          "signature": "def mark_filled(self, price: float) -> bool:"
+        },
+        "src.models.CHoCH.__post_init__": {
+          "file": "src\\models.py",
+          "line_start": 203,
+          "line_end": 208,
+          "signature": "def __post_init__(self) -> None:"
+        },
+        "src.models.CHoCH.age_bars": {
+          "file": "src\\models.py",
+          "line_start": 210,
+          "line_end": 211,
+          "signature": "def age_bars(self, current_index: int) -> int:"
+        },
+        "src.models.SwingPoint.mark_mitigated": {
+          "file": "src\\models.py",
+          "line_start": 221,
+          "line_end": 228,
+          "signature": "def mark_mitigated(self, price: float) -> bool:"
+        },
+        "src.models.FVGQuality.__post_init__": {
+          "file": "src\\models.py",
+          "line_start": 239,
+          "line_end": 248,
+          "signature": "def __post_init__(self) -> None:"
+        },
+        "src.models.FVGQuality.is_valid": {
+          "file": "src\\models.py",
+          "line_start": 251,
+          "line_end": 252,
+          "signature": "@property"
+        },
+        "src.models.AnalysisResult.expected_choch_direction": {
+          "file": "src\\models.py",
+          "line_start": 275,
+          "line_end": 280,
+          "signature": "@property"
+        },
+        "src.models.AnalysisResult.is_valid_signal": {
+          "file": "src\\models.py",
+          "line_start": 282,
+          "line_end": 286,
+          "signature": "def is_valid_signal(self, _threshold: float | None=None) -> bool:"
+        },
+        "src.models.AnalysisResult.summary": {
+          "file": "src\\models.py",
+          "line_start": 288,
+          "line_end": 307,
+          "signature": "def summary(self) -> str:"
+        },
+        "src.models.ActiveTrade.__getitem__": {
+          "file": "src\\models.py",
+          "line_start": 382,
+          "line_end": 386,
+          "signature": "def __getitem__(self, key: str):"
+        },
+        "src.models.ActiveTrade.__setitem__": {
+          "file": "src\\models.py",
+          "line_start": 388,
+          "line_end": 389,
+          "signature": "def __setitem__(self, key: str, value) -> None:"
+        },
+        "src.models.ActiveTrade.get": {
+          "file": "src\\models.py",
+          "line_start": 391,
+          "line_end": 392,
+          "signature": "def get(self, key: str, default=None):"
+        },
+        "src.models.ActiveTrade.__contains__": {
+          "file": "src\\models.py",
+          "line_start": 394,
+          "line_end": 395,
+          "signature": "def __contains__(self, key: str) -> bool:"
+        },
+        "src.models.ActiveTrade.keys": {
+          "file": "src\\models.py",
+          "line_start": 397,
+          "line_end": 398,
+          "signature": "def keys(self):"
+        },
+        "src.models.ActiveTrade.__iter__": {
+          "file": "src\\models.py",
+          "line_start": 400,
+          "line_end": 401,
+          "signature": "def __iter__(self):"
+        },
+        "src.models.PendingLock.__init__": {
+          "file": "src\\models.py",
+          "line_start": 426,
+          "line_end": 430,
+          "signature": "def __init__(self, active_trades: dict, sym: str, logger=None):"
+        },
+        "src.models.PendingLock.__enter__": {
+          "file": "src\\models.py",
+          "line_start": 432,
+          "line_end": 435,
+          "signature": "def __enter__(self):"
+        },
+        "src.models.PendingLock.commit": {
+          "file": "src\\models.py",
+          "line_start": 437,
+          "line_end": 442,
+          "signature": "def commit(self):"
+        },
+        "src.models.PendingLock.__exit__": {
+          "file": "src\\models.py",
+          "line_start": 444,
+          "line_end": 454,
+          "signature": "def __exit__(self, _exc_type, _exc_val, _exc_tb):"
+        },
         "src.retrace_state.HTFFVG.__init__": {
           "file": "src\\retrace_state.py",
           "line_start": 28,
@@ -880,6 +1192,12 @@
           "line_end": 247,
           "signature": "def dump_state() -> dict:"
         },
+        "src.state_writer.write_state": {
+          "file": "src\\state_writer.py",
+          "line_start": 9,
+          "line_end": 66,
+          "signature": "def write_state(states: dict, active_trades: dict, available_balance: float, wallet_balance: float, symbols: list[str]) -> None:"
+        },
         "src.websocket.is_cooldown_active": {
           "file": "src\\websocket.py",
           "line_start": 51,
@@ -1036,6 +1354,36 @@
           "line_end": 617,
           "signature": "async def main() -> None:"
         },
+        "src.snapshot.snapshot._fetch_ohlc": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 41,
+          "line_end": 99,
+          "signature": "def _fetch_ohlc(sym: str, anchor_ms: int) -> list[dict] | None:"
+        },
+        "src.snapshot.snapshot._find_bar": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 107,
+          "line_end": 123,
+          "signature": "def _find_bar(candles: list[dict], price: float, ts_ms: int | None=None) -> int:"
+        },
+        "src.snapshot.snapshot.normalize_trade": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 131,
+          "line_end": 146,
+          "signature": "def normalize_trade(trade: dict) -> dict:"
+        },
+        "src.snapshot.snapshot._resolve_fvg_bar_index": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 154,
+          "line_end": 211,
+          "signature": "def _resolve_fvg_bar_index(candles: list[dict], entry_bar: int, fvg_obj, trade: dict, fvg_top: float | None, fvg_bottom: float | None) -> int | None:"
+        },
+        "src.snapshot.snapshot.capture_snapshot": {
+          "file": "src\\snapshot\\snapshot.py",
+          "line_start": 214,
+          "line_end": 413,
+          "signature": "def capture_snapshot(sym: str, trade: dict, pnl: float | None=None, session_state=None) -> str | None:"
+        },
         "src.trading.console_reporter.ConsoleReporter.__init__": {
           "file": "src\\trading\\console_reporter.py",
           "line_start": 32,
@@ -1126,6 +1474,78 @@
           "line_end": 441,
           "signature": "async def _bump_to_min_notional(self, sym: str, qty: float, price: float, balance: float, leverage: int) -> float:"
         },
+        "src.trading.order_manager.OrderManager.__init__": {
+          "file": "src\\trading\\order_manager.py",
+          "line_start": 33,
+          "line_end": 35,
+          "signature": "def __init__(self, rest_client, is_live: bool=False):"
+        },
+        "src.trading.order_manager.OrderManager.update_trail_orders": {
+          "file": "src\\trading\\order_manager.py",
+          "line_start": 39,
+          "line_end": 185,
+          "signature": "async def update_trail_orders(self, sym: str, trade: dict, new_sl: float, new_tp: float, new_trail_count: int) -> bool:"
+        },
+        "src.trading.order_manager.OrderManager.verify_protection": {
+          "file": "src\\trading\\order_manager.py",
+          "line_start": 189,
+          "line_end": 212,
+          "signature": "async def verify_protection(self, sym: str, trade: dict) -> tuple[bool, bool]:"
+        },
+        "src.trading.order_manager.OrderManager.position_still_open": {
+          "file": "src\\trading\\order_manager.py",
+          "line_start": 214,
+          "line_end": 231,
+          "signature": "async def position_still_open(self, sym: str) -> bool:"
+        },
+        "src.trading.order_manager.OrderManager.repair_protection": {
+          "file": "src\\trading\\order_manager.py",
+          "line_start": 235,
+          "line_end": 267,
+          "signature": "async def repair_protection(self, sym: str, trade: dict, has_sl: bool, has_tp: bool) -> None:"
+        },
+        "src.trading.order_manager.OrderManager.cancel_all_open_orders": {
+          "file": "src\\trading\\order_manager.py",
+          "line_start": 271,
+          "line_end": 289,
+          "signature": "async def cancel_all_open_orders(self, sym: str) -> None:"
+        },
+        "src.trading.order_manager.OrderManager.cleanup_on_exit": {
+          "file": "src\\trading\\order_manager.py",
+          "line_start": 293,
+          "line_end": 360,
+          "signature": "async def cleanup_on_exit(self, sym: str, trade: dict, result: str) -> None:"
+        },
+        "src.trading.recovery_manager.RecoveryManager.__init__": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 39,
+          "line_end": 57,
+          "signature": "def __init__(self, rest_client, symbols: list[str], cfgs: dict, states: dict, active_trades: dict, pl_callback, order_manager=None, atr_state: dict | None=None):"
+        },
+        "src.trading.recovery_manager.RecoveryManager.recover_positions": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 61,
+          "line_end": 382,
+          "signature": "async def recover_positions(self) -> None:"
+        },
+        "src.trading.recovery_manager.RecoveryManager.reconcile_ghost_positions": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 386,
+          "line_end": 476,
+          "signature": "async def reconcile_ghost_positions(self) -> None:"
+        },
+        "src.trading.recovery_manager.RecoveryManager._known_protection_ids": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 478,
+          "line_end": 500,
+          "signature": "def _known_protection_ids(self) -> set[str]:"
+        },
+        "src.trading.recovery_manager.RecoveryManager.reconcile_orphan_orders": {
+          "file": "src\\trading\\recovery_manager.py",
+          "line_start": 502,
+          "line_end": 541,
+          "signature": "async def reconcile_orphan_orders(self) -> None:"
+        },
         "src.trading.signal_engine.SignalEngine.__init__": {
           "file": "src\\trading\\signal_engine.py",
           "line_start": 58,
@@ -1161,6 +1581,30 @@
           "line_start": 148,
           "line_end": 162,
           "signature": "@staticmethod"
+        },
+        "src.trading.user_data_handler.UserDataHandler.__init__": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 33,
+          "line_end": 45,
+          "signature": "def __init__(self, active_trades: dict[str, Any], pl_callback: Callable[[str, str, str], None], wallet_callback: Callable[[float], None], order_manager: Any, exit_callback: Callable[..., Any]):"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 47,
+          "line_end": 186,
+          "signature": "def register(self, hub: Any) -> None:"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register.on_order_update": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 52,
+          "line_end": 172,
+          "signature": "@hub.on_user_data('ORDER_TRADE_UPDATE')"
+        },
+        "src.trading.user_data_handler.UserDataHandler.register.on_account_update": {
+          "file": "src\\trading\\user_data_handler.py",
+          "line_start": 175,
+          "line_end": 179,
+          "signature": "@hub.on_user_data('ACCOUNT_UPDATE')"
         },
         "tests.conftest._isolate_logging": {
           "file": "tests\\conftest.py",
@@ -3268,138 +3712,6 @@
           "line_end": 204,
           "signature": "def test_unknown_timeframe_default(self):"
         },
-        "tests.test_order_manager._trade": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 14,
-          "line_end": 25,
-          "signature": "def _trade(side='long', sl=100.0, tp=110.0, qty=0.5, sl_order_id='sl_old', tp_order_id='tp_old'):"
-        },
-        "tests.test_order_manager.TestUpdateTrailOrders.test_non_live_returns_true": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 35,
-          "line_end": 38,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestUpdateTrailOrders.test_no_api_key_returns_true": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 42,
-          "line_end": 46,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestUpdateTrailOrders.test_full_success_long": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 50,
-          "line_end": 66,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestUpdateTrailOrders.test_full_success_short": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 70,
-          "line_end": 84,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestUpdateTrailOrders.test_sl_place_fails_returns_false": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 88,
-          "line_end": 102,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestUpdateTrailOrders.test_tp_place_fails_returns_false": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 106,
-          "line_end": 119,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestUpdateTrailOrders.test_sl_exception_caught_gracefully": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 123,
-          "line_end": 137,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestUpdateTrailOrders.test_old_id_cancel_exception_not_fatal": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 141,
-          "line_end": 154,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestUpdateTrailOrders.test_no_old_ids_no_cancel": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 158,
-          "line_end": 171,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestRepairProtection.test_repairs_missing_sl": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 181,
-          "line_end": 192,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestRepairProtection.test_repairs_missing_tp": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 195,
-          "line_end": 206,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestRepairProtection.test_repairs_both_missing": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 209,
-          "line_end": 220,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestRepairProtection.test_skips_when_already_present": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 223,
-          "line_end": 231,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestRepairProtection.test_skips_when_sl_value_missing": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 234,
-          "line_end": 241,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestCleanupOnExit.test_non_live_noop": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 251,
-          "line_end": 254,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestCleanupOnExit.test_sl_triggered_cancels_tp": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 258,
-          "line_end": 271,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestCleanupOnExit.test_tp_triggered_cancels_sl": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 275,
-          "line_end": 288,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestCleanupOnExit.test_emergency_close_when_trigger_id_missing": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 292,
-          "line_end": 308,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestCleanupOnExit.test_cancel_exception_does_not_block_emergency_close": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 312,
-          "line_end": 323,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestCleanupOnExit.test_no_remaining_order_no_cancel": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 327,
-          "line_end": 340,
-          "signature": "@pytest.mark.asyncio"
-        },
-        "tests.test_order_manager.TestEdgeCases.test_trail_with_zero_qty_fallback": {
-          "file": "tests\\test_order_manager.py",
-          "line_start": 351,
-          "line_end": 370,
-          "signature": "@pytest.mark.asyncio"
-        },
         "tests.test_recovery_manager._pl_noop": {
           "file": "tests\\test_recovery_manager.py",
           "line_start": 12,
@@ -4276,420 +4588,6 @@
           "line_end": 482,
           "signature": "@patch('trading.trailing_manager.cfg')"
         },
-        "src.state_writer.write_state": {
-          "file": "src\\state_writer.py",
-          "line_start": 9,
-          "line_end": 66,
-          "signature": "def write_state(states: dict, active_trades: dict, available_balance: float, wallet_balance: float, symbols: list[str]) -> None:"
-        },
-        "src.models.Result.ok": {
-          "file": "src\\models.py",
-          "line_start": 43,
-          "line_end": 44,
-          "signature": "@staticmethod"
-        },
-        "src.models.Result.fail": {
-          "file": "src\\models.py",
-          "line_start": 47,
-          "line_end": 48,
-          "signature": "@staticmethod"
-        },
-        "src.models.Result.is_ok": {
-          "file": "src\\models.py",
-          "line_start": 51,
-          "line_end": 52,
-          "signature": "@property"
-        },
-        "src.models.Result.is_err": {
-          "file": "src\\models.py",
-          "line_start": 55,
-          "line_end": 56,
-          "signature": "@property"
-        },
-        "src.models.WSFallbackError.__init__": {
-          "file": "src\\models.py",
-          "line_start": 71,
-          "line_end": 79,
-          "signature": "def __init__(self, symbol: str, oid: str, expected_sl: str, expected_tp: str):"
-        },
-        "src.models.tf_params": {
-          "file": "src\\models.py",
-          "line_start": 96,
-          "line_end": 97,
-          "signature": "def tf_params(timeframe: str) -> tuple[int, int, int]:"
-        },
-        "src.models.Bar.body": {
-          "file": "src\\models.py",
-          "line_start": 120,
-          "line_end": 121,
-          "signature": "@property"
-        },
-        "src.models.Bar.upper_wick": {
-          "file": "src\\models.py",
-          "line_start": 124,
-          "line_end": 125,
-          "signature": "@property"
-        },
-        "src.models.Bar.lower_wick": {
-          "file": "src\\models.py",
-          "line_start": 128,
-          "line_end": 129,
-          "signature": "@property"
-        },
-        "src.models.Bar.range": {
-          "file": "src\\models.py",
-          "line_start": 132,
-          "line_end": 133,
-          "signature": "@property"
-        },
-        "src.models.Bar.__post_init__": {
-          "file": "src\\models.py",
-          "line_start": 135,
-          "line_end": 147,
-          "signature": "def __post_init__(self) -> None:"
-        },
-        "src.models.FVG.__post_init__": {
-          "file": "src\\models.py",
-          "line_start": 161,
-          "line_end": 167,
-          "signature": "def __post_init__(self) -> None:"
-        },
-        "src.models.FVG.size": {
-          "file": "src\\models.py",
-          "line_start": 170,
-          "line_end": 171,
-          "signature": "@property"
-        },
-        "src.models.FVG.midpoint": {
-          "file": "src\\models.py",
-          "line_start": 174,
-          "line_end": 175,
-          "signature": "@property"
-        },
-        "src.models.FVG.is_active": {
-          "file": "src\\models.py",
-          "line_start": 178,
-          "line_end": 179,
-          "signature": "@property"
-        },
-        "src.models.FVG.mark_filled": {
-          "file": "src\\models.py",
-          "line_start": 181,
-          "line_end": 190,
-          "signature": "def mark_filled(self, price: float) -> bool:"
-        },
-        "src.models.CHoCH.__post_init__": {
-          "file": "src\\models.py",
-          "line_start": 203,
-          "line_end": 208,
-          "signature": "def __post_init__(self) -> None:"
-        },
-        "src.models.CHoCH.age_bars": {
-          "file": "src\\models.py",
-          "line_start": 210,
-          "line_end": 211,
-          "signature": "def age_bars(self, current_index: int) -> int:"
-        },
-        "src.models.SwingPoint.mark_mitigated": {
-          "file": "src\\models.py",
-          "line_start": 221,
-          "line_end": 228,
-          "signature": "def mark_mitigated(self, price: float) -> bool:"
-        },
-        "src.models.FVGQuality.__post_init__": {
-          "file": "src\\models.py",
-          "line_start": 239,
-          "line_end": 248,
-          "signature": "def __post_init__(self) -> None:"
-        },
-        "src.models.FVGQuality.is_valid": {
-          "file": "src\\models.py",
-          "line_start": 251,
-          "line_end": 252,
-          "signature": "@property"
-        },
-        "src.models.AnalysisResult.expected_choch_direction": {
-          "file": "src\\models.py",
-          "line_start": 275,
-          "line_end": 280,
-          "signature": "@property"
-        },
-        "src.models.AnalysisResult.is_valid_signal": {
-          "file": "src\\models.py",
-          "line_start": 282,
-          "line_end": 286,
-          "signature": "def is_valid_signal(self, _threshold: float | None=None) -> bool:"
-        },
-        "src.models.AnalysisResult.summary": {
-          "file": "src\\models.py",
-          "line_start": 288,
-          "line_end": 307,
-          "signature": "def summary(self) -> str:"
-        },
-        "src.models.ActiveTrade.__getitem__": {
-          "file": "src\\models.py",
-          "line_start": 382,
-          "line_end": 386,
-          "signature": "def __getitem__(self, key: str):"
-        },
-        "src.models.ActiveTrade.__setitem__": {
-          "file": "src\\models.py",
-          "line_start": 388,
-          "line_end": 389,
-          "signature": "def __setitem__(self, key: str, value) -> None:"
-        },
-        "src.models.ActiveTrade.get": {
-          "file": "src\\models.py",
-          "line_start": 391,
-          "line_end": 392,
-          "signature": "def get(self, key: str, default=None):"
-        },
-        "src.models.ActiveTrade.__contains__": {
-          "file": "src\\models.py",
-          "line_start": 394,
-          "line_end": 395,
-          "signature": "def __contains__(self, key: str) -> bool:"
-        },
-        "src.models.ActiveTrade.keys": {
-          "file": "src\\models.py",
-          "line_start": 397,
-          "line_end": 398,
-          "signature": "def keys(self):"
-        },
-        "src.models.ActiveTrade.__iter__": {
-          "file": "src\\models.py",
-          "line_start": 400,
-          "line_end": 401,
-          "signature": "def __iter__(self):"
-        },
-        "src.models.PendingLock.__init__": {
-          "file": "src\\models.py",
-          "line_start": 426,
-          "line_end": 430,
-          "signature": "def __init__(self, active_trades: dict, sym: str, logger=None):"
-        },
-        "src.models.PendingLock.__enter__": {
-          "file": "src\\models.py",
-          "line_start": 432,
-          "line_end": 435,
-          "signature": "def __enter__(self):"
-        },
-        "src.models.PendingLock.commit": {
-          "file": "src\\models.py",
-          "line_start": 437,
-          "line_end": 442,
-          "signature": "def commit(self):"
-        },
-        "src.models.PendingLock.__exit__": {
-          "file": "src\\models.py",
-          "line_start": 444,
-          "line_end": 454,
-          "signature": "def __exit__(self, _exc_type, _exc_val, _exc_tb):"
-        },
-        "src.trading.user_data_handler.UserDataHandler.__init__": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 33,
-          "line_end": 45,
-          "signature": "def __init__(self, active_trades: dict[str, Any], pl_callback: Callable[[str, str, str], None], wallet_callback: Callable[[float], None], order_manager: Any, exit_callback: Callable[..., Any]):"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 47,
-          "line_end": 186,
-          "signature": "def register(self, hub: Any) -> None:"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register.on_order_update": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 52,
-          "line_end": 172,
-          "signature": "@hub.on_user_data('ORDER_TRADE_UPDATE')"
-        },
-        "src.trading.user_data_handler.UserDataHandler.register.on_account_update": {
-          "file": "src\\trading\\user_data_handler.py",
-          "line_start": 175,
-          "line_end": 179,
-          "signature": "@hub.on_user_data('ACCOUNT_UPDATE')"
-        },
-        "src.bot._save_fvg_state": {
-          "file": "src\\bot.py",
-          "line_start": 75,
-          "line_end": 86,
-          "signature": "def _save_fvg_state(sym: str, fvg_data: dict) -> None:"
-        },
-        "src.bot._load_fvg_state": {
-          "file": "src\\bot.py",
-          "line_start": 89,
-          "line_end": 97,
-          "signature": "def _load_fvg_state(sym: str) -> dict:"
-        },
-        "src.bot._setup_logging": {
-          "file": "src\\bot.py",
-          "line_start": 100,
-          "line_end": 153,
-          "signature": "def _setup_logging() -> logging.Logger:"
-        },
-        "src.bot.PaperTrader.__init__": {
-          "file": "src\\bot.py",
-          "line_start": 163,
-          "line_end": 242,
-          "signature": "def __init__(self, symbols: list[str] | None=None):"
-        },
-        "src.bot.PaperTrader._pl": {
-          "file": "src\\bot.py",
-          "line_start": 244,
-          "line_end": 246,
-          "signature": "def _pl(self, sym: str, key: str, msg: str, force: bool=False):"
-        },
-        "src.bot.PaperTrader._session_label": {
-          "file": "src\\bot.py",
-          "line_start": 248,
-          "line_end": 252,
-          "signature": "def _session_label(self, hour: int) -> str:"
-        },
-        "src.bot.PaperTrader._load_history": {
-          "file": "src\\bot.py",
-          "line_start": 254,
-          "line_end": 268,
-          "signature": "def _load_history(self):"
-        },
-        "src.bot.PaperTrader._on_15m_close": {
-          "file": "src\\bot.py",
-          "line_start": 272,
-          "line_end": 394,
-          "signature": "async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):"
-        },
-        "src.bot.PaperTrader._on_1m_close": {
-          "file": "src\\bot.py",
-          "line_start": 398,
-          "line_end": 467,
-          "signature": "async def _on_1m_close(self, sym: str, bars_1m: list[Bar]):"
-        },
-        "src.bot.PaperTrader._try_entry": {
-          "file": "src\\bot.py",
-          "line_start": 471,
-          "line_end": 714,
-          "signature": "async def _try_entry(self, sym, current, atr_val, rsm, ss, sweep_dir, sl_atr, tp_rr, fvg_buf, min_fvg):"
-        },
-        "src.bot.PaperTrader._exit_trade": {
-          "file": "src\\bot.py",
-          "line_start": 716,
-          "line_end": 1039,
-          "signature": "async def _exit_trade(self, sym, trade, exit_timestamp: int):"
-        },
-        "src.bot.PaperTrader.on_15m": {
-          "file": "src\\bot.py",
-          "line_start": 1041,
-          "line_end": 1044,
-          "signature": "async def on_15m(self, sym: str, bars: list[Bar]):"
-        },
-        "src.bot.PaperTrader.on_1m": {
-          "file": "src\\bot.py",
-          "line_start": 1046,
-          "line_end": 1049,
-          "signature": "async def on_1m(self, sym: str, bars: list[Bar]):"
-        },
-        "src.bot.PaperTrader._prefill_bars": {
-          "file": "src\\bot.py",
-          "line_start": 1051,
-          "line_end": 1075,
-          "signature": "async def _prefill_bars(self, sym: str, timeframe: str='15m') -> Result[None]:"
-        },
-        "src.bot.PaperTrader._warmup_cbdr": {
-          "file": "src\\bot.py",
-          "line_start": 1077,
-          "line_end": 1132,
-          "signature": "def _warmup_cbdr(self, sym: str):"
-        },
-        "src.bot.PaperTrader._set_leverage": {
-          "file": "src\\bot.py",
-          "line_start": 1134,
-          "line_end": 1151,
-          "signature": "async def _set_leverage(self, symbol: str) -> Result[None]:"
-        },
-        "src.bot.PaperTrader.run": {
-          "file": "src\\bot.py",
-          "line_start": 1153,
-          "line_end": 1297,
-          "signature": "async def run(self):"
-        },
-        "src.bot.main": {
-          "file": "src\\bot.py",
-          "line_start": 1300,
-          "line_end": 1310,
-          "signature": "def main():"
-        },
-        "src.trading.order_manager.OrderManager.__init__": {
-          "file": "src\\trading\\order_manager.py",
-          "line_start": 33,
-          "line_end": 35,
-          "signature": "def __init__(self, rest_client, is_live: bool=False):"
-        },
-        "src.trading.order_manager.OrderManager.update_trail_orders": {
-          "file": "src\\trading\\order_manager.py",
-          "line_start": 39,
-          "line_end": 185,
-          "signature": "async def update_trail_orders(self, sym: str, trade: dict, new_sl: float, new_tp: float, new_trail_count: int) -> bool:"
-        },
-        "src.trading.order_manager.OrderManager.verify_protection": {
-          "file": "src\\trading\\order_manager.py",
-          "line_start": 189,
-          "line_end": 212,
-          "signature": "async def verify_protection(self, sym: str, trade: dict) -> tuple[bool, bool]:"
-        },
-        "src.trading.order_manager.OrderManager.position_still_open": {
-          "file": "src\\trading\\order_manager.py",
-          "line_start": 214,
-          "line_end": 231,
-          "signature": "async def position_still_open(self, sym: str) -> bool:"
-        },
-        "src.trading.order_manager.OrderManager.repair_protection": {
-          "file": "src\\trading\\order_manager.py",
-          "line_start": 235,
-          "line_end": 267,
-          "signature": "async def repair_protection(self, sym: str, trade: dict, has_sl: bool, has_tp: bool) -> None:"
-        },
-        "src.trading.order_manager.OrderManager.cancel_all_open_orders": {
-          "file": "src\\trading\\order_manager.py",
-          "line_start": 271,
-          "line_end": 289,
-          "signature": "async def cancel_all_open_orders(self, sym: str) -> None:"
-        },
-        "src.trading.order_manager.OrderManager.cleanup_on_exit": {
-          "file": "src\\trading\\order_manager.py",
-          "line_start": 293,
-          "line_end": 346,
-          "signature": "async def cleanup_on_exit(self, sym: str, trade: dict, result: str) -> None:"
-        },
-        "src.trading.recovery_manager.RecoveryManager.__init__": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 39,
-          "line_end": 57,
-          "signature": "def __init__(self, rest_client, symbols: list[str], cfgs: dict, states: dict, active_trades: dict, pl_callback, order_manager=None, atr_state: dict | None=None):"
-        },
-        "src.trading.recovery_manager.RecoveryManager.recover_positions": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 61,
-          "line_end": 382,
-          "signature": "async def recover_positions(self) -> None:"
-        },
-        "src.trading.recovery_manager.RecoveryManager.reconcile_ghost_positions": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 386,
-          "line_end": 476,
-          "signature": "async def reconcile_ghost_positions(self) -> None:"
-        },
-        "src.trading.recovery_manager.RecoveryManager._known_protection_ids": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 478,
-          "line_end": 500,
-          "signature": "def _known_protection_ids(self) -> set[str]:"
-        },
-        "src.trading.recovery_manager.RecoveryManager.reconcile_orphan_orders": {
-          "file": "src\\trading\\recovery_manager.py",
-          "line_start": 502,
-          "line_end": 541,
-          "signature": "async def reconcile_orphan_orders(self) -> None:"
-        },
         "tests.test_websocket._bar": {
           "file": "tests\\test_websocket.py",
           "line_start": 27,
@@ -4936,38 +4834,162 @@
           "line_end": 423,
           "signature": "def test_known_timeframes(self):"
         },
-        "src.snapshot.snapshot._fetch_ohlc": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 41,
-          "line_end": 99,
-          "signature": "def _fetch_ohlc(sym: str, anchor_ms: int) -> list[dict] | None:"
+        "tests.test_order_manager._trade": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 14,
+          "line_end": 25,
+          "signature": "def _trade(side='long', sl=100.0, tp=110.0, qty=0.5, sl_order_id='sl_old', tp_order_id='tp_old'):"
         },
-        "src.snapshot.snapshot._find_bar": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 107,
-          "line_end": 123,
-          "signature": "def _find_bar(candles: list[dict], price: float, ts_ms: int | None=None) -> int:"
+        "tests.test_order_manager.TestUpdateTrailOrders.test_non_live_returns_true": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 35,
+          "line_end": 38,
+          "signature": "@pytest.mark.asyncio"
         },
-        "src.snapshot.snapshot.normalize_trade": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 131,
-          "line_end": 146,
-          "signature": "def normalize_trade(trade: dict) -> dict:"
+        "tests.test_order_manager.TestUpdateTrailOrders.test_no_api_key_returns_true": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 42,
+          "line_end": 46,
+          "signature": "@pytest.mark.asyncio"
         },
-        "src.snapshot.snapshot._resolve_fvg_bar_index": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 154,
-          "line_end": 211,
-          "signature": "def _resolve_fvg_bar_index(candles: list[dict], entry_bar: int, fvg_obj, trade: dict, fvg_top: float | None, fvg_bottom: float | None) -> int | None:"
+        "tests.test_order_manager.TestUpdateTrailOrders.test_full_success_long": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 50,
+          "line_end": 66,
+          "signature": "@pytest.mark.asyncio"
         },
-        "src.snapshot.snapshot.capture_snapshot": {
-          "file": "src\\snapshot\\snapshot.py",
-          "line_start": 214,
-          "line_end": 413,
-          "signature": "def capture_snapshot(sym: str, trade: dict, pnl: float | None=None, session_state=None) -> str | None:"
+        "tests.test_order_manager.TestUpdateTrailOrders.test_full_success_short": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 70,
+          "line_end": 84,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestUpdateTrailOrders.test_sl_place_fails_returns_false": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 88,
+          "line_end": 102,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestUpdateTrailOrders.test_tp_place_fails_returns_false": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 106,
+          "line_end": 119,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestUpdateTrailOrders.test_sl_exception_caught_gracefully": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 123,
+          "line_end": 137,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestUpdateTrailOrders.test_old_id_cancel_exception_not_fatal": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 141,
+          "line_end": 154,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestUpdateTrailOrders.test_no_old_ids_no_cancel": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 158,
+          "line_end": 171,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestRepairProtection.test_repairs_missing_sl": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 181,
+          "line_end": 192,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestRepairProtection.test_repairs_missing_tp": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 195,
+          "line_end": 206,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestRepairProtection.test_repairs_both_missing": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 209,
+          "line_end": 220,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestRepairProtection.test_skips_when_already_present": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 223,
+          "line_end": 231,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestRepairProtection.test_skips_when_sl_value_missing": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 234,
+          "line_end": 241,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestCleanupOnExit.test_non_live_noop": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 251,
+          "line_end": 254,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestCleanupOnExit.test_sl_triggered_cancels_tp": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 258,
+          "line_end": 271,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestCleanupOnExit.test_tp_triggered_cancels_sl": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 275,
+          "line_end": 288,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestCleanupOnExit.test_emergency_close_when_trigger_id_missing": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 292,
+          "line_end": 308,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestCleanupOnExit.test_cancel_exception_does_not_block_emergency_close": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 312,
+          "line_end": 323,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestCleanupOnExit.test_cancel_all_called_at_end": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 327,
+          "line_end": 341,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestCleanupOnExit.test_cancel_all_called_even_on_empty_trade": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 345,
+          "line_end": 358,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestCleanupOnExit.test_cancel_all_exception_not_fatal": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 362,
+          "line_end": 374,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestCleanupOnExit.test_no_remaining_order_no_cancel": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 378,
+          "line_end": 391,
+          "signature": "@pytest.mark.asyncio"
+        },
+        "tests.test_order_manager.TestEdgeCases.test_trail_with_zero_qty_fallback": {
+          "file": "tests\\test_order_manager.py",
+          "line_start": 402,
+          "line_end": 421,
+          "signature": "@pytest.mark.asyncio"
         }
       },
       "files": {
+        "src\\bot.py": {
+          "last_modified": "2026-07-19T20:29:36",
+          "hash": "sha256:5812cae79a5398f3"
+        },
         "src\\bot_binance.py": {
           "last_modified": "2026-07-18T15:17:25",
           "hash": "sha256:3caec2312c0ab677"
@@ -4996,6 +5018,10 @@
           "last_modified": "2026-07-02T22:39:52",
           "hash": "sha256:c35d0d475e92b4be"
         },
+        "src\\models.py": {
+          "last_modified": "2026-07-19T18:43:45",
+          "hash": "sha256:f9fc79aff27d132b"
+        },
         "src\\retrace_state.py": {
           "last_modified": "2026-07-14T21:06:03",
           "hash": "sha256:5021433f6a2ca179"
@@ -5016,9 +5042,17 @@
           "last_modified": "2026-07-03T14:11:49",
           "hash": "sha256:b3026c6699d172d5"
         },
+        "src\\state_writer.py": {
+          "last_modified": "2026-06-30T21:09:49",
+          "hash": "sha256:ccafe1fef001605e"
+        },
         "src\\websocket.py": {
           "last_modified": "2026-06-26T01:17:29",
           "hash": "sha256:de70ea222cfe2e42"
+        },
+        "src\\snapshot\\snapshot.py": {
+          "last_modified": "2026-07-19T20:22:34",
+          "hash": "sha256:5a5700038caa8965"
         },
         "src\\snapshot\\__init__.py": {
           "last_modified": "2026-06-28T13:19:02",
@@ -5032,6 +5066,14 @@
           "last_modified": "2026-07-13T11:00:33",
           "hash": "sha256:7a139d8efdba380a"
         },
+        "src\\trading\\order_manager.py": {
+          "last_modified": "2026-07-19T20:29:43",
+          "hash": "sha256:29002cf5f99caebd"
+        },
+        "src\\trading\\recovery_manager.py": {
+          "last_modified": "2026-07-19T19:23:59",
+          "hash": "sha256:ee88c429e5aa5f69"
+        },
         "src\\trading\\signal_engine.py": {
           "last_modified": "2026-07-13T23:12:11",
           "hash": "sha256:a1642cf9445d472e"
@@ -5039,6 +5081,14 @@
         "src\\trading\\trailing_manager.py": {
           "last_modified": "2026-07-11T17:46:57",
           "hash": "sha256:674cc070a56d5502"
+        },
+        "src\\trading\\user_data_handler.py": {
+          "last_modified": "2026-07-19T18:43:48",
+          "hash": "sha256:204792182c03c853"
+        },
+        "src\\trading\\__init__.py": {
+          "last_modified": "2026-06-30T21:12:59",
+          "hash": "sha256:f61320312ed5e5b1"
         },
         "tests\\conftest.py": {
           "last_modified": "2026-06-30T14:00:39",
@@ -5080,10 +5130,6 @@
           "last_modified": "2026-06-26T00:50:38",
           "hash": "sha256:64cd76d2b5d8c369"
         },
-        "tests\\test_order_manager.py": {
-          "last_modified": "2026-06-26T01:10:59",
-          "hash": "sha256:766e1204994cacf3"
-        },
         "tests\\test_recovery_manager.py": {
           "last_modified": "2026-07-19T02:45:27",
           "hash": "sha256:a2f7e47610367cec"
@@ -5108,44 +5154,16 @@
           "last_modified": "2026-07-14T18:50:46",
           "hash": "sha256:58c88f16427c96a8"
         },
-        "src\\state_writer.py": {
-          "last_modified": "2026-06-30T21:09:49",
-          "hash": "sha256:ccafe1fef001605e"
-        },
-        "src\\trading\\__init__.py": {
-          "last_modified": "2026-06-30T21:12:59",
-          "hash": "sha256:f61320312ed5e5b1"
-        },
-        "src\\models.py": {
-          "last_modified": "2026-07-19T18:43:45",
-          "hash": "sha256:f9fc79aff27d132b"
-        },
-        "src\\trading\\user_data_handler.py": {
-          "last_modified": "2026-07-19T18:43:48",
-          "hash": "sha256:204792182c03c853"
-        },
-        "src\\bot.py": {
-          "last_modified": "2026-07-19T18:44:16",
-          "hash": "sha256:858d2783757a0e84"
-        },
-        "src\\trading\\order_manager.py": {
-          "last_modified": "2026-07-19T19:07:34",
-          "hash": "sha256:fd573a6cae9618cb"
-        },
-        "src\\trading\\recovery_manager.py": {
-          "last_modified": "2026-07-19T19:23:59",
-          "hash": "sha256:ee88c429e5aa5f69"
-        },
         "tests\\test_websocket.py": {
           "last_modified": "2026-06-26T01:10:59",
           "hash": "sha256:6f1468bf97ef5dde"
         },
-        "src\\snapshot\\snapshot.py": {
-          "last_modified": "2026-07-19T20:22:34",
-          "hash": "sha256:5a5700038caa8965"
+        "tests\\test_order_manager.py": {
+          "last_modified": "2026-07-19T20:46:08",
+          "hash": "sha256:eaaf5dd5cff86244"
         }
       },
-      "last_full_scan": "2026-07-19T15:38:36"
+      "last_full_scan": "2026-07-19T20:43:05"
     },
     "backtest-sniper": {
       "functions": {

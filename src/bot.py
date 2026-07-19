@@ -796,16 +796,10 @@ class PaperTrader:
         _exit_already_closed = trade.get("result") in ("SL", "TP", "WS_FALLBACK")
         trade["status"] = STATUS_EXIT_VERIFYING
 
-        # ── Önce tüm açık emirleri iptal et (SL/TP çakışmasını önle) ──
-        # NOT: bu blogun konumu A1 kapsami disinda (A7'nin konusu), bilerek
-        # dokunulmadi.
-        if cfg.BINANCE_API_KEY:
-            try:
-                await self.order_manager.cancel_all_open_orders(sym)
-            except Exception as e:
-                log.warning(
-                    "[EXIT] %s cancel_all_open_orders hatasi (devam): %s", sym, e
-                )
+        # FIX (A7): erken/koşulsuz cancel_all_open_orders() kaldırıldı — close
+        # doğrulanmadan tüm korumayı (SL/TP) iptal etmek, close başarısız
+        # olursa pozisyonu korumasız + açık bırakıyordu. İptal artık yalnızca
+        # exit doğrulanıp commit edildikten sonra cleanup_on_exit() içinde.
 
         # ── Pozisyon kapatma (reduceOnly market) — SL/TP ile kapandıysa atla ──
         if cfg.BINANCE_API_KEY and not _exit_already_closed:

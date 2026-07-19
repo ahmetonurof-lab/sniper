@@ -324,6 +324,57 @@ class TestCleanupOnExit:
 
     @pytest.mark.asyncio
     @patch("trading.order_manager.cfg")
+    async def test_cancel_all_called_at_end(self, mock_cfg):
+        """FIX (A7): cleanup_on_exit sonunda cancel_all_open_orders çağrılmalı."""
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_rest = MagicMock()
+        mock_rest.cancel_order = AsyncMock(return_value={})
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(sl_order_id="sl_001", tp_order_id="tp_001")
+        # cancel_all_open_orders için mock
+        mock_rest.get_all_orders = AsyncMock(return_value=[])
+
+        await mgr.cleanup_on_exit("BTCUSDT", trade, "SL")
+
+        # cancel_all_open_orders çağrılmalı (A7)
+        mock_rest.get_all_orders.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("trading.order_manager.cfg")
+    async def test_cancel_all_called_even_on_empty_trade(self, mock_cfg):
+        """FIX (A7): cancel_all_open_orders trade bos olsa bile calismali."""
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_rest = MagicMock()
+        mock_rest.cancel_order = AsyncMock(return_value={})
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(sl_order_id="", tp_order_id="")
+        mock_rest.get_all_orders = AsyncMock(return_value=[])
+
+        await mgr.cleanup_on_exit("BTCUSDT", trade, "SL")
+
+        # Yukaridaki hedefli iptal atlanir (bos ID), ama cancel_all yine de calisir
+        mock_rest.get_all_orders.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("trading.order_manager.cfg")
+    async def test_cancel_all_exception_not_fatal(self, mock_cfg):
+        """FIX (A7): cancel_all_open_orders basarisizsa cleanup patlamamali."""
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_rest = MagicMock()
+        mock_rest.cancel_order = AsyncMock(return_value={})
+        mock_rest.get_all_orders = AsyncMock(side_effect=Exception("API error"))
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(sl_order_id="sl_001", tp_order_id="tp_001")
+
+        # Should not raise
+        await mgr.cleanup_on_exit("BTCUSDT", trade, "SL")
+        mock_rest.get_all_orders.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("trading.order_manager.cfg")
     async def test_no_remaining_order_no_cancel(self, mock_cfg):
         """If there's no remaining order ID, skip cancel."""
         mock_cfg.BINANCE_API_KEY = "test_key"
