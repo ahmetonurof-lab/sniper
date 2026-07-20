@@ -200,9 +200,7 @@ def _run_worker(syms: list[str], days: int | None) -> dict:
                         idx = step // 15
                         if idx >= len(bars_15m):
                             continue
-                        chunk = bars_15m[
-                            : idx + 1
-                        ]  # tum gecmisi ver (on_15m min 10 bar ister)
+                        chunk = bars_15m[max(0, idx - 49) : idx + 1]
                         if len(chunk) >= 10:
                             await bot.on_15m(sym, chunk)
 
