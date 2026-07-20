@@ -7,17 +7,24 @@ Kırmızı çizgiler:
   - Strateji mantığında sıfır değişiklik
   - extract_order_id, time.time() kullanımı aynen kalır
   - Import yolları kırılmayacak
+
+Patch Set 3: Policy kararlari ProtectionLifecycleService'e tasindi.
+OrderManager artik saf mekanik katman (REST cagrilari).
 """
 
 from __future__ import annotations
 
 import logging
 import time
+from typing import TYPE_CHECKING
 
 import config as cfg
 from bot_infra import extract_order_id
 from event_log import log_event
 from models import UNRESTRICTED_STATUSES
+
+if TYPE_CHECKING:
+    from trading.protection_lifecycle import ProtectionLifecycleService
 
 log = logging.getLogger("sniper.order_manager")
 
@@ -28,11 +35,19 @@ class OrderManager:
     PaperTrader'dan DI ile alır:
       - rest_client: BinanceRESTClient
       - is_live: bool — API key varsa ve bot canlı moddaysa True
+      - protection_service: ProtectionLifecycleService | None —
+        policy kararlari icin (None ise eski inline logic korunur)
     """
 
-    def __init__(self, rest_client, is_live: bool = False):
+    def __init__(
+        self,
+        rest_client,
+        is_live: bool = False,
+        protection_service: "ProtectionLifecycleService | None" = None,
+    ):
         self._rest = rest_client
         self._is_live = is_live
+        self._protection = protection_service
 
     # ── Trailing SL/TP güncelleme ─────────────────────────────
 
@@ -117,13 +132,20 @@ class OrderManager:
 
         # ── 3. SADECE BAŞARILI OLANLARI STATE'E YAZ (FIX #1) ──
         if sl_ok:
-            # Eski id'yi hemen silme — WS fill'i REST cancel'dan sonra gelebilir
             trade["sl"] = new_sl
-            if old_sl_id:
-                hist = trade.setdefault("sl_order_id_history", [])
-                hist.append(old_sl_id)
-                trade["sl_order_id_history"] = hist[-5:]
-            trade["sl_order_id"] = new_sl_id
+            if self._protection is not None:
+                self._protection.begin_replace_sl(trade, new_sl_id)
+                self._protection.promote_sl(trade)
+            else:
+                if old_sl_id:
+                    hist = trade.setdefault("sl_order_id_history", [])
+                    if not isinstance(hist, list):
+                        hist = []
+                        trade["sl_order_id_history"] = hist
+                    hist.append(old_sl_id)
+                    trade["sl_order_id_history"] = hist[-5:]
+                trade["sl_order_id"] = new_sl_id
+                trade["sl_order_id_prev"] = old_sl_id
             if old_sl_id:
                 try:
                     await self._rest.cancel_order(
@@ -136,16 +158,22 @@ class OrderManager:
                         old_sl_id,
                         e,
                     )
-            # Eski sl_order_id_prev tutuluyor (geriyedonuk uyumluluk)
-            trade["sl_order_id_prev"] = old_sl_id
 
         if tp_ok:
             trade["tp"] = new_tp
-            if old_tp_id:
-                hist = trade.setdefault("tp_order_id_history", [])
-                hist.append(old_tp_id)
-                trade["tp_order_id_history"] = hist[-5:]
-            trade["tp_order_id"] = new_tp_id
+            if self._protection is not None:
+                self._protection.begin_replace_tp(trade, new_tp_id)
+                self._protection.promote_tp(trade)
+            else:
+                if old_tp_id:
+                    hist = trade.setdefault("tp_order_id_history", [])
+                    if not isinstance(hist, list):
+                        hist = []
+                        trade["tp_order_id_history"] = hist
+                    hist.append(old_tp_id)
+                    trade["tp_order_id_history"] = hist[-5:]
+                trade["tp_order_id"] = new_tp_id
+                trade["tp_order_id_prev"] = old_tp_id
             if old_tp_id:
                 try:
                     await self._rest.cancel_order(
@@ -158,8 +186,6 @@ class OrderManager:
                         old_tp_id,
                         e,
                     )
-            trade["tp_order_id_prev"] = old_tp_id
-            # FINALLY KALDIRILDI — ayni sebeple.
 
         if sl_ok or tp_ok:
             trade["trailing_count"] = new_trail_count
@@ -186,13 +212,34 @@ class OrderManager:
 
     # ── Canlı doğrulama (WS-FALLBACK guard için) ──────────────
 
+    async def get_open_order_ids(self, sym: str) -> set[str]:
+        """Binance'teki tüm açık emirlerin ID'lerini döndür.
+
+        REST sorgusu başarısız olursa boş küme döner — çağıran
+        taraf fail-safe kararını kendi verir.
+        """
+        try:
+            orders = await self._rest.get_all_orders(sym)
+            return {str(o.get("algoId") or o.get("orderId") or "") for o in orders}
+        except Exception as e:
+            log.warning("[VERIFY] %s acik emir sorgu hatasi: %s", sym, e)
+            return set()
+
     async def verify_protection(self, sym: str, trade: dict) -> tuple[bool, bool]:
         """Binance'teki açık emirleri sorgulayıp sl_order_id / tp_order_id'nin
         gerçekten hâlâ açık olup olmadığını döndürür: (sl_present, tp_present).
 
+        ProtectionLifecycleService varsa karar ona delege edilir.
         REST sorgusu başarısız olursa fail-safe: ikisini de True varsayar
         (yani "dokunma", çağıran taraf yanlışlıkla cancel/exit tetiklemesin).
         """
+        if self._protection is not None:
+            open_ids = await self.get_open_order_ids(sym)
+            if not open_ids:
+                return True, True
+            result = self._protection.verify(trade, open_ids)
+            return result.sl_present, result.tp_present
+
         s_id = str(trade.get("sl_order_id", ""))
         t_id = str(trade.get("tp_order_id", ""))
         expects_sl = bool(trade.get("sl"))
@@ -290,10 +337,6 @@ class OrderManager:
 
     # ── Exit temizliği ─────────────────────────────────────────
 
-    # FIX (A8): Result sınıfları — SL/TP tetiklenmesi vs synthetic/market
-    # exit path'leri için doğru iptal hedefleri.
-    _TRIGGERED_RESULTS = frozenset({"SL", "TP"})
-
     async def cleanup_on_exit(self, sym: str, trade: dict, result: str) -> None:
         """Exit sonrası Binance emir temizliği.
 
@@ -309,26 +352,46 @@ class OrderManager:
 
         FIX (A7): Son adım olarak cancel_all_open_orders broad-sweep —
         exit commit edildikten SONRA çalışır.
+
+        Patch Set 3: ProtectionLifecycleService varsa karar ona delege
+        edilir (cleanup_after_confirmed_exit). OrderManager sadece REST
+        iptallerini yürütür.
         """
         if not cfg.BINANCE_API_KEY or not self._is_live:
             return
 
         try:
             # ── Kalan emirleri belirle ──
-            if result == "SL":
-                # SL tetiklendi → kalan TP'yi iptal et
-                remaining_ids = [trade.get("tp_order_id")]
-            elif result == "TP":
-                # TP tetiklendi → kalan SL'yi iptal et
-                remaining_ids = [trade.get("sl_order_id")]
+            if self._protection is not None:
+                plan = self._protection.cleanup_after_confirmed_exit(trade, result)
+                remaining_ids = plan.cancel_ids
+                needs_emergency = plan.needs_emergency_close
+                emerg_reason = plan.emergency_close_reason
             else:
-                # Synthetic/market path (TRAIL_CLOSE, WS_FALLBACK, TIMEOUT,
-                # MANUAL_CLOSE vb.) — ne SL ne TP tetiklendi, ikisi de
-                # borsada hâlâ açık olabilir.
-                remaining_ids = [
-                    trade.get("sl_order_id"),
-                    trade.get("tp_order_id"),
-                ]
+                if result == "SL":
+                    remaining_ids = [trade.get("tp_order_id")]
+                elif result == "TP":
+                    remaining_ids = [trade.get("sl_order_id")]
+                else:
+                    remaining_ids = [
+                        trade.get("sl_order_id"),
+                        trade.get("tp_order_id"),
+                    ]
+                # ── Acil market close: YALNIZCA SL/TP tetiklenme path'inde ──
+                needs_emergency = False
+                emerg_reason = ""
+                if result in ("SL", "TP"):
+                    trigger_id = (
+                        trade.get("sl_order_id")
+                        if result == "SL"
+                        else trade.get("tp_order_id")
+                    )
+                    if not trigger_id:
+                        needs_emergency = True
+                        emerg_reason = (
+                            f"tetiklenen {result} emri Binance ID'si olmadigi "
+                            "icin acil market kapanisi gerekli"
+                        )
 
             for rid in remaining_ids:
                 if rid:
@@ -350,29 +413,19 @@ class OrderManager:
                         )
 
             # ── Acil market close: YALNIZCA SL/TP tetiklenme path'inde ──
-            # Synthetic/market path'lerde pozisyon zaten _exit_trade()
-            # tarafından kapatılmıştır — burada tekrar market close yollamak
-            # gereksiz ve potansiyel olarak zararlıdır.
-            if result in self._TRIGGERED_RESULTS:
-                trigger_id = (
-                    trade.get("sl_order_id")
-                    if result == "SL"
-                    else trade.get("tp_order_id")
+            if needs_emergency:
+                log.warning(
+                    "[CLOSE] %s %s — acil market kapanisi yapiliyor...",
+                    sym,
+                    emerg_reason,
                 )
-                if not trigger_id:
-                    log.warning(
-                        "[CLOSE] %s tetiklenen %s emri Binance ID'si olmadigi icin "
-                        "acil market kapanisi yapiliyor...",
-                        sym,
-                        result,
+                mkt_side = "SELL" if trade["side"] == "long" else "BUY"
+                try:
+                    await self._rest.place_market_order(
+                        sym, mkt_side, trade["qty"], reduce_only=True
                     )
-                    mkt_side = "SELL" if trade["side"] == "long" else "BUY"
-                    try:
-                        await self._rest.place_market_order(
-                            sym, mkt_side, trade["qty"], reduce_only=True
-                        )
-                    except Exception as e:
-                        log.warning("[CLOSE] %s acil kapanis emri hatasi: %s", sym, e)
+                except Exception as e:
+                    log.warning("[CLOSE] %s acil kapanis emri hatasi: %s", sym, e)
         except Exception as e:
             log.warning("[CLOSE] %s exit temizleme hatasi: %s", sym, e)
 

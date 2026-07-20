@@ -61,6 +61,7 @@ from trading import (
     ConsoleReporter,
     UserDataHandler,
     ExitLifecycleService,
+    ProtectionLifecycleService,
 )
 from websocket import BinanceWSHub
 
@@ -171,6 +172,11 @@ RISK_PER_TRADE = cfg.RISK_PER_TRADE
 # flag'i hiç bilmeyen eski testler yanlışlıkla "enabled" dalına düşerdi.
 EXIT_LIFECYCLE_SERVICE_ENABLED = cfg.EXIT_LIFECYCLE_SERVICE_ENABLED
 
+# Patch Set 3 (new_refactoring_plan1.md) rollout flag.
+# EXIT_LIFECYCLE_SERVICE_ENABLED ile aynı sebepten modül seviyesinde
+# ayrı bir isim olarak tutuluyor.
+PROTECTION_LIFECYCLE_SERVICE_ENABLED = cfg.PROTECTION_LIFECYCLE_SERVICE_ENABLED
+
 
 class PaperTrader:
     def __init__(self, symbols: list[str] | None = None):
@@ -225,6 +231,13 @@ class PaperTrader:
             rest_client=self.rest,
             is_live=bool(cfg.BINANCE_API_KEY),
         )
+        # Patch Set 3 (new_refactoring_plan1.md): Protection policy kararlari
+        # ProtectionLifecycleService'te toplandi. PROTECTION_LIFECYCLE_SERVICE_ENABLED
+        # False iken OrderManager/RecoveryManager eski inline logic'i korur.
+        self.protection_service = None
+        if PROTECTION_LIFECYCLE_SERVICE_ENABLED:
+            self.protection_service = ProtectionLifecycleService()
+            self.order_manager._protection = self.protection_service
         # Patch Set 2 (new_refactoring_plan1.md): _exit_trade'in canlı riskin
         # kalbi olan mantığı ExitLifecycleService'e taşındı. cfg.EXIT_LIFECYCLE_SERVICE_ENABLED
         # False iken _exit_trade, _exit_trade_legacy'ye (eski inline implementasyon,
@@ -258,6 +271,7 @@ class PaperTrader:
             pl_callback=self._pl,
             order_manager=self.order_manager,
             atr_state=self._atr_state,
+            protection_service=self.protection_service,
         )
 
         for sym in self.symbols:

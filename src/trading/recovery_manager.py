@@ -8,11 +8,15 @@ Kırmızı çizgiler:
   - Strateji mantığında sıfır değişiklik
   - extract_order_id, cfg import'ları korunur
   - _pl() formatı birebir aynı (pl_callback üzerinden)
+
+Patch Set 3: _known_protection_ids() ve should_skip_reconcile()
+ProtectionLifecycleService'e delege edilir (varsa).
 """
 
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 import config as cfg
 from bot_infra import extract_order_id
@@ -22,6 +26,9 @@ from models import (
     ActiveTrade,
     UNRESTRICTED_STATUSES,
 )
+
+if TYPE_CHECKING:
+    from trading.protection_lifecycle import ProtectionLifecycleService
 
 log = logging.getLogger("sniper.recovery_manager")
 
@@ -38,6 +45,8 @@ class RecoveryManager:
       - pl_callback: callable(sym, key, msg) — _pl() delegesi
       - order_manager: OrderManager (şimdilik kullanılmıyor)
       - atr_state: dict[sym, float] — sembol bazlı gerçek Wilder's ATR
+      - protection_service: ProtectionLifecycleService | None —
+        policy kararlari icin (None ise eski inline logic korunur)
     """
 
     def __init__(
@@ -50,6 +59,7 @@ class RecoveryManager:
         pl_callback,
         order_manager=None,
         atr_state: dict | None = None,
+        protection_service: "ProtectionLifecycleService | None" = None,
     ):
         self._rest = rest_client
         self._symbols = symbols
@@ -59,6 +69,7 @@ class RecoveryManager:
         self._pl = pl_callback
         self._order_manager = order_manager
         self._atr_state = atr_state or {}
+        self._protection = protection_service
 
     # ── Pozisyon kurtarma ──────────────────────────────────────
 
@@ -483,7 +494,17 @@ class RecoveryManager:
         """Aktif trade'lerin sahip olabileceği tüm SL/TP order ID
         kaynaklarını toplar: current, prev, history, (varsa) pending.
         Geçiş halindeki (henüz cancel edilmemiş eski / henüz confirm
-        edilmemiş yeni) ID'lerin orphan sanılmaması içindir (A5)."""
+        edilmemiş yeni) ID'lerin orphan sanılmaması içindir (A5).
+
+        Patch Set 3: ProtectionLifecycleService varsa karar ona delege
+        edilir. Yoksa eski inline logic korunur.
+        """
+        if self._protection is not None:
+            all_ids: set[str] = set()
+            for t in self._active_trades.values():
+                all_ids |= self._protection.known_ids(t)
+            return all_ids
+
         known_ids: set[str] = set()
         for t in self._active_trades.values():
             for k in (
@@ -505,19 +526,31 @@ class RecoveryManager:
 
     async def reconcile_orphan_orders(self) -> None:
         """Binance'teki acik tum emirleri tara, bot'un bildigi
-        trade'lere ait olmayanlari iptal et (crash sonrasi birikme onlenir)."""
+        trade'lere ait olmayanlari iptal et (crash sonrasi birikme onlenir).
+
+        Patch Set 3: Transition guard ProtectionLifecycleService'e
+        delege edilir (varsa)."""
         if not cfg.BINANCE_API_KEY:
             return
 
         for sym in self._symbols:
             trade = self._active_trades.get(sym)
-            if trade is not None and trade.get("status") not in UNRESTRICTED_STATUSES:
-                log.info(
-                    "[ORPHAN] %s status=%s — orphan sweep bu sembolde atlaniyor",
-                    sym,
-                    trade.get("status"),
-                )
-                continue
+            if trade is not None:
+                if self._protection is not None:
+                    if self._protection.should_skip_reconcile(trade):
+                        log.info(
+                            "[ORPHAN] %s status=%s — orphan sweep bu sembolde atlaniyor",
+                            sym,
+                            trade.get("status"),
+                        )
+                        continue
+                elif trade.get("status") not in UNRESTRICTED_STATUSES:
+                    log.info(
+                        "[ORPHAN] %s status=%s — orphan sweep bu sembolde atlaniyor",
+                        sym,
+                        trade.get("status"),
+                    )
+                    continue
             known_ids = self._known_protection_ids()
             try:
                 orders = await self._rest.get_all_orders(sym)

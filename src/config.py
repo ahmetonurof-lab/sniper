@@ -584,7 +584,7 @@ BINANCE_API_SECRET = os.getenv("TESTNET_API_SECRET") or os.getenv("BINANCE_API_S
 IS_TESTNET = os.getenv("TESTNET", "True").lower() == "true"
 
 
-# ── Refactor rollout flags (new_refactoring_plan1.md — Patch Set 2) ────
+# ── Refactor rollout flags (new_refactoring_plan1.md — Patch Set 2, 3) ────
 
 # True olursa PaperTrader._exit_trade() akışı ExitLifecycleService'e
 # delege edilir. False (varsayılan) iken eski inline implementasyon
@@ -592,4 +592,11 @@ IS_TESTNET = os.getenv("TESTNET", "True").lower() == "true"
 # env değişikliği ile mümkün olsun diye.
 EXIT_LIFECYCLE_SERVICE_ENABLED = (
     os.getenv("EXIT_LIFECYCLE_SERVICE_ENABLED", "False").lower() == "true"
+)
+
+# True olursa OrderManager ve RecoveryManager koruma politikası
+# kararlarını ProtectionLifecycleService'e delege eder. False
+# (varsayılan) iken mevcut inline logic aynen korunur.
+PROTECTION_LIFECYCLE_SERVICE_ENABLED = (
+    os.getenv("PROTECTION_LIFECYCLE_SERVICE_ENABLED", "False").lower() == "true"
 )
