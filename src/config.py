@@ -591,19 +591,19 @@ IS_TESTNET = os.getenv("TESTNET", "True").lower() == "true"
 # (_exit_trade_legacy) aynen çalışmaya devam eder — rollback tek satır
 # env değişikliği ile mümkün olsun diye.
 EXIT_LIFECYCLE_SERVICE_ENABLED = (
-    os.getenv("EXIT_LIFECYCLE_SERVICE_ENABLED", "False").lower() == "true"
+    os.getenv("EXIT_LIFECYCLE_SERVICE_ENABLED", "True").lower() == "true"
 )
 
 # True olursa OrderManager ve RecoveryManager koruma politikası
 # kararlarını ProtectionLifecycleService'e delege eder. False
 # (varsayılan) iken mevcut inline logic aynen korunur.
 PROTECTION_LIFECYCLE_SERVICE_ENABLED = (
-    os.getenv("PROTECTION_LIFECYCLE_SERVICE_ENABLED", "False").lower() == "true"
+    os.getenv("PROTECTION_LIFECYCLE_SERVICE_ENABLED", "True").lower() == "true"
 )
 
 # True olursa UserDataHandler WS event'lerini NormalizedOrderEvent'e
 # çevirir ve confirmed exit alanları yerine pending_exit_* alanlarına
 # yazar. False (varsayılan) iken eski inline logic korunur.
 WS_EVENT_NORMALIZATION_ENABLED = (
-    os.getenv("WS_EVENT_NORMALIZATION_ENABLED", "False").lower() == "true"
+    os.getenv("WS_EVENT_NORMALIZATION_ENABLED", "True").lower() == "true"
 )

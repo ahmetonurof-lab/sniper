@@ -187,17 +187,18 @@ class TestExitTradeWiring:
     @patch("bot.BinanceWSHub")
     @patch("bot.cfg", autospec=True)
     @patch("bot.mark_trade_closed")
-    def test_flag_false_by_default(
+    def test_flag_true_by_default(
         self,
         mock_mark_closed,
         mock_cfg,
         mock_hub_cls,
         mock_rest_cls,
     ):
-        """Default (flag not set) → _exit_trade_legacy path."""
+        """Sprint rollout: flag varsayilan True → ExitLifecycleService aktif."""
         import bot as bot_module
 
-        assert bot_module.EXIT_LIFECYCLE_SERVICE_ENABLED is False
+        assert bot_module.EXIT_LIFECYCLE_SERVICE_ENABLED is True
+        assert bot_module.PROTECTION_LIFECYCLE_SERVICE_ENABLED is True
 
 
 # ═══════════════════════════════════════════════════════════════════
