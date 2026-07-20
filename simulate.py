@@ -158,14 +158,24 @@ def _run_worker(syms: list[str], days: int | None) -> dict:
         t0 = time.time()
         bot = PaperTrader(symbols=list(bar_cache.keys()))
 
-        for sym in bar_cache:
-            if sym in bar_15m_cache and bar_15m_cache[sym]:
-                await bot.hub.prefill_bars(sym, "15m", bar_15m_cache[sym])
+        try:
+            for sym in bar_cache:
+                if sym in bar_15m_cache and bar_15m_cache[sym]:
+                    await bot.hub.prefill_bars(sym, "15m", bar_15m_cache[sym])
 
-        total_bars = 0
-        max_len = max(len(b) for b in bar_cache.values())
+            total_bars = 0
+            max_len = max(len(b) for b in bar_cache.values())
+            progress_every = max(1, max_len // 20)
 
-        for step in range(max_len):
+            for step in range(max_len):
+                if step % progress_every == 0:
+                    pct = step / max_len * 100
+                    sym_label = ",".join(bar_cache.keys())
+                    print(
+                        f"  [{sym_label}] %{pct:.0f} step={step}/{max_len} "
+                        f"bars={total_bars} trades={len(bot.trades)}",
+                        flush=True,
+                    )
             for sym in bar_cache:
                 bars_1m = bar_cache[sym]
                 if step >= len(bars_1m):
@@ -183,6 +193,24 @@ def _run_worker(syms: list[str], days: int | None) -> dict:
                     chunk = bars_15m[max(0, idx - 4) : idx + 1]
                     if len(chunk) >= 2:
                         await bot.on_15m(sym, chunk)
+
+        except Exception as e:
+            sym_label = ",".join(bar_cache.keys())
+            print(f"  [{sym_label}] HATA: {e}", flush=True)
+            import traceback
+
+            traceback.print_exc()
+            return {
+                "trades": 0,
+                "wins": 0,
+                "losses": 0,
+                "be": 0,
+                "total_pnl": 0,
+                "total_fee": 0,
+                "trail_count": 0,
+                "bars": 0,
+                "elapsed": 0,
+            }
 
         elapsed = time.time() - t0
         history = getattr(bot, "trades", [])
