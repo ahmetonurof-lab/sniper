@@ -849,6 +849,25 @@ class PaperTrader:
             trade["pending_exit_order_id"] = None
             trade["pending_exit_timestamp"] = None
 
+        # Patch Set 4 (WS normalization): WS handler matched-fill path'i
+        # artık pending_exit_* alanlarına yazıyor. WS_FALLBACK dışındaki
+        # result'lar (SL/TP matched fill) için pending → confirmed promotion
+        # burada yapılır.
+        if trade.get("pending_exit_price") is not None:
+            trade["exit_price"] = trade["pending_exit_price"]
+            trade["exit_actual_price"] = trade["pending_exit_price"]
+        if trade.get("pending_exit_qty") is not None:
+            trade["exit_actual_qty"] = trade["pending_exit_qty"]
+        if trade.get("pending_exit_order_id"):
+            trade["exit_order_id"] = trade["pending_exit_order_id"]
+        if trade.get("pending_exit_timestamp"):
+            trade["exit_timestamp"] = trade["pending_exit_timestamp"]
+        trade["pending_exit_reason"] = None
+        trade["pending_exit_price"] = None
+        trade["pending_exit_qty"] = None
+        trade["pending_exit_order_id"] = None
+        trade["pending_exit_timestamp"] = None
+
         # FIX (A1): artik burada pop ETMIYORUZ. Trade, kapanis Binance
         # tarafindan DOGRULANANA kadar active_trades'te kaliyor. Boylece:
         #   - invalid fill / basarisiz market close durumunda trade

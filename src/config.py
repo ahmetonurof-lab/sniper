@@ -584,7 +584,7 @@ BINANCE_API_SECRET = os.getenv("TESTNET_API_SECRET") or os.getenv("BINANCE_API_S
 IS_TESTNET = os.getenv("TESTNET", "True").lower() == "true"
 
 
-# ── Refactor rollout flags (new_refactoring_plan1.md — Patch Set 2, 3) ────
+# ── Refactor rollout flags (new_refactoring_plan1.md — Patch Set 2, 3, 4) ────
 
 # True olursa PaperTrader._exit_trade() akışı ExitLifecycleService'e
 # delege edilir. False (varsayılan) iken eski inline implementasyon
@@ -599,4 +599,11 @@ EXIT_LIFECYCLE_SERVICE_ENABLED = (
 # (varsayılan) iken mevcut inline logic aynen korunur.
 PROTECTION_LIFECYCLE_SERVICE_ENABLED = (
     os.getenv("PROTECTION_LIFECYCLE_SERVICE_ENABLED", "False").lower() == "true"
+)
+
+# True olursa UserDataHandler WS event'lerini NormalizedOrderEvent'e
+# çevirir ve confirmed exit alanları yerine pending_exit_* alanlarına
+# yazar. False (varsayılan) iken eski inline logic korunur.
+WS_EVENT_NORMALIZATION_ENABLED = (
+    os.getenv("WS_EVENT_NORMALIZATION_ENABLED", "False").lower() == "true"
 )
