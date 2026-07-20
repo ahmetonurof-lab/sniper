@@ -233,7 +233,7 @@ class OrderManager:
                 return False
 
         log.info(
-            "[ORDER] %s trailing guncellendi sl=%.2f (id=%s) tp=%.2f (id=%s)",
+            "[ORDER] %s trailing guncellendi sl=%.6f (id=%s) tp=%.6f (id=%s)",
             sym,
             trade.get("sl", 0.0),
             new_sl_id,
@@ -358,20 +358,20 @@ class OrderManager:
                 if sl_id:
                     trade["sl_order_id"] = sl_id
                     log.info(
-                        "[REPAIR] %s SL yeniden kuruldu: %.2f (id=%s)",
+                        "[REPAIR] %s SL yeniden kuruldu: %.6f (id=%s)",
                         sym,
                         trade["sl"],
                         sl_id,
                     )
                 else:
                     log.warning(
-                        "[REPAIR] %s SL kurulamadi: %.2f — Binance emri reddetti (ID=bos)",
+                        "[REPAIR] %s SL kurulamadi: %.6f — Binance emri reddetti (ID=bos)",
                         sym,
                         trade["sl"],
                     )
             except Exception as e:
                 log.warning(
-                    "[REPAIR] %s SL kurulum hatasi: %.2f — %s",
+                    "[REPAIR] %s SL kurulum hatasi: %.6f — %s",
                     sym,
                     trade["sl"],
                     e,
@@ -386,21 +386,21 @@ class OrderManager:
                 if tp_id:
                     trade["tp_order_id"] = tp_id
                     log.info(
-                        "[REPAIR] %s TP yeniden kuruldu: %.2f (id=%s)",
+                        "[REPAIR] %s TP yeniden kuruldu: %.6f (id=%s)",
                         sym,
                         trade["tp"],
                         tp_id,
                     )
                 else:
                     log.warning(
-                        "[REPAIR] %s TP kurulamadi: %.2f — Binance emri reddetti "
+                        "[REPAIR] %s TP kurulamadi: %.6f — Binance emri reddetti "
                         "(muhtemelen fiyat TP seviyesini gecti, ID=bos)",
                         sym,
                         trade["tp"],
                     )
             except Exception as e:
                 log.warning(
-                    "[REPAIR] %s TP kurulum hatasi: %.2f — %s",
+                    "[REPAIR] %s TP kurulum hatasi: %.6f — %s",
                     sym,
                     trade["tp"],
                     e,

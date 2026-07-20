@@ -129,7 +129,7 @@ class TrailingManager:
                     }
                 )
                 log.info(
-                    "[TRAIL] trail#%d sl=%.2f tp=%.2f",
+                    "[TRAIL] trail#%d sl=%.6f tp=%.6f",
                     trail_count,
                     current_sl,
                     current_tp,
