@@ -24,6 +24,13 @@ os.environ["EXIT_LIFECYCLE_SERVICE_ENABLED"] = "true"
 os.environ["PROTECTION_LIFECYCLE_SERVICE_ENABLED"] = "true"
 os.environ["WS_EVENT_NORMALIZATION_ENABLED"] = "true"
 
+# Simulasyon modunda log spam'ini kapat
+import logging  # noqa: E402
+
+logging.getLogger().setLevel(logging.WARNING)
+logging.getLogger("sniper").setLevel(logging.WARNING)
+logging.getLogger("nexus").setLevel(logging.WARNING)
+
 import pandas as pd  # noqa: E402
 
 pd.set_option("future.no_silent_downcasting", True)
