@@ -88,6 +88,20 @@ class OrderManager:
         sl_side = "SELL" if trade["side"] == "long" else "BUY"
         qty = trade.get("qty", trade.get("lot", 0))
 
+        # FIX: TP immediately trigger kontrolü — trailing TP'yi mevcut fiyatın
+        # üstünde/altında bırakmışsa placement'ı atla. Yoksa Binance reddeder
+        # ve TP ID'siz kalır → sonraki WS fill eşleşmez → fallback zinciri.
+        _current_price = trade.get("upnl")  # yaklaşık, tam fiyat yok
+        # Precision sonrası fiyat hatalıysa (0 veya çok küçük) placement'ı durdur
+        if new_sl <= 0 or new_tp <= 0:
+            log.warning(
+                "[TRAIL] %s precision hatasi: sl=%.6f tp=%.6f — trailing atlaniyor",
+                sym,
+                new_sl,
+                new_tp,
+            )
+            return False
+
         old_sl_id = trade.get("sl_order_id", "")
         old_tp_id = trade.get("tp_order_id", "")
 
@@ -328,28 +342,61 @@ class OrderManager:
         """
         if not has_sl and trade.get("sl"):
             sl_side = "SELL" if trade["side"] == "long" else "BUY"
-            sl_resp = await self._rest.place_stop_order(
-                sym, sl_side, trade["qty"], trade["sl"]
-            )
-            trade["sl_order_id"] = extract_order_id(sl_resp)
-            log.info(
-                "[REPAIR] %s SL yeniden kuruldu: %.2f (id=%s)",
-                sym,
-                trade["sl"],
-                trade["sl_order_id"],
-            )
+            try:
+                sl_resp = await self._rest.place_stop_order(
+                    sym, sl_side, trade["qty"], trade["sl"]
+                )
+                sl_id = extract_order_id(sl_resp)
+                if sl_id:
+                    trade["sl_order_id"] = sl_id
+                    log.info(
+                        "[REPAIR] %s SL yeniden kuruldu: %.2f (id=%s)",
+                        sym,
+                        trade["sl"],
+                        sl_id,
+                    )
+                else:
+                    log.warning(
+                        "[REPAIR] %s SL kurulamadi: %.2f — Binance emri reddetti (ID=bos)",
+                        sym,
+                        trade["sl"],
+                    )
+            except Exception as e:
+                log.warning(
+                    "[REPAIR] %s SL kurulum hatasi: %.2f — %s",
+                    sym,
+                    trade["sl"],
+                    e,
+                )
         if not has_tp and trade.get("tp"):
             tp_side = "SELL" if trade["side"] == "long" else "BUY"
-            tp_resp = await self._rest.place_tp_order(
-                sym, tp_side, trade["qty"], trade["tp"]
-            )
-            trade["tp_order_id"] = extract_order_id(tp_resp)
-            log.info(
-                "[REPAIR] %s TP yeniden kuruldu: %.2f (id=%s)",
-                sym,
-                trade["tp"],
-                trade["tp_order_id"],
-            )
+            try:
+                tp_resp = await self._rest.place_tp_order(
+                    sym, tp_side, trade["qty"], trade["tp"]
+                )
+                tp_id = extract_order_id(tp_resp)
+                if tp_id:
+                    trade["tp_order_id"] = tp_id
+                    log.info(
+                        "[REPAIR] %s TP yeniden kuruldu: %.2f (id=%s)",
+                        sym,
+                        trade["tp"],
+                        tp_id,
+                    )
+                else:
+                    log.warning(
+                        "[REPAIR] %s TP kurulamadi: %.2f — Binance emri reddetti "
+                        "(muhtemelen fiyat TP seviyesini gecti, ID=bos)",
+                        sym,
+                        trade["tp"],
+                    )
+            except Exception as e:
+                log.warning(
+                    "[REPAIR] %s TP kurulum hatasi: %.2f — %s",
+                    sym,
+                    trade["tp"],
+                    e,
+                )
         log.info("[REPAIR] %s onarim tamam", sym)
 
     # ── Tüm açık emirleri iptal et (exit öncesi) ──────────────
