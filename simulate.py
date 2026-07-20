@@ -157,6 +157,9 @@ def _run_worker(syms: list[str], days: int | None) -> dict:
         t0 = time.time()
         bot = PaperTrader(symbols=list(bar_cache.keys()))
 
+        # Disable ConsoleReporter (87K prints/coin -> cok yavas)
+        bot.reporter.emit = lambda *a, **kw: None
+
         for sym in bar_cache:
             if sym in bar_15m_cache and bar_15m_cache[sym]:
                 bot.hub.prefill_bars(sym, "15m", bar_15m_cache[sym])
@@ -164,7 +167,7 @@ def _run_worker(syms: list[str], days: int | None) -> dict:
         total_bars = 0
         c15m = 0
         max_len = max(len(b) for b in bar_cache.values())
-        progress_every = max(1, max_len // 20)
+        progress_every = max(1, max_len // 5)
 
         for step in range(max_len):
             if step % progress_every == 0:
