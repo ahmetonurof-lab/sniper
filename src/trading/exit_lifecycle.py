@@ -49,6 +49,7 @@ from models import (
     INCIDENT_EXIT_UNCONFIRMED,
     INCIDENT_PROTECTION_BROKEN,
     STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
+    STATUS_CLOSED,
     STATUS_EXIT_SUBMITTED,
     STATUS_EXIT_VERIFYING,
     STATUS_REPAIR_REQUIRED,
@@ -445,6 +446,7 @@ class ExitLifecycleService:
     async def _commit_confirmed_exit(
         self, sym: str, trade: Any, exit_timestamp: int
     ) -> bool:
+        trade["status"] = STATUS_CLOSED
         trade = self._active_trades.pop(sym, None)
         if not trade:
             log.warning(

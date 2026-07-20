@@ -27,6 +27,7 @@ from models import (
     Result,
     STATUS_ACTIVE,
     STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
+    STATUS_CLOSED,
     STATUS_EXIT_REQUESTED,
     STATUS_EXIT_SUBMITTED,
     STATUS_EXIT_VERIFYING,
@@ -484,7 +485,7 @@ class PaperTrader:
                         "[TRAIL] %s trailing FVG kirildi -> aninda market close", sym
                     )
                     trade["status"] = STATUS_EXIT_REQUESTED
-                    trade["exit_price"] = current.close
+                    trade["pending_exit_price"] = current.close
                     trade["exit_bar"] = current.index
                     trade["exit_timestamp"] = current.timestamp
                     trade["result"] = "TRAIL_CLOSE"
@@ -495,7 +496,7 @@ class PaperTrader:
             exit_decision = TrailingManager.check_exit(current, trade)
             if exit_decision.triggered:
                 trade["status"] = STATUS_EXIT_REQUESTED
-                trade["exit_price"] = exit_decision.exit_price
+                trade["pending_exit_price"] = exit_decision.exit_price
                 trade["exit_bar"] = current.index
                 trade["exit_timestamp"] = current.timestamp
                 trade["result"] = exit_decision.result
@@ -1082,6 +1083,7 @@ class PaperTrader:
         # NIHAI (varsa gercek market fill ile guncellenmis) haliyle
         # hesaplaniyor. ──
 
+        trade["status"] = STATUS_CLOSED
         trade = self.active_trades.pop(sym, None)
         if not trade:
             log.warning(

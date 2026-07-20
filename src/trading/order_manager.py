@@ -21,7 +21,11 @@ from typing import TYPE_CHECKING
 import config as cfg
 from bot_infra import extract_order_id
 from event_log import log_event
-from models import UNRESTRICTED_STATUSES
+from models import (
+    STATUS_ACTIVE,
+    STATUS_TRAIL_REPLACING,
+    UNRESTRICTED_STATUSES,
+)
 
 if TYPE_CHECKING:
     from trading.protection_lifecycle import (
@@ -75,6 +79,8 @@ class OrderManager:
             trade["tp"] = new_tp
             trade["trailing_count"] = new_trail_count
             return True
+
+        trade["status"] = STATUS_TRAIL_REPLACING
 
         new_sl = await self._rest.apply_price_precision(sym, new_sl)
         new_tp = await self._rest.apply_price_precision(sym, new_tp)
@@ -201,6 +207,7 @@ class OrderManager:
                 tp_ok,
             )
             if not sl_ok and not tp_ok:
+                trade["status"] = STATUS_ACTIVE
                 return False
 
         log.info(
@@ -211,6 +218,7 @@ class OrderManager:
             trade.get("tp", 0.0),
             new_tp_id,
         )
+        trade["status"] = STATUS_ACTIVE
         return True
 
     # ── Canlı doğrulama (WS-FALLBACK guard için) ──────────────
