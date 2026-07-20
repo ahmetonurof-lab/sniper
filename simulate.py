@@ -1,14 +1,5 @@
 """
 simulate.py — Canli bot koduyla paper trade simulasyonu (multiprocess).
-
-2.5 yillik 1m feather verisini sniper bot'un on_1m/on_15m
-callback'lerine feed eder, paper mode'da calistirir.
-
-Kullanim:
-  python simulate.py                      # tum semboller, 1 worker
-  python simulate.py --workers 6          # 6 parallel process
-  python simulate.py --symbols BNBUSDT    # tek sembol
-  python simulate.py --days 30            # son 30 gun
 """
 
 from __future__ import annotations
@@ -127,7 +118,6 @@ def build_15m_bars(bars_1m: list[Bar]) -> list[Bar]:
 
 
 def _run_worker(syms: list[str], days: int | None) -> dict:
-    """Tek process'te bir grup sembol calistir."""
     import asyncio
     from bot import PaperTrader
 
@@ -158,59 +148,52 @@ def _run_worker(syms: list[str], days: int | None) -> dict:
         t0 = time.time()
         bot = PaperTrader(symbols=list(bar_cache.keys()))
 
-        try:
+        for sym in bar_cache:
+            if sym in bar_15m_cache and bar_15m_cache[sym]:
+                bot.hub.prefill_bars(sym, "15m", bar_15m_cache[sym])
+
+        total_bars = 0
+        c15m = 0
+        max_len = max(len(b) for b in bar_cache.values())
+        progress_every = max(1, max_len // 20)
+
+        for step in range(max_len):
+            if step % progress_every == 0:
+                pct = step / max_len * 100
+                sym_label = ",".join(bar_cache.keys())
+                print(
+                    f"  [{sym_label}] %{pct:.0f} step={step}/{max_len} "
+                    f"bars={total_bars} trades={len(bot.trades)} c15m={c15m}",
+                    flush=True,
+                )
             for sym in bar_cache:
-                if sym in bar_15m_cache and bar_15m_cache[sym]:
-                    bot.hub.prefill_bars(sym, "15m", bar_15m_cache[sym])
+                bars_1m = bar_cache[sym]
+                if step >= len(bars_1m):
+                    continue
+                chunk = bars_1m[max(0, step - 1) : step + 1]
+                await bot.on_1m(sym, chunk)
+                total_bars += 1
 
-            total_bars = 0
-            max_len = max(len(b) for b in bar_cache.values())
-            progress_every = max(1, max_len // 20)
-
-            for step in range(max_len):
-                if step % progress_every == 0:
-                    pct = step / max_len * 100
-                    sym_label = ",".join(bar_cache.keys())
-                    print(
-                        f"  [{sym_label}] %{pct:.0f} step={step}/{max_len} "
-                        f"bars={total_bars} trades={len(bot.trades)}",
-                        flush=True,
-                    )
+            if step > 0 and step % 15 == 0:
+                c15m += 1
                 for sym in bar_cache:
-                    bars_1m = bar_cache[sym]
-                    if step >= len(bars_1m):
+                    bars_15m = bar_15m_cache[sym]
+                    idx = step // 15
+                    if idx >= len(bars_15m):
                         continue
-                    chunk = bars_1m[max(0, step - 1) : step + 1]
-                    await bot.on_1m(sym, chunk)
-                    total_bars += 1
+                    chunk = bars_15m[max(0, idx - 4) : idx + 1]
+                    if len(chunk) >= 2:
+                        await bot.on_15m(sym, chunk)
 
-                if step > 0 and step % 15 == 0:
-                    for sym in bar_cache:
-                        bars_15m = bar_15m_cache[sym]
-                        idx = step // 15
-                        if idx >= len(bars_15m):
-                            continue
-                        chunk = bars_15m[max(0, idx - 4) : idx + 1]
-                        if len(chunk) >= 2:
-                            await bot.on_15m(sym, chunk)
-
-        except Exception as e:
-            sym_label = ",".join(bar_cache.keys())
-            print(f"  [{sym_label}] HATA: {e}", flush=True)
-            import traceback
-
-            traceback.print_exc()
-            return {
-                "trades": 0,
-                "wins": 0,
-                "losses": 0,
-                "be": 0,
-                "total_pnl": 0,
-                "total_fee": 0,
-                "trail_count": 0,
-                "bars": 0,
-                "elapsed": 0,
-            }
+        for sym in bar_cache:
+            ss = bot.states.get(sym)
+            if ss:
+                print(
+                    f"  [{sym}] END CBDR={ss.cbdr_locked} "
+                    f"sweep={ss.sweep_confirmed} dir={ss.sweep_direction} "
+                    f"fvg={ss.fvg_ready}",
+                    flush=True,
+                )
 
         elapsed = time.time() - t0
         history = getattr(bot, "trades", [])
@@ -232,7 +215,24 @@ def _run_worker(syms: list[str], days: int | None) -> dict:
             "elapsed": elapsed,
         }
 
-    return asyncio.run(_loop())
+    try:
+        return asyncio.run(_loop())
+    except Exception as e:
+        print(f"  [{','.join(syms)}] HATA: {e}", flush=True)
+        import traceback
+
+        traceback.print_exc()
+        return {
+            "trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "be": 0,
+            "total_pnl": 0,
+            "total_fee": 0,
+            "trail_count": 0,
+            "bars": 0,
+            "elapsed": 0,
+        }
 
 
 def _print_table(results: dict[str, dict], elapsed: float, workers: int):
@@ -243,10 +243,10 @@ def _print_table(results: dict[str, dict], elapsed: float, workers: int):
     grand_l = sum(r["losses"] for r in results.values())
 
     print(
-        f"\n{'Symbol':<12} {'Trades':>7} {'Win':>6} {'Loss':>6} {'TP%':>7} "
-        f"{'Trail':>6} {'Fee':>10} {'NetPnL':>12}"
+        f"\n{'Symbol':<12} {'Trades':>7} {'Win':>6} {'Loss':>6} "
+        f"{'TP%':>7} {'Trail':>6} {'Fee':>10} {'NetPnL':>12}"
     )
-    print("-" * 72)
+    print("-" * 76)
     for sym in sorted(results):
         r = results[sym]
         w = r["wins"]
@@ -259,7 +259,7 @@ def _print_table(results: dict[str, dict], elapsed: float, workers: int):
             f"{trail:>6} {r['total_fee']:>10.0f} {r['total_pnl']:>12.0f}"
         )
 
-    print("-" * 72)
+    print("-" * 76)
     grand_rate = grand_w / (grand_w + grand_l) * 100 if (grand_w + grand_l) else 0
     print(
         f"{'TOPLAM':<12} {grand_t:>7} {grand_w:>6} {grand_l:>6} "
@@ -274,11 +274,11 @@ def run_simulation(symbols: list[str], days: int | None, workers: int = 1):
     print(f"  Semboller: {len(symbols)} | Workers: {workers}")
     if days:
         print(f"  Gun araligi: son {days} gun")
-    flags = [
-        f"Exit={os.environ['EXIT_LIFECYCLE_SERVICE_ENABLED']}",
-        f"Protection={os.environ['PROTECTION_LIFECYCLE_SERVICE_ENABLED']}",
-    ]
-    print(f"  Flags: {', '.join(flags)}")
+    flag_str = (
+        f"Exit={os.environ['EXIT_LIFECYCLE_SERVICE_ENABLED']} "
+        f"Protection={os.environ['PROTECTION_LIFECYCLE_SERVICE_ENABLED']}"
+    )
+    print(f"  Flags: {flag_str}")
     print("=" * 60)
 
     valid = [
@@ -289,7 +289,6 @@ def run_simulation(symbols: list[str], days: int | None, workers: int = 1):
 
     results: dict[str, dict] = {}
     t0 = time.time()
-    elapsed = 0.0
 
     if workers <= 1:
         for sym in valid:
@@ -300,12 +299,11 @@ def run_simulation(symbols: list[str], days: int | None, workers: int = 1):
             t = r["trades"]
             rate = w / (w + lo) * 100 if (w + lo) else 0
             print(
-                f"  [{sym}] trades={t} win={w} loss={lo} rate={rate:.0f}% "
-                f"bars={r['bars']} time={r['elapsed']:.1f}s",
+                f"  [{sym}] trades={t} win={w} loss={lo} "
+                f"rate={rate:.0f}% bars={r['bars']} time={r['elapsed']:.1f}s",
                 flush=True,
             )
     else:
-        t0 = time.time()
         with ProcessPoolExecutor(max_workers=workers) as pool:
             futures = {pool.submit(_run_worker, [s], days): s for s in valid}
             for fut in as_completed(futures):
@@ -317,13 +315,12 @@ def run_simulation(symbols: list[str], days: int | None, workers: int = 1):
                 t = r["trades"]
                 rate = w / (w + lo) * 100 if (w + lo) else 0
                 print(
-                    f"  [{sym}] trades={t} win={w} loss={lo} rate={rate:.0f}% "
-                    f"bars={r['bars']} time={r['elapsed']:.1f}s",
+                    f"  [{sym}] trades={t} win={w} loss={lo} "
+                    f"rate={rate:.0f}% bars={r['bars']} time={r['elapsed']:.1f}s",
                     flush=True,
                 )
 
-        elapsed = time.time() - t0
-
+    elapsed = time.time() - t0
     if results:
         _print_table(results, elapsed, workers)
     print("=" * 60)
@@ -335,7 +332,6 @@ def main():
     parser.add_argument("--days", type=int, default=None)
     parser.add_argument("--workers", type=int, default=1)
     args = parser.parse_args()
-
     run_simulation(args.symbols, args.days, args.workers)
 
 
