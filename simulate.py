@@ -145,6 +145,8 @@ def _run_worker(syms: list[str], days: int | None) -> dict:
         }
 
     async def _loop():
+        from datetime import datetime, timezone
+
         t0 = time.time()
         bot = PaperTrader(symbols=list(bar_cache.keys()))
 
@@ -191,7 +193,23 @@ def _run_worker(syms: list[str], days: int | None) -> dict:
                 print(
                     f"  [{sym}] END CBDR={ss.cbdr_locked} "
                     f"sweep={ss.sweep_confirmed} dir={ss.sweep_direction} "
-                    f"fvg={ss.fvg_ready}",
+                    f"fvg={ss.fvg_ready} "
+                    f"start={ss.cbdr_start} end={ss.cbdr_end} "
+                    f"high={ss._cbdr.body_high:.4f} low={ss._cbdr.body_low:.4f}",
+                    flush=True,
+                )
+            # Sample bar timestamps
+            bars_1m = bar_cache.get(sym)
+            if bars_1m:
+                first_dt = datetime.fromtimestamp(
+                    bars_1m[0].timestamp / 1000, tz=timezone.utc
+                )
+                last_dt = datetime.fromtimestamp(
+                    bars_1m[-1].timestamp / 1000, tz=timezone.utc
+                )
+                print(
+                    f"  [{sym}] data: {first_dt} → {last_dt} "
+                    f"(~{len(bars_1m)} bars)",
                     flush=True,
                 )
 
