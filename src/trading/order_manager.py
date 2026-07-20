@@ -24,7 +24,10 @@ from event_log import log_event
 from models import UNRESTRICTED_STATUSES
 
 if TYPE_CHECKING:
-    from trading.protection_lifecycle import ProtectionLifecycleService
+    from trading.protection_lifecycle import (
+        ProtectionCheckResult,
+        ProtectionLifecycleService,
+    )
 
 log = logging.getLogger("sniper.order_manager")
 
@@ -225,20 +228,32 @@ class OrderManager:
             log.warning("[VERIFY] %s acik emir sorgu hatasi: %s", sym, e)
             return set()
 
-    async def verify_protection(self, sym: str, trade: dict) -> tuple[bool, bool]:
+    async def verify_protection(self, sym: str, trade: dict) -> "ProtectionCheckResult":
         """Binance'teki açık emirleri sorgulayıp sl_order_id / tp_order_id'nin
-        gerçekten hâlâ açık olup olmadığını döndürür: (sl_present, tp_present).
+        gerçekten hâlâ açık olup olmadığını döndürür.
+
+        Sprint B3: (bool, bool) yerine ProtectionCheckResult döner.
+        Tuple unpacking (sl_present, tp_present = await ...) hâlâ çalışır
+        (ProtectionCheckResult iterable).
 
         ProtectionLifecycleService varsa karar ona delege edilir.
         REST sorgusu başarısız olursa fail-safe: ikisini de True varsayar
         (yani "dokunma", çağıran taraf yanlışlıkla cancel/exit tetiklemesin).
         """
+        from trading.protection_lifecycle import ProtectionCheckResult
+
         if self._protection is not None:
             open_ids = await self.get_open_order_ids(sym)
             if not open_ids:
-                return True, True
-            result = self._protection.verify(trade, open_ids)
-            return result.sl_present, result.tp_present
+                return ProtectionCheckResult(
+                    sl_present=True,
+                    tp_present=True,
+                    sl_healthy=True,
+                    tp_healthy=True,
+                    needs_repair=False,
+                    detail="fail-safe (no open orders)",
+                )
+            return self._protection.verify(trade, open_ids)
 
         s_id = str(trade.get("sl_order_id", ""))
         t_id = str(trade.get("tp_order_id", ""))
@@ -249,14 +264,30 @@ class OrderManager:
             open_ids = {str(o.get("algoId") or o.get("orderId") or "") for o in orders}
             sl_present = (not expects_sl) or (bool(s_id) and s_id in open_ids)
             tp_present = (not expects_tp) or (bool(t_id) and t_id in open_ids)
-            return sl_present, tp_present
+            sl_healthy = (not expects_sl) or sl_present
+            tp_healthy = (not expects_tp) or tp_present
+            return ProtectionCheckResult(
+                sl_present=sl_present,
+                tp_present=tp_present,
+                sl_healthy=sl_healthy,
+                tp_healthy=tp_healthy,
+                needs_repair=(expects_sl and not sl_present)
+                or (expects_tp and not tp_present),
+            )
         except Exception as e:
             log.warning(
                 "[VERIFY] %s acik emir sorgu hatasi: %s -> fail-safe (dokunma)",
                 sym,
                 e,
             )
-            return True, True
+            return ProtectionCheckResult(
+                sl_present=True,
+                tp_present=True,
+                sl_healthy=True,
+                tp_healthy=True,
+                needs_repair=False,
+                detail="fail-safe (rest error)",
+            )
 
     async def position_still_open(self, sym: str) -> bool:
         """Binance hesabında bu sembol için hâlâ açık pozisyon var mı?

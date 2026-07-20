@@ -45,6 +45,9 @@ class ProtectionCheckResult:
     def all_healthy(self) -> bool:
         return self.sl_healthy and self.tp_healthy
 
+    def __iter__(self):
+        return iter((self.sl_present, self.tp_present))
+
 
 @dataclass
 class CleanupPlan:
