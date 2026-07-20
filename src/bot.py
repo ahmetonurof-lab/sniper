@@ -385,7 +385,7 @@ class PaperTrader:
                     log.info(
                         "[FVG-FILTER] %s FVG %d bar once olusmus, expiry=%d (iptal)",
                         sym,
-                        current.index - tf.real_index,
+                        current.index - tf.bar_index,
                         cfg.GLOBAL_FVG_EXPIRY_BARS,
                     )
                     rsm.reset()
