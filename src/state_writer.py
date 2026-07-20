@@ -1,10 +1,13 @@
 import json
 import os
 from datetime import UTC, datetime
+
+import config as cfg
 from models import (
     STATUS_EXIT_VERIFYING,
     STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
     STATUS_REPAIR_REQUIRED,
+    UNRESTRICTED_STATUSES,
 )
 
 _OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "output")
@@ -29,6 +32,12 @@ def write_state(
         if any(t.upnl is not None for t in active_trades.values())
         else None,
         "symbols": {},
+        # Patch Set 6: operator visibility — hangi kod yollari aktif?
+        "feature_flags": {
+            "exit_lifecycle_service": cfg.EXIT_LIFECYCLE_SERVICE_ENABLED,
+            "protection_lifecycle_service": cfg.PROTECTION_LIFECYCLE_SERVICE_ENABLED,
+            "ws_event_normalization": cfg.WS_EVENT_NORMALIZATION_ENABLED,
+        },
     }
     for sym in symbols:
         ss = states.get(sym)
@@ -63,6 +72,7 @@ def write_state(
                 "trailing_count": trade.get("trailing_count", 0),
                 "upnl": trade.get("upnl"),
                 "status": trade.get("status", ""),
+                "frozen": trade.get("status", "") not in UNRESTRICTED_STATUSES,
                 "sl_order_id_present": bool(trade.get("sl_order_id")),
                 "tp_order_id_present": bool(trade.get("tp_order_id")),
                 "exit_unconfirmed": trade.get("status")
