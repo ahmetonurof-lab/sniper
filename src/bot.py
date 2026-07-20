@@ -1324,18 +1324,6 @@ class PaperTrader:
         log.info("[LEVERAGE] %s leverage=%dx OK", symbol, effective)
         return Result.ok(None)
 
-    async def _periodic_position_check(self):
-        """Her ~60sn'de recover_positions (sessiz, console spam yok)."""
-        while True:
-            try:
-                if self._live and cfg.BINANCE_API_KEY:
-                    await self.recovery_manager.recover_positions(quiet=True)
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                log.warning("[POS-CHECK] periyodik kontrol hatasi (devam): %s", e)
-            await asyncio.sleep(60)
-
     async def run(self):
         for sym in self.symbols:
             self.hub.register_callback(sym, "15m", lambda b, s=sym: self.on_15m(s, b))
@@ -1456,7 +1444,9 @@ class PaperTrader:
         self._live = True
 
         # Periyodik pozisyon+emir kontrolü (her 60sn)
-        self._pos_check_task = asyncio.create_task(self._periodic_position_check())
+        self._pos_check_task = asyncio.create_task(
+            self.recovery_manager.periodic_check_loop()
+        )
         log.info("[POS-CHECK] periyodik pozisyon kontrolü baslatildi (60sn aralikla)")
 
         # Gecmis barlari yukle (15m + 1m)

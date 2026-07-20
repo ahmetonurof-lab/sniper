@@ -15,6 +15,7 @@ ProtectionLifecycleService'e delege edilir (varsa).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING
 
@@ -605,3 +606,16 @@ class RecoveryManager:
                     )
                 except Exception:
                     pass
+
+    async def periodic_check_loop(self):
+        """Her ~60sn'de recover_positions(quiet=True) calistir.
+        PaperTrader.run() tarafindan background task olarak baslatilir."""
+        while True:
+            try:
+                if cfg.BINANCE_API_KEY:
+                    await self.recover_positions(quiet=True)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                log.warning("[POS-CHECK] periyodik kontrol hatasi (devam): %s", e)
+            await asyncio.sleep(60)
