@@ -474,6 +474,9 @@ class ActiveTrade:
     """Canlı trade durumu. Hem attribute hem dict erişimini destekler.
 
     Geriye dönük uyumlu: trade["side"] ve trade.side aynı değeri verir.
+
+    Sprint B: runtime alanı TradeRuntimeState'e bağlandı. status,
+    frozen, pending_events dict erişiminde runtime üzerinden yönlendirilir.
     """
 
     symbol: str = ""
@@ -522,18 +525,51 @@ class ActiveTrade:
     pending_exit_order_id: str | None = None
     pending_exit_timestamp: int | None = None
 
+    # Sprint B: confirmed/runtime ayrımı
+    runtime: TradeRuntimeState = field(default_factory=TradeRuntimeState)
+
+    _RUNTIME_KEYS: frozenset[str] = field(
+        default=frozenset({"status", "frozen", "pending_events"}),
+        repr=False,
+        init=False,
+        compare=False,
+    )
+
+    def __post_init__(self):
+        # Sprint B: flat status alanını runtime.status ile senkronize et
+        if self.status:
+            self.runtime.status = TradeStatus(self.status)
+            self.runtime.frozen = self.status not in ("ACTIVE", "")
+
     # ── Dict uyumluluğu ───────────────────────────────────────
 
     def __getitem__(self, key: str):
+        if key == "status":
+            return self.runtime.status.value
+        if key == "frozen":
+            return self.runtime.frozen
+        if key == "pending_events":
+            return self.runtime.pending_events
         try:
             return getattr(self, key)
         except AttributeError:
             raise KeyError(key)
 
     def __setitem__(self, key: str, value) -> None:
+        if key == "status":
+            self.runtime.status = TradeStatus(value)
+            self.runtime.frozen = value not in ("ACTIVE", "")
+        if key == "frozen":
+            self.runtime.frozen = bool(value)
         setattr(self, key, value)
 
     def get(self, key: str, default=None):
+        if key == "status":
+            return self.runtime.status.value
+        if key == "frozen":
+            return self.runtime.frozen
+        if key == "pending_events":
+            return self.runtime.pending_events
         return getattr(self, key, default)
 
     def setdefault(self, key: str, default=None):
