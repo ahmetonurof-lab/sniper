@@ -176,31 +176,18 @@ def _run_worker(syms: list[str], days: int | None) -> dict:
                 await bot.on_1m(sym, chunk)
                 total_bars += 1
 
-            if step > 0 and step % 15 == 0:
-                c15m += 1
-                for sym in bar_cache:
-                    bars_15m = bar_15m_cache[sym]
-                    idx = step // 15
-                    if idx >= len(bars_15m):
-                        continue
-                    chunk = bars_15m[max(0, idx - 4) : idx + 1]
-                    if len(chunk) >= 2:
-                        b = chunk[-1]
-                        if c15m <= 10:  # ilk 10 cagrida debug
-                            from datetime import datetime, timezone
-
-                            dt = datetime.fromtimestamp(
-                                b.timestamp / 1000, tz=timezone.utc
-                            )
-                            ss = bot.states.get(sym)
-                            cbar = ss._cbdr if ss else None
-                            print(
-                                f"  [DBG] {sym} c15m={c15m} ts={dt} h={dt.hour} "
-                                f"body_high={cbar.body_high if cbar else '?'} "
-                                f"locked={cbar.locked if cbar else '?'}",
-                                flush=True,
-                            )
-                        await bot.on_15m(sym, chunk)
+                if step > 0 and step % 15 == 0:
+                    c15m += 1
+                    for sym in bar_cache:
+                        bars_15m = bar_15m_cache[sym]
+                        idx = step // 15
+                        if idx >= len(bars_15m):
+                            continue
+                        chunk = bars_15m[
+                            : idx + 1
+                        ]  # tum gecmisi ver (on_15m min 10 bar ister)
+                        if len(chunk) >= 10:
+                            await bot.on_15m(sym, chunk)
 
         for sym in bar_cache:
             ss = bot.states.get(sym)
@@ -223,7 +210,7 @@ def _run_worker(syms: list[str], days: int | None) -> dict:
                     bars_1m[-1].timestamp / 1000, tz=timezone.utc
                 )
                 print(
-                    f"  [{sym}] data: {first_dt} → {last_dt} "
+                    f"  [{sym}] data: {first_dt} -> {last_dt} "
                     f"(~{len(bars_1m)} bars)",
                     flush=True,
                 )
