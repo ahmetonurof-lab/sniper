@@ -1342,7 +1342,9 @@ class PaperTrader:
             await asyncio.sleep(60)
 
     async def _check_position(self, pos: dict):
-        """Tek pozisyon için SL/TP kontrolü (periodic_position_check alt kırılımı)."""
+        """Tek pozisyon için SL/TP kontrolü (periodic_position_check alt kırılımı).
+        verify_protection bypass edilir çünkü ProtectionLifecycleService
+        empty open_ids'yi "fail-safe" sanıp onarımı atlıyor."""
         sym = pos["symbol"]
         if sym not in self.symbols:
             return
@@ -1351,12 +1353,23 @@ class PaperTrader:
             return
         trade = self.active_trades.get(sym)
         if trade:
-            r = await self.order_manager.verify_protection(sym, trade)
-            if r.needs_repair:
+            open_orders = await self.rest.get_all_orders(sym)
+            open_ids = {
+                str(o.get("algoId") or o.get("orderId") or "") for o in open_orders
+            }
+            s_id = str(trade.get("sl_order_id", ""))
+            t_id = str(trade.get("tp_order_id", ""))
+            expects_sl = bool(trade.get("sl"))
+            expects_tp = bool(trade.get("tp"))
+            has_sl = (not expects_sl) or (bool(s_id) and s_id in open_ids)
+            has_tp = (not expects_tp) or (bool(t_id) and t_id in open_ids)
+            if (expects_sl and not has_sl) or (expects_tp and not has_tp):
                 await self.order_manager.repair_protection(
-                    sym, trade, has_sl=r.sl_present, has_tp=r.tp_present
+                    sym, trade, has_sl=has_sl, has_tp=has_tp
                 )
-                log.info("[POS-CHECK] %s SL/TP onarildi", sym)
+                log.info(
+                    "[POS-CHECK] %s SL/TP onarildi (sl=%s tp=%s)", sym, has_sl, has_tp
+                )
         else:
             await self._recover_unknown_position(sym, pos)
 
