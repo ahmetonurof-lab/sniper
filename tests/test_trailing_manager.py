@@ -142,7 +142,7 @@ class TestEvaluateTrail:
 
         assert result.updated is True
         assert result.new_sl == pytest.approx(102.925)
-        assert result.new_tp == pytest.approx(106.0 + (102.925 - 97.0))
+        assert result.new_tp == 106.0  # TP sabit — sadece SL trail yapılır
         assert result.trail_count == 1
 
     @patch("trading.trailing_manager.cfg")

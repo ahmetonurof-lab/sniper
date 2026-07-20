@@ -104,11 +104,13 @@ class OrderManager:
 
         old_sl_id = trade.get("sl_order_id", "")
         old_tp_id = trade.get("tp_order_id", "")
+        old_tp_price = trade.get("tp", 0.0)
 
         new_sl_id = ""
         new_tp_id = ""
         sl_ok = False
         tp_ok = False
+        tp_unchanged = abs(new_tp - old_tp_price) < 1e-8
 
         # ── 1. YENİ SL EMRİNİ AT (ESKİYİ HENÜZ SİLME) ──
         try:
@@ -133,25 +135,31 @@ class OrderManager:
         except Exception as e:
             log.warning("[TRAIL] %s SL place hatasi: %s -> eski SL korunuyor", sym, e)
 
-        # ── 2. YENİ TP EMRİNİ AT ──
-        try:
-            tp_resp = await self._rest.place_tp_order(
-                sym, sl_side, qty, new_tp, client_id=f"tp_{sym}_{int(time.time())}"
-            )
-            new_tp_id = extract_order_id(tp_resp)
-            if new_tp_id:
-                tp_ok = True
-            else:
-                log_event(
-                    "tp_reject",
-                    sym,
-                    side=trade["side"],
-                    tp_price=new_tp,
-                    old_id=old_tp_id,
+        # ── 2. YENİ TP EMRİNİ AT (fiyat değişmediyse atla) ──
+        if tp_unchanged:
+            tp_ok = True  # eski TP zaten duruyor, başarılı say
+            log.debug("[TRAIL] %s TP fiyati degismedi — atlaniyor", sym)
+        else:
+            try:
+                tp_resp = await self._rest.place_tp_order(
+                    sym, sl_side, qty, new_tp, client_id=f"tp_{sym}_{int(time.time())}"
                 )
-                log.warning("[TRAIL] %s TP reject -> eski TP korunuyor", sym)
-        except Exception as e:
-            log.warning("[TRAIL] %s TP place hatasi: %s -> eski TP korunuyor", sym, e)
+                new_tp_id = extract_order_id(tp_resp)
+                if new_tp_id:
+                    tp_ok = True
+                else:
+                    log_event(
+                        "tp_reject",
+                        sym,
+                        side=trade["side"],
+                        tp_price=new_tp,
+                        old_id=old_tp_id,
+                    )
+                    log.warning("[TRAIL] %s TP reject -> eski TP korunuyor", sym)
+            except Exception as e:
+                log.warning(
+                    "[TRAIL] %s TP place hatasi: %s -> eski TP korunuyor", sym, e
+                )
 
         # ── 3. SADECE BAŞARILI OLANLARI STATE'E YAZ (FIX #1) ──
         if sl_ok:

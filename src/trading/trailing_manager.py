@@ -98,9 +98,7 @@ class TrailingManager:
                     new_sl > current_sl
                     and (new_sl - current_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
                 ):
-                    sl_diff = new_sl - current_sl
                     current_sl = new_sl
-                    current_tp += sl_diff
                     trail_count += 1
                     updated = True
             else:
@@ -112,9 +110,7 @@ class TrailingManager:
                     new_sl < current_sl
                     and (current_sl - new_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
                 ):
-                    sl_diff = current_sl - new_sl
                     current_sl = new_sl
-                    current_tp -= sl_diff
                     trail_count += 1
                     updated = True
 
