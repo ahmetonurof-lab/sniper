@@ -1329,34 +1329,36 @@ class PaperTrader:
         Bilinen trade: SL/TP saglam mi?
         Bilinmeyen pozisyon: envantere ekle, SL/TP eksikse onar."""
         while True:
-            await asyncio.sleep(60)
-            if not self._live or not cfg.BINANCE_API_KEY:
-                continue
             try:
-                positions = await self.rest.get_positions()
-                if not positions:
-                    continue
-                for pos in positions:
-                    sym = pos["symbol"]
-                    if sym not in self.symbols:
-                        continue
-                    amt = float(pos.get("positionAmt", 0))
-                    if abs(amt) < 0.0001:
-                        continue
-                    trade = self.active_trades.get(sym)
-                    if trade:
-                        r = await self.order_manager.verify_protection(sym, trade)
-                        if r.needs_repair:
-                            await self.order_manager.repair_protection(
-                                sym, trade, has_sl=r.sl_present, has_tp=r.tp_present
-                            )
-                            log.info("[POS-CHECK] %s SL/TP onarildi", sym)
-                    else:
-                        await self._recover_unknown_position(sym, pos)
+                if self._live and cfg.BINANCE_API_KEY:
+                    positions = await self.rest.get_positions()
+                    if positions:
+                        for pos in positions:
+                            await self._check_position(pos)
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 log.warning("[POS-CHECK] periyodik kontrol hatasi (devam): %s", e)
+            await asyncio.sleep(60)
+
+    async def _check_position(self, pos: dict):
+        """Tek pozisyon için SL/TP kontrolü (periodic_position_check alt kırılımı)."""
+        sym = pos["symbol"]
+        if sym not in self.symbols:
+            return
+        amt = float(pos.get("positionAmt", 0))
+        if abs(amt) < 0.0001:
+            return
+        trade = self.active_trades.get(sym)
+        if trade:
+            r = await self.order_manager.verify_protection(sym, trade)
+            if r.needs_repair:
+                await self.order_manager.repair_protection(
+                    sym, trade, has_sl=r.sl_present, has_tp=r.tp_present
+                )
+                log.info("[POS-CHECK] %s SL/TP onarildi", sym)
+        else:
+            await self._recover_unknown_position(sym, pos)
 
     async def _recover_unknown_position(self, sym: str, pos: dict):
         """Bilinmeyen pozisyonu envantere al, SL/TP yoksa kur."""
