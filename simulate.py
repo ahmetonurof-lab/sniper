@@ -185,6 +185,21 @@ def _run_worker(syms: list[str], days: int | None) -> dict:
                         continue
                     chunk = bars_15m[max(0, idx - 4) : idx + 1]
                     if len(chunk) >= 2:
+                        b = chunk[-1]
+                        if c15m <= 10:  # ilk 10 cagrida debug
+                            from datetime import datetime, timezone
+
+                            dt = datetime.fromtimestamp(
+                                b.timestamp / 1000, tz=timezone.utc
+                            )
+                            ss = bot.states.get(sym)
+                            cbar = ss._cbdr if ss else None
+                            print(
+                                f"  [DBG] {sym} c15m={c15m} ts={dt} h={dt.hour} "
+                                f"body_high={cbar.body_high if cbar else '?'} "
+                                f"locked={cbar.locked if cbar else '?'}",
+                                flush=True,
+                            )
                         await bot.on_15m(sym, chunk)
 
         for sym in bar_cache:
