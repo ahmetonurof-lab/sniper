@@ -18,7 +18,7 @@ from datetime import UTC, datetime, timezone, timedelta
 
 import config as cfg
 from bot_binance import BinanceRESTClient
-from bot_infra import _close_ohlc_writers, _RateLimiter, extract_order_id
+from bot_infra import _close_ohlc_writers, _RateLimiter
 from indicators import calculate_true_range, update_atr
 from models import (
     ActiveTrade,
@@ -1325,92 +1325,16 @@ class PaperTrader:
         return Result.ok(None)
 
     async def _periodic_position_check(self):
-        """Her ~60sn'de Binance pozisyon+emir kontrolü.
-        Bilinen trade: SL/TP saglam mi?
-        Bilinmeyen pozisyon: envantere ekle, SL/TP eksikse onar."""
+        """Her ~60sn'de recover_positions (sessiz, console spam yok)."""
         while True:
             try:
                 if self._live and cfg.BINANCE_API_KEY:
-                    positions = await self.rest.get_positions()
-                    if positions:
-                        for pos in positions:
-                            await self._check_position(pos)
+                    await self.recovery_manager.recover_positions(quiet=True)
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 log.warning("[POS-CHECK] periyodik kontrol hatasi (devam): %s", e)
             await asyncio.sleep(60)
-
-    async def _check_position(self, pos: dict):
-        """Tek pozisyon için SL/TP kontrolü."""
-        sym = pos["symbol"]
-        if sym not in self.symbols:
-            return
-        amt = float(pos.get("positionAmt", 0))
-        if abs(amt) < 0.0001:
-            return
-        trade = self.active_trades.get(sym)
-        if trade:
-            r = await self.order_manager.verify_protection(sym, trade)
-            if r.needs_repair:
-                await self.order_manager.repair_protection(
-                    sym, trade, has_sl=r.sl_present, has_tp=r.tp_present
-                )
-                log.info("[POS-CHECK] %s SL/TP onarildi", sym)
-        else:
-            await self._recover_unknown_position(sym, pos)
-
-    async def _recover_unknown_position(self, sym: str, pos: dict):
-        """Bilinmeyen pozisyonu envantere al, SL/TP yoksa kur."""
-        direction = "long" if float(pos.get("positionAmt", 0)) > 0 else "short"
-        entry = float(pos.get("entryPrice", 0))
-        qty = abs(float(pos.get("positionAmt", 0)))
-        open_orders = await self.rest.get_all_orders(sym)
-        sl_orders = [
-            o
-            for o in open_orders
-            if self.rest.get_order_type(o) in ("STOP_MARKET", "STOP", "STOP_LIMIT")
-            and (
-                o.get("reduceOnly") in (True, "true", "True")
-                or o.get("closePosition") in (True, "true", "True")
-            )
-        ]
-        tp_orders = [
-            o
-            for o in open_orders
-            if self.rest.get_order_type(o)
-            in ("TAKE_PROFIT_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_LIMIT")
-            and (
-                o.get("reduceOnly") in (True, "true", "True")
-                or o.get("closePosition") in (True, "true", "True")
-            )
-        ]
-        if sl_orders and tp_orders:
-            sl_price = self.rest.get_order_price(sl_orders[0])
-            tp_price = self.rest.get_order_price(tp_orders[0])
-            self.active_trades[sym] = ActiveTrade(
-                symbol=sym,
-                entry_bar_index=0,
-                entry_price=entry,
-                sl=sl_price,
-                tp=tp_price,
-                qty=qty,
-                side=direction,
-                trigger_fvg=None,
-                initial_sl=sl_price,
-                initial_tp=tp_price,
-                trailing_count=0,
-                risk_pts=abs(entry - sl_price),
-                is_recovered=True,
-                sl_order_id=extract_order_id(sl_orders[0]),
-                tp_order_id=extract_order_id(tp_orders[0]),
-            )
-            log.info(
-                "[RECOVER] %s bilinmeyen pozisyon envantere alindi (SL/TP mevcut)", sym
-            )
-        else:
-            # SL/TP yok — recovery_manager havale (bilinen sembolleri atlar)
-            await self.recovery_manager.recover_positions()
 
     async def run(self):
         for sym in self.symbols:

@@ -73,28 +73,31 @@ class RecoveryManager:
 
     # ── Pozisyon kurtarma ──────────────────────────────────────
 
-    async def recover_positions(self) -> None:
+    async def recover_positions(self, quiet: bool = False) -> None:
         """Binance'deki açık pozisyonları tara, SL/TP varsa envantere al,
-        yoksa yeni koruma emri kur."""
+        yoksa yeni koruma emri kur.
+
+        Args:
+            quiet: True ise _pl() konsol mesaji atlanir (periyodik cagri).
+        """
         if not cfg.BINANCE_API_KEY:
             return
         try:
             positions = await self._rest.get_positions()
             if not positions:
-                self._pl("SYSTEM", "recover", "\u2705 API'de acik pozisyon yok")
+                if not quiet:
+                    self._pl("SYSTEM", "recover", "\u2705 API'de acik pozisyon yok")
                 return
 
-            self._pl(
-                "SYSTEM",
-                "recover",
-                f"\U0001f504 {len(positions)} pozisyon bulundu, envantere aliniyor...",
-            )
+            if not quiet:
+                self._pl(
+                    "SYSTEM",
+                    "recover",
+                    f"\U0001f504 {len(positions)} pozisyon bulundu, envantere aliniyor...",
+                )
             for pos in positions:
                 sym = pos["symbol"]
                 if sym not in self._symbols:
-                    continue
-                # Canlı çalışırken periyodik çağrılarda bilinen trade'i ezme
-                if sym in self._active_trades:
                     continue
                 amt = float(pos.get("positionAmt", 0))
                 direction = "long" if amt > 0 else "short"
@@ -122,40 +125,50 @@ class RecoveryManager:
                     )
                 ]
 
+                existing = self._active_trades.get(sym)
                 if sl_orders and tp_orders:
                     sl_price = self._rest.get_order_price(sl_orders[0])
                     tp_price = self._rest.get_order_price(tp_orders[0])
                     risk_pts = abs(entry - sl_price)
                     sl_id = extract_order_id(sl_orders[0])
                     tp_id = extract_order_id(tp_orders[0])
-                    self._active_trades[sym] = ActiveTrade(
-                        symbol=sym,
-                        entry_bar_index=0,
-                        entry_price=entry,
-                        sl=sl_price,
-                        tp=tp_price,
-                        qty=abs(amt),
-                        side=direction,
-                        trigger_fvg=None,
-                        initial_sl=sl_price,
-                        initial_tp=tp_price,
-                        trailing_count=0,
-                        risk_pts=risk_pts,
-                        is_recovered=True,
-                        sl_order_id=sl_id,
-                        tp_order_id=tp_id,
-                    )
-                    self._pl(
-                        sym,
-                        "recover",
-                        f"\U0001f512 {direction.upper()} @ {entry:.2f} | SL={sl_price:.2f} TP={tp_price:.2f} | yeni trade engellendi",
-                    )
+                    if existing:
+                        existing["sl"] = sl_price
+                        existing["tp"] = tp_price
+                        existing["sl_order_id"] = sl_id
+                        existing["tp_order_id"] = tp_id
+                        existing["risk_pts"] = risk_pts
+                    else:
+                        self._active_trades[sym] = ActiveTrade(
+                            symbol=sym,
+                            entry_bar_index=0,
+                            entry_price=entry,
+                            sl=sl_price,
+                            tp=tp_price,
+                            qty=abs(amt),
+                            side=direction,
+                            trigger_fvg=None,
+                            initial_sl=sl_price,
+                            initial_tp=tp_price,
+                            trailing_count=0,
+                            risk_pts=risk_pts,
+                            is_recovered=True,
+                            sl_order_id=sl_id,
+                            tp_order_id=tp_id,
+                        )
+                    if not quiet:
+                        self._pl(
+                            sym,
+                            "recover",
+                            f"\U0001f512 {direction.upper()} @ {entry:.2f} | SL={sl_price:.2f} TP={tp_price:.2f} | yeni trade engellendi",
+                        )
                 else:
-                    self._pl(
-                        sym,
-                        "recover",
-                        f"[{INCIDENT_POSITION_OPEN_BUT_STATE_MISSING}] \u26a0\ufe0f {direction.upper()} @ {entry:.2f} | SL/TP bulunamadi (pozisyon korumasiz)",
-                    )
+                    if not quiet:
+                        self._pl(
+                            sym,
+                            "recover",
+                            f"[{INCIDENT_POSITION_OPEN_BUT_STATE_MISSING}] \u26a0\ufe0f {direction.upper()} @ {entry:.2f} | SL/TP bulunamadi (pozisyon korumasiz)",
+                        )
                     # Gercek ATR varsa kullan. Yoksa DEFAULT_ATR_FALLBACK_PCT (0.01%)
                     # KULLANMA: SL/TP giris fiyatina yapisir, Binance "immediately
                     # trigger" hatasiyla reddeder ve pozisyon sessizce korumasiz kalir.
@@ -349,11 +362,41 @@ class RecoveryManager:
                             sym,
                             reason,
                         )
-                        self._pl(
-                            sym,
-                            "recover_emergency_close_failed",
-                            f"\U0001f6a8\U0001f6a8 {sym}: ACIL KAPANIS BASARISIZ -- HEMEN MANUEL KONTROL ET: {reason}",
-                        )
+                        if not quiet:
+                            self._pl(
+                                sym,
+                                "recover_emergency_close_failed",
+                                f"\U0001f6a8\U0001f6a8 {sym}: ACIL KAPANIS BASARISIZ -- HEMEN MANUEL KONTROL ET: {reason}",
+                            )
+                        if existing:
+                            existing["sl"] = sl
+                            existing["tp"] = tp
+                            existing["sl_order_id"] = ""
+                            existing["tp_order_id"] = tp_id
+                        else:
+                            self._active_trades[sym] = ActiveTrade(
+                                symbol=sym,
+                                entry_bar_index=0,
+                                entry_price=entry,
+                                sl=sl,
+                                tp=tp,
+                                qty=abs(amt),
+                                side=direction,
+                                trigger_fvg=None,
+                                initial_sl=sl,
+                                initial_tp=tp,
+                                trailing_count=0,
+                                risk_pts=risk_pts,
+                                is_recovered=True,
+                                sl_order_id="",
+                                tp_order_id=tp_id,
+                            )
+                        continue
+
+                    if existing:
+                        existing["sl_order_id"] = sl_id
+                        existing["tp_order_id"] = tp_id
+                    else:
                         self._active_trades[sym] = ActiveTrade(
                             symbol=sym,
                             entry_bar_index=0,
@@ -368,36 +411,19 @@ class RecoveryManager:
                             trailing_count=0,
                             risk_pts=risk_pts,
                             is_recovered=True,
-                            sl_order_id="",
+                            sl_order_id=sl_id,
                             tp_order_id=tp_id,
                         )
-                        continue
-
-                    self._active_trades[sym] = ActiveTrade(
-                        symbol=sym,
-                        entry_bar_index=0,
-                        entry_price=entry,
-                        sl=sl,
-                        tp=tp,
-                        qty=abs(amt),
-                        side=direction,
-                        trigger_fvg=None,
-                        initial_sl=sl,
-                        initial_tp=tp,
-                        trailing_count=0,
-                        risk_pts=risk_pts,
-                        is_recovered=True,
-                        sl_order_id=sl_id,
-                        tp_order_id=tp_id,
-                    )
                     protection_note = "" if tp_id else " (TP kurulamadi, sadece SL var)"
-                    self._pl(
-                        sym,
-                        "recover",
-                        f"\U0001f512 {direction.upper()} @ {entry:.2f} | SL={sl:.2f} (id={sl_id}) TP={tp:.2f} (id={tp_id}){protection_note} kuruldu",
-                    )
+                    if not quiet:
+                        self._pl(
+                            sym,
+                            "recover",
+                            f"\U0001f512 {direction.upper()} @ {entry:.2f} | SL={sl:.2f} (id={sl_id}) TP={tp:.2f} (id={tp_id}){protection_note} kuruldu",
+                        )
         except Exception as e:
-            self._pl("SYSTEM", "recover", f"\u274c Pozisyon kurtarma hatasi: {e}")
+            if not quiet:
+                self._pl("SYSTEM", "recover", f"\u274c Pozisyon kurtarma hatasi: {e}")
 
     # ── Ghost pozisyon temizliği ───────────────────────────────
 
