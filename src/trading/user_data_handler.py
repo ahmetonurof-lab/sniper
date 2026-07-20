@@ -171,6 +171,8 @@ class UserDataHandler:
             status = evt.status
             sym = evt.symbol
             oid = evt.order_id
+            oid_c = str(od.get("c", ""))
+            oid_i = str(od.get("i", ""))
             log.info("[WS-ORDER] %s status=%s id=%s", sym, status, oid)
 
             if status in ("FILLED", "TRIGGERED"):
@@ -186,10 +188,12 @@ class UserDataHandler:
                     )
 
                     if _oid_matches_trade(
-                        oid, s_id, t_id, s_id_prev, t_id_prev, s_id_hist, t_id_hist
+                        oid_c, s_id, t_id, s_id_prev, t_id_prev, s_id_hist, t_id_hist
+                    ) or _oid_matches_trade(
+                        oid_i, s_id, t_id, s_id_prev, t_id_prev, s_id_hist, t_id_hist
                     ):
                         result = _resolve_fill_result(
-                            oid, s_id, t_id, s_id_prev, s_id_hist
+                            oid_c or oid_i, s_id, t_id, s_id_prev, s_id_hist
                         )
                         _pl(
                             sym,
@@ -201,7 +205,7 @@ class UserDataHandler:
                         # dogrularsa promote eder.
                         trade["pending_exit_price"] = price
                         trade["pending_exit_qty"] = cum_qty
-                        trade["pending_exit_order_id"] = oid
+                        trade["pending_exit_order_id"] = oid_c or oid_i
                         trade["pending_exit_timestamp"] = evt.ts_ms
                         trade["result"] = result
                         if cum_quote > 0:
@@ -283,7 +287,9 @@ class UserDataHandler:
         async def _on_order_update_legacy(od: dict) -> None:
             sym = od.get("s", "")
             status = od.get("X", "")
-            oid = str(od.get("c", "") or od.get("i", ""))
+            oid_c = str(od.get("c", ""))
+            oid_i = str(od.get("i", ""))
+            oid = oid_c or oid_i
             log.info("[WS-ORDER] %s status=%s id=%s", sym, status, oid)
 
             is_reduce_only = od.get("R", False) or od.get("reduceOnly", False)
@@ -295,6 +301,7 @@ class UserDataHandler:
                 cum_qty = float(od.get("z", 0))
                 cum_quote = float(od.get("Z", 0))
 
+                # FIX: WS fill hem 'c' (clientOrderId) hem 'i' (orderId) ile eslestir
                 trade = _active_trades.get(sym)
                 if trade:
                     s_id, t_id, s_id_prev, t_id_prev, s_id_hist, t_id_hist = (
@@ -302,10 +309,12 @@ class UserDataHandler:
                     )
 
                     if _oid_matches_trade(
-                        oid, s_id, t_id, s_id_prev, t_id_prev, s_id_hist, t_id_hist
+                        oid_c, s_id, t_id, s_id_prev, t_id_prev, s_id_hist, t_id_hist
+                    ) or _oid_matches_trade(
+                        oid_i, s_id, t_id, s_id_prev, t_id_prev, s_id_hist, t_id_hist
                     ):
                         result = _resolve_fill_result(
-                            oid, s_id, t_id, s_id_prev, s_id_hist
+                            oid_c or oid_i, s_id, t_id, s_id_prev, s_id_hist
                         )
                         _pl(
                             sym,
