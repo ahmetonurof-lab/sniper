@@ -13,6 +13,13 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 os.environ["BINANCE_API_KEY"] = ""
+os.environ["BINANCE_API_SECRET"] = ""
+
+import config as _cfg  # noqa: E402
+
+_cfg.BINANCE_API_KEY = ""
+_cfg.BINANCE_API_SECRET = ""
+
 os.environ["EXIT_LIFECYCLE_SERVICE_ENABLED"] = "true"
 os.environ["PROTECTION_LIFECYCLE_SERVICE_ENABLED"] = "true"
 os.environ["WS_EVENT_NORMALIZATION_ENABLED"] = "true"
