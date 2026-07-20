@@ -93,6 +93,9 @@ class RecoveryManager:
                 sym = pos["symbol"]
                 if sym not in self._symbols:
                     continue
+                # Canlı çalışırken periyodik çağrılarda bilinen trade'i ezme
+                if sym in self._active_trades:
+                    continue
                 amt = float(pos.get("positionAmt", 0))
                 direction = "long" if amt > 0 else "short"
                 entry = float(pos.get("entryPrice", 0))
