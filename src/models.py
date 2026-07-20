@@ -398,6 +398,40 @@ class ProtectionState:
         ids.update(r.order_id for r in self.history)
         return ids
 
+    def _get_ref(self, kind: str, slot: str) -> ProtectionRef | None:
+        """Kind (SL/TP) ve slot (CURRENT/PENDING/PREVIOUS) ile ref bul."""
+        key = f"{kind.lower()}_{slot.lower()}"
+        mapping = {
+            "sl_current": self.sl_current,
+            "sl_pending": self.sl_pending,
+            "sl_previous": self.sl_previous,
+            "tp_current": self.tp_current,
+            "tp_pending": self.tp_pending,
+            "tp_previous": self.tp_previous,
+        }
+        return mapping.get(key)
+
+    def _set_ref(self, kind: str, slot: str, order_id: str) -> None:
+        """Kind ve slot ile ref oluştur/güncelle."""
+        ref = (
+            ProtectionRef(order_id=order_id, kind=kind, slot=ProtectionSlot(slot))
+            if order_id
+            else None
+        )
+        key = f"{kind.lower()}_{slot.lower()}"
+        if key == "sl_current":
+            self.sl_current = ref
+        elif key == "sl_pending":
+            self.sl_pending = ref
+        elif key == "sl_previous":
+            self.sl_previous = ref
+        elif key == "tp_current":
+            self.tp_current = ref
+        elif key == "tp_pending":
+            self.tp_pending = ref
+        elif key == "tp_previous":
+            self.tp_previous = ref
+
 
 @dataclass
 class PendingExitContext:
@@ -536,12 +570,58 @@ class ActiveTrade:
     )
 
     def __post_init__(self):
-        # Sprint B: flat status alanını runtime.status ile senkronize et
+        # Sprint B: flat alanları runtime ile senkronize et
         if self.status:
             self.runtime.status = TradeStatus(self.status)
             self.runtime.frozen = self.status not in ("ACTIVE", "")
+        for key in self._PROTECTION_MAP:
+            val = getattr(self, key, "")
+            if val:
+                self._protection_set(key, val)
+        sl_hist = getattr(self, "sl_order_id_history", None)
+        if sl_hist:
+            self._protection_history_set("SL", sl_hist)
+        tp_hist = getattr(self, "tp_order_id_history", None)
+        if tp_hist:
+            self._protection_history_set("TP", tp_hist)
 
     # ── Dict uyumluluğu ───────────────────────────────────────
+
+    _PROTECTION_MAP: dict = field(
+        default_factory=lambda: {
+            "sl_order_id": ("sl", "CURRENT"),
+            "tp_order_id": ("tp", "CURRENT"),
+            "sl_order_id_prev": ("sl", "PREVIOUS"),
+            "tp_order_id_prev": ("tp", "PREVIOUS"),
+            "pending_sl_order_id": ("sl", "PENDING"),
+            "pending_tp_order_id": ("tp", "PENDING"),
+        },
+        repr=False,
+        init=False,
+        compare=False,
+    )
+
+    def _protection_get(self, key: str) -> str:
+        """runtime.protection'dan order_id oku (flat string olarak)."""
+        info = self._PROTECTION_MAP[key]
+        ref = self.runtime.protection._get_ref(info[0], info[1])
+        return ref.order_id if ref else ""
+
+    def _protection_set(self, key: str, value: str) -> None:
+        """runtime.protection'a order_id yaz."""
+        info = self._PROTECTION_MAP[key]
+        self.runtime.protection._set_ref(info[0], info[1], value)
+
+    def _protection_history_get(self, kind: str) -> list[str]:
+        return [r.order_id for r in self.runtime.protection.history if r.kind == kind]
+
+    def _protection_history_set(self, kind: str, ids: list[str]) -> None:
+        existing = [r for r in self.runtime.protection.history if r.kind != kind]
+        new_refs = [
+            ProtectionRef(order_id=oid, kind=kind, slot=ProtectionSlot.PREVIOUS)
+            for oid in ids
+        ]
+        self.runtime.protection.history = existing + new_refs
 
     def __getitem__(self, key: str):
         if key == "status":
@@ -550,6 +630,12 @@ class ActiveTrade:
             return self.runtime.frozen
         if key == "pending_events":
             return self.runtime.pending_events
+        if key in self._PROTECTION_MAP:
+            return self._protection_get(key)
+        if key == "sl_order_id_history":
+            return self._protection_history_get("SL")
+        if key == "tp_order_id_history":
+            return self._protection_history_get("TP")
         try:
             return getattr(self, key)
         except AttributeError:
@@ -561,6 +647,14 @@ class ActiveTrade:
             self.runtime.frozen = value not in ("ACTIVE", "")
         if key == "frozen":
             self.runtime.frozen = bool(value)
+        if key in self._PROTECTION_MAP:
+            self._protection_set(key, str(value) if value else "")
+        if key == "sl_order_id_history":
+            if isinstance(value, list):
+                self._protection_history_set("SL", [str(x) for x in value])
+        if key == "tp_order_id_history":
+            if isinstance(value, list):
+                self._protection_history_set("TP", [str(x) for x in value])
         setattr(self, key, value)
 
     def get(self, key: str, default=None):
@@ -570,6 +664,12 @@ class ActiveTrade:
             return self.runtime.frozen
         if key == "pending_events":
             return self.runtime.pending_events
+        if key in self._PROTECTION_MAP:
+            return self._protection_get(key)
+        if key == "sl_order_id_history":
+            return self._protection_history_get("SL")
+        if key == "tp_order_id_history":
+            return self._protection_history_get("TP")
         return getattr(self, key, default)
 
     def setdefault(self, key: str, default=None):
