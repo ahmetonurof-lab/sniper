@@ -73,6 +73,19 @@
 | ExitLifecycleService extraction | ✅ `src/trading/exit_lifecycle.py` (557 satır), `EXIT_LIFECYCLE_SERVICE_ENABLED` flag, DI `exit_service`, `_exit_trade_legacy` rename |
 | ExitLifecycleService unit tests | ✅ 24 test — WS-FALLBACK guard, paper-mode skip, adapter ambiguity (5 senaryo), verification loop (fail/success), REPAIR_REQUIRED, _commit_confirmed_exit (long/short PnL, cleanup) |
 | Wiring tests (bot.py routing) | ✅ 3 test — flag=True→exit_service.execute, flag=False→_exit_trade_legacy, flag default False. Scope fix: patch'in `_exit_trade` çağrısını kapsaması sağlandı. |
+| **P1: State split model tanımları** | ✅ `models.py`: 8 yeni tip/container. Henüz ActiveTrade'e bağlı değildi — B1/B2 sonra bağladı. |
+| **P3: Protection lifecycle extraction** | ✅ `protection_lifecycle.py` (+265 satır). `ProtectionLifecycleService` + `ProtectionCheckResult` + `CleanupPlan`. `PROTECTION_LIFECYCLE_SERVICE_ENABLED` flag. |
+| **P4: WS normalization** | ✅ `user_data_handler.py` (+238). `normalize_order_event()` pipeline. `pending_exit_*` alanlarına yazma. `WS_EVENT_NORMALIZATION_ENABLED` flag. |
+| **P5: bot.py orchestration cleanup** | ✅ `_on_1m_close` — orphan sweep status'tan bağımsız, ATR unrestricted içine, UPNL her bar. |
+| **P6: Operator visibility** | ✅ `state_writer.py` — `frozen` + `feature_flags` çıktısı. |
+| **B1: ActiveTrade runtime bağlantısı** | ✅ `models.py` — `TradeRuntimeState` → `ActiveTrade.runtime`. Dict yönlendirme: status/frozen/pending_events. |
+| **B2: ProtectionState → runtime.protection** | ✅ `models.py` — 6 protection field'ı `runtime.protection` object üzerinden. `_PROTECTION_MAP`. |
+| **B3: ProtectionCheckResult tuple→dataclass** | ✅ `order_manager.py` — `verify_protection()` dönüş tipi değişti. `__iter__` backward compat. |
+| **fix: HTFFVG bar_index** | ✅ `bot.py` — `real_index` → `bar_index` (FVG expiry). |
+| **D1: ProtectionState lifecycle status** | ✅ `models.py` + `state_writer.py` — `sl_status`, `tp_status`, `protection_health`. |
+| **C: Explicit lifecycle states (9d0e72b)** | ✅ `STATUS_EXIT_REQUESTED`, `STATUS_EXIT_SUBMITTED`, `STATUS_CLOSED` eklendi. `update_trail_orders()` → `TRAIL_REPLACING`/`ACTIVE`. bot.py + exit_lifecycle.py state machine sync. |
+| **E: Chaos tests (9d0e72b)** | ✅ 4 edge-case test: delayed fill, REST timeout, force close fallback, state transition verification. |
+| **fix: close 3 review findings (594f6f3)** | ✅ 3 system review bulgusu kapatıldı. |
 
 ## Kalan İşler 🔧
 
@@ -88,6 +101,11 @@
 | FVG marker konum bug çözümü | 🟡 Orta | chart'ta gördüğümüz 3 örnek (SOLUSDT) — kök neden araştırılıyor |
 | v3_window_comparison.md yeniden koşumu | 🟡 Orta | Geçersiz çıktı, yeniden çalıştırılacak |
 | ict_cbdr_thresholds.md yeniden koşumu | 🟢 Düşük | Sahte ATR ile koşmuş, yeniden koşulacak |
+| **Rollout flag aktivasyon planı** | 🟡 Orta | 3 flag => `EXIT_LIFECYCLE_SERVICE_ENABLED`, `PROTECTION_LIFECYCLE_SERVICE_ENABLED`, `WS_EVENT_NORMALIZATION_ENABLED`. Hepsi default False. Sırayla açılacak. |
+| **_close_trade_pending_exit() implementasyonu** | 🟠 Yüksek | P4 WS normalization için gerekli — pending_exit promote mekanizması bot.py'de henüz yok. |
+| **ProtectionLifecycleService rollout** | 🟡 Orta | P3 default False. Açılmadan önce canlı testte restore edilebilirlik doğrulanmalı. |
+| **WS normalization rollout** | 🟡 Orta | P4 default False. Açılmadan önce WS_FALLBACK sayısı baseline alınmalı. |
+| **TradeConfirmedState backfill** | 🟢 Düşük | P1'de tanımlanan `TradeConfirmedState` field'ları henüz ActiveTrade flat alanlarına bağlanmadı. |
 
 ## Bilinen Sorunlar 🐛
 

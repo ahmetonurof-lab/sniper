@@ -54,6 +54,19 @@
 | 40 | **bot.py _session_label ASIA fix — backtest uyumu** | `_session_label()` 22-02'yi "ASIA" olarak etiketleyip blokluyordu. Bu REAL_CBDR coin'lerde (19-01) 01:00-02:00 arası hatalı bloka sebep oluyordu. Kaldırıldı. Artık coin bazlı CBDR penceresi blokajı (`cbdr_locked`) backtest'le birebir aynı. |
 | 41 | **ExitLifecycleService extraction (Patch Set 2)** | `_exit_trade()`'den `ExitLifecycleService` (557 satır) ayrı modül olarak çıkarıldı (`src/trading/exit_lifecycle.py`). `bot.py`'da `EXIT_LIFECYCLE_SERVICE_ENABLED = cfg.EXIT_LIFECYCLE_SERVICE_ENABLED` flag + DI `exit_service` ile `_exit_trade()` wrapper (flag→execute, flag→legacy). Rollback guard: flag module-level const olarak yakalandığı için `@patch("bot.cfg", autospec=True)` interference'ı yok. 24 unit test + 3 wiring test. |
 | 42 | **_round_step floor division fix** | `_round_step()`'de `value // step` kayan nokta hatasıyla 1 step eksik hesaplıyordu (7275.8 // 0.1 = 72757 → 7275.7). `int(value / step)` ile düzeltildi. OPUSDT'de her market close 0.1 OP kalıntı bırakıyordu. |
+| 43 | **P1: State split model tanımları (192b6b6)** | `models.py`: `TradeStatus` enum, `TradeRuntimeState`, `TradeConfirmedState`, `ProtectionRef`, `ProtectionSlot`, `ProtectionState`, `PendingExitContext`, `NormalizedOrderEvent`. Henüz `ActiveTrade`'e bağlanmadı — sadece tip tanımları. |
+| 44 | **P3: Protection lifecycle extraction (3935a51)** | `protection_lifecycle.py` (+265 satır): `ProtectionLifecycleService` — policy kararları OrderManager/RecoveryManager'dan ayrıldı. `ProtectionCheckResult` (tuple yerine dataclass). `CleanupPlan`. Rollout: `PROTECTION_LIFECYCLE_SERVICE_ENABLED` (env, default False). OrderManager + RecoveryManager delegate calls. |
+| 45 | **P4: WS normalization — pending writes (007983b)** | `user_data_handler.py` (+238 satır): WS FILLED/TRIGGERED event'i artık confirmed alanlara direkt yazılmaz. `pending_exit_price/qty/order_id/timestamp`'e yazılır → `_exit_trade()` veya `ExitLifecycleService` promote eder. `normalize_order_event()` pipeline. Rollout: `WS_EVENT_NORMALIZATION_ENABLED` (env, default False). |
+| 46 | **P5: bot.py orchestration cleanup (29ffd98)** | `_on_1m_close` yeniden yapısı: orphan sweep artık status'ten **bağımsız** (her 5 bar'da çalışır), ATR hesaplama `if unrestricted` bloğu içine taşındı, UPNL+state writer **her bar'da** (frozen trade'lerde bile). |
+| 47 | **P6: Operator visibility (6df2134)** | `state_writer.py`: Her trade için `frozen` (status not in UNRESTRICTED) + global `feature_flags` (3 rollout flag'ın JSON durumu). |
+| 48 | **B1: ActiveTrade runtime bağlantısı (bd234d4)** | `models.py` (+36): `TradeRuntimeState` → `ActiveTrade.runtime` field. `__getitem__`/`__setitem__` 3 key'i runtime'a yönlendirir: `status`, `frozen`, `pending_events`. `__post_init__` flat→runtime sync. |
+| 49 | **B2: ProtectionState → runtime.protection (f2f15f1)** | `models.py` (+101): 6 flat protection alanı (`sl_order_id`, `tp_order_id`, `*_prev`, `pending_*`) → `runtime.protection` object üzerinden okunur/yazılır. `_PROTECTION_MAP` yönlendirme dict'i. `ProtectionState._get_ref/_set_ref` + `known_ids()`. |
+| 50 | **B3: ProtectionCheckResult tuple yerine (35ac290)** | `order_manager.py`: `verify_protection()` dönüş tipi `(bool,bool)` → `ProtectionCheckResult` (`sl_present`, `tp_present`, `sl_healthy`, `tp_healthy`, `needs_repair`, `detail`). `__iter__` backward compat. REST fallback path de aynı dataclass'ı döndürür. |
+| 51 | **fix: HTFFVG bar_index (2e73ae3)** | `bot.py`: `current.index - tf.real_index` → `current.index - tf.bar_index`. FVG expiry kontrolünde yanlış index kullanılıyordu. |
+| 52 | **D1: ProtectionState lifecycle status (dbdab53)** | `models.py` (+32) + `state_writer.py` (+4): `sl_status(sl_price)`, `tp_status(tp_price)` → "NOT_REQUIRED"/"ACTIVE_CONFIRMED"/"PENDING_CREATE"/"EXPECTED". `health` → "HEALTHY"/"DEGRADED"/"BROKEN". State writer'a `sl_status`, `tp_status`, `protection_health` alanları eklendi. |
+| 53 | **C(53): Explicit lifecycle states (9d0e72b)** | 3 yeni status: `EXIT_REQUESTED` (trail/exit tespitinde), `EXIT_SUBMITTED` (market order öncesi), `CLOSED` (commit'te string'den enum'a). `update_trail_orders()` replace sırasında `TRAIL_REPLACING`, success'te `ACTIVE`. bot.py + exit_lifecycle.py aynı state machine. |
+| 54 | **E(54): Chaos/edge-case tests (9d0e72b)** | 4 test: delayed fill (4. attempt), REST timeout → REPAIR_REQUIRED, force close fallback (market REJECTED), state transition doğrulama. |
+| 55 | **fix: close 3 system review findings (594f6f3)** | Review bulguları kapatıldı — detaylar commit'te embedded. |
 
 ## Aktif Kararlar
 
@@ -70,6 +83,7 @@
 - **FVG expiry filter**: `GLOBAL_FVG_EXPIRY_BARS=45` — 45 bar'dan eski FVG'ler kullanılmaz.
 - **Dinamik FVG filtresi**: `MIN_REL_FVG_THRESHOLD=0.50` — FVG/ATR oranı bu değerin altındaysa red.
 - **Backtest doğrulaması**: 13/13 coin'de erken London WR > geç London/NY, tutarlılık %100. EL PF=4.35 vs non-EL PF=2.52. CBDR bucket matrisi backtest ile dolduruldu.
+- **Explicit exit state machine**: `EXIT_REQUESTED` (trail/exit tespiti) → `EXIT_SUBMITTED` (market order gönderildi) → `EXIT_VERIFYING` (position verification) → `CLOSED` (commit). `update_trail_orders()` replace sırasında `TRAIL_REPLACING`, success'te `ACTIVE`.
 - **Backtest metodu**: Parquet'ten linear PnL skalalama — exit koşulları price-based, qty skalası lineer taşınır. Gerçek portföy MaxDD günlük birleştirilmiş equity eğrisinden hesaplanır.
 - **RISK_PER_TRADE=0.003**: Elle güncellendi (%0.3).
 - **FVG_BUFFER_MULT=0.50**: Canlı ve backtest artık aynı.
@@ -96,6 +110,9 @@
 - Coin bazlı pencere kararı (real_cbdr/asia_range) — CBDR_RISK_MATRIX içinde session assignment çözüldü, artık v3_window_comparison.md'ye bağımlı değil.
 - Dün gece FVG bulunamama şikayeti (23:00'a kadar hiçbir coinde FVG yok, 1-2 sweep) — MULT=0.06 + ATR-bazlı FVG filtresi sonrası düzelip düzelmediği kontrol edilecek.
 - **Backtest altyapısı entegrasyonu**: 5 dosya (session.py, retrace_state.py, fvg.py, models.py, coins_config.py) silindi — artık `sniper/src`'ten import ediliyor. `SNIPER_OUTPUT_DIR` env var ile production output/ klasöründen izolasyon. Determinism doğrulandı (in-memory state sızıntısı yok). `mult_scan.py`'de checkpoint/resume mekanizması var.
+- **Rollout flag takibi**: 3 rollout flag — `EXIT_LIFECYCLE_SERVICE_ENABLED` (default False), `PROTECTION_LIFECYCLE_SERVICE_ENABLED` (default False), `WS_EVENT_NORMALIZATION_ENABLED` (default False). Hepsi şu an **kapalı**. Feature_flags state_writer'da JSON'a yazılıyor (P6).
+- **Backfill** — P1 modelleri henüz ActiveTrade'e bağlı değilken B1/B2 bağlanmıştı. `TradeConfirmedState` field'ları `ActiveTrade` flat alanlarına henüz bağlanmadı — hala kullanılmıyor.
+- **Sprint C** `EXIT_REQUESTED` + `pending_exit_price` yazma mekanizması eklendi (bot.py:478, trail/exit tespitinde). Ancak `pending_exit_*` → confirmed promotion (`_close_trade_pending_exit()`) henüz implemente edilmedi — P4 WS normalization için gerekli.
 
 ## Hatırlatmalar
 
