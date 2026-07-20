@@ -27,6 +27,8 @@ from models import (
     Result,
     STATUS_ACTIVE,
     STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
+    STATUS_EXIT_REQUESTED,
+    STATUS_EXIT_SUBMITTED,
     STATUS_EXIT_VERIFYING,
     STATUS_REPAIR_REQUIRED,
     INCIDENT_EXIT_UNCONFIRMED,
@@ -481,6 +483,7 @@ class PaperTrader:
                     log.info(
                         "[TRAIL] %s trailing FVG kirildi -> aninda market close", sym
                     )
+                    trade["status"] = STATUS_EXIT_REQUESTED
                     trade["exit_price"] = current.close
                     trade["exit_bar"] = current.index
                     trade["exit_timestamp"] = current.timestamp
@@ -491,6 +494,7 @@ class PaperTrader:
             # ── Exit kontrolü ──
             exit_decision = TrailingManager.check_exit(current, trade)
             if exit_decision.triggered:
+                trade["status"] = STATUS_EXIT_REQUESTED
                 trade["exit_price"] = exit_decision.exit_price
                 trade["exit_bar"] = current.index
                 trade["exit_timestamp"] = current.timestamp
@@ -873,7 +877,12 @@ class PaperTrader:
 
         # ── Bazı exit tipleri zaten Binance tarafindan kapatilmistir ──
         _exit_already_closed = trade.get("result") in ("SL", "TP", "WS_FALLBACK")
-        trade["status"] = STATUS_EXIT_VERIFYING
+
+        # Sprint C: explicit state machine — EXIT_REQUESTED → EXIT_SUBMITTED → EXIT_VERIFYING
+        if not _exit_already_closed:
+            trade["status"] = STATUS_EXIT_SUBMITTED
+        else:
+            trade["status"] = STATUS_EXIT_VERIFYING
 
         # FIX (A7): erken/koşulsuz cancel_all_open_orders() kaldırıldı — close
         # doğrulanmadan tüm korumayı (SL/TP) iptal etmek, close başarısız
@@ -900,6 +909,9 @@ class PaperTrader:
                 )
             except Exception as e:
                 log.warning("[EXIT] %s reduceOnly market HATASI (devam): %s", sym, e)
+
+            # Sprint C: EXIT_SUBMITTED → EXIT_VERIFYING
+            trade["status"] = STATUS_EXIT_VERIFYING
 
             # FIX (A10): adapter'dan gelen _status alanı ile belirsizlik ayrımı
             adapter_status = close_resp.get("_status", "")

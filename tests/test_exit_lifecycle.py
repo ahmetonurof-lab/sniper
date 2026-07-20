@@ -642,3 +642,100 @@ def _trade(side="long", **kw):
             )
         }
     )
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Sprint E: Chaos / edge-case scenarios
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestChaosScenarios:
+    @pytest.mark.asyncio
+    @patch("trading.exit_lifecycle.cfg")
+    async def test_delayed_fill_confirmation(self, mock_cfg, service):
+        """Position verified on 4th attempt → commit still succeeds."""
+        svc, rest, om, active_trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+
+        rest.place_market_order = AsyncMock(
+            return_value={"orderId": 999, "_status": "EXECUTION_CONFIRMED"}
+        )
+        # Position still open on first 3 checks, closed on 4th
+        rest.get_positions = AsyncMock(
+            side_effect=[
+                [{"symbol": "BTCUSDT", "positionAmt": "0.05"}],
+                [{"symbol": "BTCUSDT", "positionAmt": "0.03"}],
+                [{"symbol": "BTCUSDT", "positionAmt": "0.01"}],
+                [{"symbol": "BTCUSDT", "positionAmt": "0"}],
+            ]
+        )
+
+        trade = _trade(result="TRAIL_CLOSE")
+        active_trades["BTCUSDT"] = trade
+        svc._rsms["BTCUSDT"] = _rsm()
+
+        result = await svc.execute("BTCUSDT", trade, 50000)
+        assert result is True  # commit succeeded
+
+    @pytest.mark.asyncio
+    @patch("trading.exit_lifecycle.cfg")
+    async def test_rest_timeout_during_verify(self, mock_cfg, service):
+        """REST timeout during position verification → all attempts fail."""
+        svc, rest, om, active_trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+
+        rest.place_market_order = AsyncMock(
+            return_value={"orderId": 999, "_status": "EXECUTION_CONFIRMED"}
+        )
+        rest.get_positions = AsyncMock(side_effect=Exception("timeout"))
+
+        trade = _trade(result="TRAIL_CLOSE")
+        active_trades["BTCUSDT"] = trade
+
+        result = await svc.execute("BTCUSDT", trade, 50000)
+        assert result is False  # not closed → REPAIR_REQUIRED
+        assert trade.get("status") == STATUS_REPAIR_REQUIRED
+
+    @pytest.mark.asyncio
+    @patch("trading.exit_lifecycle.cfg")
+    async def test_force_close_when_market_rejected(self, mock_cfg, service):
+        """Market order REJECTED → force close attempted."""
+        svc, rest, om, active_trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+
+        rest.place_market_order = AsyncMock(return_value={"_status": "REJECTED"})
+        rest.place_force_close_order = AsyncMock(return_value=True)
+        rest.get_positions = AsyncMock(
+            return_value=[{"symbol": "BTCUSDT", "positionAmt": "0"}]
+        )
+
+        trade = _trade(result="TRAIL_CLOSE")
+        active_trades["BTCUSDT"] = trade
+        svc._rsms["BTCUSDT"] = _rsm()
+
+        result = await svc.execute("BTCUSDT", trade, 50000)
+        assert result is True
+
+    @pytest.mark.asyncio
+    @patch("trading.exit_lifecycle.cfg")
+    async def test_exit_state_transitions(self, mock_cfg, service):
+        """Verify EXIT_REQUESTED → EXIT_SUBMITTED → EXIT_VERIFYING sequence."""
+        svc, rest, om, active_trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+
+        rest.place_market_order = AsyncMock(
+            return_value={"orderId": 999, "_status": "EXECUTION_CONFIRMED"}
+        )
+        rest.get_positions = AsyncMock(
+            return_value=[{"symbol": "BTCUSDT", "positionAmt": "0"}]
+        )
+
+        trade = _trade(result="SL", status="EXIT_REQUESTED")
+        active_trades["BTCUSDT"] = trade
+        svc._rsms["BTCUSDT"] = _rsm()
+
+        await svc.execute("BTCUSDT", trade, 50000)
+
+        # SL/TP already-closed → goes straight to EXIT_VERIFYING (skips SUBMITTED)
+        # Then commits and is removed from active_trades
+        assert "BTCUSDT" not in active_trades

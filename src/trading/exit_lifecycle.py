@@ -49,6 +49,7 @@ from models import (
     INCIDENT_EXIT_UNCONFIRMED,
     INCIDENT_PROTECTION_BROKEN,
     STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
+    STATUS_EXIT_SUBMITTED,
     STATUS_EXIT_VERIFYING,
     STATUS_REPAIR_REQUIRED,
 )
@@ -218,7 +219,12 @@ class ExitLifecycleService:
 
         # ── Bazı exit tipleri zaten Binance tarafindan kapatilmistir ──
         _exit_already_closed = trade.get("result") in ("SL", "TP", "WS_FALLBACK")
-        trade["status"] = STATUS_EXIT_VERIFYING
+
+        # Sprint C: explicit state machine
+        if not _exit_already_closed:
+            trade["status"] = STATUS_EXIT_SUBMITTED
+        else:
+            trade["status"] = STATUS_EXIT_VERIFYING
 
         # FIX (A7): erken/koşulsuz cancel_all_open_orders() kaldırıldı — close
         # doğrulanmadan tüm korumayı (SL/TP) iptal etmek, close başarısız
@@ -267,6 +273,9 @@ class ExitLifecycleService:
             )
         except Exception as e:
             log.warning("[EXIT] %s reduceOnly market HATASI (devam): %s", sym, e)
+
+        # Sprint C: EXIT_SUBMITTED → EXIT_VERIFYING
+        trade["status"] = STATUS_EXIT_VERIFYING
 
         # FIX (A10): adapter'dan gelen _status alanı ile belirsizlik ayrımı
         adapter_status = close_resp.get("_status", "")

@@ -308,13 +308,16 @@ class AnalysisResult:
         )
 
 
-# ── Trade lifecycle status sabitleri (Sprint A2 — minimal, tam state machine degil) ──
+# ── Trade lifecycle status sabitleri (Sprint C — explicit state machine) ──
 
 STATUS_ACTIVE: Final[str] = "ACTIVE"
 STATUS_PENDING: Final[str] = "PENDING"
 STATUS_TRAIL_REPLACING: Final[str] = "TRAIL_REPLACING"
+STATUS_EXIT_REQUESTED: Final[str] = "EXIT_REQUESTED"
+STATUS_EXIT_SUBMITTED: Final[str] = "EXIT_SUBMITTED"
 STATUS_EXIT_VERIFYING: Final[str] = "EXIT_VERIFYING"
 STATUS_REPAIR_REQUIRED: Final[str] = "REPAIR_REQUIRED"
+STATUS_CLOSED: Final[str] = "CLOSED"
 STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED: Final[str] = (
     "BROKEN_MANUAL_INTERVENTION_REQUIRED"
 )
@@ -342,10 +345,12 @@ class TradeStatus(str, Enum):
     ACTIVE = "ACTIVE"
     PENDING = "PENDING"
     TRAIL_REPLACING = "TRAIL_REPLACING"
+    EXIT_REQUESTED = "EXIT_REQUESTED"
+    EXIT_SUBMITTED = "EXIT_SUBMITTED"
     EXIT_VERIFYING = "EXIT_VERIFYING"
     REPAIR_REQUIRED = "REPAIR_REQUIRED"
+    CLOSED = "CLOSED"
     BROKEN_MANUAL_INTERVENTION_REQUIRED = "BROKEN_MANUAL_INTERVENTION_REQUIRED"
-    CLOSED = "CLOSED"  # yeni — bugün string tarafında karşılığı yok
 
 
 class ProtectionSlot(str, Enum):
