@@ -21,7 +21,7 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
-os.environ["BINANCE_API_KEY"] = ""  # paper mode
+os.environ["BINANCE_API_KEY"] = ""
 os.environ["EXIT_LIFECYCLE_SERVICE_ENABLED"] = "true"
 os.environ["PROTECTION_LIFECYCLE_SERVICE_ENABLED"] = "true"
 os.environ["WS_EVENT_NORMALIZATION_ENABLED"] = "true"
@@ -142,13 +142,22 @@ def _run_worker(syms: list[str], days: int | None) -> dict:
             bar_15m_cache[sym] = build_15m_bars(bars)
 
     if not bar_cache:
-        return {"syms": syms, "trades": 0, "wins": 0, "losses": 0, "elapsed": 0}
+        return {
+            "trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "be": 0,
+            "total_pnl": 0,
+            "total_fee": 0,
+            "trail_count": 0,
+            "bars": 0,
+            "elapsed": 0,
+        }
 
     async def _loop():
         t0 = time.time()
         bot = PaperTrader(symbols=list(bar_cache.keys()))
 
-        # 15m barlari hub'a prefill et (trailing icin gerekli)
         for sym in bar_cache:
             if sym in bar_15m_cache and bar_15m_cache[sym]:
                 await bot.hub.prefill_bars(sym, "15m", bar_15m_cache[sym])
@@ -179,11 +188,18 @@ def _run_worker(syms: list[str], days: int | None) -> dict:
         history = getattr(bot, "trades", [])
         wins = sum(1 for t in history if t.get("pnl", 0) > 0)
         losses = sum(1 for t in history if t.get("pnl", 0) < 0)
+        be = sum(1 for t in history if t.get("pnl", 0) == 0)
+        total_pnl = sum(t.get("pnl", 0) for t in history)
+        total_fee = sum(t.get("fee", 0) for t in history)
+        trail_count = sum(t.get("trailing_count", 0) for t in history)
         return {
-            "syms": list(bar_cache.keys()),
             "trades": len(history),
             "wins": wins,
             "losses": losses,
+            "be": be,
+            "total_pnl": round(total_pnl, 2),
+            "total_fee": round(total_fee, 2),
+            "trail_count": trail_count,
             "bars": total_bars,
             "elapsed": elapsed,
         }
@@ -191,69 +207,96 @@ def _run_worker(syms: list[str], days: int | None) -> dict:
     return asyncio.run(_loop())
 
 
+def _print_table(results: dict[str, dict], elapsed: float, workers: int):
+    grand_t = sum(r["trades"] for r in results.values())
+    grand_pnl = sum(r["total_pnl"] for r in results.values())
+    grand_fee = sum(r["total_fee"] for r in results.values())
+    grand_w = sum(r["wins"] for r in results.values())
+    grand_l = sum(r["losses"] for r in results.values())
+
+    print(
+        f"\n{'Symbol':<12} {'Trades':>7} {'Win':>6} {'Loss':>6} {'TP%':>7} "
+        f"{'Trail':>6} {'Fee':>10} {'NetPnL':>12}"
+    )
+    print("-" * 72)
+    for sym in sorted(results):
+        r = results[sym]
+        w = r["wins"]
+        lo = r["losses"]
+        t = r["trades"]
+        tp_pct = w / t * 100 if t else 0
+        trail = r.get("trail_count", 0)
+        print(
+            f"{sym:<12} {t:>7} {w:>6} {lo:>6} {tp_pct:>6.1f}% "
+            f"{trail:>6} {r['total_fee']:>10.0f} {r['total_pnl']:>12.0f}"
+        )
+
+    print("-" * 72)
+    grand_rate = grand_w / (grand_w + grand_l) * 100 if (grand_w + grand_l) else 0
+    print(
+        f"{'TOPLAM':<12} {grand_t:>7} {grand_w:>6} {grand_l:>6} "
+        f"{grand_rate:>6.1f}% {'':>6} {grand_fee:>10.0f} {grand_pnl:>12.0f}"
+    )
+    print(f"\n  Sure: {elapsed:.1f}s | Workers: {workers} | Sembol: {len(results)}")
+
+
 def run_simulation(symbols: list[str], days: int | None, workers: int = 1):
     print("=" * 60)
     print("  SIMULASYON — sniper bot canli kodu (multiprocess)")
-    print(f"  Semboller: {len(symbols)}")
-    print(f"  Workers: {workers}")
+    print(f"  Semboller: {len(symbols)} | Workers: {workers}")
     if days:
         print(f"  Gun araligi: son {days} gun")
-    print(f"  ExitLifecycleService: {os.environ.get('EXIT_LIFECYCLE_SERVICE_ENABLED')}")
-    print(
-        f"  ProtectionLifecycleService: {os.environ.get('PROTECTION_LIFECYCLE_SERVICE_ENABLED')}"
-    )
+    flags = [
+        f"Exit={os.environ['EXIT_LIFECYCLE_SERVICE_ENABLED']}",
+        f"Protection={os.environ['PROTECTION_LIFECYCLE_SERVICE_ENABLED']}",
+    ]
+    print(f"  Flags: {', '.join(flags)}")
     print("=" * 60)
 
-    if workers <= 1:
-        result = _run_worker(symbols, days)
-        print(
-            f"\n  [{','.join(result['syms'][:3])}...] "
-            f"trades={result['trades']} win={result['wins']} loss={result['losses']} "
-            f"bars={result['bars']} time={result['elapsed']:.1f}s"
-        )
-        print("=" * 60)
-        return
+    valid = [
+        s
+        for s in symbols
+        if os.path.isfile(os.path.join(DATA_DIR, f"{s}_1m_raw.feather"))
+    ]
 
-    # Multiprocess: sembolleri worker'lara bol
-    chunk_size = max(1, len(symbols) // workers)
-    chunks = [symbols[i : i + chunk_size] for i in range(0, len(symbols), chunk_size)]
-    chunks = chunks[:workers]  # limit to worker count
-
+    results: dict[str, dict] = {}
     t0 = time.time()
-    total_trades = 0
-    total_wins = 0
-    total_losses = 0
-    total_bars = 0
 
-    with ProcessPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(_run_worker, chunk, days): chunk for chunk in chunks}
-        for fut in as_completed(futures):
-            result = fut.result()
-            ts = result["trades"]
-            w = result["wins"]
-            loss = result["losses"]
-            total_trades += ts
-            total_wins += w
-            total_losses += loss
-            total_bars += result["bars"]
-            rate = w / (w + loss) * 100 if (w + loss) else 0
-            syms_str = ",".join(result["syms"][:4])
+    if workers <= 1:
+        for sym in valid:
+            r = _run_worker([sym], days)
+            results[sym] = r
+            w = r["wins"]
+            lo = r["losses"]
+            t = r["trades"]
+            rate = w / (w + lo) * 100 if (w + lo) else 0
             print(
-                f"  [{syms_str}...] trades={ts} win={w} loss={loss} "
-                f"rate={rate:.0f}% bars={result['bars']} time={result['elapsed']:.1f}s",
+                f"  [{sym}] trades={t} win={w} loss={lo} rate={rate:.0f}% "
+                f"bars={r['bars']} time={r['elapsed']:.1f}s",
                 flush=True,
             )
+    else:
+        t0 = time.time()
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(_run_worker, [s], days): s for s in valid}
+            for fut in as_completed(futures):
+                sym = futures[fut]
+                r = fut.result()
+                results[sym] = r
+                w = r["wins"]
+                lo = r["losses"]
+                t = r["trades"]
+                rate = w / (w + lo) * 100 if (w + lo) else 0
+                print(
+                    f"  [{sym}] trades={t} win={w} loss={lo} rate={rate:.0f}% "
+                    f"bars={r['bars']} time={r['elapsed']:.1f}s",
+                    flush=True,
+                )
 
-    elapsed = time.time() - t0
-    rate = (
-        total_wins / (total_wins + total_losses) * 100
-        if (total_wins + total_losses)
-        else 0
-    )
-    print(
-        f"\n  TOPLAM: trades={total_trades} win={total_wins} loss={total_losses} "
-        f"rate={rate:.1f}% bars={total_bars} time={elapsed:.1f}s"
-    )
+        elapsed = time.time() - t0
+
+    if results:
+        _print_table(results, elapsed, workers)
     print("=" * 60)
 
 
