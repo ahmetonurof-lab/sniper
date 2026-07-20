@@ -447,36 +447,28 @@ class PaperTrader:
             return
 
         current = bars_1m[-1]
-        # 1m'de ATR güncellenmez — son 15m ATR'si okunur
-        atr_val = self._atr_state.get(
-            sym, max(current.range, current.close * cfg.DEFAULT_ATR_FALLBACK_PCT)
-        )
-        min_fvg = max(
-            atr_val * cfg.FVG_SIZE_MAP.get(sym, cfg.FVG_MIN_SIZE_ATR_MULT), 1e-8
-        )
 
+        # ── Orphan sweep (every 5 calls, tüm sembolleri tarar) ──
         self._orphan_check_counter += 1
         if self._orphan_check_counter % 5 == 0:
-            if trade.get("status") in UNRESTRICTED_STATUSES:
-                await self.recovery_manager.reconcile_orphan_orders()
+            await self.recovery_manager.reconcile_orphan_orders()
 
-        if trade.get("status") not in UNRESTRICTED_STATUSES:
-            log.info(
-                "[1M] %s status=%s -> trailing ve normal exit akislari atlaniyor",
-                sym,
-                trade.get("status"),
+        # ── Trailing + Exit: yalnizca unrestricted durumda ──
+        if trade.get("status") in UNRESTRICTED_STATUSES:
+            # ATR ve min FVG boyutu (1m'de ATR güncellenmez)
+            atr_val = self._atr_state.get(
+                sym, max(current.range, current.close * cfg.DEFAULT_ATR_FALLBACK_PCT)
             )
-        else:
-            # ── FVG Trailing → TrailingManager (ATR bazlı buffer) ──
+            min_fvg = max(
+                atr_val * cfg.FVG_SIZE_MAP.get(sym, cfg.FVG_MIN_SIZE_ATR_MULT), 1e-8
+            )
+
+            # ── FVG Trailing ──
             bars_15m = self.hub.get_bars(sym, "15m")
             if bars_15m:
                 trail_result = TrailingManager.evaluate_trail(
-                    bars_15m,
-                    trade,
-                    atr_val,
-                    min_fvg,
+                    bars_15m, trade, atr_val, min_fvg
                 )
-
                 if trail_result.updated:
                     await self.order_manager.update_trail_orders(
                         sym,
@@ -485,7 +477,6 @@ class PaperTrader:
                         trail_result.new_tp,
                         trail_result.trail_count,
                     )
-
                 elif trail_result.exit_now:
                     log.info(
                         "[TRAIL] %s trailing FVG kirildi -> aninda market close", sym
@@ -497,7 +488,7 @@ class PaperTrader:
                     await self._exit_trade(sym, trade, current.timestamp)
                     return
 
-            # ── Exit kontrolü → TrailingManager ──
+            # ── Exit kontrolü ──
             exit_decision = TrailingManager.check_exit(current, trade)
             if exit_decision.triggered:
                 trade["exit_price"] = exit_decision.exit_price
@@ -505,8 +496,9 @@ class PaperTrader:
                 trade["exit_timestamp"] = current.timestamp
                 trade["result"] = exit_decision.result
                 await self._exit_trade(sym, trade, current.timestamp)
+                return
 
-        # UPNL + state writer — her 1m bar'da güncellenir
+        # ── UPNL + state writer — her bar'da (frozen dahil) ──
         trade = self.active_trades.get(sym)
         if trade:
             trade.upnl = (

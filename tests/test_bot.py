@@ -579,12 +579,10 @@ class TestOn1mClose:
         # Assert trailing and exits were completely skipped
         mock_trail_mgr.evaluate_trail.assert_not_called()
         mock_trail_mgr.check_exit.assert_not_called()
-        # Assert orphan orders were not checked for this symbol (though it's a global check, the loop skips)
-        # Actually our mock intercepts reconcile_orphan_orders entirely. Wait, the global check doesn't pass
-        # arguments, it just skips the restricted symbol inside the method.
-        # But wait, in _on_1m_close, if status not in UNRESTRICTED, does it call reconcile_orphan_orders?
-        # Let's verify our code logic in _on_1m_close.
-        bot.recovery_manager.reconcile_orphan_orders.assert_not_called()
+        # Patch Set 5: orphan sweep artık symbol status'ten bağımsız
+        # çalışır (tüm sembolleri tarar). reconcile_orphan_orders
+        # çağrılır ama içeride transition guard skip eder.
+        bot.recovery_manager.reconcile_orphan_orders.assert_called_once()
 
 
 # ═══════════════════════════════════════════════════════════════════
