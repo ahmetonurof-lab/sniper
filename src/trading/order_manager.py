@@ -274,15 +274,6 @@ class OrderManager:
 
         if self._protection is not None:
             open_ids = await self.get_open_order_ids(sym)
-            if not open_ids:
-                return ProtectionCheckResult(
-                    sl_present=True,
-                    tp_present=True,
-                    sl_healthy=True,
-                    tp_healthy=True,
-                    needs_repair=False,
-                    detail="fail-safe (no open orders)",
-                )
             return self._protection.verify(trade, open_ids)
 
         s_id = str(trade.get("sl_order_id", ""))
