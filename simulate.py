@@ -176,23 +176,23 @@ def _run_worker(syms: list[str], days: int | None) -> dict:
                         f"bars={total_bars} trades={len(bot.trades)}",
                         flush=True,
                     )
-            for sym in bar_cache:
-                bars_1m = bar_cache[sym]
-                if step >= len(bars_1m):
-                    continue
-                chunk = bars_1m[max(0, step - 1) : step + 1]
-                await bot.on_1m(sym, chunk)
-                total_bars += 1
-
-            if step > 0 and step % 15 == 0:
                 for sym in bar_cache:
-                    bars_15m = bar_15m_cache[sym]
-                    idx = step // 15
-                    if idx >= len(bars_15m):
+                    bars_1m = bar_cache[sym]
+                    if step >= len(bars_1m):
                         continue
-                    chunk = bars_15m[max(0, idx - 4) : idx + 1]
-                    if len(chunk) >= 2:
-                        await bot.on_15m(sym, chunk)
+                    chunk = bars_1m[max(0, step - 1) : step + 1]
+                    await bot.on_1m(sym, chunk)
+                    total_bars += 1
+
+                if step > 0 and step % 15 == 0:
+                    for sym in bar_cache:
+                        bars_15m = bar_15m_cache[sym]
+                        idx = step // 15
+                        if idx >= len(bars_15m):
+                            continue
+                        chunk = bars_15m[max(0, idx - 4) : idx + 1]
+                        if len(chunk) >= 2:
+                            await bot.on_15m(sym, chunk)
 
         except Exception as e:
             sym_label = ",".join(bar_cache.keys())
@@ -289,6 +289,7 @@ def run_simulation(symbols: list[str], days: int | None, workers: int = 1):
 
     results: dict[str, dict] = {}
     t0 = time.time()
+    elapsed = 0.0
 
     if workers <= 1:
         for sym in valid:
