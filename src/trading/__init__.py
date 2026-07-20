@@ -18,6 +18,7 @@ from trading.order_manager import OrderManager
 from trading.recovery_manager import RecoveryManager  # Faz 5.1
 from trading.console_reporter import ConsoleReporter  # Faz 1.3
 from trading.user_data_handler import UserDataHandler  # Faz 6.3
+from trading.exit_lifecycle import ExitLifecycleService  # Patch Set 2
 from models import ActiveTrade  # Faz 1.1
 
 __all__ = [
@@ -32,5 +33,6 @@ __all__ = [
     "RecoveryManager",
     "ConsoleReporter",
     "UserDataHandler",
+    "ExitLifecycleService",
     "ActiveTrade",
 ]

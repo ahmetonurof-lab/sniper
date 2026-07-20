@@ -1,0 +1,111 @@
+diff --git a/src/bot.py b/src/bot.py
+index 1b7d8c6..ee3972d 100644
+--- a/src/bot.py
++++ b/src/bot.py
+@@ -60,6 +60,7 @@ from trading import (
+     RecoveryManager,
+     ConsoleReporter,
+     UserDataHandler,
++    ExitLifecycleService,
+ )
+ from websocket import BinanceWSHub
+
+@@ -161,6 +162,15 @@ log = logging.getLogger("sniper.paper")
+ INITIAL_CAPITAL = cfg.INITIAL_BALANCE
+ RISK_PER_TRADE = cfg.RISK_PER_TRADE
+
++# Patch Set 2 (new_refactoring_plan1.md) rollout flag. Ayrı bir modül seviyesi
++# isim olarak tutuluyor (cfg.EXIT_LIFECYCLE_SERVICE_ENABLED değil) — aynen
++# INITIAL_CAPITAL/RISK_PER_TRADE gibi. Sebep: mevcut testler `@patch("bot.cfg",
++# autospec=True)` ile TÜM cfg modülünü mock'luyor; o mock üzerinde
++# ayarlanmamış her attribute varsayılan olarak truthy bir MagicMock döner.
++# Eğer bu flag doğrudan cfg.EXIT_LIFECYCLE_SERVICE_ENABLED olarak okunsaydı,
++# flag'i hiç bilmeyen eski testler yanlışlıkla "enabled" dalına düşerdi.
++EXIT_LIFECYCLE_SERVICE_ENABLED = cfg.EXIT_LIFECYCLE_SERVICE_ENABLED
++
+
+ class PaperTrader:
+     def __init__(self, symbols: list[str] | None = None):
+@@ -215,6 +225,25 @@ class PaperTrader:
+             rest_client=self.rest,
+             is_live=bool(cfg.BINANCE_API_KEY),
+         )
++        # Patch Set 2 (new_refactoring_plan1.md): _exit_trade'in canlı riskin
++        # kalbi olan mantığı ExitLifecycleService'e taşındı. cfg.EXIT_LIFECYCLE_SERVICE_ENABLED
++        # False iken _exit_trade, _exit_trade_legacy'ye (eski inline implementasyon,
++        # değiştirilmedi) delege etmeye devam eder — rollback tek env değişikliği.
++        self.exit_service = ExitLifecycleService(
++            rest_client=self.rest,
++            order_manager=self.order_manager,
++            active_trades=self.active_trades,
++            states=self.states,
++            rsms=self.rsms,
++            trades=self.trades,
++            pl_callback=self._pl,
++            risk_mgr=self.risk_mgr,
++            balance_getter=lambda: self._available_balance,
++            balance_setter=lambda v: setattr(self, "_available_balance", v),
++            wallet_balance_getter=lambda: self._wallet_balance,
++            output_dir=_OUTPUT_DIR,
++            fvg_state_file=_FVG_STATE_FILE,
++        )
+         # ── Gerçek Wilder's ATR rolling state (sembol bazlı) ──
+         # TANIM: RecoveryManager'dan ÖNCE gelmeli (atr_state parametresi)
+         self._atr_state: dict[str, float] = {}
+@@ -727,6 +756,18 @@ class PaperTrader:
+         rsm.reset()
+
+     async def _exit_trade(self, sym, trade, exit_timestamp: int):
++        """Exit orkestrasyonu için ince wrapper (Patch Set 2).
++
++        cfg.EXIT_LIFECYCLE_SERVICE_ENABLED=True ise gerçek mantık
++        ExitLifecycleService.execute()'a delege edilir. False (varsayılan)
++        iken aşağıdaki _exit_trade_legacy — eski, değiştirilmemiş inline
++        implementasyon — aynen çalışır. Rollback tek env değişikliği.
++        """
++        if EXIT_LIFECYCLE_SERVICE_ENABLED:
++            return await self.exit_service.execute(sym, trade, exit_timestamp)
++        return await self._exit_trade_legacy(sym, trade, exit_timestamp)
++
++    async def _exit_trade_legacy(self, sym, trade, exit_timestamp: int):
+         # WS-FALLBACK guard: pozisyon hala aciksa stale/phantom event'tir.
+         # REST sorgusu basarisiz olursa da FAIL-SAFE davran: asla sessizce
+         # normal exit/cancel_all akisina dusme (eski davranistaki asil bug buydu).
+diff --git a/src/config.py b/src/config.py
+index eee957b..68a30a8 100644
+--- a/src/config.py
++++ b/src/config.py
+@@ -582,3 +582,14 @@ BINANCE_API_KEY = os.getenv("TESTNET_API_KEY") or os.getenv("BINANCE_API_KEY")
+ BINANCE_API_SECRET = os.getenv("TESTNET_API_SECRET") or os.getenv("BINANCE_API_SECRET")
+
+ IS_TESTNET = os.getenv("TESTNET", "True").lower() == "true"
++
++
++# ── Refactor rollout flags (new_refactoring_plan1.md — Patch Set 2) ────
++
++# True olursa PaperTrader._exit_trade() akışı ExitLifecycleService'e
++# delege edilir. False (varsayılan) iken eski inline implementasyon
++# (_exit_trade_legacy) aynen çalışmaya devam eder — rollback tek satır
++# env değişikliği ile mümkün olsun diye.
++EXIT_LIFECYCLE_SERVICE_ENABLED = (
++    os.getenv("EXIT_LIFECYCLE_SERVICE_ENABLED", "False").lower() == "true"
++)
+diff --git a/src/trading/__init__.py b/src/trading/__init__.py
+index b64269a..22cc1c5 100644
+--- a/src/trading/__init__.py
++++ b/src/trading/__init__.py
+@@ -18,6 +18,7 @@ from trading.order_manager import OrderManager
+ from trading.recovery_manager import RecoveryManager  # Faz 5.1
+ from trading.console_reporter import ConsoleReporter  # Faz 1.3
+ from trading.user_data_handler import UserDataHandler  # Faz 6.3
++from trading.exit_lifecycle import ExitLifecycleService  # Patch Set 2
+ from models import ActiveTrade  # Faz 1.1
+
+ __all__ = [
+@@ -32,5 +33,6 @@ __all__ = [
+     "RecoveryManager",
+     "ConsoleReporter",
+     "UserDataHandler",
++    "ExitLifecycleService",
+     "ActiveTrade",
+ ]

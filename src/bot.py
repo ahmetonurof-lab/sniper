@@ -60,6 +60,7 @@ from trading import (
     RecoveryManager,
     ConsoleReporter,
     UserDataHandler,
+    ExitLifecycleService,
 )
 from websocket import BinanceWSHub
 
@@ -161,6 +162,15 @@ log = logging.getLogger("sniper.paper")
 INITIAL_CAPITAL = cfg.INITIAL_BALANCE
 RISK_PER_TRADE = cfg.RISK_PER_TRADE
 
+# Patch Set 2 (new_refactoring_plan1.md) rollout flag. Ayrı bir modül seviyesi
+# isim olarak tutuluyor (cfg.EXIT_LIFECYCLE_SERVICE_ENABLED değil) — aynen
+# INITIAL_CAPITAL/RISK_PER_TRADE gibi. Sebep: mevcut testler `@patch("bot.cfg",
+# autospec=True)` ile TÜM cfg modülünü mock'luyor; o mock üzerinde
+# ayarlanmamış her attribute varsayılan olarak truthy bir MagicMock döner.
+# Eğer bu flag doğrudan cfg.EXIT_LIFECYCLE_SERVICE_ENABLED olarak okunsaydı,
+# flag'i hiç bilmeyen eski testler yanlışlıkla "enabled" dalına düşerdi.
+EXIT_LIFECYCLE_SERVICE_ENABLED = cfg.EXIT_LIFECYCLE_SERVICE_ENABLED
+
 
 class PaperTrader:
     def __init__(self, symbols: list[str] | None = None):
@@ -214,6 +224,25 @@ class PaperTrader:
         self.order_manager = OrderManager(
             rest_client=self.rest,
             is_live=bool(cfg.BINANCE_API_KEY),
+        )
+        # Patch Set 2 (new_refactoring_plan1.md): _exit_trade'in canlı riskin
+        # kalbi olan mantığı ExitLifecycleService'e taşındı. cfg.EXIT_LIFECYCLE_SERVICE_ENABLED
+        # False iken _exit_trade, _exit_trade_legacy'ye (eski inline implementasyon,
+        # değiştirilmedi) delege etmeye devam eder — rollback tek env değişikliği.
+        self.exit_service = ExitLifecycleService(
+            rest_client=self.rest,
+            order_manager=self.order_manager,
+            active_trades=self.active_trades,
+            states=self.states,
+            rsms=self.rsms,
+            trades=self.trades,
+            pl_callback=self._pl,
+            risk_mgr=self.risk_mgr,
+            balance_getter=lambda: self._available_balance,
+            balance_setter=lambda v: setattr(self, "_available_balance", v),
+            wallet_balance_getter=lambda: self._wallet_balance,
+            output_dir=_OUTPUT_DIR,
+            fvg_state_file=_FVG_STATE_FILE,
         )
         # ── Gerçek Wilder's ATR rolling state (sembol bazlı) ──
         # TANIM: RecoveryManager'dan ÖNCE gelmeli (atr_state parametresi)
@@ -727,6 +756,18 @@ class PaperTrader:
         rsm.reset()
 
     async def _exit_trade(self, sym, trade, exit_timestamp: int):
+        """Exit orkestrasyonu için ince wrapper (Patch Set 2).
+
+        cfg.EXIT_LIFECYCLE_SERVICE_ENABLED=True ise gerçek mantık
+        ExitLifecycleService.execute()'a delege edilir. False (varsayılan)
+        iken aşağıdaki _exit_trade_legacy — eski, değiştirilmemiş inline
+        implementasyon — aynen çalışır. Rollback tek env değişikliği.
+        """
+        if EXIT_LIFECYCLE_SERVICE_ENABLED:
+            return await self.exit_service.execute(sym, trade, exit_timestamp)
+        return await self._exit_trade_legacy(sym, trade, exit_timestamp)
+
+    async def _exit_trade_legacy(self, sym, trade, exit_timestamp: int):
         # WS-FALLBACK guard: pozisyon hala aciksa stale/phantom event'tir.
         # REST sorgusu basarisiz olursa da FAIL-SAFE davran: asla sessizce
         # normal exit/cancel_all akisina dusme (eski davranistaki asil bug buydu).

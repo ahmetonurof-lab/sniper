@@ -70,6 +70,9 @@
 | Unit test: dust closePosition fallback | ✅ place_force_close_order çağrısı doğrulandı |
 | Unit test: force_close trigger yönü | ✅ long/short yön + zero price + API error (4 test) |
 | Unit test: recovery_manager closePosition | ✅ market fail→force close + success passthrough + her ikisi başarısız + exception (4 test) |
+| ExitLifecycleService extraction | ✅ `src/trading/exit_lifecycle.py` (557 satır), `EXIT_LIFECYCLE_SERVICE_ENABLED` flag, DI `exit_service`, `_exit_trade_legacy` rename |
+| ExitLifecycleService unit tests | ✅ 24 test — WS-FALLBACK guard, paper-mode skip, adapter ambiguity (5 senaryo), verification loop (fail/success), REPAIR_REQUIRED, _commit_confirmed_exit (long/short PnL, cleanup) |
+| Wiring tests (bot.py routing) | ✅ 3 test — flag=True→exit_service.execute, flag=False→_exit_trade_legacy, flag default False. Scope fix: patch'in `_exit_trade` çağrısını kapsaması sağlandı. |
 
 ## Kalan İşler 🔧
 

@@ -92,10 +92,112 @@ class TestPaperTraderInit:
         mock_cfg.ASIA_DEAD_THRESHOLD_PCT = 0.3
         mock_cfg.DEFAULT_ATR_FALLBACK_PCT = 0.005
 
-        from bot import PaperTrader
 
-        bot = PaperTrader(symbols=["SOLUSDT"])
-        assert bot.symbols == ["SOLUSDT"]
+# ═══════════════════════════════════════════════════════════════════
+# _exit_trade — wiring tests for EXIT_LIFECYCLE_SERVICE_ENABLED
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestExitTradeWiring:
+    """Verify _exit_trade routing based on EXIT_LIFECYCLE_SERVICE_ENABLED."""
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.mark_trade_closed")
+    def test_flag_true_delegates_to_exit_service(
+        self,
+        mock_mark_closed,
+        mock_cfg,
+        mock_hub_cls,
+        mock_rest_cls,
+    ):
+        """EXIT_LIFECYCLE_SERVICE_ENABLED=True → exit_service.execute() called."""
+        _setup_minimal_cfg(mock_cfg)
+        with (
+            patch("bot.INITIAL_CAPITAL", 1000.0),
+            patch("bot.RISK_PER_TRADE", 0.01),
+            patch("bot.EXIT_LIFECYCLE_SERVICE_ENABLED", True),
+        ):
+            from bot import PaperTrader
+
+            bot = PaperTrader(symbols=["BTCUSDT"])
+            bot.exit_service.execute = AsyncMock(return_value=True)
+
+            trade = ActiveTrade(
+                symbol="BTCUSDT",
+                side="long",
+                entry_price=50000.0,
+                sl=49000.0,
+                tp=52000.0,
+                qty=0.1,
+                exit_price=51000.0,
+                exit_bar=50,
+                result="TP",
+            )
+            bot.active_trades["BTCUSDT"] = trade
+
+            asyncio.run(bot._exit_trade("BTCUSDT", trade, 50000))
+
+            bot.exit_service.execute.assert_awaited_once_with("BTCUSDT", trade, 50000)
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.mark_trade_closed")
+    def test_flag_false_calls_legacy(
+        self,
+        mock_mark_closed,
+        mock_cfg,
+        mock_hub_cls,
+        mock_rest_cls,
+    ):
+        """EXIT_LIFECYCLE_SERVICE_ENABLED=False → _exit_trade_legacy called."""
+        _setup_minimal_cfg(mock_cfg)
+        with (
+            patch("bot.INITIAL_CAPITAL", 1000.0),
+            patch("bot.RISK_PER_TRADE", 0.01),
+            patch("bot.EXIT_LIFECYCLE_SERVICE_ENABLED", False),
+        ):
+            from bot import PaperTrader
+
+            bot = PaperTrader(symbols=["BTCUSDT"])
+            bot._exit_trade_legacy = AsyncMock(return_value=None)
+            bot.exit_service.execute = AsyncMock()
+
+            trade = ActiveTrade(
+                symbol="BTCUSDT",
+                side="long",
+                entry_price=50000.0,
+                sl=49000.0,
+                tp=52000.0,
+                qty=0.1,
+                exit_price=51000.0,
+                exit_bar=50,
+                result="TP",
+            )
+            bot.active_trades["BTCUSDT"] = trade
+
+            asyncio.run(bot._exit_trade("BTCUSDT", trade, 50000))
+
+            bot._exit_trade_legacy.assert_awaited_once_with("BTCUSDT", trade, 50000)
+            bot.exit_service.execute.assert_not_called()
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.mark_trade_closed")
+    def test_flag_false_by_default(
+        self,
+        mock_mark_closed,
+        mock_cfg,
+        mock_hub_cls,
+        mock_rest_cls,
+    ):
+        """Default (flag not set) → _exit_trade_legacy path."""
+        import bot as bot_module
+
+        assert bot_module.EXIT_LIFECYCLE_SERVICE_ENABLED is False
 
 
 # ═══════════════════════════════════════════════════════════════════

@@ -582,3 +582,14 @@ BINANCE_API_KEY = os.getenv("TESTNET_API_KEY") or os.getenv("BINANCE_API_KEY")
 BINANCE_API_SECRET = os.getenv("TESTNET_API_SECRET") or os.getenv("BINANCE_API_SECRET")
 
 IS_TESTNET = os.getenv("TESTNET", "True").lower() == "true"
+
+
+# ── Refactor rollout flags (new_refactoring_plan1.md — Patch Set 2) ────
+
+# True olursa PaperTrader._exit_trade() akışı ExitLifecycleService'e
+# delege edilir. False (varsayılan) iken eski inline implementasyon
+# (_exit_trade_legacy) aynen çalışmaya devam eder — rollback tek satır
+# env değişikliği ile mümkün olsun diye.
+EXIT_LIFECYCLE_SERVICE_ENABLED = (
+    os.getenv("EXIT_LIFECYCLE_SERVICE_ENABLED", "False").lower() == "true"
+)
