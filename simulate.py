@@ -27,9 +27,9 @@ os.environ["WS_EVENT_NORMALIZATION_ENABLED"] = "true"
 # Simulasyon modunda log spam'ini kapat
 import logging  # noqa: E402
 
-logging.getLogger().setLevel(logging.WARNING)
-logging.getLogger("sniper").setLevel(logging.WARNING)
-logging.getLogger("nexus").setLevel(logging.WARNING)
+logging.getLogger().setLevel(logging.ERROR)
+logging.getLogger("sniper").setLevel(logging.ERROR)
+logging.getLogger("nexus").setLevel(logging.ERROR)
 
 import pandas as pd  # noqa: E402
 
