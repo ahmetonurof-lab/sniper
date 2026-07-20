@@ -161,7 +161,7 @@ def _run_worker(syms: list[str], days: int | None) -> dict:
         try:
             for sym in bar_cache:
                 if sym in bar_15m_cache and bar_15m_cache[sym]:
-                    await bot.hub.prefill_bars(sym, "15m", bar_15m_cache[sym])
+                    bot.hub.prefill_bars(sym, "15m", bar_15m_cache[sym])
 
             total_bars = 0
             max_len = max(len(b) for b in bar_cache.values())
