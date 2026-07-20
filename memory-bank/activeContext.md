@@ -53,6 +53,7 @@
 | 39 | **CBDR_RISK_MATRIX final** | 13 coin bucket eşikleri + çarpanları backtest verisiyle dolduruldu. Her bucket WR/BE+/PnL baz alındı. Zehirli bölgeler (mult=0.0) işaretlendi. |
 | 40 | **bot.py _session_label ASIA fix — backtest uyumu** | `_session_label()` 22-02'yi "ASIA" olarak etiketleyip blokluyordu. Bu REAL_CBDR coin'lerde (19-01) 01:00-02:00 arası hatalı bloka sebep oluyordu. Kaldırıldı. Artık coin bazlı CBDR penceresi blokajı (`cbdr_locked`) backtest'le birebir aynı. |
 | 41 | **ExitLifecycleService extraction (Patch Set 2)** | `_exit_trade()`'den `ExitLifecycleService` (557 satır) ayrı modül olarak çıkarıldı (`src/trading/exit_lifecycle.py`). `bot.py`'da `EXIT_LIFECYCLE_SERVICE_ENABLED = cfg.EXIT_LIFECYCLE_SERVICE_ENABLED` flag + DI `exit_service` ile `_exit_trade()` wrapper (flag→execute, flag→legacy). Rollback guard: flag module-level const olarak yakalandığı için `@patch("bot.cfg", autospec=True)` interference'ı yok. 24 unit test + 3 wiring test. |
+| 42 | **_round_step floor division fix** | `_round_step()`'de `value // step` kayan nokta hatasıyla 1 step eksik hesaplıyordu (7275.8 // 0.1 = 72757 → 7275.7). `int(value / step)` ile düzeltildi. OPUSDT'de her market close 0.1 OP kalıntı bırakıyordu. |
 
 ## Aktif Kararlar
 

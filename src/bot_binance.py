@@ -56,11 +56,18 @@ def _round_to_tick(value: float, tick: float) -> float:
 
 
 def _round_step(value: float, step: float) -> float:
-    """Değeri step size'a göre aşağı yuvarla (lot hesapları için)."""
+    """Değeri step size'a göre aşağı yuvarla (lot hesapları için).
+
+    NOT: floor division (value // step) kullanilmaz — floating-point
+    precision hatasiyla 1 step eksik hesaplanabilir (7275.8 // 0.1 = 72757,
+    72757*0.1 = 7275.7). Bunun yerine once step-sayisina cevir (int),
+    sonra geri carp. int() truncate eder = floor (pozitif degerler icin).
+    """
     if step <= 0:
         return value
     decimals = max(_get_precision_places(step), 8)
-    result = round((value // step) * step, decimals)
+    steps = int(value / step)
+    result = round(steps * step, decimals)
     return result
 
 
