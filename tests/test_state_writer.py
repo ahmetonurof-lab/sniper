@@ -58,6 +58,9 @@ def test_write_state_includes_new_fields():
             assert active_trade["tp_order_id_present"] is True
             assert active_trade["exit_unconfirmed"] is False
             assert active_trade["repair_required"] is True
+            assert active_trade["sl_status"] == "EXPECTED"
+            assert active_trade["tp_status"] == "ACTIVE_CONFIRMED"
+            assert active_trade["protection_health"] == "DEGRADED"
 
             flags = data["feature_flags"]
             assert flags["exit_lifecycle_service"] is False
@@ -110,6 +113,9 @@ def test_write_state_active_trade_not_frozen():
             assert active_trade["sl_order_id_present"] is True
             assert active_trade["tp_order_id_present"] is False
             assert active_trade["repair_required"] is False
+            assert active_trade["sl_status"] == "ACTIVE_CONFIRMED"
+            assert active_trade["tp_status"] == "EXPECTED"
+            assert active_trade["protection_health"] == "DEGRADED"
 
             flags = data["feature_flags"]
             assert flags["exit_lifecycle_service"] is True

@@ -81,6 +81,10 @@ def write_state(
                     STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
                 ),
                 "repair_required": trade.get("status") == STATUS_REPAIR_REQUIRED,
+                # Sprint D1: protection lifecycle status
+                "sl_status": trade.runtime.protection.sl_status(trade.get("sl", 0)),
+                "tp_status": trade.runtime.protection.tp_status(trade.get("tp", 0)),
+                "protection_health": trade.runtime.protection.health,
             }
             if trade
             else None,

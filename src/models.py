@@ -432,6 +432,38 @@ class ProtectionState:
         elif key == "tp_previous":
             self.tp_previous = ref
 
+    # ── Lifecycle status (Sprint D1) ───────────────────────
+
+    @staticmethod
+    def _compute_status(
+        ref_current: ProtectionRef | None,
+        ref_pending: ProtectionRef | None,
+        price: float,
+    ) -> str:
+        if not price:
+            return "NOT_REQUIRED"
+        if ref_current is not None:
+            return "ACTIVE_CONFIRMED"
+        if ref_pending is not None:
+            return "PENDING_CREATE"
+        return "EXPECTED"
+
+    def sl_status(self, sl_price: float) -> str:
+        return self._compute_status(self.sl_current, self.sl_pending, sl_price)
+
+    def tp_status(self, tp_price: float) -> str:
+        return self._compute_status(self.tp_current, self.tp_pending, tp_price)
+
+    @property
+    def health(self) -> str:
+        healthy = sum(1 for r in (self.sl_current, self.tp_current) if r is not None)
+        total = 2
+        if healthy == total:
+            return "HEALTHY"
+        if healthy == 0:
+            return "BROKEN"
+        return "DEGRADED"
+
 
 @dataclass
 class PendingExitContext:
