@@ -679,7 +679,7 @@ class BinanceRESTClient:
         valid_qty = await self.validate_min_amount(symbol, rounded_qty)
         if valid_qty <= 0:
             log.warning("[MARKET] %s qty=%.8f minQty altinda, iptal", symbol, qty)
-            return {"_status": "REJECTED"}
+            return {}
 
         # MIN_NOTIONAL kontrolü entry_manager._bump_to_min_notional() tarafından
         # yapılıyor. Burada tekrar kontrol etmek farklı anlık fiyat nedeniyle
@@ -689,7 +689,7 @@ class BinanceRESTClient:
         qty_str = f"{valid_qty:.{decimals}f}".rstrip("0").rstrip(".")
         if not qty_str or qty_str == "0":
             log.warning("[MARKET] %s qty format hatasi: %s", symbol, qty_str)
-            return {"_status": "REJECTED"}
+            return {}
 
         params = {
             "symbol": symbol,
@@ -703,7 +703,7 @@ class BinanceRESTClient:
         r = await self.post("/fapi/v1/order", params)
         if r.is_err:
             log.warning("[MARKET] %s MARKET hatasi: %s", symbol, r.error)
-            return {"_status": "REQUEST_SENT", "error": r.error}
+            return {}
         result = r.value
         if result.get("orderId") or result.get("id"):
             result["_status"] = "EXECUTION_CONFIRMED"
@@ -1088,12 +1088,12 @@ class BinanceRESTClient:
             forced = await self.place_force_close_order(symbol, mkt_side, pos_side)
             if forced:
                 return {"_status": "EXECUTION_CONFIRMED", "closePosition": True}
-            return {"_status": "REJECTED"}
+            return {}
 
         decimals = max(_get_precision_places(step), 8)
         qty_str = f"{valid_qty:.{decimals}f}".rstrip("0").rstrip(".")
         if not qty_str or qty_str == "0":
-            return {"_status": "REJECTED"}
+            return {}
 
         params = {
             "symbol": symbol,
@@ -1108,7 +1108,7 @@ class BinanceRESTClient:
         r = await self._emergency_post("/fapi/v1/order", params)
         if r.is_err:
             log.warning("[EMERGENCY] %s MARKET hata (CB bypass): %s", symbol, r.error)
-            return {"_status": "REQUEST_SENT", "error": r.error}
+            return {}
         result = r.value
         if result.get("orderId") or result.get("id"):
             result["_status"] = "EXECUTION_CONFIRMED"
