@@ -338,48 +338,142 @@ class OrderManager:
 
         Orijinal _repair_protection() ile birebir aynı mantık.
         Sadece _register_user_data_callbacks() içindeki WS callback'ten çağrılır.
+
+        FIX (P1-1): Eski SL/TP fiyatini recover_positions() ayni mantikla
+        tazele — piyasa fiyati SL'yi gectiyse immediately-trigger reddi
+        almamak icin mevcut mark_price uzerinden yeniden hesapla.
         """
         if not has_sl and trade.get("sl"):
             sl_side = "SELL" if trade["side"] == "long" else "BUY"
+            sl_price = trade["sl"]
             try:
                 sl_resp = await self._rest.place_stop_order(
-                    sym, sl_side, trade["qty"], trade["sl"]
+                    sym, sl_side, trade["qty"], sl_price
                 )
                 sl_id = extract_order_id(sl_resp)
+                # FIX (P1-1): SL basarisizsa (fiyat coktan gecti), mevcut
+                # fiyata gore yeni SL dene — recover_positions() ile ayni mantik.
+                if not sl_id:
+                    log.warning(
+                        "[REPAIR] %s SL basarisiz (sl=%.4f), mevcut fiyata gore yeniden hesaplaniyor...",
+                        sym,
+                        sl_price,
+                    )
+                    try:
+                        cur_px = await self._rest.estimate_market_price(sym)
+                        risk_pts = trade.get(
+                            "risk_pts", abs(trade.get("entry_price", cur_px) - sl_price)
+                        )
+                        if trade["side"] == "long" and cur_px < sl_price:
+                            new_sl = await self._rest.apply_price_precision(
+                                sym, cur_px - risk_pts * 2
+                            )
+                        elif trade["side"] == "short" and cur_px > sl_price:
+                            new_sl = await self._rest.apply_price_precision(
+                                sym, cur_px + risk_pts * 2
+                            )
+                        else:
+                            new_sl = sl_price
+                        sl_resp2 = await self._rest.place_stop_order(
+                            sym, sl_side, trade["qty"], new_sl
+                        )
+                        sl_id = extract_order_id(sl_resp2)
+                        if sl_id:
+                            sl_price = new_sl
+                            trade["sl"] = new_sl
+                            log.info(
+                                "[REPAIR] %s SL yeniden denendi: sl=%.4f -> id=%s",
+                                sym,
+                                new_sl,
+                                sl_id,
+                            )
+                    except Exception as e2:
+                        log.warning(
+                            "[REPAIR] %s SL yeniden deneme de basarisiz: %s",
+                            sym,
+                            e2,
+                        )
                 if sl_id:
                     trade["sl_order_id"] = sl_id
+                    trade["sl"] = sl_price
                     log.info(
                         "[REPAIR] %s SL yeniden kuruldu: %.6f (id=%s)",
                         sym,
-                        trade["sl"],
+                        sl_price,
                         sl_id,
                     )
                 else:
                     log.warning(
                         "[REPAIR] %s SL kurulamadi: %.6f — Binance emri reddetti (ID=bos)",
                         sym,
-                        trade["sl"],
+                        sl_price,
                     )
             except Exception as e:
                 log.warning(
                     "[REPAIR] %s SL kurulum hatasi: %.6f — %s",
                     sym,
-                    trade["sl"],
+                    sl_price,
                     e,
                 )
         if not has_tp and trade.get("tp"):
             tp_side = "SELL" if trade["side"] == "long" else "BUY"
+            tp_price = trade["tp"]
             try:
                 tp_resp = await self._rest.place_tp_order(
-                    sym, tp_side, trade["qty"], trade["tp"]
+                    sym, tp_side, trade["qty"], tp_price
                 )
                 tp_id = extract_order_id(tp_resp)
+                # FIX (P1-1): TP basarisizsa (fiyat coktan gecti), mevcut
+                # fiyata gore yeni TP dene — recover_positions() ile ayni mantik.
+                if not tp_id:
+                    log.warning(
+                        "[REPAIR] %s TP basarisiz (tp=%.4f), mevcut fiyata gore yeniden hesaplaniyor...",
+                        sym,
+                        tp_price,
+                    )
+                    try:
+                        cur_px = await self._rest.estimate_market_price(sym)
+                        risk_pts = trade.get(
+                            "risk_pts",
+                            abs(
+                                trade.get("entry_price", cur_px)
+                                - trade.get("sl", cur_px)
+                            ),
+                        )
+                        if trade["side"] == "long":
+                            new_tp = await self._rest.apply_price_precision(
+                                sym, max(tp_price, cur_px + risk_pts * 0.5)
+                            )
+                        else:
+                            new_tp = await self._rest.apply_price_precision(
+                                sym, min(tp_price, cur_px - risk_pts * 0.5)
+                            )
+                        tp_resp2 = await self._rest.place_tp_order(
+                            sym, tp_side, trade["qty"], new_tp
+                        )
+                        tp_id = extract_order_id(tp_resp2)
+                        if tp_id:
+                            tp_price = new_tp
+                            trade["tp"] = new_tp
+                            log.info(
+                                "[REPAIR] %s TP yeniden denendi: tp=%.4f -> id=%s",
+                                sym,
+                                new_tp,
+                                tp_id,
+                            )
+                    except Exception as e2:
+                        log.warning(
+                            "[REPAIR] %s TP yeniden deneme de basarisiz: %s",
+                            sym,
+                            e2,
+                        )
                 if tp_id:
                     trade["tp_order_id"] = tp_id
+                    trade["tp"] = tp_price
                     log.info(
                         "[REPAIR] %s TP yeniden kuruldu: %.6f (id=%s)",
                         sym,
-                        trade["tp"],
+                        tp_price,
                         tp_id,
                     )
                 else:
@@ -387,13 +481,13 @@ class OrderManager:
                         "[REPAIR] %s TP kurulamadi: %.6f — Binance emri reddetti "
                         "(muhtemelen fiyat TP seviyesini gecti, ID=bos)",
                         sym,
-                        trade["tp"],
+                        tp_price,
                     )
             except Exception as e:
                 log.warning(
                     "[REPAIR] %s TP kurulum hatasi: %.6f — %s",
                     sym,
-                    trade["tp"],
+                    tp_price,
                     e,
                 )
         log.info("[REPAIR] %s onarim tamam", sym)

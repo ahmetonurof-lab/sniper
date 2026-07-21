@@ -1382,6 +1382,33 @@ class PaperTrader:
         await self.recovery_manager.recover_positions()
         reconcile_from_active(self.active_trades)
 
+        # FIX (P0-4): Restart sonrası REPAIR_REQUIRED/EXIT_REQUESTED trade'leri
+        # temizle — recover_positions SL/TP'yi zaten tazelediyse, trade'i
+        # ACTIVE'e dondur. Aksi halde onceki session'dan kalan bozuk trade
+        # sonsuza kadar REPAIR_REQUIRED'da kalir.
+        _stuck_statuses = {STATUS_REPAIR_REQUIRED, STATUS_EXIT_REQUESTED}
+        for sym, trade in list(self.active_trades.items()):
+            status = trade.get("status", "")
+            if status in _stuck_statuses:
+                has_sl = bool(trade.get("sl_order_id"))
+                has_tp = bool(trade.get("tp_order_id"))
+                if has_sl and has_tp:
+                    trade["status"] = STATUS_ACTIVE
+                    log.info(
+                        "[RESTART] %s onceki durum=%s -> ACTIVE (SL/TP saglikli, recover edildi)",
+                        sym,
+                        status,
+                    )
+                else:
+                    log.warning(
+                        "[RESTART] %s durum=%s ama SL/TP eksik (sl=%s tp=%s) — "
+                        "pozisyon korumasiz, periyodik kontrol duzeltmeli",
+                        sym,
+                        status,
+                        has_sl,
+                        has_tp,
+                    )
+
         # Recovery sonrasi FVG verisini geri yukle
         for sym in list(self.active_trades):
             fvg_data = _load_fvg_state(sym)

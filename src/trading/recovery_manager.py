@@ -608,12 +608,20 @@ class RecoveryManager:
                     pass
 
     async def periodic_check_loop(self):
-        """Her ~60sn'de recover_positions(quiet=True) calistir.
-        PaperTrader.run() tarafindan background task olarak baslatilir."""
+        """Her ~60sn'de recover_positions(quiet=True) + orphan sweep calistir.
+        PaperTrader.run() tarafindan background task olarak baslatilir.
+
+        FIX (P1-4): Orphan sweep de periyodik olarak calistirilir —
+        _on_1m_close'daki sayac portfolio flat iken ilerlemedigi icin
+        orada calismaz. Periyodik loop bunu karsilar.
+        """
         while True:
             try:
                 if cfg.BINANCE_API_KEY:
                     await self.recover_positions(quiet=True)
+                    # FIX (P1-4): Periyodik orphan sweep — portfolio flat
+                    # iken _on_1m_close tetiklenmez, sayac durur.
+                    await self.reconcile_orphan_orders()
             except asyncio.CancelledError:
                 break
             except Exception as e:
