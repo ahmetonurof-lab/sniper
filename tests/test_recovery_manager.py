@@ -44,7 +44,7 @@ class TestRecoverPositionsCloseFallback:
         rest.apply_price_precision = AsyncMock(return_value=49000.0)
         rest.place_stop_order = AsyncMock(return_value={})
         rest.place_tp_order = AsyncMock(return_value={})
-        rest.place_market_order = AsyncMock(return_value=None)
+        rest.place_market_order_priority = AsyncMock(return_value=None)
         rest.place_force_close_order = AsyncMock(return_value=True)
 
         active_trades = {}
@@ -85,7 +85,7 @@ class TestRecoverPositionsCloseFallback:
         rest.apply_price_precision = AsyncMock(return_value=49000.0)
         rest.place_stop_order = AsyncMock(return_value={})
         rest.place_tp_order = AsyncMock(return_value={})
-        rest.place_market_order = AsyncMock(return_value={"orderId": 123})
+        rest.place_market_order_priority = AsyncMock(return_value={"orderId": 123})
         rest.place_force_close_order = AsyncMock(return_value=True)
 
         active_trades = {}
@@ -126,7 +126,7 @@ class TestRecoverPositionsCloseFallback:
         rest.apply_price_precision = AsyncMock(return_value=49000.0)
         rest.place_stop_order = AsyncMock(return_value={})
         rest.place_tp_order = AsyncMock(return_value={})
-        rest.place_market_order = AsyncMock(return_value=None)
+        rest.place_market_order_priority = AsyncMock(return_value=None)
         rest.place_force_close_order = AsyncMock(return_value=False)
 
         active_trades = {}
@@ -168,7 +168,7 @@ class TestRecoverPositionsCloseFallback:
         rest.apply_price_precision = AsyncMock(return_value=49000.0)
         rest.place_stop_order = AsyncMock(return_value={})
         rest.place_tp_order = AsyncMock(return_value={})
-        rest.place_market_order = AsyncMock(return_value=None)
+        rest.place_market_order_priority = AsyncMock(return_value=None)
         rest.place_force_close_order = AsyncMock(side_effect=Exception("network error"))
 
         active_trades = {}

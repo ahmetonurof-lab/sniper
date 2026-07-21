@@ -266,10 +266,12 @@ class ExitLifecycleService:
         )
         try:
             log.debug(
-                "[EXECUTION] %s place_market_order (reduceOnly=True) baslatiliyor...",
+                "[EXECUTION] %s place_market_order_priority (CB bypass, reduceOnly=True) baslatiliyor...",
                 sym,
             )
-            close_resp = await self._rest.place_market_order(
+            # P0-5: CB bypass'li acil kapanis — SL/TP denemeleri circuit
+            # breaker'i acsa bile market close gecsin.
+            close_resp = await self._rest.place_market_order_priority(
                 sym, mkt_side, trade["qty"], reduce_only=True
             )
         except Exception as e:

@@ -55,6 +55,9 @@ class OrderManager:
         self._rest = rest_client
         self._is_live = is_live
         self._protection = protection_service
+        # ── P0-5: backoff / tekrar sınırı ──
+        self._repair_failures: dict[str, int] = {}
+        self._last_repair_warning: dict[str, float] = {}
 
     # ── Trailing SL/TP güncelleme ─────────────────────────────
 
@@ -331,18 +334,212 @@ class OrderManager:
 
     # ── Koruma onarımı ────────────────────────────────────────
 
+    # ── -4005 yardımcısı: max-qty aşımını tespit et ──────────
+
+    @staticmethod
+    def _is_max_qty_error(resp: dict) -> bool:
+        """place_stop_order/place_tp_order dönüşü -4005 hatası içeriyor mu?"""
+        return resp.get("_error_code") == "-4005"
+
+    async def _try_place_sl_tp_with_close_position(
+        self, sym: str, trade: dict, sl_price: float, tp_price: float
+    ) -> tuple[str, str]:
+        """closePosition=True ile SL/TP kurmayı dene.
+        qty göndermez, max-qty limitinden muaftır.
+
+        Returns: (sl_id, tp_id) — başarısız olanlar boş string.
+        """
+        sl_id = ""
+        tp_id = ""
+        sl_side = "SELL" if trade["side"] == "long" else "BUY"
+
+        if trade.get("sl") and sl_price > 0:
+            try:
+                resp = await self._rest.place_stop_order(
+                    sym,
+                    sl_side,
+                    0,  # closePosition=True için qty önemsiz
+                    sl_price,
+                    close_position=True,
+                )
+                sl_id = extract_order_id(resp)
+                if sl_id:
+                    log.info(
+                        "[REPAIR] %s SL closePosition ile kuruldu (id=%s)",
+                        sym,
+                        sl_id,
+                    )
+                else:
+                    if self._is_max_qty_error(resp):
+                        log.warning(
+                            "[REPAIR] %s SL closePosition da -4005 aldi (beklenmedik)",
+                            sym,
+                        )
+                    else:
+                        log.warning(
+                            "[REPAIR] %s SL closePosition basarisiz (id=bos)", sym
+                        )
+            except Exception as e:
+                log.warning("[REPAIR] %s SL closePosition hatasi: %s", sym, e)
+
+        if trade.get("tp") and tp_price > 0:
+            try:
+                resp = await self._rest.place_tp_order(
+                    sym,
+                    sl_side,
+                    0,
+                    tp_price,
+                    close_position=True,
+                )
+                tp_id = extract_order_id(resp)
+                if tp_id:
+                    log.info(
+                        "[REPAIR] %s TP closePosition ile kuruldu (id=%s)",
+                        sym,
+                        tp_id,
+                    )
+                else:
+                    if self._is_max_qty_error(resp):
+                        log.warning(
+                            "[REPAIR] %s TP closePosition da -4005 aldi (beklenmedik)",
+                            sym,
+                        )
+                    else:
+                        log.warning(
+                            "[REPAIR] %s TP closePosition basarisiz (id=bos)", sym
+                        )
+            except Exception as e:
+                log.warning("[REPAIR] %s TP closePosition hatasi: %s", sym, e)
+
+        return sl_id, tp_id
+
+    async def _try_place_sl_tp_split_qty(
+        self, sym: str, trade: dict, sl_price: float, tp_price: float
+    ) -> tuple[str, str]:
+        """Miktarı LOT_SIZE.maxQty'nin altına bölerek SL/TP kur.
+
+        closePosition=True başarısız olursa veya uygun değilse fallback.
+        Toplam qty'yi 2 parçaya bölüp 2 ayrı SL/TP emri atar.
+
+        Returns: (sl_id, tp_id) — başarısız olanlar boş string.
+        """
+        max_qty = await self._rest.get_max_qty(sym)
+        original_qty = trade.get("qty", 0)
+
+        if max_qty <= 0 or original_qty <= max_qty:
+            return "", ""
+
+        # 2 parçaya böl (güvenlik marjı: max_qty * 0.95)
+        safe_chunk = await self._rest.apply_amount_precision(sym, max_qty * 0.95)
+        num_chunks = max(2, int(original_qty / safe_chunk) + 1)
+        chunk_qty = await self._rest.apply_amount_precision(
+            sym, original_qty / num_chunks
+        )
+
+        log.warning(
+            "[REPAIR] %s qty=%.4f > max_qty=%.4f, %d parcaya bolunuyor (her parca ~%.4f)",
+            sym,
+            original_qty,
+            max_qty,
+            num_chunks,
+            chunk_qty,
+        )
+
+        sl_side = "SELL" if trade["side"] == "long" else "BUY"
+        sl_id = ""
+        tp_id = ""
+
+        for i in range(num_chunks):
+            if trade.get("sl") and sl_price > 0:
+                try:
+                    resp = await self._rest.place_stop_order(
+                        sym,
+                        sl_side,
+                        chunk_qty,
+                        sl_price,
+                        client_id=f"sl_repr_{sym}_{i}_{int(time.time())}",
+                    )
+                    _id = extract_order_id(resp)
+                    if _id:
+                        sl_id = _id
+                        log.info(
+                            "[REPAIR] %s SL parca %d/%d kuruldu (id=%s, qty=%.4f)",
+                            sym,
+                            i + 1,
+                            num_chunks,
+                            _id,
+                            chunk_qty,
+                        )
+                        break  # bir tanesi yeterli
+                except Exception:
+                    continue
+
+            if trade.get("tp") and tp_price > 0:
+                try:
+                    resp = await self._rest.place_tp_order(
+                        sym,
+                        sl_side,
+                        chunk_qty,
+                        tp_price,
+                        client_id=f"tp_repr_{sym}_{i}_{int(time.time())}",
+                    )
+                    _id = extract_order_id(resp)
+                    if _id:
+                        tp_id = _id
+                        log.info(
+                            "[REPAIR] %s TP parca %d/%d kuruldu (id=%s, qty=%.4f)",
+                            sym,
+                            i + 1,
+                            num_chunks,
+                            _id,
+                            chunk_qty,
+                        )
+                        break
+                except Exception:
+                    continue
+
+        return sl_id, tp_id
+
     async def repair_protection(
         self, sym: str, trade: dict, has_sl: bool, has_tp: bool
     ) -> None:
         """Eksik SL/TP emirlerini yeniden kur.
 
-        Orijinal _repair_protection() ile birebir aynı mantık.
-        Sadece _register_user_data_callbacks() içindeki WS callback'ten çağrılır.
+        FIX (P0-5): -4005 (max quantity) hatası algılandığında:
+          1. closePosition=True ile qty'siz dene
+          2. O da başarısızsa qty'yi bölüp parçalı dene
+          3. İkisi de başarısızsa fiyat-bazlı retry'i atla
+        -4005 dışındaki hatalarda mevcut fiyat-bazlı retry aynen kalır.
 
-        FIX (P1-1): Eski SL/TP fiyatini recover_positions() ayni mantikla
-        tazele — piyasa fiyati SL'yi gectiyse immediately-trigger reddi
-        almamak icin mevcut mark_price uzerinden yeniden hesapla.
+        Backoff: ardışık _MAX_REPAIR_RETRIES başarısız denemeden sonra
+        frekans düşer ve CRITICAL uyarı üretilir.
         """
+        # ── Backoff kontrolü ──
+        fail_count = self._repair_failures.get(sym, 0)
+        if fail_count >= 3:
+            last_warn = self._last_repair_warning.get(sym, 0)
+            now = time.time()
+            # 5 dakikada bir CRITICAL uyarı
+            if now - last_warn > 300:
+                log.critical(
+                    "[REPAIR] %s %d dakikadir korumasiz, MANUEL MUDAHALE GEREKIYOR "
+                    "(ardisik %d basarisiz deneme)",
+                    sym,
+                    int((now - last_warn) / 60) if last_warn else 0,
+                    fail_count,
+                )
+                self._last_repair_warning[sym] = now
+            # Frekansı düşür: her 60sn yerine 5 dk'da bir dene
+            if now - self._repair_failures.get(f"{sym}_ts", 0) < 300:
+                log.warning(
+                    "[REPAIR] %s backoff aktif — 5dk bekleniyor (ardisik %d basarisizlik)",
+                    sym,
+                    fail_count,
+                )
+                return
+        else:
+            # Başarısızlık yoksa / eşik altındaysa normal akış
+            pass
         if not has_sl and trade.get("sl"):
             sl_side = "SELL" if trade["side"] == "long" else "BUY"
             sl_price = trade["sl"]
@@ -351,9 +548,29 @@ class OrderManager:
                     sym, sl_side, trade["qty"], sl_price
                 )
                 sl_id = extract_order_id(sl_resp)
-                # FIX (P1-1): SL basarisizsa (fiyat coktan gecti), mevcut
-                # fiyata gore yeni SL dene — recover_positions() ile ayni mantik.
-                if not sl_id:
+
+                if not sl_id and self._is_max_qty_error(sl_resp):
+                    # ── -4005: MİKTAR KAYNAKLI HATA — closePosition dene ──
+                    log.warning(
+                        "[REPAIR] %s SL -4005 (max qty=%.4f), closePosition deneniyor...",
+                        sym,
+                        trade["qty"],
+                    )
+                    sl_id, _ = await self._try_place_sl_tp_with_close_position(
+                        sym, trade, sl_price, 0
+                    )
+                    if not sl_id:
+                        # closePosition da başarısız: parçalı dene
+                        log.warning(
+                            "[REPAIR] %s SL closePosition basarisiz, parcali deneniyor...",
+                            sym,
+                        )
+                        sl_id, _ = await self._try_place_sl_tp_split_qty(
+                            sym, trade, sl_price, 0
+                        )
+
+                elif not sl_id:
+                    # ── -4005 DEĞİL: fiyat kaynaklı olabilir, mevcut fallback ──
                     log.warning(
                         "[REPAIR] %s SL basarisiz (sl=%.4f), mevcut fiyata gore yeniden hesaplaniyor...",
                         sym,
@@ -362,7 +579,8 @@ class OrderManager:
                     try:
                         cur_px = await self._rest.estimate_market_price(sym)
                         risk_pts = trade.get(
-                            "risk_pts", abs(trade.get("entry_price", cur_px) - sl_price)
+                            "risk_pts",
+                            abs(trade.get("entry_price", cur_px) - sl_price),
                         )
                         if trade["side"] == "long" and cur_px < sl_price:
                             new_sl = await self._rest.apply_price_precision(
@@ -423,9 +641,28 @@ class OrderManager:
                     sym, tp_side, trade["qty"], tp_price
                 )
                 tp_id = extract_order_id(tp_resp)
-                # FIX (P1-1): TP basarisizsa (fiyat coktan gecti), mevcut
-                # fiyata gore yeni TP dene — recover_positions() ile ayni mantik.
-                if not tp_id:
+
+                if not tp_id and self._is_max_qty_error(tp_resp):
+                    # ── -4005: MİKTAR KAYNAKLI HATA — closePosition dene ──
+                    log.warning(
+                        "[REPAIR] %s TP -4005 (max qty=%.4f), closePosition deneniyor...",
+                        sym,
+                        trade["qty"],
+                    )
+                    _, tp_id = await self._try_place_sl_tp_with_close_position(
+                        sym, trade, 0, tp_price
+                    )
+                    if not tp_id:
+                        log.warning(
+                            "[REPAIR] %s TP closePosition basarisiz, parcali deneniyor...",
+                            sym,
+                        )
+                        _, tp_id = await self._try_place_sl_tp_split_qty(
+                            sym, trade, 0, tp_price
+                        )
+
+                elif not tp_id:
+                    # ── -4005 DEĞİL: fiyat kaynaklı olabilir, mevcut fallback ──
                     log.warning(
                         "[REPAIR] %s TP basarisiz (tp=%.4f), mevcut fiyata gore yeniden hesaplaniyor...",
                         sym,
@@ -490,6 +727,21 @@ class OrderManager:
                     tp_price,
                     e,
                 )
+        # ── Backoff: başarısızlık sayacı güncelle ──
+        # Hem SL hem TP başarısızsa → sayaç artar
+        # En az biri başarılıysa → sayaç sıfırlanır
+        sl_ok = bool(trade.get("sl_order_id"))
+        tp_ok = bool(trade.get("tp_order_id"))
+        if not sl_ok and not tp_ok:
+            self._repair_failures[sym] = self._repair_failures.get(sym, 0) + 1
+            self._repair_failures[f"{sym}_ts"] = time.time()
+            log.warning(
+                "[REPAIR] %s onarim tamamen basarisiz (ardisik %d)",
+                sym,
+                self._repair_failures[sym],
+            )
+        else:
+            self._repair_failures[sym] = 0  # başarılı, sıfırla
         log.info("[REPAIR] %s onarim tamam", sym)
 
     # ── Tüm açık emirleri iptal et (exit öncesi) ──────────────

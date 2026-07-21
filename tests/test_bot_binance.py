@@ -9,7 +9,7 @@ import asyncio
 import hashlib
 import hmac
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -745,3 +745,188 @@ class TestPlaceForceCloseOrder:
 
         result = asyncio.run(client.place_force_close_order("BTCUSDT", "SELL", "long"))
         assert result is False
+
+
+# ═══════════════════════════════════════════════════════════════
+# P0-5: _parse_error_code, get_max_qty, close_position, priority
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestParseErrorCode:
+    """_parse_error_code static metodu"""
+
+    def test_4005_json(self, client):
+        msg = 'HTTP 400: {"code":-4005,"msg":"Quantity greater than max quantity."}'
+        assert client._parse_error_code(msg) == "-4005"
+
+    def test_other_error(self, client):
+        msg = 'HTTP 400: {"code":-2011,"msg":"Unknown order."}'
+        assert client._parse_error_code(msg) == "-2011"
+
+    def test_empty(self, client):
+        assert client._parse_error_code("") == ""
+
+    def test_max_quantity_fallback(self, client):
+        """Regex'siz metin bazlı fallback"""
+        msg = "MAX_MARKET_ORDER_QTY exceeded"
+        assert client._parse_error_code(msg) == "-4005"
+
+    def test_max_quantity_lowercase(self, client):
+        msg = "max quantity error"
+        assert client._parse_error_code(msg) == "-4005"
+
+
+class TestPlaceStopOrderClosePosition:
+    """place_stop_order(close_position=True)"""
+
+    def test_close_position_param_sent(self, client):
+        """closePosition=true parametresi POST body'sinde gönderilmeli, quantity olmamalı."""
+
+        async def mock_post(url, data, headers):
+            assert "closePosition=true" in data
+            assert "quantity" not in data
+            assert "triggerPrice=105.5" in data
+            return _mock_response(200, {"algoId": "sl_close_001"})
+
+        _inject_session(client, post_fn=mock_post)
+        client.apply_price_precision = AsyncMock(return_value=105.5)
+
+        result = asyncio.run(
+            client.place_stop_order("STRKUSDT", "SELL", 0, 105.5, close_position=True)
+        )
+        assert result.get("algoId") == "sl_close_001"
+
+    def test_close_position_error_returns_code(self, client):
+        """closePosition isteği -4005 alırsa _error_code dönmeli."""
+
+        async def mock_post(url, data, headers):
+            return _mock_response(
+                400, {"code": -4005, "msg": "Quantity greater than max quantity."}
+            )
+
+        _inject_session(client, post_fn=mock_post)
+        client.apply_price_precision = AsyncMock(return_value=100.0)
+
+        result = asyncio.run(
+            client.place_stop_order("BTCUSDT", "SELL", 0, 100.0, close_position=True)
+        )
+        assert result.get("_error_code") == "-4005"
+
+
+class TestPlaceTPOrderClosePosition:
+    """place_tp_order(close_position=True)"""
+
+    def test_close_position_param_sent(self, client):
+        async def mock_post(url, data, headers):
+            assert "closePosition=true" in data
+            assert "quantity" not in data
+            return _mock_response(200, {"algoId": "tp_close_001"})
+
+        _inject_session(client, post_fn=mock_post)
+        client.apply_price_precision = AsyncMock(return_value=115.5)
+
+        result = asyncio.run(
+            client.place_tp_order("STRKUSDT", "SELL", 0, 115.5, close_position=True)
+        )
+        assert result.get("algoId") == "tp_close_001"
+
+
+class TestGetMaxQty:
+    """get_max_qty(symbol)"""
+
+    def test_returns_max_qty(self, client):
+        async def mock_get(url, headers):
+            assert "exchangeInfo" in url
+            return _mock_response(
+                200,
+                {
+                    "symbols": [
+                        {
+                            "symbol": "BTCUSDT",
+                            "filters": [
+                                {
+                                    "filterType": "LOT_SIZE",
+                                    "minQty": "0.001",
+                                    "maxQty": "1000",
+                                    "stepSize": "0.001",
+                                },
+                                {"filterType": "MIN_NOTIONAL", "notional": "5.0"},
+                            ],
+                        }
+                    ]
+                },
+            )
+
+        _inject_session(client, get_fn=mock_get)
+        max_qty = asyncio.run(client.get_max_qty("BTCUSDT"))
+        assert max_qty == 1000.0
+
+    def test_returns_zero_on_missing(self, client):
+        async def mock_get(url, headers):
+            return _mock_response(
+                200, {"symbols": [{"symbol": "BTCUSDT", "filters": []}]}
+            )
+
+        _inject_session(client, get_fn=mock_get)
+        max_qty = asyncio.run(client.get_max_qty("BTCUSDT"))
+        assert max_qty == 0.0
+
+
+class TestPlaceMarketOrderPriority:
+    """place_market_order_priority — CB bypass'li acil kapanış"""
+
+    def test_bypasses_circuit_breaker(self):
+        """CB açıkken bile istek geçmeli."""
+        cb = CircuitBreaker(failure_threshold=1)
+        c = BinanceRESTClient(
+            "k",
+            "s",
+            "https://x.com",
+            _RateLimiter(100),
+            asyncio.Semaphore(10),
+            retry_config=RetryConfig(max_retries=1, base_delay=0.01, jitter=False),
+            circuit_breaker=cb,
+        )
+        asyncio.run(cb.record_failure())  # CB aç
+        assert cb.is_open is True
+
+        async def mock_post(url, data, headers):
+            return _mock_response(200, {"orderId": 123, "executedQty": "1.0"})
+
+        _inject_session(c, post_fn=mock_post)
+        c.apply_amount_precision = AsyncMock(return_value=1.0)
+        c.validate_min_amount = AsyncMock(return_value=1.0)
+        c.get_step_size = AsyncMock(return_value=0.001)
+
+        # Normal post CB tarafından engellenmeli
+        r = asyncio.run(c.post("/fapi/v1/order", {"symbol": "BTCUSDT"}))
+        assert r.is_err
+        assert "Circuit breaker open" in r.error
+
+        # priority bypass etmeli
+        result = asyncio.run(
+            c.place_market_order_priority("BTCUSDT", "SELL", 1.0, reduce_only=True)
+        )
+        assert result.get("_status") == "EXECUTION_CONFIRMED"
+
+    def test_falls_back_to_force_close_on_min_qty(self, client):
+        """qty minQty altındaysa force close denenmeli."""
+
+        async def mock_estimate(symbol):
+            return 100.0
+
+        async def mock_precision(symbol, price):
+            return price
+
+        client.estimate_market_price = mock_estimate
+        client.apply_price_precision = mock_precision
+        client.validate_min_amount = AsyncMock(return_value=0.0)  # minQty altı
+        client.get_step_size = AsyncMock(return_value=0.001)
+
+        client.place_force_close_order = AsyncMock(return_value=True)
+
+        result = asyncio.run(
+            client.place_market_order_priority("BTCUSDT", "SELL", 0.0001)
+        )
+        assert result.get("_status") == "EXECUTION_CONFIRMED"
+        client.place_force_close_order.assert_called_once()

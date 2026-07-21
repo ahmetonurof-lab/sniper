@@ -14,6 +14,7 @@
 | OrderManager (cancel_all_open_orders) | ✅ Exit öncesi tüm emirleri iptal |
 | RecoveryManager (startup recovery) | ✅ Pozisyon import + tüm türlerden orphan cleanup |
 | RecoveryManager (ATR integration) | ✅ indicators.py Wilder's ATR entegre |
+| P0-5: -4005 max quantity infinite loop fix | ✅ closePosition=True SL/TP, CB bypass, qty splitting, backoff |
 | UserDataHandler (WS callbacks) | ✅ ORDER_TRADE_UPDATE + ACCOUNT_UPDATE |
 | BinanceWSHub (multi-symbol WS) | ✅ Auto-reconnect + heartbeat |
 | SessionState (CBDR + Range + TradeDay) | ✅ Gövde bazlı CBDR, retrade alanları temizlendi |

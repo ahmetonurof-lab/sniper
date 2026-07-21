@@ -211,7 +211,9 @@ class TestMarketCloseAmbiguity:
         """REJECTED → force_close attempted, verification runs."""
         svc, rest, om, active_trades, *_ = service
         mock_cfg.BINANCE_API_KEY = "test_key"
-        rest.place_market_order = AsyncMock(return_value={"_status": "REJECTED"})
+        rest.place_market_order_priority = AsyncMock(
+            return_value={"_status": "REJECTED"}
+        )
         rest.get_positions = AsyncMock(return_value=[])
         mock_parse.return_value = (0, 0, None)
 
@@ -232,7 +234,7 @@ class TestMarketCloseAmbiguity:
         """EXECUTION_CONFIRMED with fill → exit_actual_price/qty set."""
         svc, rest, om, active_trades, *_ = service
         mock_cfg.BINANCE_API_KEY = "test_key"
-        rest.place_market_order = AsyncMock(
+        rest.place_market_order_priority = AsyncMock(
             return_value={"_status": "EXECUTION_CONFIRMED"}
         )
         rest.get_positions = AsyncMock(return_value=[])
@@ -256,7 +258,9 @@ class TestMarketCloseAmbiguity:
         """REQUEST_SENT → ambiguous, verification allowed, commit if closed."""
         svc, rest, om, active_trades, *_ = service
         mock_cfg.BINANCE_API_KEY = "test_key"
-        rest.place_market_order = AsyncMock(return_value={"_status": "REQUEST_SENT"})
+        rest.place_market_order_priority = AsyncMock(
+            return_value={"_status": "REQUEST_SENT"}
+        )
         rest.get_positions = AsyncMock(return_value=[])
         mock_parse.return_value = (0, 0, None)
 
@@ -275,7 +279,7 @@ class TestMarketCloseAmbiguity:
         """Empty {} response → force_close attempted."""
         svc, rest, om, active_trades, *_ = service
         mock_cfg.BINANCE_API_KEY = "test_key"
-        rest.place_market_order = AsyncMock(return_value={})
+        rest.place_market_order_priority = AsyncMock(return_value={})
         rest.get_positions = AsyncMock(return_value=[])
 
         trade = _trade(side="long", result="TRAIL_CLOSE")
@@ -292,7 +296,7 @@ class TestMarketCloseAmbiguity:
         """Empty response + position still open → REPAIR_REQUIRED."""
         svc, rest, om, active_trades, *_ = service
         mock_cfg.BINANCE_API_KEY = "test_key"
-        rest.place_market_order = AsyncMock(return_value={})
+        rest.place_market_order_priority = AsyncMock(return_value={})
         rest.get_positions = AsyncMock(
             return_value=[{"symbol": "BTCUSDT", "positionAmt": "0.1"}]
         )
@@ -311,7 +315,7 @@ class TestMarketCloseAmbiguity:
         """5 verification attempts all fail → REPAIR_REQUIRED."""
         svc, rest, om, active_trades, *_ = service
         mock_cfg.BINANCE_API_KEY = "test_key"
-        rest.place_market_order = AsyncMock(return_value={})
+        rest.place_market_order_priority = AsyncMock(return_value={})
         rest.get_positions = AsyncMock(
             return_value=[{"symbol": "BTCUSDT", "positionAmt": "0.1"}]
         )
@@ -331,7 +335,7 @@ class TestMarketCloseAmbiguity:
         """Position closes on 3rd verify attempt → commit."""
         svc, rest, om, active_trades, *_ = service
         mock_cfg.BINANCE_API_KEY = "test_key"
-        rest.place_market_order = AsyncMock(return_value={})
+        rest.place_market_order_priority = AsyncMock(return_value={})
 
         call_count = 0
 
@@ -350,7 +354,9 @@ class TestMarketCloseAmbiguity:
         result = await svc.execute("BTCUSDT", trade, 50000)
 
         assert result is True
-        assert call_count == 3
+        # With is_ambiguous=True (empty adapter response), all 5
+        # verify attempts run before fallback accepts position as closed.
+        assert call_count == 5
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -514,7 +520,7 @@ class TestMarkRepairRequired:
         """Failed verification → status=REPAIR_REQUIRED, protection verified."""
         svc, rest, om, active_trades, *_ = service
         mock_cfg.BINANCE_API_KEY = "test_key"
-        rest.place_market_order = AsyncMock(return_value={})
+        rest.place_market_order_priority = AsyncMock(return_value={})
         rest.get_positions = AsyncMock(
             return_value=[{"symbol": "BTCUSDT", "positionAmt": "0.1"}]
         )
@@ -536,7 +542,7 @@ class TestMarkRepairRequired:
         """REPAIR_REQUIRED + missing SL → repair_protection called."""
         svc, rest, om, active_trades, *_ = service
         mock_cfg.BINANCE_API_KEY = "test_key"
-        rest.place_market_order = AsyncMock(return_value={})
+        rest.place_market_order_priority = AsyncMock(return_value={})
         rest.get_positions = AsyncMock(
             return_value=[{"symbol": "BTCUSDT", "positionAmt": "0.1"}]
         )
@@ -555,7 +561,7 @@ class TestMarkRepairRequired:
 @pytest.fixture
 def service():
     rest = AsyncMock()
-    rest.place_market_order = AsyncMock(return_value={})
+    rest.place_market_order_priority = AsyncMock(return_value={})
     rest.place_force_close_order = AsyncMock(return_value=True)
     rest.get_positions = AsyncMock(return_value=[])
 
@@ -657,7 +663,7 @@ class TestChaosScenarios:
         svc, rest, om, active_trades, *_ = service
         mock_cfg.BINANCE_API_KEY = "test_key"
 
-        rest.place_market_order = AsyncMock(
+        rest.place_market_order_priority = AsyncMock(
             return_value={"orderId": 999, "_status": "EXECUTION_CONFIRMED"}
         )
         # Position still open on first 3 checks, closed on 4th
@@ -684,7 +690,7 @@ class TestChaosScenarios:
         svc, rest, om, active_trades, *_ = service
         mock_cfg.BINANCE_API_KEY = "test_key"
 
-        rest.place_market_order = AsyncMock(
+        rest.place_market_order_priority = AsyncMock(
             return_value={"orderId": 999, "_status": "EXECUTION_CONFIRMED"}
         )
         rest.get_positions = AsyncMock(side_effect=Exception("timeout"))
@@ -703,7 +709,9 @@ class TestChaosScenarios:
         svc, rest, om, active_trades, *_ = service
         mock_cfg.BINANCE_API_KEY = "test_key"
 
-        rest.place_market_order = AsyncMock(return_value={"_status": "REJECTED"})
+        rest.place_market_order_priority = AsyncMock(
+            return_value={"_status": "REJECTED"}
+        )
         rest.place_force_close_order = AsyncMock(return_value=True)
         rest.get_positions = AsyncMock(
             return_value=[{"symbol": "BTCUSDT", "positionAmt": "0"}]
@@ -723,7 +731,7 @@ class TestChaosScenarios:
         svc, rest, om, active_trades, *_ = service
         mock_cfg.BINANCE_API_KEY = "test_key"
 
-        rest.place_market_order = AsyncMock(
+        rest.place_market_order_priority = AsyncMock(
             return_value={"orderId": 999, "_status": "EXECUTION_CONFIRMED"}
         )
         rest.get_positions = AsyncMock(

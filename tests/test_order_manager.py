@@ -253,6 +253,164 @@ class TestRepairProtection:
         await mgr.repair_protection("BTCUSDT", trade, has_sl=False, has_tp=True)
         mock_rest.place_stop_order.assert_not_called()
 
+    # ── P0-5: -4005 (max quantity) tests ───────────────────────
+
+    @pytest.mark.asyncio
+    async def test_sl_4005_falls_back_to_close_position(self):
+        """SL -4005 alindiginda closePosition=True denenmeli."""
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.estimate_market_price = AsyncMock(return_value=100.0)
+        mock_rest.get_max_qty = AsyncMock(return_value=100.0)
+
+        # Once -4005 donduren stop_order, sonra closePosition basarili
+        mock_rest.place_stop_order = AsyncMock(
+            side_effect=[
+                {"_error_code": "-4005"},  # ilk deneme -4005
+                {"algoId": "sl_close_ok"},  # second call = closePosition
+            ]
+        )
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(sl_order_id="", qty=500.0)
+
+        await mgr.repair_protection("BTCUSDT", trade, has_sl=False, has_tp=True)
+
+        assert trade["sl_order_id"] == "sl_close_ok"
+        # closePosition=True ile cagrildi
+        close_call = mock_rest.place_stop_order.call_args_list[-1]
+        assert close_call.kwargs.get("close_position") is True
+
+    @pytest.mark.asyncio
+    async def test_sl_4005_close_position_fails_falls_to_split(self):
+        """-4005 + closePosition basarisizsa parcali denenmeli."""
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.apply_amount_precision = AsyncMock(side_effect=lambda sym, a: a)
+        mock_rest.estimate_market_price = AsyncMock(return_value=100.0)
+        mock_rest.get_max_qty = AsyncMock(return_value=100.0)
+
+        call_count = 0
+
+        async def _place_stop_order(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return {"_error_code": "-4005"}
+            elif call_count == 2:
+                return {}  # closePosition da basarisiz
+            else:
+                return {"algoId": "sl_split_ok"}  # parcali basarili
+
+        mock_rest.place_stop_order = AsyncMock(side_effect=_place_stop_order)
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(sl_order_id="", qty=500.0)
+
+        await mgr.repair_protection("BTCUSDT", trade, has_sl=False, has_tp=True)
+
+        assert trade["sl_order_id"] == "sl_split_ok"
+
+    @pytest.mark.asyncio
+    async def test_non_4005_error_uses_price_fallback(self):
+        """-4005 disindaki hatalarda mevcut fiyat-bazli retry calismali."""
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.estimate_market_price = AsyncMock(return_value=105.0)
+        mock_rest.get_max_qty = AsyncMock(return_value=1000.0)
+
+        # Once bos response (fiyat hatasi), sonra basarili
+        mock_rest.place_stop_order = AsyncMock(
+            side_effect=[
+                {},  # ilk deneme: bos (fiyat gecti)
+                {"algoId": "sl_price_ok"},  # fiyat-bazli retry basarili
+            ]
+        )
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(sl=95.0, sl_order_id="", qty=1.0)
+
+        await mgr.repair_protection("BTCUSDT", trade, has_sl=False, has_tp=True)
+
+        assert trade["sl_order_id"] == "sl_price_ok"
+        # Fiyat yeniden hesaplanmis olmali (cur_px=105, risk_pts=5, new_sl=95)
+        # place_stop_order 2 kez cagrilmali
+        assert mock_rest.place_stop_order.call_count >= 2
+
+    @pytest.mark.asyncio
+    async def test_tp_4005_falls_back_to_close_position(self):
+        """TP -4005 alindiginda closePosition=True denenmeli."""
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.estimate_market_price = AsyncMock(return_value=100.0)
+        mock_rest.get_max_qty = AsyncMock(return_value=100.0)
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_ok"})
+
+        mock_rest.place_tp_order = AsyncMock(
+            side_effect=[
+                {"_error_code": "-4005"},
+                {"algoId": "tp_close_ok"},
+            ]
+        )
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(tp_order_id="", qty=500.0)
+
+        await mgr.repair_protection("BTCUSDT", trade, has_sl=True, has_tp=False)
+
+        assert trade["tp_order_id"] == "tp_close_ok"
+        close_call = mock_rest.place_tp_order.call_args_list[-1]
+        assert close_call.kwargs.get("close_position") is True
+
+    @pytest.mark.asyncio
+    async def test_backoff_increments_after_failure(self):
+        """Basarisiz onarim backoff sayacini artirmali."""
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.estimate_market_price = AsyncMock(return_value=105.0)
+        mock_rest.get_max_qty = AsyncMock(return_value=1000.0)
+        mock_rest.place_stop_order = AsyncMock(return_value={})
+        mock_rest.place_tp_order = AsyncMock(return_value={})
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(sl=100.0, tp=110.0, sl_order_id="", tp_order_id="", qty=1.0)
+
+        await mgr.repair_protection("BTCUSDT", trade, has_sl=False, has_tp=False)
+        assert mgr._repair_failures.get("BTCUSDT", 0) == 1
+
+    @pytest.mark.asyncio
+    async def test_backoff_resets_after_success(self):
+        """Basarili onarimdan sonra backoff sayaci sifirlanmali."""
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.estimate_market_price = AsyncMock(return_value=105.0)
+        mock_rest.get_max_qty = AsyncMock(return_value=1000.0)
+        mock_rest.place_stop_order = AsyncMock(return_value={})
+        mock_rest.place_tp_order = AsyncMock(return_value={})
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+
+        # Once basarisiz ol (both fail)
+        trade = _trade(sl=100.0, tp=110.0, sl_order_id="", tp_order_id="", qty=1.0)
+        await mgr.repair_protection("BTCUSDT", trade, has_sl=False, has_tp=False)
+        assert mgr._repair_failures.get("BTCUSDT", 0) == 1
+
+        # Sonra basarili ol
+        mock_rest.place_stop_order.return_value = {"algoId": "sl_ok2"}
+        mock_rest.place_tp_order.return_value = {"algoId": "tp_ok2"}
+        trade2 = _trade(sl=100.0, tp=110.0, sl_order_id="", tp_order_id="", qty=1.0)
+        await mgr.repair_protection("BTCUSDT", trade2, has_sl=False, has_tp=False)
+        # Sifirlanmali
+        assert mgr._repair_failures.get("BTCUSDT", 0) == 0
+
+    @pytest.mark.asyncio
+    async def test_is_max_qty_error_static(self):
+        """_is_max_qty_error dogru calismali."""
+        assert OrderManager._is_max_qty_error({"_error_code": "-4005"}) is True
+        assert OrderManager._is_max_qty_error({}) is False
+        assert OrderManager._is_max_qty_error({"algoId": "ok"}) is False
+        assert OrderManager._is_max_qty_error({"_error_code": "-2011"}) is False
+
 
 # ═══════════════════════════════════════════════════════════════════
 # cleanup_on_exit tests

@@ -187,6 +187,60 @@ class RecoveryManager:
                         sl = entry + risk_pts * 2
                         tp = entry - risk_pts * self._cfgs[sym]["TP_RR"]
 
+                    def _is_max_qty_error(resp: dict) -> bool:
+                        return resp.get("_error_code") == "-4005"
+
+                    async def _try_close_position_sl_tp(
+                        s: str, d: str, sl_px: float, tp_px: float
+                    ) -> tuple[str, str]:
+                        """closePosition=True ile SL/TP dene."""
+                        _sl_side = "SELL" if d == "long" else "BUY"
+                        _sl_id = ""
+                        _tp_id = ""
+                        if sl_px > 0:
+                            r = await self._rest.place_stop_order(
+                                s, _sl_side, 0, sl_px, close_position=True
+                            )
+                            _sl_id = extract_order_id(r)
+                        if tp_px > 0:
+                            r = await self._rest.place_tp_order(
+                                s, _sl_side, 0, tp_px, close_position=True
+                            )
+                            _tp_id = extract_order_id(r)
+                        return _sl_id, _tp_id
+
+                    async def _try_split_qty_sl_tp(
+                        s: str, d: str, sl_px: float, tp_px: float, total_qty: float
+                    ) -> tuple[str, str]:
+                        """Miktarı bölerek SL/TP dene."""
+                        max_qty = await self._rest.get_max_qty(s)
+                        if max_qty <= 0 or total_qty <= max_qty:
+                            return "", ""
+                        safe_chunk = await self._rest.apply_amount_precision(
+                            s, max_qty * 0.95
+                        )
+                        num_chunks = max(2, int(total_qty / safe_chunk) + 1)
+                        chunk_qty = await self._rest.apply_amount_precision(
+                            s, total_qty / num_chunks
+                        )
+                        _sl_side = "SELL" if d == "long" else "BUY"
+                        _sl_id = ""
+                        _tp_id = ""
+                        for i in range(num_chunks):
+                            if sl_px > 0 and not _sl_id:
+                                r = await self._rest.place_stop_order(
+                                    s, _sl_side, chunk_qty, sl_px
+                                )
+                                _sl_id = extract_order_id(r)
+                            if tp_px > 0 and not _tp_id:
+                                r = await self._rest.place_tp_order(
+                                    s, _sl_side, chunk_qty, tp_px
+                                )
+                                _tp_id = extract_order_id(r)
+                            if _sl_id and _tp_id:
+                                break
+                        return _sl_id, _tp_id
+
                     sl_id = ""
                     tp_id = ""
                     if cfg.BINANCE_API_KEY:
@@ -199,8 +253,28 @@ class RecoveryManager:
                                 sym, sl_side, abs(amt), rounded_sl
                             )
                             sl_id = extract_order_id(sl_resp)
-                            # SL basarisizsa (fiyat coktan gecti), mevcut fiyata gore yeni SL dene
-                            if not sl_id:
+
+                            # ── SL -4005 kontrolü ──
+                            if not sl_id and _is_max_qty_error(sl_resp):
+                                log.warning(
+                                    "[RECOVER] %s SL -4005 (max qty=%.4f), closePosition deneniyor...",
+                                    sym,
+                                    abs(amt),
+                                )
+                                sl_id, tp_id = await _try_close_position_sl_tp(
+                                    sym, direction, rounded_sl, 0
+                                )
+                                if not sl_id:
+                                    log.warning(
+                                        "[RECOVER] %s SL closePosition basarisiz, parcali deneniyor...",
+                                        sym,
+                                    )
+                                    sl_id, _ = await _try_split_qty_sl_tp(
+                                        sym, direction, rounded_sl, 0, abs(amt)
+                                    )
+
+                            elif not sl_id:
+                                # Fiyat kaynaklı: mevcut fiyata gore yeni SL dene
                                 log.warning(
                                     "[RECOVER] %s SL basarisiz (sl=%.4f), mevcut fiyata gore yeniden hesaplaniyor...",
                                     sym,
@@ -238,46 +312,75 @@ class RecoveryManager:
                                         e2,
                                     )
 
-                            tp_resp = await self._rest.place_tp_order(
-                                sym, sl_side, abs(amt), rounded_tp
-                            )
-                            tp_id = extract_order_id(tp_resp)
-                            # TP basarisizsa (SL ile ayni sebep) mevcut fiyata gore yeni TP dene
+                            # ── TP -4005 kontrolü ──
                             if not tp_id:
-                                log.warning(
-                                    "[RECOVER] %s TP basarisiz (tp=%.4f), mevcut fiyata gore yeniden hesaplaniyor...",
-                                    sym,
-                                    tp,
+                                tp_resp = await self._rest.place_tp_order(
+                                    sym, sl_side, abs(amt), rounded_tp
                                 )
-                                try:
-                                    cur_px = await self._rest.estimate_market_price(sym)
-                                    if direction == "long":
-                                        new_tp = await self._rest.apply_price_precision(
-                                            sym, max(rounded_tp, cur_px * 1.01)
-                                        )
-                                    else:
-                                        new_tp = await self._rest.apply_price_precision(
-                                            sym, min(rounded_tp, cur_px * 0.99)
-                                        )
-                                    tp_resp2 = await self._rest.place_tp_order(
-                                        sym, sl_side, abs(amt), new_tp
-                                    )
-                                    tp_id2 = extract_order_id(tp_resp2)
-                                    if tp_id2:
-                                        tp_id = tp_id2
-                                        tp = new_tp
-                                        log.info(
-                                            "[RECOVER] %s TP yeniden denendi: tp=%.4f -> id=%s",
-                                            sym,
-                                            new_tp,
-                                            tp_id,
-                                        )
-                                except Exception as e2:
+                                tp_id = extract_order_id(tp_resp)
+
+                                if not tp_id and _is_max_qty_error(tp_resp):
                                     log.warning(
-                                        "[RECOVER] %s TP yeniden deneme de basarisiz: %s",
+                                        "[RECOVER] %s TP -4005 (max qty=%.4f), closePosition deneniyor...",
                                         sym,
-                                        e2,
+                                        abs(amt),
                                     )
+                                    _, tp_id = await _try_close_position_sl_tp(
+                                        sym, direction, 0, rounded_tp
+                                    )
+                                    if not tp_id:
+                                        log.warning(
+                                            "[RECOVER] %s TP closePosition basarisiz, parcali deneniyor...",
+                                            sym,
+                                        )
+                                        _, tp_id = await _try_split_qty_sl_tp(
+                                            sym, direction, 0, rounded_tp, abs(amt)
+                                        )
+
+                                elif not tp_id:
+                                    # Fiyat kaynaklı: mevcut fiyata gore yeni TP dene
+                                    log.warning(
+                                        "[RECOVER] %s TP basarisiz (tp=%.4f), mevcut fiyata gore yeniden hesaplaniyor...",
+                                        sym,
+                                        tp,
+                                    )
+                                    try:
+                                        cur_px = await self._rest.estimate_market_price(
+                                            sym
+                                        )
+                                        if direction == "long":
+                                            new_tp = (
+                                                await self._rest.apply_price_precision(
+                                                    sym,
+                                                    max(rounded_tp, cur_px * 1.01),
+                                                )
+                                            )
+                                        else:
+                                            new_tp = (
+                                                await self._rest.apply_price_precision(
+                                                    sym,
+                                                    min(rounded_tp, cur_px * 0.99),
+                                                )
+                                            )
+                                        tp_resp2 = await self._rest.place_tp_order(
+                                            sym, sl_side, abs(amt), new_tp
+                                        )
+                                        tp_id2 = extract_order_id(tp_resp2)
+                                        if tp_id2:
+                                            tp_id = tp_id2
+                                            tp = new_tp
+                                            log.info(
+                                                "[RECOVER] %s TP yeniden denendi: tp=%.4f -> id=%s",
+                                                sym,
+                                                new_tp,
+                                                tp_id,
+                                            )
+                                    except Exception as e2:
+                                        log.warning(
+                                            "[RECOVER] %s TP yeniden deneme de basarisiz: %s",
+                                            sym,
+                                            e2,
+                                        )
 
                             log.info(
                                 "[RECOVER] %s icin Binance uzerinde SL/TP emirleri olusturuldu (sl_id=%s, tp_id=%s)",
@@ -310,25 +413,28 @@ class RecoveryManager:
                         close_error = None
                         try:
                             close_side = "SELL" if direction == "long" else "BUY"
-                            close_result = await self._rest.place_market_order(
+                            # P0-5: CB bypass'li acil kapanis
+                            close_result = await self._rest.place_market_order_priority(
                                 sym, close_side, abs(amt), reduce_only=True
                             )
                         except Exception as e:
                             close_error = str(e)
 
-                        if not close_result:
+                        if not close_result or not close_result.get("orderId"):
                             # market order basarisizsa closePosition ile dene
                             log.warning(
                                 "[RECOVER] %s market close basarisiz, closePosition deneniyor...",
                                 sym,
                             )
                             try:
+                                # force close zaten _emergency_post kullanir (CB bypass)
                                 forced = await self._rest.place_force_close_order(
                                     sym, close_side, direction
                                 )
                                 if forced:
                                     log.info(
-                                        "[RECOVER] %s closePosition kabul edildi", sym
+                                        "[RECOVER] %s closePosition kabul edildi (CB bypass)",
+                                        sym,
                                     )
                                     close_result = {"closePosition": True}
                             except Exception as e2:

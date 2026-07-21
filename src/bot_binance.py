@@ -238,6 +238,22 @@ class BinanceRESTClient:
                 return float(f.get("minQty", 0.0))
         return 0.0
 
+    async def get_max_qty(self, symbol: str) -> float:
+        """Sembolün maksimum işlem miktarını döner (LOT_SIZE.maxQty).
+
+        Bu değer, tek bir emir için izin verilen maksimum miktardır.
+        STOP_MARKET/TAKE_PROFIT_MARKET gibi algo emirlerinde de aynı
+        limit uygulanır. Aşılması -4005 "Quantity greater than max quantity"
+        hatasına yol açar.
+        """
+        info = await self.get_symbol_info(symbol)
+        if not info:
+            return 0.0
+        for f in info.get("filters", []):
+            if f["filterType"] == "LOT_SIZE":
+                return float(f.get("maxQty", 0.0))
+        return 0.0
+
     async def apply_price_precision(self, symbol: str, price: float) -> float:
         """Fiyatı tick size'a göre yuvarla."""
         if price is None or price == 0:
@@ -451,6 +467,102 @@ class BinanceRESTClient:
         except Exception as e:
             return Result.fail(str(e))
 
+    async def _emergency_post(self, endpoint: str, params: dict) -> Result[dict]:
+        """Circuit breaker'ı BYPASS eden acil durum POST isteği.
+
+        Acil market close/force close gibi kritik işlemler için kullanılır.
+        Circuit breaker açıkken bile isteğin geçmesini sağlar.
+        Retry/log mekanizması aynıdır, sadece circuit breaker atlanır.
+        """
+
+        async def _do_post() -> dict:
+            await self._rate_limiter.acquire()
+            async with self._semaphore:
+                session = await self._ensure_session()
+                params["timestamp"] = int(time.time() * 1000)
+                query_string = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
+                sig = hmac.new(
+                    self._api_secret.encode(),
+                    query_string.encode(),
+                    hashlib.sha256,
+                ).hexdigest()
+                query_string += f"&signature={sig}"
+                url = f"{self._base_url}{endpoint}"
+                headers = self._build_headers()
+                headers["Content-Type"] = "application/x-www-form-urlencoded"
+                last_error = None
+                rc = self._retry_config
+                for attempt in range(rc.max_retries):
+                    try:
+                        async with session.post(
+                            url, data=query_string, headers=headers
+                        ) as resp:
+                            text = await resp.text()
+                            if resp.status == 200:
+                                return json.loads(text)
+                            last_error = f"HTTP {resp.status}: {text[:200]}"
+                            if not self._should_retry(resp.status):
+                                break
+                    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                        last_error = f"{type(e).__name__}: {e}"[:200]
+                        if not self._should_retry(None):
+                            break
+                    except Exception as e:
+                        last_error = str(e)[:200]
+                        if not self._should_retry(None):
+                            break
+                    if attempt < rc.max_retries - 1:
+                        delay = self._compute_backoff(attempt)
+                        log.warning(
+                            "[EMERGENCY-POST] %s → %s (attempt %d/%d, %.1fs backoff)",
+                            endpoint,
+                            last_error,
+                            attempt + 1,
+                            rc.max_retries,
+                            delay,
+                        )
+                        await asyncio.sleep(delay)
+                raise Exception(last_error or "unknown HTTP error")
+
+        try:
+            result = await _do_post()
+            return Result.ok(result)
+        except Exception as e:
+            return Result.fail(str(e))
+
+    @staticmethod
+    def _parse_error_code(error_msg: str) -> str:
+        """Binance hata mesajından hata kodunu çıkar.
+
+        Örn: "HTTP 400: {"code":-4005,"msg":"Quantity greater than max quantity."}"
+        → "-4005"
+        """
+        if not error_msg:
+            return ""
+        try:
+            # "{...}" kısmını bul
+            brace_start = error_msg.find("{")
+            if brace_start >= 0:
+                import json as _json
+
+                parsed = _json.loads(error_msg[brace_start:])
+                return str(parsed.get("code", ""))
+        except (json.JSONDecodeError, Exception):
+            pass
+        # Regex'siz fallback: -XXXX kalıbını ara
+        import re as _re
+
+        m = _re.search(r'"code"\s*:\s*(-?\d+)', error_msg)
+        if m:
+            return m.group(1)
+        # "max quantity" gibi metin bazlı
+        if (
+            "max quantity" in error_msg.lower()
+            or "max_market_order_qty" in error_msg.lower()
+        ):
+            return "-4005"
+        return ""
+
     async def delete(self, endpoint: str, params: str = "") -> Result[dict]:
         """İmzalı DELETE isteği — exponential backoff + jitter + circuit breaker.
 
@@ -627,12 +739,54 @@ class BinanceRESTClient:
         return result
 
     async def place_stop_order(
-        self, symbol: str, side: str, qty: float, stop_price: float, client_id: str = ""
+        self,
+        symbol: str,
+        side: str,
+        qty: float,
+        stop_price: float,
+        client_id: str = "",
+        close_position: bool = False,
     ) -> dict:
+        """STOP_MARKET emri — Algo endpoint (/fapi/v1/algoOrder) kullanir.
+
+        İki mod:
+          - close_position=False (default): reduceOnly=True + quantity ile.
+            Birden fazla emre izin verir. Ancak qty > LOT_SIZE.maxQty ise
+            -4005 "Quantity greater than max quantity" hatası alınabilir.
+          - close_position=True: quantity olmadan closePosition=true ile.
+            Max-qty limitinden muaftır. Pozisyonun tamamını kapatır.
+            SADECE tek bir emre izin verir (ikincisi reddedilir).
+
+        Hata durumunda dönen dict içinde _error_code alanı olabilir:
+          "-4005" → Quantity greater than max quantity (miktar küçültülmeli)
         """
-        STOP_MARKET emri — Algo endpoint (/fapi/v1/algoOrder) kullanir.
-        reduceOnly=True ile closePosition yerine — birden fazla emre izin verir.
-        """
+        if close_position:
+            # closePosition=True modu: quantity gönderme, max-qty limiti yok
+            rounded_price = await self.apply_price_precision(symbol, stop_price)
+            params = {
+                "symbol": symbol,
+                "side": side.upper(),
+                "type": "STOP_MARKET",
+                "algoType": "CONDITIONAL",
+                "workingType": "MARK_PRICE",
+                "triggerPrice": str(rounded_price),
+                "closePosition": "true",
+                "timeInForce": "GTC",
+                "newClientOrderId": client_id
+                or f"sl_close_{symbol}_{int(time.time())}",
+            }
+            r = await self.post("/fapi/v1/algoOrder", params)
+            if r.is_err:
+                log.warning(
+                    "[SL] %s closePosition STOP_MARKET hatasi: %s", symbol, r.error
+                )
+                return {"_error_code": self._parse_error_code(r.error)}
+            result = r.value
+            if result.get("algoId") or result.get("orderId") or result.get("id"):
+                return result
+            return result
+
+        # reduceOnly modu: quantity ile
         step = await self.get_step_size(symbol)
         rounded_qty = await self.apply_amount_precision(symbol, qty)
         valid_qty = await self.validate_min_amount(symbol, rounded_qty)
@@ -663,7 +817,7 @@ class BinanceRESTClient:
         r = await self.post("/fapi/v1/algoOrder", params)
         if r.is_err:
             log.warning("[SL] %s STOP_MARKET hatasi: %s", symbol, r.error)
-            return {}
+            return {"_error_code": self._parse_error_code(r.error)}
         result = r.value
         if result.get("algoId") or result.get("orderId") or result.get("id"):
             return result
@@ -685,11 +839,50 @@ class BinanceRESTClient:
         return result
 
     async def place_tp_order(
-        self, symbol: str, side: str, qty: float, stop_price: float, client_id: str = ""
+        self,
+        symbol: str,
+        side: str,
+        qty: float,
+        stop_price: float,
+        client_id: str = "",
+        close_position: bool = False,
     ) -> dict:
+        """TAKE_PROFIT_MARKET emri — Algo endpoint (/fapi/v1/algoOrder) kullanir.
+
+        İki mod (place_stop_order ile aynı):
+          - close_position=False (default): reduceOnly=True + quantity ile.
+          - close_position=True: quantity olmadan closePosition=true ile.
+
+        Hata durumunda dönen dict içinde _error_code alanı olabilir:
+          "-4005" → Quantity greater than max quantity.
         """
-        TAKE_PROFIT_MARKET emri — Algo endpoint (/fapi/v1/algoOrder) kullanir.
-        """
+        if close_position:
+            rounded_price = await self.apply_price_precision(symbol, stop_price)
+            params = {
+                "symbol": symbol,
+                "side": side.upper(),
+                "type": "TAKE_PROFIT_MARKET",
+                "algoType": "CONDITIONAL",
+                "workingType": "MARK_PRICE",
+                "triggerPrice": str(rounded_price),
+                "closePosition": "true",
+                "timeInForce": "GTC",
+                "newClientOrderId": client_id
+                or f"tp_close_{symbol}_{int(time.time())}",
+            }
+            r = await self.post("/fapi/v1/algoOrder", params)
+            if r.is_err:
+                log.warning(
+                    "[TP] %s closePosition TAKE_PROFIT_MARKET hatasi: %s",
+                    symbol,
+                    r.error,
+                )
+                return {"_error_code": self._parse_error_code(r.error)}
+            result = r.value
+            if result.get("algoId") or result.get("orderId") or result.get("id"):
+                return result
+            return result
+
         step = await self.get_step_size(symbol)
         rounded_qty = await self.apply_amount_precision(symbol, qty)
         valid_qty = await self.validate_min_amount(symbol, rounded_qty)
@@ -720,7 +913,7 @@ class BinanceRESTClient:
         r = await self.post("/fapi/v1/algoOrder", params)
         if r.is_err:
             log.warning("[TP] %s TAKE_PROFIT_MARKET hatasi: %s", symbol, r.error)
-            return {}
+            return {"_error_code": self._parse_error_code(r.error)}
         result = r.value
         if result.get("algoId") or result.get("orderId") or result.get("id"):
             return result
@@ -869,6 +1062,60 @@ class BinanceRESTClient:
         else:
             log.warning("[LISTEN_KEY] Yenileme hatasi: %s", r.error)
 
+    async def place_market_order_priority(
+        self, symbol: str, side: str, qty: float, reduce_only: bool = False
+    ) -> dict:
+        """ACİL DURUM: Circuit breaker'ı BYPASS eden MARKET emri.
+
+        place_market_order() ile aynı mantık, ancak circuit breaker
+        kontrolünü atlar. SL/TP denemeleri circuit breaker'ı açtıysa
+        bile acil kapanış emrinin geçmesini sağlar.
+
+        Kullanım: YALNIZCA acil durum / emergency close senaryolarında.
+        """
+        step = await self.get_step_size(symbol)
+        rounded_qty = await self.apply_amount_precision(symbol, qty)
+        valid_qty = await self.validate_min_amount(symbol, rounded_qty)
+        if valid_qty <= 0:
+            log.warning(
+                "[EMERGENCY] %s qty=%.8f minQty altinda, closePosition deneniyor...",
+                symbol,
+                qty,
+            )
+            # qty çok küçükse closePosition=True dene
+            mkt_side = side.upper()
+            pos_side = "long" if side.upper() == "SELL" else "short"
+            forced = await self.place_force_close_order(symbol, mkt_side, pos_side)
+            if forced:
+                return {"_status": "EXECUTION_CONFIRMED", "closePosition": True}
+            return {"_status": "REJECTED"}
+
+        decimals = max(_get_precision_places(step), 8)
+        qty_str = f"{valid_qty:.{decimals}f}".rstrip("0").rstrip(".")
+        if not qty_str or qty_str == "0":
+            return {"_status": "REJECTED"}
+
+        params = {
+            "symbol": symbol,
+            "side": side.upper(),
+            "type": "MARKET",
+            "quantity": qty_str,
+        }
+        if reduce_only:
+            params["reduceOnly"] = "true"
+
+        # _emergency_post circuit breaker'ı atlar
+        r = await self._emergency_post("/fapi/v1/order", params)
+        if r.is_err:
+            log.warning("[EMERGENCY] %s MARKET hata (CB bypass): %s", symbol, r.error)
+            return {"_status": "REQUEST_SENT", "error": r.error}
+        result = r.value
+        if result.get("orderId") or result.get("id"):
+            result["_status"] = "EXECUTION_CONFIRMED"
+            return result
+        result["_status"] = "ORDER_ACKNOWLEDGED"
+        return result
+
     async def place_force_close_order(
         self, symbol: str, mkt_side: str, position_side: str
     ) -> bool:
@@ -909,7 +1156,7 @@ class BinanceRESTClient:
                 "timeInForce": "GTC",
                 "newClientOrderId": f"force_close_{symbol}_{int(time.time())}",
             }
-            r = await self.post("/fapi/v1/algoOrder", params)
+            r = await self._emergency_post("/fapi/v1/algoOrder", params)
             if r.is_err:
                 log.warning("[FORCE_CLOSE] %s basarisiz: %s", symbol, r.error)
                 return False
