@@ -86,6 +86,9 @@
 | **C: Explicit lifecycle states (9d0e72b)** | ✅ `STATUS_EXIT_REQUESTED`, `STATUS_EXIT_SUBMITTED`, `STATUS_CLOSED` eklendi. `update_trail_orders()` → `TRAIL_REPLACING`/`ACTIVE`. bot.py + exit_lifecycle.py state machine sync. |
 | **E: Chaos tests (9d0e72b)** | ✅ 4 edge-case test: delayed fill, REST timeout, force close fallback, state transition verification. |
 | **fix: close 3 review findings (594f6f3)** | ✅ 3 system review bulgusu kapatıldı. |
+| **P1-1: repair_protection stale SL fallback** | ✅ `order_manager.py` — SL/TP basarisizsa mark_price + risk_pts ile yeniden hesapla (recover_positions ayni mantik) |
+| **P1-4: periodic orphan sweep** | ✅ `recovery_manager.py:periodic_check_loop()` — orphan sweep periyodik olarak calistiriliyor (portfolio flat iken sayac duruyordu) |
+| **P0-4: restart REPAIR_REQUIRED cleanup** | ✅ `bot.py:run()` — recover_positions sonrasi stuck trade'leri ACTIVE'e dondur eger SL/TP saglikli |
 
 ## Kalan İşler 🔧
 

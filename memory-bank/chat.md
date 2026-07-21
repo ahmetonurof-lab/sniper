@@ -1,5 +1,13 @@
 # Chat Log
 
+## 2026-07-22 — Bug Registry Fix Session (sniper/src)
+
+- **3 bug fix uygulandı** (sonnet bug registry'den sniper/src'ye taşındı):
+  - **P1-1: repair_protection stale SL fallback** (`order_manager.py:334`): Eski `trade["sl"]`/`trade["tp"]` fiyatıyla emir veriliyordu, piyasa o fiyatlari gecmisse "immediately trigger" reddi aliniyordu. Artik basarisizlik durumunda `estimate_market_price()` ile mevcut fiyat uzerinden yeniden hesaplaniyor — `recover_positions()`'daki retry mantigiyla ayni.
+  - **P1-4: periodic orphan sweep** (`recovery_manager.py:periodic_check_loop()`): Orphan sweep sadece `_on_1m_close` icinde calisiyordu, portfolio flat iken sayac ilerlemiyor, orphan emirler temizlenmiyordu. Artik `periodic_check_loop` her 60sn'de `reconcile_orphan_orders()` de cagiriyor.
+  - **P0-4: restart REPAIR_REQUIRED cleanup** (`bot.py:run()`): Onceki session'dan `STATUS_REPAIR_REQUIRED`/`STATUS_EXIT_REQUESTED` ile kalan trade'ler restart sonrasi ayni durumda kilitli kaliyordu. Artik `recover_positions()` sonrasi SL/TP saglikliysa `STATUS_ACTIVE`'e donduruluyor.
+- **Commit:** `2e5007a` sniper repo'ya push edildi (https://github.com/ahmetonurof-lab/sniper.git)
+
 ## 2026-06-28
 
 - **trailing_manager.py:** Each trailing step now records `{sl, tp, fvg_top, fvg_bot, bar}` into `trade["trail_steps"]`. New `trail_steps.append(...)` at both long and short trail branches. `trail_steps` is stored on the `ActiveTrade` object with `get()` compatibility.
