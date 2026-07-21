@@ -369,6 +369,13 @@ class ExitLifecycleService:
                 log.warning("[EXIT] %s closePosition force-close hatasi: %s", sym, e)
 
         # ── Pozisyon doğrulama: 5 deneme, 200ms bekle, positionAmt == 0 ──
+        # FIX (P0-1): Belirsiz adapter durumunda (REQUEST_SENT/ORDER_ACKNOWLEDGED/
+        # bos) "sembol listede yok" sonucuna hemen guvenmeyin — Binance gecikmeli
+        # donebilir. Sadece EXECUTION_CONFIRMED durumunda hemen kabul et.
+        is_ambiguous = adapter_status in (
+            "REQUEST_SENT",
+            "ORDER_ACKNOWLEDGED",
+        ) or not close_resp.get("orderId")
         pos_closed = False
         for attempt in range(5):
             await asyncio.sleep(0.2)
@@ -381,7 +388,19 @@ class ExitLifecycleService:
                             pos_closed = True
                         break
                 else:
-                    pos_closed = True
+                    # Sembol listede yoksa:
+                    # - EXECUTION_CONFIRMED: fill teyidi var, guvenle kabul et
+                    # - Belirsiz: son denemeye kadar bekle (Binance gecikebilir)
+                    if not is_ambiguous or attempt >= 4:
+                        pos_closed = True
+                    else:
+                        log.info(
+                            "[EXIT] %s verify %d/5 — sembol listede yok ama "
+                            "adapter belirsiz (%s), bekleniyor",
+                            sym,
+                            attempt + 2,
+                            adapter_status,
+                        )
             except Exception:
                 pass
             if pos_closed:
@@ -391,6 +410,27 @@ class ExitLifecycleService:
                 sym,
                 attempt + 2,
             )
+
+        # FIX (P0-1): Belirsiz adapter durumunda 5 deneme de yetersizse,
+        # get_all_orders ile kapanis emrinin gercekten FILLED olup olmadigini kontrol et.
+        if not pos_closed and is_ambiguous:
+            try:
+                orders = await self._rest.get_all_orders(sym)
+                for o in orders:
+                    o_status = o.get("status", "")
+                    is_reduce_only = o.get("reduceOnly") in (True, "true", "True")
+                    is_close_position = o.get("closePosition") in (True, "true", "True")
+                    if o_status == "FILLED" and (is_reduce_only or is_close_position):
+                        pos_closed = True
+                        log.info(
+                            "[EXIT] %s get_all_orders FILLED emir bulundu "
+                            "(orderId=%s) — pozisyon kapali",
+                            sym,
+                            o.get("orderId") or o.get("algoId"),
+                        )
+                        break
+            except Exception:
+                pass
 
         if not pos_closed:
             await self._mark_repair_required(sym, trade)
