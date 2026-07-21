@@ -8,6 +8,15 @@
   - **P0-4: restart REPAIR_REQUIRED cleanup** (`bot.py:run()`): Onceki session'dan `STATUS_REPAIR_REQUIRED`/`STATUS_EXIT_REQUESTED` ile kalan trade'ler restart sonrasi ayni durumda kilitli kaliyordu. Artik `recover_positions()` sonrasi SL/TP saglikliysa `STATUS_ACTIVE`'e donduruluyor.
 - **Commit:** `2e5007a` sniper repo'ya push edildi (https://github.com/ahmetonurof-lab/sniper.git)
 
+## 2026-07-22 — P0-1 UNIUSDT Restart Loop Fix (sniper/src)
+
+- **P0-1: false position closed fix** (`exit_lifecycle.py:_submit_and_verify_market_close()`):
+  - **Kök neden:** Verify loop'da adapter belirsizken (REQUEST_SENT/ORDER_ACKNOWLEDGED) `for-else` (sembol listede yok) ilk denemede `pos_closed=True` veriyordu. Binance gecikmeli donebilir, ilk `get_positions()` bos donebilir → bot sahte PnL hesapliyordu → trade active_trades'dan siliniyordu → periodic_check_loop pozisyonu recover ediyordu → dongu.
+  - **Fix:** (1) `is_ambiguous` flag eklendi (REQUEST_SENT/ORDER_ACKNOWLEDGED veya bos close_resp). (2) `for-else` belirsiz durumda sadece `attempt >= 4` (son deneme) durumunda `pos_closed=True` veriyor. (3) Döngüden sonra `get_all_orders()` fallback — FILLED reduceOnly/closePosition emir kontrolü.
+  - **EXECUTION_CONFIRMED davranisi degismedi:** Fill teyidi varsa hemen kabul et (ilk denemede `pos_closed=True`).
+  - **Event log kanıtlama:** `events_2026-07-21.jsonl` UNIUSDT — 12:35:38 market close, 12:35:38 get_positions boş, 12:35:38 `pos_closed=True` (adapter_status REQUEST_SENT), 12:36:00 periodic_check_loop recover.
+- **Commit:** `c11c785` sniper repo'ya push edildi (https://github.com/ahmetonurof-lab/sniper.git)
+
 ## 2026-06-28
 
 - **trailing_manager.py:** Each trailing step now records `{sl, tp, fvg_top, fvg_bot, bar}` into `trade["trail_steps"]`. New `trail_steps.append(...)` at both long and short trail branches. `trail_steps` is stored on the `ActiveTrade` object with `get()` compatibility.

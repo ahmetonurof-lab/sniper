@@ -115,6 +115,10 @@
 | Sorun | Durum |
 |-------|-------|
 | HTTP -4130 (açık SL/TP emri çakışması) | 🟡 Precision fix sonrası gözlemlenmeli |
+| ~~UNIUSDT restart dongusu (P0-1)~~ | ✅ `exit_lifecycle.py` verify loop fix (c11c785). Belirsiz adapter durumunda son denemeye kadar bekle + `get_all_orders()` fallback. |
+| ~~STRKUSDT SL kurulamama (P1-1)~~ | ✅ `repair_protection()` stale SL fallback fix (2e5007a). |
+| ~~periodic orphan sweep calismama (P1-4)~~ | ✅ `periodic_check_loop()` orphan sweep fix (2e5007a). |
+| ~~REPAIR_REQUIRED restart kilitlenme (P0-4)~~ | ✅ `bot.py run()` restart cleanup fix (2e5007a). |
 | ~~FVG_BUFFER_MULT canlı/backtest farkı (0.50 vs 0.25)~~ | ✅ Backtest 0.50'ye güncellendi, trailing portu ile uyum tam |
 | ~~Trail prev ID penceresinde WS_FALLBACK~~ | ✅ Fix: `*_order_id_prev` geçiş id'si saklanıyor, WS fill eşleşmesi genişletildi |
 | ~~SOLUSDT FVG bar index restart bug~~ | ✅ `_resolve_fvg_bar_index()` fiyat bazlı arama öncelikli yapıldı. Restart sonrası bar indeksleri sıfırlandığında offset formülü (~81 FVG'yi ~77-78 barına işaret ediyordu). |
