@@ -1,5 +1,14 @@
 # Chat Log
 
+## 2026-07-22 — P2-4 Self-Exit Race Guard (sniper/src)
+
+- **P2-4: unmatched-reduceOnly WS_FALLBACK race condition fix** (`user_data_handler.py`):
+  - **Kök neden:** `_on_order_update_normalized()` ve `_on_order_update_legacy()` içindeki unmatched reduceOnly dalı, gelen emrin ID'sini sadece sl_order_id/tp_order_id (+ prev/history) ile karşılaştırıyor. Botun kendi başlattığı market-close emirleri (TRAIL_CLOSE, force_close, MANUAL_CLOSE) bu setlerde yer almaz (reduceOnly MARKET emri, SL/TP algo emri değil). Trade zaten EXIT_SUBMITTED/EXIT_VERIFYING durumundayken bu event gelirse "orphan fill" sayılıp result WS_FALLBACK'e çevriliyor, _exit_trade ikinci kez tetikleniyor, yakalanmamış WSFallbackError fırlatılıyordu.
+  - **Fix:** `_SELF_EXIT_IN_PROGRESS_STATUSES = frozenset({STATUS_EXIT_REQUESTED, STATUS_EXIT_SUBMITTED, STATUS_EXIT_VERIFYING})`. Unmatched-reduceOnly dalına girmeden önce trade status kontrolü — kendi exit sürecindeyse sessizce logla ve return. Hem normalized hem legacy handler'da uygulandı.
+  - **Legacy docstring güncellendi:** "orijinal, değiştirilmedi" → "değiştirildi: self-exit race guard eklendi".
+  - **4 test:** 3 guard senaryosu (EXIT_REQUESTED/SUBMITTED/VERIFYING) + 1 regression guard (ACTIVE durumunda hâlâ WS_FALLBACK行为 korunur). 32/32 test geçti.
+  - **bugs.md:** P2-4 eklendi (P2 section).
+
 ## 2026-07-22 — Bug Registry Fix Session (sniper/src)
 
 - **3 bug fix uygulandı** (sonnet bug registry'den sniper/src'ye taşındı):

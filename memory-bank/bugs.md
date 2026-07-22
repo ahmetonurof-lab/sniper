@@ -114,6 +114,11 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 - Şu an zararsız ama ileride yanıltıcı.
 - **⚠️ DURUM: HÂLÂ GEÇERLİ** — begin_replace + promote aynı akışta (order_manager.py:139-141).
 
+### P2-4: user_data_handler unmatched-reduceOnly, kendi exit'ini WS_FALLBACK sanıyor
+**Dosya:** `sniper/src/trading/user_data_handler.py` (_on_order_update_normalized + _on_order_update_legacy)
+- Trade EXIT_SUBMITTED/EXIT_VERIFYING durumundayken gelen kendi market-close fill'i, SL/TP ID setinde olmadığı için "unmatched" sayılıp WS_FALLBACK'e çevriliyordu; result üzerine yazılıyor, _exit_trade ikinci kez tetikleniyor, yakalanmamış WSFallbackError fırlatılıyordu.
+- **DURUM: DÜZELTİLDİ** — status guard eklendi (_SELF_EXIT_IN_PROGRESS_STATUSES).
+
 ---
 
 ## 🔵 P3 — Low Risk
@@ -163,4 +168,5 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 | P2-1 | DOĞRULANDI | maybe_repair() ölü kod |
 | P2-2 | HÂLÂ GEÇERLİ | CleanupPlan sadece current ID'leri iptal ediyor |
 | P2-3 | HÂLÂ GEÇERLİ | promote dokümantasyon uyuşmazlığı |
+| P2-4 | DÜZELTİLDİ | self-exit race guard (_SELF_EXIT_IN_PROGRESS_STATUSES) |
 | P3-1 | HÂLÂ GEÇERLİ | except Exception yaygın |

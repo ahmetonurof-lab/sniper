@@ -420,3 +420,132 @@ class TestExitTradePromotion:
         assert trade["exit_price"] == 51000.0
         assert trade["exit_actual_price"] == 51000.0
         assert trade["pending_exit_price"] is None
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Self-exit race guard (P2-4)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestSelfExitRaceGuard:
+    """Unmatched reduceOnly fill during self-exit should NOT trigger WS_FALLBACK."""
+
+    @pytest.mark.asyncio
+    @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", True)
+    @patch("trading.user_data_handler.cfg")
+    async def test_unmatched_reduce_only_skipped_when_exit_submitted(self, mock_cfg):
+        active_trades = {}
+        exit_cb = AsyncMock()
+        on_order = _make_handler(active_trades, exit_cb)
+        assert on_order is not None
+
+        t = _trade(sl_order_id="SL_X", tp_order_id="TP_X", status="EXIT_SUBMITTED")
+        active_trades["BTCUSDT"] = t
+
+        raw_msg = {
+            "o": {
+                "s": "BTCUSDT",
+                "c": "MARKET_CLOSE_001",
+                "i": 77777,
+                "X": "FILLED",
+                "R": True,
+                "ap": "50000",
+                "z": "0.1",
+            }
+        }
+        await on_order(raw_msg)
+
+        assert t.get("result") != "WS_FALLBACK"
+        assert t.get("pending_exit_reason") is None
+        exit_cb.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", True)
+    @patch("trading.user_data_handler.cfg")
+    async def test_unmatched_reduce_only_skipped_when_exit_verifying(self, mock_cfg):
+        active_trades = {}
+        exit_cb = AsyncMock()
+        on_order = _make_handler(active_trades, exit_cb)
+        assert on_order is not None
+
+        t = _trade(sl_order_id="SL_X", tp_order_id="TP_X", status="EXIT_VERIFYING")
+        active_trades["BTCUSDT"] = t
+
+        raw_msg = {
+            "o": {
+                "s": "BTCUSDT",
+                "c": "TRAIL_CLOSE_001",
+                "i": 88888,
+                "X": "FILLED",
+                "R": True,
+                "ap": "50500",
+                "z": "0.1",
+            }
+        }
+        await on_order(raw_msg)
+
+        assert t.get("result") != "WS_FALLBACK"
+        assert t.get("pending_exit_reason") is None
+        exit_cb.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", True)
+    @patch("trading.user_data_handler.cfg")
+    async def test_unmatched_reduce_only_skipped_when_exit_requested(self, mock_cfg):
+        active_trades = {}
+        exit_cb = AsyncMock()
+        on_order = _make_handler(active_trades, exit_cb)
+        assert on_order is not None
+
+        t = _trade(sl_order_id="SL_X", tp_order_id="TP_X", status="EXIT_REQUESTED")
+        active_trades["BTCUSDT"] = t
+
+        raw_msg = {
+            "o": {
+                "s": "BTCUSDT",
+                "c": "FORCE_CLOSE_001",
+                "i": 99999,
+                "X": "FILLED",
+                "R": True,
+                "ap": "50200",
+                "z": "0.1",
+            }
+        }
+        await on_order(raw_msg)
+
+        assert t.get("result") != "WS_FALLBACK"
+        assert t.get("pending_exit_reason") is None
+        exit_cb.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", True)
+    @patch("trading.user_data_handler.cfg")
+    async def test_unmatched_reduce_only_still_fallback_when_active(self, mock_cfg):
+        """Regression guard: ACTIVE trade should still trigger WS_FALLBACK."""
+        from models import WSFallbackError
+
+        active_trades = {}
+        exit_cb = AsyncMock()
+        on_order = _make_handler(active_trades, exit_cb)
+        assert on_order is not None
+
+        t = _trade(sl_order_id="SL_X", tp_order_id="TP_X", status="ACTIVE")
+        active_trades["BTCUSDT"] = t
+
+        raw_msg = {
+            "o": {
+                "s": "BTCUSDT",
+                "c": "UNKNOWN_ORPHAN",
+                "i": 66666,
+                "X": "FILLED",
+                "R": True,
+                "ap": "50000",
+                "z": "0.1",
+            }
+        }
+        with pytest.raises(WSFallbackError):
+            await on_order(raw_msg)
+
+        assert t.get("result") == "WS_FALLBACK"
+        assert t.get("pending_exit_reason") is not None
+        exit_cb.assert_awaited_once()

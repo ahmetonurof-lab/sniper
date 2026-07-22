@@ -24,9 +24,16 @@ from models import (
     NormalizedOrderEvent,
     UNRESTRICTED_STATUSES,
     STATUS_REPAIR_REQUIRED,
+    STATUS_EXIT_REQUESTED,
+    STATUS_EXIT_SUBMITTED,
+    STATUS_EXIT_VERIFYING,
     WSFallbackError,
     INCIDENT_WS_UNMATCHED_REDUCE_ONLY,
     INCIDENT_ORPHAN_CANCEL_DURING_TRANSITION,
+)
+
+_SELF_EXIT_IN_PROGRESS_STATUSES = frozenset(
+    {STATUS_EXIT_REQUESTED, STATUS_EXIT_SUBMITTED, STATUS_EXIT_VERIFYING}
 )
 
 log = logging.getLogger("sniper.user_data")
@@ -215,6 +222,26 @@ class UserDataHandler:
                         )
                     else:
                         if is_reduce_only:
+                            # FIX (race): trade zaten kendi exit surecindeyse
+                            # (TRAIL_CLOSE/force_close/manual — market close
+                            # emri, SL/TP algo ID setinde hic yer almaz) bu
+                            # fill'i orphan/WS_FALLBACK sanma. exit_lifecycle
+                            # zaten kendi REST polling'iyle bu kapanisi
+                            # dogrulayip commit edecek — burada result'i ezmek
+                            # ve _exit_trade'i ikinci kez tetiklemek sadece
+                            # yanlis "WS_FALLBACK" kaydina ve yakalanmamis
+                            # WSFallbackError'a yol acar.
+                            if trade.get("status") in _SELF_EXIT_IN_PROGRESS_STATUSES:
+                                log.info(
+                                    "[WS-ORDER] %s reduceOnly FILLED (oid=%s) — "
+                                    "trade zaten exit surecinde (status=%s), "
+                                    "kendi kapanis emri olarak kabul edildi, "
+                                    "WS_FALLBACK'e cevrilmiyor",
+                                    sym,
+                                    oid,
+                                    trade.get("status"),
+                                )
+                                return
                             trade["pending_exit_reason"] = (
                                 INCIDENT_WS_UNMATCHED_REDUCE_ONLY
                             )
@@ -282,7 +309,7 @@ class UserDataHandler:
             except Exception as e:
                 log.critical("[WS-REPAIR] %s onarim hatasi: %s", sym, e)
 
-        # ── Legacy handler (orijinal, değiştirilmedi) ─────────
+        # ── Legacy handler (değiştirildi: self-exit race guard eklendi) ─────
 
         async def _on_order_update_legacy(od: dict) -> None:
             sym = od.get("s", "")
@@ -334,6 +361,17 @@ class UserDataHandler:
                             await _exit_trade(sym, trade, int(time.time() * 1000))
                     else:
                         if is_reduce_only:
+                            if trade.get("status") in _SELF_EXIT_IN_PROGRESS_STATUSES:
+                                log.info(
+                                    "[WS-ORDER] %s reduceOnly FILLED (oid=%s) — "
+                                    "trade zaten exit surecinde (status=%s), "
+                                    "kendi kapanis emri olarak kabul edildi, "
+                                    "WS_FALLBACK'e cevrilmiyor",
+                                    sym,
+                                    oid,
+                                    trade.get("status"),
+                                )
+                                return
                             trade["pending_exit_reason"] = (
                                 INCIDENT_WS_UNMATCHED_REDUCE_ONLY
                             )

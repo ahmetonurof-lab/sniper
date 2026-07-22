@@ -75,6 +75,7 @@
 | 54 | **E(54): Chaos/edge-case tests (9d0e72b)** | 4 test: delayed fill (4. attempt), REST timeout → REPAIR_REQUIRED, force close fallback (market REJECTED), state transition doğrulama. |
 | 55 | **fix: close 3 system review findings (594f6f3)** | Review bulguları kapatıldı — detaylar commit'te embedded. |
 | 56 | **P0-3: repair_protection per-symbol asyncio.Lock** | `order_manager.py`: `import asyncio` eklendi, `__init__`'e `_repair_locks: dict[str, asyncio.Lock]` eklendi. `repair_protection()` wrapper + `_repair_protection_locked()` rename. Aynı sembol için eşzamanlı çağrılar `lock.locked()` ile tespit edilip sessizce atlanır. Farklı semboller bloklanmaz. Test: 3 concurrency test (`TestRepairProtectionConcurrency`). |
+| 57 | **P2-4: self-exit race guard** | `user_data_handler.py`: unmatched-reduceOnly fill, trade EXIT_SUBMITTED/EXIT_VERIFYING durumundayken WS_FALLBACK'e çevriliyordu (market-close emri SL/TP ID setinde yer almaz). `_SELF_EXIT_IN_PROGRESS_STATUSES` guard eklendi — hem normalized hem legacy handler'da. Legacy docstring güncellendi. |
 
 ## Aktif Kararlar
 
