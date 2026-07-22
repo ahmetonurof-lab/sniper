@@ -92,6 +92,7 @@
 | **P0-4: restart REPAIR_REQUIRED cleanup** | ✅ `bot.py:run()` — recover_positions sonrasi stuck trade'leri ACTIVE'e dondur eger SL/TP saglikli |
 | **P0-3: repair_protection per-symbol lock** | ✅ `order_manager.py`: per-symbol `asyncio.Lock`. Wrapper + `_repair_protection_locked` rename. Eşzamanlı çağrı atlanır, farklı semboller bloklanmaz. 3 concurrency test. |
 | **P2-4: self-exit race guard** | ✅ `user_data_handler.py`: `_SELF_EXIT_IN_PROGRESS_STATUSES` guard. EXIT_SUBMITTED/EXIT_VERIFYING durumunda unmatched reduceOnly fill WS_FALLBACK'e çevrilmeyip sessizce loglanıyor. raise → log_event + log.critical'e çevrildi (ACTIVE senaryosunda). 5 test (3 guard + 1 ACTIVE fallback + 1 regression). |
+| **P2-5: update_trail_orders -4005 fallback + backoff** | ✅ `order_manager.py`: SL/TP placement -4005 hatasında closePosition → split_qty fallback. `error_code` log_event'a eklendi. `_trail_failures` backoff: 3 ardışık başarısızlık → 5dk bekle + CRITICAL uyarı. 8 yeni test. |
 
 ## Kalan İşler 🔧
 

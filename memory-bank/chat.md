@@ -1,5 +1,13 @@
 # Chat Log
 
+## 2026-07-22 — P2-5: update_trail_orders -4005 fallback + backoff (sniper/src)
+
+- **P2-5: `update_trail_orders()` -4005 fallback** (`order_manager.py`):
+  - SL/TP placement bloğunda `extract_order_id` boş dönerse ve `_is_max_qty_error(resp)` True ise: (1) `closePosition=True` ile qty'sız dene, (2) o da başarısızsa parçalı qty dene — `repair_protection()` ile birebir aynı desen.
+  - `sl_reject`/`tp_reject` `log_event` çağrılarına `error_code` alanı eklendi.
+  - **Trailing backoff:** `_trail_failures` + `_last_trail_warning` sayaçları eklendi. 3 ardışık başarısız trailing denemesinden sonra 5dk backoff + CRITICAL uyarı (repair_protection'daki `_repair_failures` deseni).
+  - **8 yeni test:** SL/TP -4005 closePosition fallback, closePosition fails → split_qty, error_code log_event assertion, backoff increment, backoff resets on success.
+
 ## 2026-07-22 — P2-4 v2: raise→log_event + ACTIVE fallback cleanup (sniper/src)
 
 - **P2-4 v2: WS_FALLBACK raise kaldırıldı, log_event'e çevrildi** (`user_data_handler.py`):

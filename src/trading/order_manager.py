@@ -59,6 +59,9 @@ class OrderManager:
         # ── P0-5: backoff / tekrar sınırı ──
         self._repair_failures: dict[str, int] = {}
         self._last_repair_warning: dict[str, float] = {}
+        # ── Trailing backoff (P2-4 v2) ──
+        self._trail_failures: dict[str, int] = {}
+        self._last_trail_warning: dict[str, float] = {}
         # ── P0-3: repair_protection eşzamanlılık kilidi ──
         # repair_protection() üç farklı tetikleyiciden (60sn recover loop,
         # WS CANCELED handler, exit_lifecycle REPAIR_REQUIRED) kilitsiz
@@ -88,6 +91,28 @@ class OrderManager:
             trade["tp"] = new_tp
             trade["trailing_count"] = new_trail_count
             return True
+
+        # ── Trailing backoff: 3 ardışık başarısız denemeden sonra CRITICAL + 5dk bekle ──
+        fail_count = self._trail_failures.get(sym, 0)
+        if fail_count >= 3:
+            last_warn = self._last_trail_warning.get(sym, 0)
+            now = time.time()
+            if now - last_warn > 300:
+                log.critical(
+                    "[TRAIL] %s %d dakikadir trailing basarisiz, MANUEL MUDAHALE GEREKIYOR "
+                    "(ardisik %d basarisiz deneme)",
+                    sym,
+                    int((now - last_warn) / 60) if last_warn else 0,
+                    fail_count,
+                )
+                self._last_trail_warning[sym] = now
+            if now - self._trail_failures.get(f"{sym}_ts", 0) < 300:
+                log.warning(
+                    "[TRAIL] %s backoff aktif — 5dk bekleniyor (ardisik %d basarisizlik)",
+                    sym,
+                    fail_count,
+                )
+                return False
 
         trade["status"] = STATUS_TRAIL_REPLACING
 
@@ -130,17 +155,39 @@ class OrderManager:
             if new_sl_id:
                 sl_ok = True
             else:
+                error_code = sl_resp.get("_error_code", "")
                 log_event(
                     "sl_reject",
                     sym,
                     side=trade["side"],
                     sl_price=new_sl,
                     old_id=old_sl_id,
+                    error_code=error_code,
                 )
-                log.warning(
-                    "[TRAIL] %s SL reject (yeni emir alinamadi) -> eski SL korunuyor",
-                    sym,
-                )
+                if self._is_max_qty_error(sl_resp):
+                    log.warning(
+                        "[TRAIL] %s SL -4005 (max qty=%.4f), closePosition deneniyor...",
+                        sym,
+                        qty,
+                    )
+                    new_sl_id, _ = await self._try_place_sl_tp_with_close_position(
+                        sym, trade, new_sl, 0
+                    )
+                    if not new_sl_id:
+                        log.warning(
+                            "[TRAIL] %s SL closePosition basarisiz, parcali deneniyor...",
+                            sym,
+                        )
+                        new_sl_id, _ = await self._try_place_sl_tp_split_qty(
+                            sym, trade, new_sl, 0
+                        )
+                    if new_sl_id:
+                        sl_ok = True
+                if not sl_ok:
+                    log.warning(
+                        "[TRAIL] %s SL reject (yeni emir alinamadi) -> eski SL korunuyor",
+                        sym,
+                    )
         except Exception as e:
             log.warning("[TRAIL] %s SL place hatasi: %s -> eski SL korunuyor", sym, e)
 
@@ -157,14 +204,39 @@ class OrderManager:
                 if new_tp_id:
                     tp_ok = True
                 else:
+                    error_code = tp_resp.get("_error_code", "")
                     log_event(
                         "tp_reject",
                         sym,
                         side=trade["side"],
                         tp_price=new_tp,
                         old_id=old_tp_id,
+                        error_code=error_code,
                     )
-                    log.warning("[TRAIL] %s TP reject -> eski TP korunuyor", sym)
+                    if self._is_max_qty_error(tp_resp):
+                        log.warning(
+                            "[TRAIL] %s TP -4005 (max qty=%.4f), closePosition deneniyor...",
+                            sym,
+                            qty,
+                        )
+                        _, new_tp_id = await self._try_place_sl_tp_with_close_position(
+                            sym, trade, 0, new_tp
+                        )
+                        if not new_tp_id:
+                            log.warning(
+                                "[TRAIL] %s TP closePosition basarisiz, parcali deneniyor...",
+                                sym,
+                            )
+                            _, new_tp_id = await self._try_place_sl_tp_split_qty(
+                                sym, trade, 0, new_tp
+                            )
+                        if new_tp_id:
+                            tp_ok = True
+                    if not tp_ok:
+                        log.warning(
+                            "[TRAIL] %s TP reject (yeni emir alinamadi) -> eski TP korunuyor",
+                            sym,
+                        )
             except Exception as e:
                 log.warning(
                     "[TRAIL] %s TP place hatasi: %s -> eski TP korunuyor", sym, e
@@ -238,6 +310,8 @@ class OrderManager:
                 tp_ok,
             )
             if not sl_ok and not tp_ok:
+                self._trail_failures[sym] = self._trail_failures.get(sym, 0) + 1
+                self._trail_failures[f"{sym}_ts"] = time.time()
                 trade["status"] = STATUS_ACTIVE
                 return False
 
@@ -249,6 +323,7 @@ class OrderManager:
             trade.get("tp", 0.0),
             new_tp_id,
         )
+        self._trail_failures[sym] = 0
         trade["status"] = STATUS_ACTIVE
         return True
 
