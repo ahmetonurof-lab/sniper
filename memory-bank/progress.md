@@ -94,6 +94,9 @@
 | **P0-3: repair_protection per-symbol lock** | ✅ `order_manager.py`: per-symbol `asyncio.Lock`. Wrapper + `_repair_protection_locked` rename. Eşzamanlı çağrı atlanır, farklı semboller bloklanmaz. 3 concurrency test. |
 | **P2-4: self-exit race guard** | ✅ `user_data_handler.py`: `_SELF_EXIT_IN_PROGRESS_STATUSES` guard. EXIT_SUBMITTED/EXIT_VERIFYING durumunda unmatched reduceOnly fill WS_FALLBACK'e çevrilmeyip sessizce loglanıyor. raise → log_event + log.critical'e çevrildi (ACTIVE senaryosunda). 5 test (3 guard + 1 ACTIVE fallback + 1 regression). |
 | **P2-5: update_trail_orders -4005 fallback + backoff** | ✅ `order_manager.py`: SL/TP placement -4005 hatasında closePosition → split_qty fallback. `error_code` log_event'a eklendi. `_trail_failures` backoff: 3 ardışık başarısızlık → 5dk bekle + CRITICAL uyarı. 8 yeni test. |
+| **client_order_id traceability** | ✅ `place_market_order()` parametre eklendi, tüm callers güncellendi. Semantic prefix'ler: entry-, exit-, sl-fail-, reconcile-, recover-. |
+| **Görev 3: Post-entry sanity check** | ✅ `bot.py:_try_entry()` — entry sonrası ~2.5s bekleme + SL/TP Binance'te açık mı doğrulaması. Eksikse CRITICAL log + `post_entry_check_failed` event. |
+| **Görev 4: FVG invalidation exit_intent** | ✅ `bot.py:_on_1m_close()` — FVG kirildi→market close path'ine `log_event("exit_intent", reason="fvg_invalidated")`. |
 
 ## Kalan İşler 🔧
 

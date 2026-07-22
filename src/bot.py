@@ -490,6 +490,14 @@ class PaperTrader:
                     trade["exit_bar"] = current.index
                     trade["exit_timestamp"] = current.timestamp
                     trade["result"] = "TRAIL_CLOSE"
+                    log_event(
+                        "exit_intent",
+                        sym,
+                        reason="fvg_invalidated",
+                        side=trade.get("side", ""),
+                        exit_price=current.close,
+                        trailing_count=trade.get("trailing_count", 0),
+                    )
                     await self._exit_trade(sym, trade, current.timestamp)
                     return
 
@@ -682,6 +690,48 @@ class PaperTrader:
                     self._pl(sym, "entry", exec_result.entry_log_msg)
                 live_entry_order_id = exec_result.order_id
                 live_requested_qty = exec_result.qty or qty
+
+                # ── Post-entry sanity check (P1-7) ──
+                # ~2.5s bekle, SL/TP'nin gerçekten Binance'te olup olmadığını doğrula.
+                # Mevcut periodic_check_loop ile ÇAKIŞMAZ — sadece gözlem amaçlı,
+                # recover_positions/repair_protection tetiklemez.
+                if sl_id or tp_id:
+                    try:
+                        await asyncio.sleep(2.5)
+                        open_ids = await self.order_manager.get_open_order_ids(sym)
+                        sl_ok = not sl_id or sl_id in open_ids
+                        tp_ok = not tp_id or tp_id in open_ids
+                        if not sl_ok or not tp_ok:
+                            log.critical(
+                                "[POST_ENTRY] %s SL/TP sanity check BASARISIZ! "
+                                "sl_id=%s sl_ok=%s tp_id=%s tp_ok=%s — "
+                                "harici kapanis veya emir reddi olabilir",
+                                sym,
+                                sl_id,
+                                sl_ok,
+                                tp_id,
+                                tp_ok,
+                            )
+                            log_event(
+                                "post_entry_check_failed",
+                                sym,
+                                sl_id=sl_id,
+                                tp_id=tp_id,
+                                sl_ok=sl_ok,
+                                tp_ok=tp_ok,
+                                side=side,
+                                entry_price=entry_price,
+                                qty=qty,
+                            )
+                        else:
+                            log.info(
+                                "[POST_ENTRY] %s SL/TP sanity check OK (sl=%s tp=%s)",
+                                sym,
+                                sl_id,
+                                tp_id,
+                            )
+                    except Exception as e:
+                        log.warning("[POST_ENTRY] %s sanity check hatasi: %s", sym, e)
             else:
                 assert self.entry_manager is not None
                 paper_result = await self.entry_manager.execute_live_entry(

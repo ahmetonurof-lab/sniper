@@ -1,5 +1,11 @@
 # Chat Log
 
+## 2026-07-22 — Görev 3 + Görev 4: Post-entry check + FVG invalidation labeling (sniper/src)
+
+- **Görev 3:** `_try_entry()`'de successful live entry sonrası ~2.5s bekleme + `get_open_order_ids()` ile SL/TP Binance'te açık mı doğrulaması. Eksikse CRITICAL log + `post_entry_check_failed` event log. Sadece gözlem amaçlı — repair/recover tetiklemez.
+- **Görev 4:** `_on_1m_close()`'deki FVG kirildi→market close path'ine `log_event("exit_intent", reason="fvg_invalidated")` eklendi. Artık events_*.jsonl'den trail_close'lar raw log'a inmeden tespit edilebilir.
+- **Bugs.md P1-7 güncellendi:** 20 vaka dökümü (8 trailing / 2 kesin harici / 3 muhtemel / 7 log dışı). DURUM: "AÇIK" → "KISMEN AÇIKLANDI".
+
 ## 2026-07-22 — P1-7: Harici kapanışlar forensic analizi (sniper/src)
 
 - **Event log analizi:** `events_2026-07-22.jsonl` incelendi. 13+ WS_FALLBACK çıkışı tespit edildi.
