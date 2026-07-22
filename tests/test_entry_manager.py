@@ -321,6 +321,7 @@ class TestExecuteLiveEntry:
         mock_rest.get_min_notional = AsyncMock(return_value=5.0)
         mock_rest.get_step_size = AsyncMock(return_value=0.001)
         mock_rest.apply_price_precision = AsyncMock(side_effect=[99.9, 110.1])
+        mock_rest.get_max_qty = AsyncMock(return_value=1000.0)
         return mock_rest
 
     @pytest.mark.asyncio
@@ -411,3 +412,70 @@ class TestExecuteLiveEntry:
         assert result.success is True
         assert result.sl_order_id == "sl_001"
         assert result.tp_order_id == ""  # TP failed, but still success
+
+    @pytest.mark.asyncio
+    async def test_qty_clamped_to_max_qty(self):
+        mock_rest = await self._entry_mock_base()
+        mock_rest.get_max_qty = AsyncMock(return_value=500.0)
+        mock_rest.apply_amount_precision = AsyncMock(return_value=500.0)
+        mock_rest.validate_min_amount = AsyncMock(return_value=500.0)
+        mock_rest.place_market_order = AsyncMock(
+            return_value={
+                "orderId": 12345,
+                "executedQty": "500",
+                "avgPrice": "100.0",
+                "cummulativeQuoteQty": "50000.0",
+            }
+        )
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_001"})
+        mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_001"})
+
+        mgr = EntryManager(rest_client=mock_rest, is_live=True)
+        result = await mgr.execute_live_entry("BTCUSDT", "long", 1000.0, 100.0, 110.0)
+
+        assert result.success is True
+        assert result.qty == 500.0
+        mkt_call = mock_rest.place_market_order.call_args
+        assert mkt_call.args[2] == 500.0
+
+    @pytest.mark.asyncio
+    async def test_max_qty_zero_skips_clamp(self):
+        mock_rest = MagicMock()
+        mock_rest.apply_amount_precision = AsyncMock(side_effect=lambda sym, q: q)
+        mock_rest.validate_min_amount = AsyncMock(side_effect=lambda sym, q: q)
+        mock_rest.estimate_market_price = AsyncMock(return_value=100.0)
+        mock_rest.get_min_notional = AsyncMock(return_value=5.0)
+        mock_rest.get_step_size = AsyncMock(return_value=0.001)
+        mock_rest.apply_price_precision = AsyncMock(side_effect=[99.9, 110.1])
+        mock_rest.get_max_qty = AsyncMock(return_value=0.0)
+        mock_rest.place_market_order = AsyncMock(
+            return_value={
+                "orderId": 12345,
+                "executedQty": "1000",
+                "avgPrice": "100.0",
+                "cummulativeQuoteQty": "100000.0",
+            }
+        )
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_001"})
+        mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_001"})
+
+        mgr = EntryManager(rest_client=mock_rest, is_live=True)
+        result = await mgr.execute_live_entry("BTCUSDT", "long", 1000.0, 100.0, 110.0)
+
+        assert result.success is True
+        assert result.qty == 1000.0
+        mkt_call = mock_rest.place_market_order.call_args
+        assert mkt_call.args[2] == 1000.0
+
+    @pytest.mark.asyncio
+    async def test_clamp_below_min_qty_fails(self):
+        mock_rest = await self._entry_mock_base()
+        mock_rest.get_max_qty = AsyncMock(return_value=500.0)
+        mock_rest.apply_amount_precision = AsyncMock(return_value=500.0)
+        mock_rest.validate_min_amount = AsyncMock(return_value=0.0)
+
+        mgr = EntryManager(rest_client=mock_rest, is_live=True)
+        result = await mgr.execute_live_entry("BTCUSDT", "long", 1000.0, 100.0, 110.0)
+
+        assert result.success is False
+        assert "minQty altinda" in result.error

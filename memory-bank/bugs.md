@@ -90,13 +90,12 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 - **⚠️ DURUM: KÖK NEDEN DÜZELTİLDİ** — OPUSDT log örneğindeki 0.1 kalıntının sebebi `_round_step()`'teki floating-point floor-division hatasıydı (`7275.8 // 0.1` → 1 step eksik hesaplıyordu). `bot_binance.py`'de artık `int(value/step)` kullanılıyor. Genel "dust guard" yok ama bu spesifik tekrar üretilebilir senaryo artık oluşmaz.
 
 ### P1-6: Entry sizing max_qty kontrolü yok — trailing'de -4005 döngüsüne yol açıyor
-**Dosya:** `sniper/src/trading/entry_manager.py:calculate_qty()`
+**Dosya:** `sniper/src/trading/entry_manager.py:calculate_qty()` + `execute_live_entry()`
 - `calculate_qty()` sadece `buying_power = balance * MAX_MARGIN_PCT * leverage / entry_price` ile tavan kontrolü yapıyor. Binance LOT_SIZE.maxQty kontrolü YOK.
-- Risk formulü (balance * risk_pct / risk_dist) çıkış qty'si, maxQty sınırını aşabilir — özellikle yüksek kaldıraç + düşük fiyat sembolleri (STRKUSDT benzeri).
+- Risk formulü (balance * risk_pct / risk_dist) çıkış qty'si maxQty sınırını aşabilir — özellikle yüksek kaldıraç + düşük fiyat sembolleri (STRKUSDT benzeri).
 - Sonuç: (1) market entry hatta geçer (Binance market order'ı kısmen accept eder), (2) trade["qty"] maxQty'den büyük kaydedilir, (3) SL/TP emirleri `place_stop_order()`/`place_tp_order()` ile atılırken -4005 alır, (4) `update_trail_orders()` -4005 fallback zincirine girer (closePosition → split_qty), (5) bir sonraki trailing'de aynı -4005 tekrarlanır — sonsuz WARNING spam.
-- **Kök neden:** `calculate_qty()` içinde `max_qty = (balance * cfg.MAX_MARGIN_PCT * leverage) / entry_price` yokluğu — Binance LOT_SIZE.maxQty ile karşılaştırma yok. Entry_manager.py'da `get_max_qty()` çağrısı yok.
-- **DURUM: TESPİT EDİLDİ, DÜZELTME GEREKIYOR** — `calculate_qty()` sonuna `min(binance_max_qty, buying_power_max_qty)` clamp'ı eklenecek. STRKUSDT benzeri sembollerde entry qty'si LOT_SIZE.maxQty sınırında kalacak.
-- **İlişkili:** P2-5 (`update_trail_orders` -4005 fallback) semptom tedavisi, bu P1-6 kök neden düzeltmesi.
+- **DURUM: DÜZELTİLDİ** — `execute_live_entry()`'e LOT_SIZE.maxQty clamp eklendi (calculate_qty() değil, çünkü sync/pre-network). `get_max_qty()` zaten mevcuttu, sadece entry path'ine bağlanmamıştı.
+- **İlişki notu:** P2-5 (update_trail_orders -4005 fallback) artık bu kök neden için gereksiz olmalı (entry qty zaten max_qty'yi asamaz) ama başka -4005 senaryoları için (borsa filtre güncellemesi, restart-recovery path'i vb.) defense-in-depth olarak kalmalı — kaldırılmasın.
 
 ---
 

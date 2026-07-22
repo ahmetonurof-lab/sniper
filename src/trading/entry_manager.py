@@ -250,6 +250,31 @@ class EntryManager:
                 ),
             )
 
+        # ── FIX (P1-6): LOT_SIZE.maxQty clamp — SL/TP algo emirleri bu
+        # filtreye tabi, MARKET emri değil. Pozisyon max_qty'yi asarsa
+        # entry gecer ama SL/TP -4005 ile sonsuza kadar reddedilir.
+        # Once burada clamp'leyerek pozisyonun kendisini SL/TP'nin
+        # koruyabilecegi buyuklukte tut.
+        max_qty = await self._rest.get_max_qty(sym)
+        if max_qty > 0 and valid_qty > max_qty:
+            log.warning(
+                "[MAX_QTY] %s qty=%.8f > LOT_SIZE.maxQty=%.8f — "
+                "pozisyon boyutu clamp'leniyor",
+                sym,
+                valid_qty,
+                max_qty,
+            )
+            valid_qty = await self._rest.apply_amount_precision(sym, max_qty)
+            valid_qty = await self._rest.validate_min_amount(sym, valid_qty)
+            if valid_qty <= 0:
+                return EntryExecutionResult(
+                    success=False,
+                    error=(
+                        f"max_qty={max_qty:.6f} clamp sonrasi minQty "
+                        f"altinda kaldi — trade iptal"
+                    ),
+                )
+
         # ── Market entry ──────────────────────────────────────────
         mkt_resp = await self._rest.place_market_order(sym, mkt_side, valid_qty)
         actual_qty, actual_price, quote_qty = self.parse_market_fill(mkt_resp)
