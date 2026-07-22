@@ -668,11 +668,18 @@ class BinanceRESTClient:
         ]
 
     async def place_market_order(
-        self, symbol: str, side: str, qty: float, reduce_only: bool = False
+        self,
+        symbol: str,
+        side: str,
+        qty: float,
+        reduce_only: bool = False,
+        client_order_id: str | None = None,
     ) -> dict:
         """
         MARKET emri gonderir (pozisyon acmak/kapatmak icin).
         Precision uygular, filtrelerden gecer, demo API fallback yapar.
+        client_order_id verilirse newClientOrderId olarak gonderilir —
+        bot-kaynakli emirlerin Binance order history'de tespitini kolaylastirir.
         """
         step = await self.get_step_size(symbol)
         rounded_qty = await self.apply_amount_precision(symbol, qty)
@@ -699,6 +706,8 @@ class BinanceRESTClient:
         }
         if reduce_only:
             params["reduceOnly"] = "true"
+        if client_order_id:
+            params["newClientOrderId"] = client_order_id
 
         r = await self.post("/fapi/v1/order", params)
         if r.is_err:
@@ -1063,7 +1072,12 @@ class BinanceRESTClient:
             log.warning("[LISTEN_KEY] Yenileme hatasi: %s", r.error)
 
     async def place_market_order_priority(
-        self, symbol: str, side: str, qty: float, reduce_only: bool = False
+        self,
+        symbol: str,
+        side: str,
+        qty: float,
+        reduce_only: bool = False,
+        client_order_id: str | None = None,
     ) -> dict:
         """ACİL DURUM: Circuit breaker'ı BYPASS eden MARKET emri.
 
@@ -1103,6 +1117,8 @@ class BinanceRESTClient:
         }
         if reduce_only:
             params["reduceOnly"] = "true"
+        if client_order_id:
+            params["newClientOrderId"] = client_order_id
 
         # _emergency_post circuit breaker'ı atlar
         r = await self._emergency_post("/fapi/v1/order", params)

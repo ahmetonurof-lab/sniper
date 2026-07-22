@@ -953,7 +953,11 @@ class OrderManager:
                 mkt_side = "SELL" if trade["side"] == "long" else "BUY"
                 try:
                     await self._rest.place_market_order(
-                        sym, mkt_side, trade["qty"], reduce_only=True
+                        sym,
+                        mkt_side,
+                        trade["qty"],
+                        reduce_only=True,
+                        client_order_id=f"exit-{sym.lower()}-{int(time.time()*1000)}",
                     )
                 except Exception as e:
                     log.warning("[CLOSE] %s acil kapanis emri hatasi: %s", sym, e)

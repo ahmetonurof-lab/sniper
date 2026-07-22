@@ -12,6 +12,7 @@
 | EntryManager (live order placement) | ✅ Market + SL(StopMarket) + TP(TakeProfitMarket) |
 | OrderManager (trailing update + repair) | ✅ Önce yeni order, sonra eski cancel |
 | OrderManager (cancel_all_open_orders) | ✅ Exit öncesi tüm emirleri iptal |
+| **client_order_id traceability** | ✅ `place_market_order()` parametre eklendi, tüm callers güncellendi |
 | RecoveryManager (startup recovery) | ✅ Pozisyon import + tüm türlerden orphan cleanup |
 | RecoveryManager (ATR integration) | ✅ indicators.py Wilder's ATR entegre |
 | P0-5: -4005 max quantity infinite loop fix | ✅ closePosition=True SL/TP, CB bypass, qty splitting, backoff |

@@ -9,6 +9,12 @@
 - **Olası kök neden:** Testnet/demo API tuhaflığı, çoklu instance, loglanmayan kod yolu.
 - **Forensic aksiyon:** `ylOu3i0T6KRNJfKMA3T18s` order detayı Binance API'den çekilmeli. bugs.md'ye P1-7 olarak kaydedildi.
 
+## 2026-07-22 — client_order_id traceability (sniper/src)
+
+- Tüm `place_market_order()`/`place_market_order_priority()` callers'a `client_order_id` parametresi eklendi (entry_manager, order_manager, bot, exit_lifecycle, recovery_manager).
+- Prefix'ler: `entry-`, `exit-`, `sl-fail-`, `reconcile-`, `recover-` — Binance order history'de filtrelemeyi kolaylaştırır.
+- Tests: 108/108 exit_lifecycle+recovery_manager+bot_binance geçti.
+
 ## 2026-07-22 — P2-5: update_trail_orders -4005 fallback + backoff (sniper/src)
 
 - **P2-5: `update_trail_orders()` -4005 fallback** (`order_manager.py`):

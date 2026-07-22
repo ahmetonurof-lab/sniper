@@ -41,6 +41,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 from typing import Any, Callable
 
 import config as cfg
@@ -272,7 +273,11 @@ class ExitLifecycleService:
             # P0-5: CB bypass'li acil kapanis — SL/TP denemeleri circuit
             # breaker'i acsa bile market close gecsin.
             close_resp = await self._rest.place_market_order_priority(
-                sym, mkt_side, trade["qty"], reduce_only=True
+                sym,
+                mkt_side,
+                trade["qty"],
+                reduce_only=True,
+                client_order_id=f"exit-{sym.lower()}-{int(time.time()*1000)}",
             )
         except Exception as e:
             log.warning("[EXIT] %s reduceOnly market HATASI (devam): %s", sym, e)

@@ -907,7 +907,13 @@ class PaperTrader:
                     sym,
                 )
                 close_resp = await self.rest.place_market_order(
-                    sym, mkt_side, trade["qty"], reduce_only=True
+                    sym,
+                    mkt_side,
+                    trade["qty"],
+                    reduce_only=True,
+                    client_order_id=(
+                        f"exit-{sym.lower()}-{int(datetime.now(UTC).timestamp()*1000)}"
+                    ),
                 )
             except Exception as e:
                 log.warning("[EXIT] %s reduceOnly market HATASI (devam): %s", sym, e)

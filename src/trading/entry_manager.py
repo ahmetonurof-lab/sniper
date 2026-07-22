@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -276,7 +277,12 @@ class EntryManager:
                 )
 
         # ── Market entry ──────────────────────────────────────────
-        mkt_resp = await self._rest.place_market_order(sym, mkt_side, valid_qty)
+        mkt_resp = await self._rest.place_market_order(
+            sym,
+            mkt_side,
+            valid_qty,
+            client_order_id=f"entry-{sym.lower()}-{int(time.time()*1000)}",
+        )
         actual_qty, actual_price, quote_qty = self.parse_market_fill(mkt_resp)
         mkt_id = extract_order_id(mkt_resp)
 
@@ -290,7 +296,11 @@ class EntryManager:
                         if pos_amt > 0:
                             opp_side = "SELL" if mkt_side == "BUY" else "BUY"
                             await self._rest.place_market_order(
-                                sym, opp_side, pos_amt, reduce_only=True
+                                sym,
+                                opp_side,
+                                pos_amt,
+                                reduce_only=True,
+                                client_order_id=f"reconcile-{sym.lower()}-{int(time.time()*1000)}",
                             )
                             log.critical(
                                 "[MARKET-RECONCILE] %s pos=%.4f acik, orderId yok — "
@@ -367,7 +377,12 @@ class EntryManager:
             )
             opp_side = "SELL" if mkt_side == "BUY" else "BUY"
             try:
-                await self._rest.place_market_order(sym, opp_side, order_qty)
+                await self._rest.place_market_order(
+                    sym,
+                    opp_side,
+                    order_qty,
+                    client_order_id=f"sl-fail-{sym.lower()}-{int(time.time()*1000)}",
+                )
             except Exception as e:
                 log.critical(
                     "[ORDER] %s acil pozisyon kapatma emri basarisiz: %s", sym, e

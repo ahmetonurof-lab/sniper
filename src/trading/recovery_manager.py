@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import TYPE_CHECKING
 
 import config as cfg
@@ -415,7 +416,11 @@ class RecoveryManager:
                             close_side = "SELL" if direction == "long" else "BUY"
                             # P0-5: CB bypass'li acil kapanis
                             close_result = await self._rest.place_market_order_priority(
-                                sym, close_side, abs(amt), reduce_only=True
+                                sym,
+                                close_side,
+                                abs(amt),
+                                reduce_only=True,
+                                client_order_id=f"recover-{sym.lower()}-{int(time.time()*1000)}",
                             )
                         except Exception as e:
                             close_error = str(e)
