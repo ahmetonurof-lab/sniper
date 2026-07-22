@@ -20,6 +20,7 @@ import time
 from typing import Any, Callable
 
 import config as cfg
+from event_log import log_event
 from models import (
     NormalizedOrderEvent,
     UNRESTRICTED_STATUSES,
@@ -27,7 +28,6 @@ from models import (
     STATUS_EXIT_REQUESTED,
     STATUS_EXIT_SUBMITTED,
     STATUS_EXIT_VERIFYING,
-    WSFallbackError,
     INCIDENT_WS_UNMATCHED_REDUCE_ONLY,
     INCIDENT_ORPHAN_CANCEL_DURING_TRANSITION,
 )
@@ -253,10 +253,38 @@ class UserDataHandler:
                             trade["pending_exit_order_id"] = oid
                             trade["pending_exit_timestamp"] = evt.ts_ms
                             trade["result"] = "WS_FALLBACK"
+                            # NOT: status snapshot _exit_trade cagrilmadan
+                            # ONCE alinmali — _exit_trade basariliysa trade
+                            # STATUS_CLOSED'a gecip active_trades'ten pop'lanir,
+                            # sonradan okumaya calisirsak kaybolur.
+                            _status_snapshot = trade.get("status", "")
                             await _exit_trade(
                                 sym, trade, evt.ts_ms or int(time.time() * 1000)
                             )
-                            raise WSFallbackError(sym, oid, s_id, t_id)
+                            log.critical(
+                                "[%s] %s reduceOnly FILLED ID eslesmedi "
+                                "(oid=%s, beklenen_sl=%s, beklenen_tp=%s, "
+                                "onceki_status=%s) — trade kapatildi, kaynak "
+                                "arastirilmali",
+                                INCIDENT_WS_UNMATCHED_REDUCE_ONLY,
+                                sym,
+                                oid,
+                                s_id,
+                                t_id,
+                                _status_snapshot,
+                            )
+                            log_event(
+                                "ws_unmatched_reduce_only",
+                                sym,
+                                oid=oid,
+                                expected_sl=s_id,
+                                expected_tp=t_id,
+                                trade_status_before_exit=_status_snapshot,
+                            )
+                            # raise KALDIRILDI — exit basariyla commit
+                            # edildi, exception firlatmanin rollback faydasi
+                            # yok, sadece websocket.py'nin generic except'ine
+                            # gurultu olarak duser.
                 else:
                     if is_reduce_only:
                         log.info(
@@ -383,8 +411,32 @@ class UserDataHandler:
                             trade["pending_exit_order_id"] = oid
                             trade["pending_exit_timestamp"] = int(time.time() * 1000)
                             trade["result"] = "WS_FALLBACK"
+                            _status_snapshot = trade.get("status", "")
                             await _exit_trade(sym, trade, int(time.time() * 1000))
-                            raise WSFallbackError(sym, oid, s_id, t_id)
+                            log.critical(
+                                "[%s] %s reduceOnly FILLED ID eslesmedi "
+                                "(oid=%s, beklenen_sl=%s, beklenen_tp=%s, "
+                                "onceki_status=%s) — trade kapatildi, kaynak "
+                                "arastirilmali",
+                                INCIDENT_WS_UNMATCHED_REDUCE_ONLY,
+                                sym,
+                                oid,
+                                s_id,
+                                t_id,
+                                _status_snapshot,
+                            )
+                            log_event(
+                                "ws_unmatched_reduce_only",
+                                sym,
+                                oid=oid,
+                                expected_sl=s_id,
+                                expected_tp=t_id,
+                                trade_status_before_exit=_status_snapshot,
+                            )
+                            # raise KALDIRILDI — exit basariyla commit
+                            # edildi, exception firlatmanin rollback faydasi
+                            # yok, sadece websocket.py'nin generic except'ine
+                            # gurultu olarak duser.
                 else:
                     if is_reduce_only:
                         log.info(

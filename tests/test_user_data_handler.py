@@ -292,7 +292,10 @@ class TestNormalizedHandlerPendingWrites:
     @pytest.mark.asyncio
     @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", True)
     @patch("trading.user_data_handler.cfg")
-    async def test_unmatched_reduce_only_writes_pending(self, mock_cfg):
+    @patch("trading.user_data_handler.log_event")
+    async def test_unmatched_reduce_only_writes_pending_and_log_event(
+        self, mock_log_event, mock_cfg
+    ):
         active_trades = {}
         exit_cb = AsyncMock()
         on_order = _make_handler(active_trades, exit_cb)
@@ -311,13 +314,20 @@ class TestNormalizedHandlerPendingWrites:
                 "z": "0.1",
             }
         }
-        with pytest.raises(Exception):  # WSFallbackError
-            await on_order(raw_msg)
+        await on_order(raw_msg)
 
         assert t.get("pending_exit_price") == 50000.0
         assert t.get("pending_exit_reason") is not None
         assert t.get("result") == "WS_FALLBACK"
         exit_cb.assert_awaited_once()
+        mock_log_event.assert_called_once_with(
+            "ws_unmatched_reduce_only",
+            "BTCUSDT",
+            oid="UNKNOWN_ID",
+            expected_sl="SL_X",
+            expected_tp="TP_X",
+            trade_status_before_exit="ACTIVE",
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -520,10 +530,11 @@ class TestSelfExitRaceGuard:
     @pytest.mark.asyncio
     @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", True)
     @patch("trading.user_data_handler.cfg")
-    async def test_unmatched_reduce_only_still_fallback_when_active(self, mock_cfg):
-        """Regression guard: ACTIVE trade should still trigger WS_FALLBACK."""
-        from models import WSFallbackError
-
+    @patch("trading.user_data_handler.log_event")
+    async def test_unmatched_reduce_only_still_fallback_when_active(
+        self, mock_log_event, mock_cfg
+    ):
+        """Regression guard: ACTIVE trade should still trigger WS_FALLBACK + log_event."""
         active_trades = {}
         exit_cb = AsyncMock()
         on_order = _make_handler(active_trades, exit_cb)
@@ -543,9 +554,50 @@ class TestSelfExitRaceGuard:
                 "z": "0.1",
             }
         }
-        with pytest.raises(WSFallbackError):
-            await on_order(raw_msg)
+        await on_order(raw_msg)
 
         assert t.get("result") == "WS_FALLBACK"
         assert t.get("pending_exit_reason") is not None
         exit_cb.assert_awaited_once()
+        mock_log_event.assert_called_once_with(
+            "ws_unmatched_reduce_only",
+            "BTCUSDT",
+            oid="UNKNOWN_ORPHAN",
+            expected_sl="SL_X",
+            expected_tp="TP_X",
+            trade_status_before_exit="ACTIVE",
+        )
+
+    @pytest.mark.asyncio
+    @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", True)
+    @patch("trading.user_data_handler.cfg")
+    @patch("trading.user_data_handler.log_event")
+    async def test_exit_verifying_guard_skips_and_no_log_event(
+        self, mock_log_event, mock_cfg
+    ):
+        """Regression: EXIT_VERIFYING guard still returns early, log_event NOT called."""
+        active_trades = {}
+        exit_cb = AsyncMock()
+        on_order = _make_handler(active_trades, exit_cb)
+        assert on_order is not None
+
+        t = _trade(sl_order_id="SL_X", tp_order_id="TP_X", status="EXIT_VERIFYING")
+        active_trades["BTCUSDT"] = t
+
+        raw_msg = {
+            "o": {
+                "s": "BTCUSDT",
+                "c": "TRAIL_CLOSE_REGRESSION",
+                "i": 11111,
+                "X": "FILLED",
+                "R": True,
+                "ap": "50500",
+                "z": "0.1",
+            }
+        }
+        await on_order(raw_msg)
+
+        assert t.get("result") != "WS_FALLBACK"
+        assert t.get("pending_exit_reason") is None
+        exit_cb.assert_not_awaited()
+        mock_log_event.assert_not_called()

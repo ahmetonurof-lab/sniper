@@ -1,5 +1,13 @@
 # Chat Log
 
+## 2026-07-22 — P2-4 v2: raise→log_event + ACTIVE fallback cleanup (sniper/src)
+
+- **P2-4 v2: WS_FALLBACK raise kaldırıldı, log_event'e çevrildi** (`user_data_handler.py`):
+  - **Ek düzeltme:** ACTIVE trade'de gelen legitimate unmatched fill'de exit doğru çalışıyordu ama `raise WSFallbackError` commit sonrası gereksiz exception fırlatıyordu. `raise` kaldırıldı, yerine `log_event("ws_unmatched_reduce_only", ...)` + `log.critical(...)` eklendi.
+  - **Status snapshot:** `_status_snapshot = trade.get("status", "")` _exit_trade çağrısından ÖNCE alınıyor — _exit_trade başarılıysa trade pop'lanıp kaybolur.
+  - **WSFallbackError import kaldırıldı** — artık hiçbir yerden raise edilmiyor.
+  - **5 test:** 3 guard (EXIT_REQUESTED/SUBMITTED/VERIFYING), 1 ACTIVE fallback (log_event assertion), 1 regression (EXIT_VERIFYING guard hâlâ early-return yapıyor, log_event çağrılmıyor). 33/33 test geçti.
+
 ## 2026-07-22 — P2-4 Self-Exit Race Guard (sniper/src)
 
 - **P2-4: unmatched-reduceOnly WS_FALLBACK race condition fix** (`user_data_handler.py`):
