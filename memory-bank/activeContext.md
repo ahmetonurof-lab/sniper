@@ -77,6 +77,7 @@
 | 56 | **P0-3: repair_protection per-symbol asyncio.Lock** | `order_manager.py`: `import asyncio` eklendi, `__init__`'e `_repair_locks: dict[str, asyncio.Lock]` eklendi. `repair_protection()` wrapper + `_repair_protection_locked()` rename. Aynı sembol için eşzamanlı çağrılar `lock.locked()` ile tespit edilip sessizce atlanır. Farklı semboller bloklanmaz. Test: 3 concurrency test (`TestRepairProtectionConcurrency`). |
 | 57 | **P2-4: self-exit race guard** | `user_data_handler.py`: unmatched-reduceOnly fill, trade EXIT_SUBMITTED/EXIT_VERIFYING durumundayken WS_FALLBACK'e çevriliyordu (market-close emri SL/TP ID setinde yer almaz). `_SELF_EXIT_IN_PROGRESS_STATUSES` guard eklendi — hem normalized hem legacy handler'da. Legacy docstring güncellendi. raise → log_event + log.critical'e çevrildi (ACTIVE senaryosunda). WSFallbackError import kaldırıldı. |
 | 58 | **P2-5: update_trail_orders -4005 fallback + backoff** | `order_manager.py`: SL/TP placement -4005 hatasında closePosition → split_qty fallback eklendi (repair_protection ile aynı desen). `error_code` log_event'a eklendi. `_trail_failures` backoff mekanizması: 3 ardışık başarısızlığın ardından 5dk backoff + CRITICAL uyarı. 8 yeni test. |
+| 59 | **P1-6: Entry sizing max_qty kontrolü yok (kök neden)** | `entry_manager.py:calculate_qty()` — Binance LOT_SIZE.maxQty kontrolü yok. Sadece buying power tavanı var. Risk formulü çıkış qty'si maxQty sınırını aşabilir → SL/TP -4005 döngüsü. P2-5 semptom tedavisi, bu kök neden. |
 
 ## Aktif Kararlar
 
