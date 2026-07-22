@@ -89,6 +89,15 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 - `mark_sweep_consumed()`'ı o anki (farklı) RSM durumuyla tetikler — sweep seviyesi yanlış işaretlenebilir.
 - **⚠️ DURUM: KÖK NEDEN DÜZELTİLDİ** — OPUSDT log örneğindeki 0.1 kalıntının sebebi `_round_step()`'teki floating-point floor-division hatasıydı (`7275.8 // 0.1` → 1 step eksik hesaplıyordu). `bot_binance.py`'de artık `int(value/step)` kullanılıyor. Genel "dust guard" yok ama bu spesifik tekrar üretilebilir senaryo artık oluşmaz.
 
+### P1-6: Entry sizing max_qty kontrolü yok — trailing'de -4005 döngüsüne yol açıyor
+**Dosya:** `sniper/src/trading/entry_manager.py:calculate_qty()`
+- `calculate_qty()` sadece `buying_power = balance * MAX_MARGIN_PCT * leverage / entry_price` ile tavan kontrolü yapıyor. Binance LOT_SIZE.maxQty kontrolü YOK.
+- Risk formulü (balance * risk_pct / risk_dist) çıkış qty'si, maxQty sınırını aşabilir — özellikle yüksek kaldıraç + düşük fiyat sembolleri (STRKUSDT benzeri).
+- Sonuç: (1) market entry hatta geçer (Binance market order'ı kısmen accept eder), (2) trade["qty"] maxQty'den büyük kaydedilir, (3) SL/TP emirleri `place_stop_order()`/`place_tp_order()` ile atılırken -4005 alır, (4) `update_trail_orders()` -4005 fallback zincirine girer (closePosition → split_qty), (5) bir sonraki trailing'de aynı -4005 tekrarlanır — sonsuz WARNING spam.
+- **Kök neden:** `calculate_qty()` içinde `max_qty = (balance * cfg.MAX_MARGIN_PCT * leverage) / entry_price` yokluğu — Binance LOT_SIZE.maxQty ile karşılaştırma yok. Entry_manager.py'da `get_max_qty()` çağrısı yok.
+- **DURUM: TESPİT EDİLDİ, DÜZELTME GEREKIYOR** — `calculate_qty()` sonuna `min(binance_max_qty, buying_power_max_qty)` clamp'ı eklenecek. STRKUSDT benzeri sembollerde entry qty'si LOT_SIZE.maxQty sınırında kalacak.
+- **İlişkili:** P2-5 (`update_trail_orders` -4005 fallback) semptom tedavisi, bu P1-6 kök neden düzeltmesi.
+
 ---
 
 ## 🟡 P2 — Medium Risk
@@ -175,6 +184,7 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 | P1-3 | İNCELENMELİ | entry_manager.py precision kontrolü gerekli |
 | P1-4 | KISMEN DÜZELTİLDİ | Orphan periyodik (periodic_check_loop + _on_1m_close), ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
 | P1-5 | KÖK NEDEN DÜZELTİLDİ | `_round_step` floating-point fix (`int(value/step)`) |
+| P1-6 | TESPİT EDİLDİ | Entry sizing LOT_SIZE.maxQty kontrolü yok — kök neden |
 | P2-1 | DOĞRULANDI | maybe_repair() ölü kod |
 | P2-2 | HÂLÂ GEÇERLİ | CleanupPlan sadece current ID'leri iptal ediyor |
 | P2-3 | HÂLÂ GEÇERLİ | promote dokümantasyon uyuşmazlığı |
