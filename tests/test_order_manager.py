@@ -2,6 +2,7 @@
 test_order_manager.py — OrderManager: trailing update, repair, cleanup.
 """
 
+import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -726,3 +727,119 @@ class TestEdgeCases:
 
         result = await mgr.update_trail_orders("BTCUSDT", trade, 105.0, 115.0, 1)
         assert result is True
+
+
+# ═══════════════════════════════════════════════════════════════════
+# P0-3: repair_protection concurrency tests
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestRepairProtectionConcurrency:
+    """Per-symbol asyncio.Lock ile eşzamanlı repair_protection çağrılarını
+    doğrula (P0-3)."""
+
+    @pytest.mark.asyncio
+    async def test_concurrent_same_symbol_only_one_executes(self):
+        """Aynı sembol için eşzamanlı 2 repair_protection çağrısı → sadece
+        ilkinin REST çağrıları yapılmalı, ikincisi lock.locked() ile atlanmalı."""
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.estimate_market_price = AsyncMock(return_value=100.0)
+        mock_rest.get_max_qty = AsyncMock(return_value=1000.0)
+
+        # İlk place_stop_order çağrısı hemen bitmesin diye event kullan
+        import asyncio as _asyncio
+
+        _blocker = _asyncio.Event()
+        _call_count = 0
+
+        async def _slow_place_stop(*args, **kwargs):
+            nonlocal _call_count
+            _call_count += 1
+            await _blocker.wait()  # İlk çağrıyı blokla
+            return {"algoId": "sl_ok"}
+
+        mock_rest.place_stop_order = AsyncMock(side_effect=_slow_place_stop)
+        mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_ok"})
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(sl_order_id="", tp_order_id="")
+
+        # İki eşzamanlı çağrı başlat
+        async def _call_repair():
+            await mgr.repair_protection("BTCUSDT", trade, has_sl=False, has_tp=False)
+
+        task1 = _asyncio.create_task(_call_repair())
+        task2 = _asyncio.create_task(_call_repair())
+
+        # Her iki task'ın da lock'a ulaşması için kısa bekle
+        await _asyncio.sleep(0.05)
+
+        # Blokeyi kaldır
+        _blocker.set()
+        await _asyncio.gather(task1, task2)
+
+        # place_stop_order sadece 1 kez çağrılmalı (2. çağrı lock'ta atlandı)
+        assert _call_count == 1, (
+            f"Beklenen: 1, Gerçekleşen: {_call_count} — "
+            "concurrent repair lock çalışmıyor"
+        )
+
+    @pytest.mark.asyncio
+    async def test_sequential_same_symbol_both_execute(self):
+        """Aynı sembol için SIRALI iki çağrı (biri bitince öbürü) → her ikisi
+        de normal çalışmalı (lock kalıcı değil)."""
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.estimate_market_price = AsyncMock(return_value=100.0)
+        mock_rest.get_max_qty = AsyncMock(return_value=1000.0)
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_ok"})
+        mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_ok"})
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(sl_order_id="", tp_order_id="")
+
+        # İlk çağrı
+        await mgr.repair_protection("BTCUSDT", trade, has_sl=False, has_tp=False)
+        assert trade["sl_order_id"] == "sl_ok"
+
+        # İkinci çağrı (farklı trade objesi)
+        trade2 = _trade(sl_order_id="", tp_order_id="")
+        mock_rest.place_stop_order.return_value = {"algoId": "sl_ok2"}
+        mock_rest.place_tp_order.return_value = {"algoId": "tp_ok2"}
+        await mgr.repair_protection("BTCUSDT", trade2, has_sl=False, has_tp=False)
+        assert trade2["sl_order_id"] == "sl_ok2"
+        assert trade2["tp_order_id"] == "tp_ok2"
+
+        # place_stop_order 2 kez çağrılmış olmalı
+        assert mock_rest.place_stop_order.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_concurrent_different_symbols_both_execute(self):
+        """Farklı sembol için eşzamanlı çağrılar BLOKLANMAMALI (per-symbol
+        lock, global lock değil)."""
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.estimate_market_price = AsyncMock(return_value=100.0)
+        mock_rest.get_max_qty = AsyncMock(return_value=1000.0)
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_ok"})
+        mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_ok"})
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade_a = _trade(sl_order_id="", tp_order_id="")
+        trade_b = _trade(sl_order_id="", tp_order_id="")
+
+        # İki farklı sembol için eşzamanlı çağrı
+        async def _repair_a():
+            await mgr.repair_protection("BTCUSDT", trade_a, has_sl=False, has_tp=False)
+
+        async def _repair_b():
+            await mgr.repair_protection("ETHUSDT", trade_b, has_sl=False, has_tp=False)
+
+        await asyncio.gather(_repair_a(), _repair_b())
+
+        # Her iki sembolün de onarımı yapılmış olmalı
+        assert trade_a["sl_order_id"] == "sl_ok"
+        assert trade_b["sl_order_id"] == "sl_ok"
+        # place_stop_order 2 kez çağrılmış olmalı (her sembol için 1)
+        assert mock_rest.place_stop_order.call_count == 2

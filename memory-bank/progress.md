@@ -90,6 +90,7 @@
 | **P1-1: repair_protection stale SL fallback** | ✅ `order_manager.py` — SL/TP basarisizsa mark_price + risk_pts ile yeniden hesapla (recover_positions ayni mantik) |
 | **P1-4: periodic orphan sweep** | ✅ `recovery_manager.py:periodic_check_loop()` — orphan sweep periyodik olarak calistiriliyor (portfolio flat iken sayac duruyordu) |
 | **P0-4: restart REPAIR_REQUIRED cleanup** | ✅ `bot.py:run()` — recover_positions sonrasi stuck trade'leri ACTIVE'e dondur eger SL/TP saglikli |
+| **P0-3: repair_protection per-symbol lock** | ✅ `order_manager.py`: per-symbol `asyncio.Lock`. Wrapper + `_repair_protection_locked` rename. Eşzamanlı çağrı atlanır, farklı semboller bloklanmaz. 3 concurrency test. |
 
 ## Kalan İşler 🔧
 

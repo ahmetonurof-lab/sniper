@@ -74,6 +74,7 @@
 | 54 | **P0-1: false position closed fix (c11c785)** | `exit_lifecycle.py:_submit_and_verify_market_close()` — verify loop'da adapter belirsizken (REQUEST_SENT/ORDER_ACKNOWLEDGED) `for-else` (sembol listede yok) ilk denemede `pos_closed=True` veriyordu. Binance gecikmeli donebilir, ilk `get_positions()` bos donebilir. Artik: (1) `is_ambiguous` flag, (2) belirsiz durumda `for-else` sadece son denemede kabul, (3) `get_all_orders()` fallback ile FILLED reduceOnly/emir kontrolu. UNIUSDT restart dongusu kok nedeni. |
 | 54 | **E(54): Chaos/edge-case tests (9d0e72b)** | 4 test: delayed fill (4. attempt), REST timeout → REPAIR_REQUIRED, force close fallback (market REJECTED), state transition doğrulama. |
 | 55 | **fix: close 3 system review findings (594f6f3)** | Review bulguları kapatıldı — detaylar commit'te embedded. |
+| 56 | **P0-3: repair_protection per-symbol asyncio.Lock** | `order_manager.py`: `import asyncio` eklendi, `__init__`'e `_repair_locks: dict[str, asyncio.Lock]` eklendi. `repair_protection()` wrapper + `_repair_protection_locked()` rename. Aynı sembol için eşzamanlı çağrılar `lock.locked()` ile tespit edilip sessizce atlanır. Farklı semboller bloklanmaz. Test: 3 concurrency test (`TestRepairProtectionConcurrency`). |
 
 ## Aktif Kararlar
 

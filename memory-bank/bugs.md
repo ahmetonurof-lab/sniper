@@ -1,0 +1,166 @@
+# Bug Registry — sniper/src/
+
+> **Son güncelleme:** 2026-07-22 — kod taranarak doğrulandı.
+> Dosya referansları `sniper/src/` olarak güncellendi.
+
+## 🔴 P0 — Finance Risk
+
+### P0-1: STRKUSDT çift-exit/çift-PnL (event log'dan tespit)
+**Kaynak:** `events_2026-07-20.jsonl` replay
+```
+14:59:00 exit STRKUSDT short entry=0.029 exit=0.0287 qty=17593 pnl=4.77 result=SL
+18:47:15 exit STRKUSDT short entry=0.029 exit=0.0287 qty=17593 pnl=4.77 result=SL  ← AYNI trade!
+```
+- **Senaryo:** WS "SL FILLED" event'i ile `_exit_already_closed` fast-path'i çalışır, REST doğrulaması OLMADAN pozisyonu kapatır. Ama pozisyon borsada açık kalır.
+- **60sn'lik `_check_position`** trade'i `active_trades`'te bulamayınca `_recover_unknown_position` ile geri ekler.
+- 3.5 saat sonra SL gerçekten tetiklenir, PnL **tekrar** +4.77 yazılır.
+- **Risk:** Balance çift PnL ile şişer → position sizing yanlış. VEYA pozisyon 3.5 saat izlemesiz kalır.
+- **⚠️ DURUM: KISMEN DÜZELTİLDİ** — `ExitLifecycleService.execute()` (exit_lifecycle.py:122) WS_FALLBACK için REST `position_still_open()` kontrolü ekledi. Ama legacy `_exit_trade_legacy` (bot.py:782) hala REST doğrulamasız. `EXIT_LIFECYCLE_SERVICE_ENABLED=True` (varsayılan) olduğu için yeni yol aktif. `reconcile_orphan_orders()` artık periyodik (her 5 × 1m bar'da), ama `reconcile_ghost_positions()` hala sadece restart'ta.
+
+### P0-2: `_exit_already_closed` fast-path'i REST ile pozisyon doğrulamıyor
+**Dosya:** `sniper/src/trading/exit_lifecycle.py` (yeni) + `sniper/src/bot.py` (legacy)
+- `trade.get("result") in ("SL","TP","WS_FALLBACK")` → direkt çık, `_submit_and_verify_market_close` çağrılmaz.
+- **⚠️ DURUM: YENİ YOLDA DÜZELTİLDİ** — `exit_lifecycle.py:122`'de WS_FALLBACK için `position_still_open()` REST sorgusu var. Legacy path (bot.py:881) hala REST doğrulamasız ama `EXIT_LIFECYCLE_SERVICE_ENABLED=True` ile devre dışı.
+
+### P0-3: `_check_position()` transition-guard'sız, lock'suz
+**Dosya:** `sniper/src/bot.py` — 60sn'lik `_periodic_position_check`
+- `should_skip_reconcile()` kontrolü TAMAMEN YOK.
+- `TRAIL_REPLACING`, `EXIT_VERIFYING`, `REPAIR_REQUIRED` state'lerinde tetiklenebilir.
+- Üç yerden eşzamanlı `repair_protection()` tetiklenebilir: (a) bu 60sn döngü, (b) WS handler, (c) ExitLifecycleService — **aralarında hiçbir lock/mutex yok**.
+- Çift SL/TP emri riski.
+- **⚠️ DURUM: KALDIRILDI** — `_check_position()` ve `_periodic_position_check` fonksiyonları artık yok. Orphan sweep `recovery_manager.reconcile_orphan_orders()` ile yapılıyor ve `should_skip_reconcile()` guard'ı var (protection_lifecycle.py:102).
+- **🔒 P0-3 LOCK EKLENDİ (2026-07-22):** `order_manager.py:repair_protection()`'a per-symbol `asyncio.Lock` eklendi. Aynı sembol için eşzamanlı çağrılar (`lock.locked()` ile tespit) sessizce atlanır. Wrapper + `_repair_protection_locked()` rename pattern'i ile mevcut mantık değişmedi. (Test: `tests/test_order_manager.py::TestRepairProtectionConcurrency`)
+
+### P0-4: OPUSDT — 2. pozisyon exit event'i hiç yazılmamış (event log kanıtlı)
+**Kaynak:** `events_2026-07-20.jsonl` — 2. baş mühendis analizi
+```
+03:45:04 entry OPUSDT short qty=7261.9
+03:45:04 force_close success=true
+-- 2 saat 46 dakika BOYUNCA hiçbir "exit" event'i gelmiyor --
+06:31:26 ghost_missing_sltp OPUSDT has_sl=true has_tp=false
+06:31:33 orphan_cleaned OPUSDT STOP_MARKET
+```
+- `_submit_and_verify_market_close()`'daki 5×200ms doğrulama başarısız → trade `REPAIR_REQUIRED`'da kilitli.
+- REPAIR_REQUIRED'de **otomatik retry yok** (P0-2 ile aynı kök neden).
+- SL emri Binance'te 2 saat 46 dakika yalnız/yetim kaldı.
+- **Ghost-position temizliği sadece bot restart'ında çalışır** (`run()` içinde bir kez — bot.py:1443), periyodik eşdeğeri yok.
+- **Portföy flat'ken orphan-sweep sayacı durur** — `_on_1m_close` tetiklenmez, sayaç ilerlemez.
+- O gün en az 2 bot restartı olmuş (ghost_missing_sltp çifti ×2).
+- **⚠️ DURUM: KISMEN DÜZELTİLDİ** — `reconcile_ghost_positions()` (state-file temizliği) gerçekten hâlâ sadece `run()` içinde bir kez çalışıyor. Ama artık `RecoveryManager.periodic_check_loop()` her 60sn'de `recover_positions(quiet=True)` + `reconcile_orphan_orders()` çalıştırıyor; `recover_positions()` Binance'teki pozisyonları doğrudan sorgulayıp `active_trades`'te olmayan/korumasız pozisyonları tekrar SL/TP ile donatıyor — "SL 2 saat 46 dk yalnız kalır" senaryosu artık ~60sn içinde yakalanır. Ayrıca `bot.py:run()`'a restart'ta `REPAIR_REQUIRED`/`EXIT_REQUESTED` trade'leri SL/TP sağlıklıysa `ACTIVE`'e döndüren temizlik eklenmiş. REPAIR_REQUIRED'e özel bir retry döngüsü hâlâ yok ama pratik risk periyodik `recover_positions` ile büyük ölçüde azalmış.
+
+---
+
+## 🟠 P1 — High Risk
+
+### P1-1: `repair_protection()` fiyatı yeniden hesaplamıyor
+**Dosya:** `sniper/src/trading/order_manager.py:503`
+- `trade["sl"]` / `trade["tp"]`'deki eski değerleri kullanır.
+- Piyasa o değerleri geçmişse emir reddedilir (immediately trigger), sessizce yutulur.
+- `recovery_manager.recover_positions()`'daki "mevcut fiyata göre yeniden hesapla" fallback'i burada yok.
+- **⚠️ DURUM: DÜZELTİLDİ** — `repair_protection()` artık SL/TP reddedilirse `estimate_market_price()` ile mevcut fiyata göre yeniden hesaplama yapıyor (aynı `recover_positions()`'daki fallback mantığı).
+
+### P1-2: `update_trail_orders()` reject sonrası retry/backoff yok
+**Dosya:** `sniper/src/trading/order_manager.py:64`
+- SEIUSDT event log'u ile teyit: aynı `old_id` ile 60sn arayla 2 reject, fiyat yeniden hesaplanmıyor.
+- SL trailing durur, pozisyon korumasız kalır.
+- **⚠️ DURUM: HÂLÂ GEÇERLİ** — `update_trail_orders()` reject olduğunda eski SL'yi koruyor (order_manager.py:135) ama retry veya backoff mekanizması yok.
+
+### P1-3: OPUSDT — entry'den ~280ms sonra sistematik force_close
+**Kaynak:** `events_2026-07-20.jsonl` (1. analiz)
+- 2 ayrı OPUSDT entry'si de ~270-280ms sonra force_close ile kapanıyor.
+- Olası neden: entry anındaki SL/TP mesafesi borsadaki gerçek fiyatla uyuşmuyor, emir "immediately trigger" reddi.
+- entry_manager.py'de precision/fiyat hesaplama hatası olabilir.
+- **⚠️ DURUM: EVENT LOG'A BAĞLI** — Doğrulama için event log gerekli. Kodda belirgin bir hata görünmüyor ama `sniper/src/trading/entry_manager.py` incelenmeli.
+
+### P1-4: Ghost/temizlik sadece restart'ta çalışır, periyodik değil
+**Kaynak:** 2. baş mühendis analizi — OPUSDT event log ile kanıtlı
+- `reconcile_ghost_positions()` sadece `run()` içinde bot başlangıcında **BİR KEZ** çağrılır (bot.py:1443).
+- Periyodik `reconcile_orphan_orders()` portföy flat'ken **çalışmaz** (sayacı artıracak bar kapanışı yok — bot.py:455-458).
+- Arızalı exit'in yetim SL/TP'si sadece sonraki restart'ta temizlenir — teorik olarak sınırsız süre asılı kalabilir.
+- **⚠️ DURUM: KISMEN DÜZELTİLDİ** — `reconcile_orphan_orders()` artık periyodik (her 5 × 1m bar), ama `reconcile_ghost_positions()` hala sadece restart'ta.
+
+### P1-5: qty=0.1 dust exit — muhasebe kirliliği
+**Kaynak:** `events_2026-07-20.jsonl` — OPUSDT force_close sonrası
+```
+exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
+```
+- stepSize/precision nedeniyle ana pozisyon tam kapanmaz, 0.1 birim artık kalır.
+- Ayrı bir reduceOnly WS fill olarak gelir, ikinci bir "exit" kaydı oluşturur.
+- `mark_sweep_consumed()`'ı o anki (farklı) RSM durumuyla tetikler — sweep seviyesi yanlış işaretlenebilir.
+- **⚠️ DURUM: KÖK NEDEN DÜZELTİLDİ** — OPUSDT log örneğindeki 0.1 kalıntının sebebi `_round_step()`'teki floating-point floor-division hatasıydı (`7275.8 // 0.1` → 1 step eksik hesaplıyordu). `bot_binance.py`'de artık `int(value/step)` kullanılıyor. Genel "dust guard" yok ama bu spesifik tekrar üretilebilir senaryo artık oluşmaz.
+
+---
+
+## 🟡 P2 — Medium Risk
+
+### P2-1: `ProtectionLifecycleService.maybe_repair()` ölü kod
+**Dosya:** `sniper/src/trading/protection_lifecycle.py:157`
+- `tests/test_protection_lifecycle.py` dışında HİÇBİR YERDEN çağrılmıyor.
+- `is_sweep_consumed()` ile aynı kader.
+- Asıl repair kararları inline veriliyor.
+- **⚠️ DURUM: DOĞRULANDI** — `maybe_repair()` sadece tanımlı, hiçbir yerden çağrılmıyor.
+
+### P2-2: `CleanupPlan` eksik — prev/history/pending ID'leri iptal etmiyor
+**Dosya:** `sniper/src/trading/protection_lifecycle.py:171`
+- `cleanup_after_confirmed_exit()` sadece `sl_order_id`/`tp_order_id` iptal ediyor.
+- `sl_order_id_prev`, `tp_order_id_prev`, `pending_*`, `*_history` atlanıyor.
+- **Telafi:** `order_manager.cleanup_on_exit()` sonunda `cancel_all_open_orders()` broad-sweep var — canlı modda risk düşük ama CleanupPlan başlı başına yanıltıcı.
+- **⚠️ DURUM: HÂLÂ GEÇERLİ** — cleanup_after_confirmed_exit (protection_lifecycle.py:196-208) sadece current ID'leri topluyor.
+
+### P2-3: `promote_sl/tp()` dokümantasyon/niyet uyuşmazlığı
+**Dosya:** `sniper/src/trading/protection_lifecycle.py:230`
+- Doküman: "pending bekler, eski ID hemen silinmez."
+- Gerçek: `begin_replace_*` + `promote_*` aynı senkron blokta çağrılır, pending state anlık.
+- Şu an zararsız ama ileride yanıltıcı.
+- **⚠️ DURUM: HÂLÂ GEÇERLİ** — begin_replace + promote aynı akışta (order_manager.py:139-141).
+
+---
+
+## 🔵 P3 — Low Risk
+
+### P3-1: Genel — `except Exception` çok yaygın
+**Dosya:** `sniper/src/` geneli
+- Spesifik exception tipleri kullanılmalı.
+- Type hinting var ama runtime kontrol zayıf.
+- **⚠️ DURUM: HÂLÂ GEÇERLİ** — exit_lifecycle.py, recovery_manager.py, bot.py'de yaygın `except Exception` kullanımı var.
+
+---
+
+## ✅ Verified Correct (analizlerde doğrulanan)
+
+### V1: SEIUSDT sl_reject×2 — eski SL korunuyor ✓
+- `events_2026-07-20`: aynı `old_id` ile 60sn arayla 2 reject.
+- `order_manager.update_trail_orders()` yeni SL reddedilince eski SL'yi değiştirmiyor (order_manager.py:135).
+- Sonuç: trailing_count=3 ile orijinal SL tetiklendi, pozisyon korumasız kalmadı.
+
+### V2: GMXUSDT force_close + WS_FALLBACK — beklenen davranış ✓
+- Unmatched reduceOnly fill → `INCIDENT_WS_UNMATCHED_REDUCE_ONLY` → `WSFallbackError`.
+- `user_data_handler.py`'deki tasarlanmış yol, doğru çalışıyor.
+
+### V3: `execute()` çift tetiklenme koruması — atomic pop ✓
+- `_commit_confirmed_exit()` içinde `pop()`, öncesinde `await` yok → GIL/single-thread event loop'da atomic.
+
+### V4: `recovery_manager.reconcile_orphan_orders()` transition-aware ✓
+- `should_skip_reconcile()` kontrolü doğru çalışıyor (protection_lifecycle.py:102).
+- `_known_protection_ids()` current+prev+history+pending'in tamamını topluyor (protection_lifecycle.py:73).
+- 60sn `_check_position()`'ın aksine, burada guard var.
+
+---
+
+## 📊 Özet
+
+| Bug | Durum | Not |
+|-----|-------|-----|
+| P0-1 | KISMEN DÜZELTİLDİ | Yeni exit_service REST doğrulama ekledi |
+| P0-2 | YENİ YOLDA DÜZELTİLDİ | Legacy path devre dışı (flag=True) |
+| P0-3 | KALDIRILDI | `_check_position` fonksiyonu yok, orphan sweep guard'lı |
+| P0-4 | KISMEN DÜZELTİLDİ | `periodic_check_loop` ~60sn'de yakalar, ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
+| P1-1 | DÜZELTİLDİ | `estimate_market_price()` fallback eklendi |
+| P1-2 | HÂLÂ GEÇERLİ | Trail reject sonrası retry yok |
+| P1-3 | İNCELENMELİ | entry_manager.py precision kontrolü gerekli |
+| P1-4 | KISMEN DÜZELTİLDİ | Orphan periyodik (periodic_check_loop + _on_1m_close), ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
+| P1-5 | KÖK NEDEN DÜZELTİLDİ | `_round_step` floating-point fix (`int(value/step)`) |
+| P2-1 | DOĞRULANDI | maybe_repair() ölü kod |
+| P2-2 | HÂLÂ GEÇERLİ | CleanupPlan sadece current ID'leri iptal ediyor |
+| P2-3 | HÂLÂ GEÇERLİ | promote dokümantasyon uyuşmazlığı |
+| P3-1 | HÂLÂ GEÇERLİ | except Exception yaygın |

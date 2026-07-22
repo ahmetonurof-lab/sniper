@@ -14,6 +14,7 @@ OrderManager artik saf mekanik katman (REST cagrilari).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from typing import TYPE_CHECKING
@@ -58,6 +59,11 @@ class OrderManager:
         # ── P0-5: backoff / tekrar sınırı ──
         self._repair_failures: dict[str, int] = {}
         self._last_repair_warning: dict[str, float] = {}
+        # ── P0-3: repair_protection eşzamanlılık kilidi ──
+        # repair_protection() üç farklı tetikleyiciden (60sn recover loop,
+        # WS CANCELED handler, exit_lifecycle REPAIR_REQUIRED) kilitsiz
+        # çağrılabiliyordu — aynı sembole çift SL/TP emri riski vardı.
+        self._repair_locks: dict[str, asyncio.Lock] = {}
 
     # ── Trailing SL/TP güncelleme ─────────────────────────────
 
@@ -503,7 +509,26 @@ class OrderManager:
     async def repair_protection(
         self, sym: str, trade: dict, has_sl: bool, has_tp: bool
     ) -> None:
-        """Eksik SL/TP emirlerini yeniden kur.
+        """Eksik SL/TP emirlerini yeniden kur — per-symbol lock ile eşzamanlı
+        çağrılara karşı korunur (P0-3). Aynı sembol için onarım zaten
+        sürüyorsa bu çağrı atlanır; devam eden onarım tamamlandığında
+        güncel duruma zaten bakılmış olacak.
+        """
+        lock = self._repair_locks.setdefault(sym, asyncio.Lock())
+        if lock.locked():
+            log.info(
+                "[REPAIR] %s onarim zaten baska bir akistan yurutuluyor — "
+                "bu cagri atlaniyor (concurrent repair guard)",
+                sym,
+            )
+            return
+        async with lock:
+            await self._repair_protection_locked(sym, trade, has_sl, has_tp)
+
+    async def _repair_protection_locked(
+        self, sym: str, trade: dict, has_sl: bool, has_tp: bool
+    ) -> None:
+        """repair_protection()'ın kilit altındaki gerçek implementasyonu.
 
         FIX (P0-5): -4005 (max quantity) hatası algılandığında:
           1. closePosition=True ile qty'siz dene
