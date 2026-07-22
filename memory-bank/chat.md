@@ -1,5 +1,14 @@
 # Chat Log
 
+## 2026-07-22 — P1-7: Harici kapanışlar forensic analizi (sniper/src)
+
+- **Event log analizi:** `events_2026-07-22.jsonl` incelendi. 13+ WS_FALLBACK çıkışı tespit edildi.
+- **ADAUSDT vakası (en net kanıt):** Entry 13:30:18, kapanış 13:30:27 (9 saniye). Hiçbir [INTENT]/[TRAIL]/[EXIT] log satırı yok. ID formatı: normal order (short alphanumeric) vs algo ID (büyük numeric) — farklı emir tipleri.
+- **Patern:** RENDERUSDT (1s), ADAUSDT (9s, 10s, 56s, 58s), PYTHUSDT (55-71s, ×5), ONDOUSDT (55s), AAVEUSDT (71s) — hepsi trail_count=0.
+- **ws_unmatched_reduce_only:** Sadece 2 kez (ONDOUSDT ve ADAUSDT) — P2-4 v2 sayesinde yakalandı.
+- **Olası kök neden:** Testnet/demo API tuhaflığı, çoklu instance, loglanmayan kod yolu.
+- **Forensic aksiyon:** `ylOu3i0T6KRNJfKMA3T18s` order detayı Binance API'den çekilmeli. bugs.md'ye P1-7 olarak kaydedildi.
+
 ## 2026-07-22 — P2-5: update_trail_orders -4005 fallback + backoff (sniper/src)
 
 - **P2-5: `update_trail_orders()` -4005 fallback** (`order_manager.py`):

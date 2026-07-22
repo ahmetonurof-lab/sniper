@@ -97,6 +97,30 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 - **DURUM: DÜZELTİLDİ** — `execute_live_entry()`'e LOT_SIZE.maxQty clamp eklendi (calculate_qty() değil, çünkü sync/pre-network). `get_max_qty()` zaten mevcuttu, sadece entry path'ine bağlanmamıştı.
 - **İlişki notu:** P2-5 (update_trail_orders -4005 fallback) artık bu kök neden için gereksiz olmalı (entry qty zaten max_qty'yi asamaz) ama başka -4005 senaryoları için (borsa filtre güncellemesi, restart-recovery path'i vb.) defense-in-depth olarak kalmalı — kaldırılmasın.
 
+### P1-7: Harici kapanışlar — botun bilmediği pozisyon kapatmaları (2026-07-22 events_2026-07-22.jsonl)
+**Dosya:** Event log analizi — botun başlatmadığı market close emirleri
+- **Olay:** 2026-07-22'de 13+ WS_FALLBACK çıkışı tespit edildi. Çoğu çok kısa sürede (1-10 saniye) kapandı.
+- **ADAUSDT vakası (en net kanıt):**
+  - 13:30:18: Entry @ 0.1727, SL=0.172508, TP=0.172783 (algo ID: 1000000142170487/490)
+  - 13:30:27: DOLDURMA emri geldi — ne SL ne TP tetiklendi
+  - Entry→kapanış arası 9 saniye. Hiçbir [INTENT]/[TRAIL]/[EXIT] log satırı yok
+  - ID formatı: short alphanumeric (ylOu3i0T6KRNJfKMA3T18s) vs algo ID (1000000142170487) — farklı emir tipleri
+  - Bu emir `/fapi/v1/order` (normal) üzerinden gitmiş, algo endpoint'i değil
+- **Patern (tüm WS_FALLBACK çıkışları):**
+  - RENDERUSDT: 1 saniye (dakika bile değil!)
+  - ADAUSDT: 9s, 10s, 56s, 58s (4 kez!)
+  - PYTHUSDT: 55s, 56s, 58s, 70s, 71s (5 kez!)
+  - ONDOUSDT: 55s (trail=1), 10136s (2.8 saat)
+  - Toplam: 13+ WS_FALLBACK, hepsi trail_count=0
+- **ws_unmatched_reduce_only:** Sadece 2 kez loglandı (ONDOUSDT ve ADAUSDT) — P2-4 v2 sayesinde artık yakalanıyor
+- **force_close:** PYTHUSDT (×2), AAVEUSDT, GMXUSDT (×2), ADAUSDT (×2) — botun kendi mekanizması
+- **Olası kök nedenler:**
+  1. **Testnet/demo API tuhaflığı:** `demo-fapi.binance.com` paylaşımlı hesap davranışı, otomatik reset — bilinen kalite sorunu
+  2. **Aynı API key ile birden fazla instance:** Farklı makine/eski process/test script'i
+  3. **Loglanmayan bir kod yolu:** Tüm exit path'leri incelendi, hepsi logluyor — olasılık düşük
+- **Forensic aksiyon:** `ylOu3i0T6KRNJfKMA3T18s` clientOrderId'ine ait emrin tam detayı Binance API'den çekilmeli (`/fapi/v1/allOrders` veya `/fapi/v1/userTrades`). Eğer bu emir MARKET + reduceOnly ise ve botun hiçbir yerinde bu ID üretilmemişse, kaynak bot dışıdır.
+- **⚠️ DURUM: AÇIK — Forensic gerekiyor** — tek seferlik mü yoksa tekrarlayan patern mi izlenecek. Tekrarlayan ise P0/P1 seviye bulgu ("botun bilmediği harici kapanışlar") olarak güncellenecek.
+
 ---
 
 ## 🟡 P2 — Medium Risk
@@ -183,7 +207,8 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 | P1-3 | İNCELENMELİ | entry_manager.py precision kontrolü gerekli |
 | P1-4 | KISMEN DÜZELTİLDİ | Orphan periyodik (periodic_check_loop + _on_1m_close), ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
 | P1-5 | KÖK NEDEN DÜZELTİLDİ | `_round_step` floating-point fix (`int(value/step)`) |
-| P1-6 | TESPİT EDİLDİ | Entry sizing LOT_SIZE.maxQty kontrolü yok — kök neden |
+| P1-6 | DÜZELTİLDİ | Entry sizing LOT_SIZE.maxQty kontrolü yok — kök neden |
+| P1-7 | AÇIK | Botun bilmediği harici kapanışlar (13+ WS_FALLBACK, 1-10s) |
 | P2-1 | DOĞRULANDI | maybe_repair() ölü kod |
 | P2-2 | HÂLÂ GEÇERLİ | CleanupPlan sadece current ID'leri iptal ediyor |
 | P2-3 | HÂLÂ GEÇERLİ | promote dokümantasyon uyuşmazlığı |
