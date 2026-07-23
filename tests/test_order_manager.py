@@ -350,6 +350,134 @@ class TestUpdateTrailOrders:
         assert mgr._trail_failures.get("BTCUSDT", 0) == 0
 
 
+class TestTpUnchangedNoChurn:
+    """P0-7 regresyon: TP fiyati trailing sirasinda degismediginde (yalnizca
+    SL trail ediyor, TP sabit RR'de kaliyor), update_trail_orders() ne
+    tp_order_id'yi bos string ile ezmeli ne de hala gecerli olan eski TP
+    emrini Binance'te iptal etmeli. Eski davranista bu, cancel<->repair
+    penceresinde pozisyonu gercekten TP'siz birakiyordu."""
+
+    @pytest.mark.asyncio
+    @patch("trading.order_manager.cfg")
+    async def test_tp_price_unchanged_keeps_existing_tp_order_id(self, mock_cfg):
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_new"})
+        # TP fiyati degismedigi icin place_tp_order HIC cagrilmamali
+        mock_rest.place_tp_order = AsyncMock(
+            return_value={"algoId": "tp_SHOULD_NOT_BE_USED"}
+        )
+        mock_rest.cancel_order = AsyncMock(return_value={})
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        # tp=110.0 sabit kalacak, sadece SL trail ediyor (new_tp == mevcut tp)
+        trade = _trade(side="long", sl=100.0, tp=110.0, tp_order_id="tp_still_valid")
+
+        result = await mgr.update_trail_orders("BTCUSDT", trade, 105.0, 110.0, 1)
+
+        assert result is True
+        # SL normal sekilde trail etmis olmali
+        assert trade["sl_order_id"] == "sl_new"
+        # KRITIK: tp_order_id hala eski/gecerli id olmali, bos string DEGIL
+        assert trade["tp_order_id"] == "tp_still_valid"
+        # KRITIK: hala gecerli olan eski TP emri iptal EDILMEMELI
+        cancelled_ids = [call.args[0] for call in mock_rest.cancel_order.call_args_list]
+        assert "tp_still_valid" not in cancelled_ids
+        # Yeni TP emri hic atilmamali (fiyat zaten dogru)
+        mock_rest.place_tp_order.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("trading.order_manager.cfg")
+    async def test_tp_price_unchanged_short_side(self, mock_cfg):
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_new"})
+        mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "should_not_use"})
+        mock_rest.cancel_order = AsyncMock(return_value={})
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(side="short", sl=98.0, tp=88.0, tp_order_id="tp_still_valid")
+
+        result = await mgr.update_trail_orders("ETHUSDT", trade, 95.0, 88.0, 1)
+
+        assert result is True
+        assert trade["tp_order_id"] == "tp_still_valid"
+        cancelled_ids = [call.args[0] for call in mock_rest.cancel_order.call_args_list]
+        assert "tp_still_valid" not in cancelled_ids
+
+
+class TestPrecisionResidualNoChurn:
+    """P0-7 kok neden regresyonu: evaluate_trail() ham hedefi bir onceki
+    cycle'da precision-rounded kaydedilmis mevcut sl/tp ile kiyaslar. Tick
+    altinda kalan farklar precision uygulandiktan sonra sl/tp'yi fiilen hic
+    degistirmez. Bu durumda update_trail_orders() emir atmamali/iptal
+    etmemeli — aksi halde sonsuz churn (P1-11 log'unda gorulen desen)."""
+
+    @pytest.mark.asyncio
+    @patch("trading.order_manager.cfg")
+    async def test_both_unchanged_after_precision_skips_entirely(self, mock_cfg):
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_rest = MagicMock()
+        # apply_price_precision, ham hedefi mevcut sl/tp'ye yuvarliyor
+        # (tick-size bu ince farki yutuyor) — SEIUSDT senaryosunun aynisi:
+        # 0.045658 -> 0.0457 (mevcut sl ile ayni), 0.044958 -> 0.045 (mevcut tp ile ayni)
+        mock_rest.apply_price_precision = AsyncMock(
+            side_effect=lambda sym, p: round(p, 4)
+        )
+        mock_rest.place_stop_order = AsyncMock(
+            return_value={"algoId": "should_not_use"}
+        )
+        mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "should_not_use"})
+        mock_rest.cancel_order = AsyncMock(return_value={})
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(
+            side="long",
+            sl=0.045700,
+            tp=0.045000,
+            sl_order_id="sl_x",
+            tp_order_id="tp_x",
+        )
+
+        # Ham (rounding-oncesi) hedef 0.045658 — ama precision sonrasi 0.045700'e
+        # yuvarlaniyor, yani trade["sl"] ile AYNI. Gercek bir trail YOK.
+        result = await mgr.update_trail_orders("SEIUSDT", trade, 0.045658, 0.044958, 7)
+
+        assert result is False
+        mock_rest.place_stop_order.assert_not_called()
+        mock_rest.place_tp_order.assert_not_called()
+        mock_rest.cancel_order.assert_not_called()
+        # trailing_count'a hic dokunulmamali (state'te sahte artis olmamali)
+        assert "trailing_count" not in trade
+        # ID'ler dokunulmamis olmali
+        assert trade["sl_order_id"] == "sl_x"
+        assert trade["tp_order_id"] == "tp_x"
+
+    @pytest.mark.asyncio
+    @patch("trading.order_manager.cfg")
+    async def test_sl_really_changed_still_proceeds(self, mock_cfg):
+        """Guard yanlis pozitif vermemeli: SL gercekten degisiyorsa (precision
+        sonrasi bile farkli) trailing normal calismali."""
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_new"})
+        mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_new"})
+        mock_rest.cancel_order = AsyncMock(return_value={})
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _trade(side="long", sl=100.0, tp=110.0)
+
+        result = await mgr.update_trail_orders("BTCUSDT", trade, 101.0, 111.0, 1)
+
+        assert result is True
+        assert trade["sl_order_id"] == "sl_new"
+        assert trade["tp_order_id"] == "tp_new"
+        assert trade["trailing_count"] == 1
+
+
 class TestRepairProtection:
     @pytest.mark.asyncio
     async def test_repairs_missing_sl(self):

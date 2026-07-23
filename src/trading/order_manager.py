@@ -127,6 +127,25 @@ class OrderManager:
             )
             return False
 
+        # ── FIX (kök neden guard, P0-7 ile ilişkili): evaluate_trail() ham
+        # (precision-öncesi) hedefi, bir önceki cycle'da precision-rounded
+        # kaydedilmiş mevcut trade["sl"]/trade["tp"] ile kıyaslıyor.
+        # Tick-size/precision bu ince (tick-altı) farkı yutunca evaluate_trail
+        # sonsuza dek "trail var" sanıp tetikleniyor, ama precision uygulandıktan
+        # SONRA SL de TP de aslında hiç değişmemiş oluyor. Böyle bir durumda
+        # emir atmaya/iptale hiç gerek yok — churn'i burada, kesin kaynağında
+        # kes. (evaluate_trail senkron/pure ve precision'a erişemediği için
+        # asıl guard mecburen burada, precision sonrasında olmalı.)
+        sl_really_unchanged = abs(new_sl - trade.get("sl", 0.0)) < 1e-8
+        tp_really_unchanged = abs(new_tp - trade.get("tp", 0.0)) < 1e-8
+        if sl_really_unchanged and tp_really_unchanged:
+            log.debug(
+                "[TRAIL] %s precision sonrasi sl/tp fiilen degismedi "
+                "(tick-alti residual) — trailing atlaniyor (churn onlendi)",
+                sym,
+            )
+            return False
+
         trade["status"] = STATUS_TRAIL_REPLACING
 
         sl_side = "SELL" if trade["side"] == "long" else "BUY"
@@ -267,7 +286,16 @@ class OrderManager:
                         e,
                     )
 
-        if tp_ok:
+        # FIX (P0-7): tp_unchanged=True iken tp_ok da True'ya set ediliyor
+        # ("yeni emir gerekmiyor, mevcut TP zaten duruyor" — bkz. yukarısı),
+        # ama new_tp_id bu durumda hep "" kalır (yeni emir hiç atılmadı).
+        # Eskiden bu blok yalnızca `tp_ok` şartına bakıyordu; bu yüzden TP
+        # değişmediğinde bile tp_order_id boş string ile eziliyor VE hâlâ
+        # geçerli olan eski TP emri Binance'te iptal ediliyor — pozisyon
+        # cancel↔repair penceresinde gerçekten TP'siz kalıyordu (her ~45-90sn'de
+        # bir, her trailing cycle'ında). `not tp_unchanged` şartı: bu blok
+        # yalnızca gerçekten YENİ bir TP emri başarıyla atıldığında çalışsın.
+        if tp_ok and not tp_unchanged:
             trade["tp"] = new_tp
             if self._protection is not None:
                 self._protection.begin_replace_tp(trade, new_tp_id)
@@ -316,13 +344,16 @@ class OrderManager:
                 if trade.get("status") == STATUS_TRAIL_REPLACING:
                     trade["status"] = STATUS_ACTIVE
 
+        # tp_unchanged durumunda new_tp_id hep bostur (yeni emir atilmadi) —
+        # log'da kafa karistirmasin diye halen aktif olan gercek id'yi goster.
+        _logged_tp_id = new_tp_id or trade.get("tp_order_id", "")
         log.info(
             "[ORDER] %s trailing guncellendi sl=%.6f (id=%s) tp=%.6f (id=%s)",
             sym,
             trade.get("sl", 0.0),
             new_sl_id,
             trade.get("tp", 0.0),
-            new_tp_id,
+            _logged_tp_id,
         )
         self._trail_failures[sym] = 0
         trade["status"] = STATUS_ACTIVE

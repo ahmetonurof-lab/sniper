@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-23 22:04 — P1-11 fix deploy edildi (b739bb3).
+> **Son güncelleme:** 2026-07-23 22:04 — P1-11 fix deploy edildi (b739bb3). P0-7 patch'i yazıldı/test edildi, deploy bekliyor.
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ## 🔴 P0 — Finance Risk
@@ -264,6 +264,31 @@ SL/TP yerleştirme log'da "SL OK" / "TP OK" dönse de, 2.5s sonra `get_open_orde
 
 **✅ DURUM: DEPLOY EDİLDİ + DOĞRULANDI (7e50331, 14:32)** — Sunucuda mevcut, tüm fail-safe'ler aktif. STRKUSDT/SEIUSDT ghost loop'ları kapanmış.
 
+### P0-7: `update_trail_orders()` — TP fiyatı değişmediğinde hâlâ geçerli TP emri iptal ediliyor + precision-residual sonsuz trail churn
+**Kaynak:** 2026-07-23 — SEIUSDT log analizi (trail#1..#7 aynı ham sl/tp, TP id boş)
+```
+trail#1 → sl id=...784220  tp id=...784222   ✅ ikisi de yeni id aldı
+trail#2 → sl id=...785444  tp id=(boş)       ⚠️ TP id boş!
+          hemen üstünde: 🧹 İPTAL algoId=...784222 (trail#1'in TP'si, hâlâ geçerliydi!)
+→ 1sn sonra: "SL stale event" → "koruma eksik (tp=False)" → repair
+trail#3..#7 → aynı desen tekrarlıyor (raw sl=0.045658 tp=0.044958, 7 kez birebir aynı)
+```
+
+**İki iç içe bug:**
+
+1. **`order_manager.py:update_trail_orders()`** — `tp_unchanged = abs(new_tp - old_tp_price) < 1e-8` doğruyken (TP sabit 1:2 R:R'de kalıyor, yalnız SL trail ediyor) `tp_ok = True` set ediliyor (yeni emir atılmadı, "mevcut TP zaten duruyor" doğru tespiti) ama post-processing bloğu yalnızca `tp_ok`'a bakıyordu: `trade["tp_order_id"]` boş `new_tp_id` ile eziliyor VE hâlâ geçerli olan eski TP emri Binance'te iptal ediliyor. Cancel↔repair penceresinde (birkaç yüz ms) pozisyon gerçekten TP'siz kalıyordu.
+
+2. **Kök neden (churn kaynağı) — `trailing_manager.py:evaluate_trail()`** senkron/pure bir fonksiyon, precision/tick-size'a erişimi yok. Eşik kıyaslamasını ham (rounding-öncesi) hedef ile bir önceki cycle'da precision-rounded kaydedilmiş `trade["sl"]`/`trade["tp"]` ile yapıyor. SEIUSDT gibi düşük fiyatlı bir coin'de tick-altı rezidü (`0.045700 - 0.045658 = 0.000042`) eşiği (`risk_pts * TRAIL_MIN_MOVE_MULT`) her seferinde geçiyor → trail sonsuza kadar "tetikleniyor" ama `apply_price_precision()` (order_manager, async/REST) her seferinde aynı `0.045700`/`0.045000`'e yuvarlıyor — gerçek ilerleme sıfır, sadece `trailing_count` ve gürültü artıyor. Bu sonsuz tetiklenme, (1)'deki `tp_unchanged` bug'ını her ~45-90sn'de bir (her trail cycle'ında) ateşliyor.
+
+**Düzeltme (`order_manager.py:update_trail_orders()`, henüz deploy edilmedi):**
+1. TP state-write/cancel bloğu artık `tp_ok and not tp_unchanged` şartına bağlı — TP fiyatı değişmediyse ne `tp_order_id` eziliyor ne de eski (hâlâ geçerli) TP emri iptal ediliyor.
+2. `apply_price_precision()` çağrıldıktan hemen sonra (SL/TP fiyatları async olarak yuvarlandıktan sonra), yeni bir guard: precision-sonrası `new_sl`/`new_tp` mevcut `trade["sl"]`/`trade["tp"]` ile (1e-8 tolerans) hâlâ aynıysa — yani gerçekte hiçbir şey değişmemişse — fonksiyon `STATUS_TRAIL_REPLACING`'e hiç girmeden, emir atmadan/iptal etmeden `False` döner. `evaluate_trail()` senkron olduğu ve tick-size'a erişemediği için asıl guard mecburen precision uygulandıktan sonra, `update_trail_orders()` içinde olmalı (bkz. kök neden analizi).
+3. Log satırı: `tp_unchanged` durumunda `new_tp_id` boş kaldığı için, log artık halihazırda aktif olan gerçek `tp_order_id`'yi gösteriyor (kozmetik netlik, önceki "TP id boş" kafa karıştırıcı log satırının kaynağıydı).
+
+**Testler:** `tests/test_order_manager.py::TestTpUnchangedNoChurn` (2 test) + `::TestPrecisionResidualNoChurn` (2 test) eklendi — mevcut 45+2(backoff,ortamdan bağımsız pre-existing) test paketi bozulmadan geçiyor.
+
+**⚠️ DURUM: PATCH HAZIR, TESTLERLE DOĞRULANDI — DEPLOY EDİLMEDİ.** Kod değişikliği ve regresyon testleri yazıldı, `pytest tests/` ile mevcut pre-existing 40 hatanın hiçbirini değiştirmediği (aynı liste) ve yeni 4 testin geçtiği doğrulandı. Sunucuya push/deploy işlemi bu oturumda yapılmadı — manuel deploy gerekiyor.
+
 ### P0-6: `_exit_already_closed` SL/TP result'larında da pozisyon doğrulaması yok
 **Kaynak:** 2026-07-23 15:33 — canlı izleme,APTUSDT false SL close
 - Bot 15:24, 15:27, 15:28'te 3 kez `EXIT: SL | PRICE: 0.62 | PNL: +1.62` logladı
@@ -394,6 +419,7 @@ SL/TP yerleştirme log'da "SL OK" / "TP OK" dönse de, 2.5s sonra `get_open_orde
 | P0-3 | KALDIRILDI | `_check_position` fonksiyonu yok, orphan sweep guard'lı |
 | P0-4 | KISMEN DÜZELTİLDİ | `periodic_check_loop` ~60sn'de yakalar, ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
 | P0-5 | DÜZELTİLDİ (7e50331) | get_all_orders() openAlgoOrders hatasını yutuyor — SEIUSDT ghost loop + %100 post_entry_check_failed kök nedeni |
+| P0-7 | PATCH HAZIR, DEPLOY EDİLMEDİ | tp_unchanged'de hâlâ geçerli TP iptal ediliyordu + precision-residual sonsuz trail churn (SEIUSDT trail#1..#7) |
 | P1-1 | DÜZELTİLDİ | `estimate_market_price()` fallback eklendi |
 | P1-2 | HÂLÂ GEÇERLİ | Trail reject sonrası retry yok + TRAIL_REPLACING stuck (apply_price_precision öncesi status set) — P1-9'un devam eden kök nedeni |
 | P1-3 | DÜZELTİLDİ (2026-07-23) | execute_live_entry() içinde actual_price ile sl/tp yeniden hesaplanıyor + safety-net guard. |
