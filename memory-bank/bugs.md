@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-23 — P1-3 fix deploy edildi (onay: baş mühendis)
+> **Son güncelleme:** 2026-07-23 12:17 — P1-3 fix deploy edildi + canlı log analizi (STRKUSDT 49x reject, SEIUSDT ghost loop, %100 post_entry_check_failed)
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ## 🔴 P0 — Finance Risk
@@ -199,6 +199,39 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 - **Testnet güvenliği (2026-07-23):** API key yenilendi ama `web_1FJn4hMop8dxxQeYCcLi` ile web arayüzünden emir gelmeye devam etti. Doğrulandı: kullanıcı Brave'de eski session ile kilitli kalmış, diğer browser'dan login olup bot pozisyonunu görmüş — `web_` order kendi diğer browser'ından kaynaklanıyor. Testnet paylaşımı veya sızma değil, kendi browser'ları arası session farkı. Mainnet'te reassess edilecek.
 - **⚠️ DURUM: KISMEN AÇIKLANDI** — 26 vaka tamamı doğrulandı (9 bot trailing / 9 kesin harici / 5 muhtemel harici / 3 log dışı). Önceki sayım tutarsızlıkları düzeltildi (8→9 trailing, 5→9 kesin, 13→3 log dışı). Görev 3/4 ile gözlemlenebilirlik artırıldı. 5 muhtemel harici (#7,#8,#9,#12,#15) için deeper analiz gerekli. Testnet'te external fill'ler testnet paylaşımdan kaynaklanıyor, mainnet'e geçişte reassess edilecek.
 
+### P1-8: post_entry_check_failed %100 tüm trades — sistematik SL/TP kaybı (2026-07-23 canlı verisi)
+**Kaynak:** `events_2026-07-23.jsonl` (241 satır, sunucudan alındı) — SSH ile canlı analiz
+- **11/11 post_entry_check_failed** — o gün yapılan TÜM trade'lerde SL/TP 2.5s sonra Binance'te bulunamadı
+- **Etkilenenler:** TIAUSDT (x3), SEIUSDT, ENAUSDT (x4), APTUSDT, LDOUSDT, NEARUSDT
+- **İkinci grup (geçici):** ENAUSDT × 3 arka arkaya → hepsi `fvg_invalidated` → `force_close` (pattern mi tesadüf mü?)
+
+**Kök neden analizi:**
+`entry_manager.py:get_open_order_ids()` (order_manager.py:332-343) şöyle çalışır:
+1. `get_open_orders()` → `/fapi/v1/openOrders` (normal limit order'lar)
+2. `get("/fapi/v1/openAlgoOrders")` → algo order'lar (STOP_MARKET/TAKE_PROFIT_MARKET)
+3. İkisi birleştirilir → `algoId` veya `orderId` ile aranır
+
+SL/TP yerleştirme log'da "SL OK" / "TP OK" dönse de, 2.5s sonra `get_open_order_ids()` bunları bulamıyor. Eğer `/fapi/v1/openAlgoOrders` testnette güvenilir değilse (boş dönüyorsa), `sl_id`/`tp_id` (algo ID) normal openOrders'ta olmadığı için `sl_ok=False, tp_ok=False` döner.
+
+- **İlişkili:** P0-1 (çift exit), P1-7 (harici kapanış), P0-4 (ghost loop) — hepsi aynı kökten besleniyor olabilir
+- **⚠️ DURUM: ARAŞTIRILIYOR** — `/fapi/v1/openAlgoOrders` testnet davranışı doğrulanmalı. Eğer testnet hatasıysa mainnet'te görülmeyebilir.
+
+### P1-9: SEIUSDT ghost loop 4+ saat — restart sonrası bile devam ediyor (2026-07-23)
+**Kaynak:** Sunucu canlı log + events_2026-07-23.jsonl
+- SEIUSDT short @ 0.0462 pozisyonu saat 08:47'den itibaren **12:18 itibarıyla hâlâ aktif**
+- Restart (12:14) sonrası recovery_manager tarafından yeniden oluşturuldu
+- `[ORPHAN] SEIUSDT status=TRAIL_REPLACING — orphan sweep bu sembolde atlaniyor`
+- Trailing SL sürekli -2021 (Order would immediately trigger) reject alıyor
+- P0-4 ghost pozisyon temizliğinin restart'ta bile çalışmadığını kanıtlıyor
+
+### P1-10: STRKUSDT 49x consecutive -4005 rejection (2026-07-23 log bulgusu)
+**Kaynak:** `events_2026-07-23.jsonl` — SSH ile canlı analiz
+- Aynı `old_id=1000000141695716`, aynı fiyat (`sl_price=0.0301`), 1+ saat boyunca her ~36s'de bir tekrarlanan -4005 hatası
+- 49 ardışık `sl_reject` event'i (1784764862643 → 1784784616885 arası)
+- `_trail_failures` backoff (P2-5 DÜZELTİLDİ) bu vakada çalışmamış
+- **Olası neden:** Aynı ghost pozisyon traili (P0-4) — backoff devrede ama ghost loop bitmediği için reject'ler devam ediyor
+- **⚠️ DURUM: P0-4 ile bağlantılı** — P2-5 fix tek başına yetersiz, ghost pozisyon temizliği periyodik olmalı
+
 ---
 
 ## 🟡 P2 — Medium Risk
@@ -292,7 +325,10 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 | P1-4 | KISMEN DÜZELTİLDİ | Orphan periyodik (periodic_check_loop + _on_1m_close), ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
 | P1-5 | KÖK NEDEN DÜZELTİLDİ | `_round_step` floating-point fix (`int(value/step)`) |
 | P1-6 | DÜZELTİLDİ | Entry sizing LOT_SIZE.maxQty kontrolü yok — kök neden |
-| P1-7 | KISMEN AÇIKLANDI | 26 vaka doğrulandı: 9 bot trailing / 9 kesin harici / 5 muhtemel harici / 3 log dışı. Önceki sayım tutarsızlıkları düzeltildi. |
+| P1-7 | KISMEN AÇIKLANDI | 26 vaka doğrulandı: 9 bot trailing / 9 kesin harici / 5 muhtemel harici / 3 log dışı. |
+| P1-8 | ARAŞTIRILIYOR | %100 post_entry_check_failed (11/11 trade) — /fapi/v1/openAlgoOrders testnet güvenilirliği? |
+| P1-9 | P0-4 ile bağlantılı | SEIUSDT ghost loop 4+ saat, restart sonrası bile devam |
+| P1-10 | P0-4 ile bağlantılı | STRKUSDT 49x consecutive -4005 rejection (ghost trailing) |
 | P2-1 | DOĞRULANDI | maybe_repair() ölü kod |
 | P2-2 | HÂLÂ GEÇERLİ | CleanupPlan sadece current ID'leri iptal ediyor |
 | P2-3 | HÂLÂ GEÇERLİ | promote dokümantasyon uyuşmazlığı |
