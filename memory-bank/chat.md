@@ -1,5 +1,17 @@
 # Chat Log
 
+## 2026-07-23 — Görev 7: P1-7 sayım tutarsızlığı düzeltmesi
+
+- **Sorun:** bugs.md P1-7'deki aritmetik tutarsız — "8/26 trailing / 5 kesin harici / 13 log dışı / 3/20 muhtemel harici" rakamları yanlış.
+- **Ham analiz:** `events_2026-07-22.jsonl`'den 26 WS_FALLBACK tek tek timestamp+sembol ile listelendi. Her vaka için `force_close` (bot-initiated) ve `ws_unmatched_reduce_only` (kesin harici) event'leri JSONL'den cross-reference ile doğrulandı.
+- **Doğrulanmış sonuç:**
+  - 9/26 bot trailing (`force_close` confirmed, #3 PYTH 05:31, #4 PYTH 05:46, #6 AAVE 08:46 log-dışındayken atlanmıştı)
+  - 9/26 kesin harici (`ws_unmatched_reduce_only` confirmed, #20 TIAUSDT log-gap'te olmasına rağmen JSONL'de doğrulandı)
+  - 5/26 muhtemel harici (log kapsamında ama FC/UM yok)
+  - 3/26 log dışı (hiçbir kanıt yok)
+- **Hatalar düzeltildi:** 8→9 trailing (3 log-dışındaki bot trailing atlanmıştı), 5→9 kesin (event JSONL cross-reference eklendi), 13→3 log dışı (toplama hatasıydı, toplam=toplam-trailing-kesin formülü yanlış). Stale "3/20 muhtemel harici" silindi.
+- **bugs.md + activeContext.md güncellendi.**
+
 ## 2026-07-22 — Görev 3 + Görev 4: Post-entry check + FVG invalidation labeling (sniper/src)
 
 - **Görev 3:** `_try_entry()`'de successful live entry sonrası ~2.5s bekleme + `get_open_order_ids()` ile SL/TP Binance'te açık mı doğrulaması. Eksikse CRITICAL log + `post_entry_check_failed` event log. Sadece gözlem amaçlı — repair/recover tetiklemez.
