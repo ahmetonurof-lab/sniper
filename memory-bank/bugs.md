@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-23 14:32 — Görev 10: P0-5 fix (7e50331) DEPLOY EDİLDİ ve DOĞRULANDI. Sunucuda mevcut. Sıradaki açık iş: SEIUSDT/STRKUSDT ghost loop izleme.
+> **Son güncelleme:** 2026-07-23 15:30 — Görev 11 tamamlandı (beb696d). P0-5 deploy doğrulandı, P1-2/Görev 11 trailing stuck fix deployed. Sıradaki açık iş: canlı izleme.
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ## 🔴 P0 — Finance Risk
