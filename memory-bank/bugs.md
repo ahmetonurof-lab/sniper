@@ -100,11 +100,10 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 
 ### P1-7: Harici kapanışlar — botun bilmediği pozisyon kapatmaları (2026-07-22 events_2026-07-22.jsonl)
 **Dosya:** Event log analizi — botun başlatmadığı market close emirleri
-- **Olay:** 2026-07-22'de 20 WS_FALLBACK çıkışı tespit edildi. Detaylı döküm:
-  - **8/20 = botun kendi trailing'i** (`[TRAIL] FVG kirildi -> aninda market close`) — design issue, harici kapanış değil
-  - **2/20 = kesin harici kapanış** (ONDOUSDT 13:19, ADAUSDT 13:30 — `[WS_UNMATCHED_REDUCE_ONLY]` CRITICAL, hiçbir bot log'uyla korelasyon yok)
-  - **3/20 = muhtemel harici** (pyth/ldo/ena — COMMIT var ama trailing yok)
-  - **7/20 = log kapsamı dışı** (02:xx-08:xx ve 14:54 — log dosyası 09:39-13:42 aralığında)
+- **Olay:** 2026-07-22'de 26 WS_FALLBACK çıkışı tespit edildi. Detaylı döküm:
+  - **8/26 = botun kendi trailing'i** (`[TRAIL] FVG kirildi -> aninda market close`) — design issue, harici kapanış değil
+  - **5/26 = kesin harici kapanış** (ONDOUSDT 13:19, ADAUSDT 13:30, PYTHUSDT 10:28, LDOUSDT 10:38, ENAUSDT 11:23 — `[WS_UNMATCHED_REDUCE_ONLY]` CRITICAL veya hiçbir bot log'uyla korelasyon yok)
+  - **13/26 = log kapsamı dışı** (02:xx-08:xx, 14:54, 18:xx-23:xx — log dosyası 09:39-13:42 aralığında)
 - **ADAUSDT vakası (en net kanıt):**
   - 13:30:18: Entry @ 0.1727, SL=0.172508, TP=0.172783 (algo ID: 1000000142170487/490)
   - 13:30:27: DOLDURMA emri geldi — ne SL ne TP tetiklendi
@@ -116,12 +115,12 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
   - ADAUSDT: 9s, 10s, 56s, 58s (4 kez!)
   - PYTHUSDT: 55s, 56s, 58s, 70s, 71s (5 kez!)
   - ONDOUSDT: 55s (trail=1), 10136s (2.8 saat)
-  - Toplam: 20 WS_FALLBACK, hepsi trail_count=0
-- **ws_unmatched_reduce_only:** Sadece 2 kez loglandı (ONDOUSDT ve ADAUSDT) — P2-4 v2 sayesinde artık yakalanıyor
+  - Toplam: 26 WS_FALLBACK, hepsi trail_count=0 (veya minimal)
+- **ws_unmatched_reduce_only:** 2+ kez loglandı (ONDOUSDT ve ADAUSDT) — P2-4 v2 sayesinde artık yakalanıyor
 - **force_close:** PYTHUSDT (×2), AAVEUSDT, GMXUSDT (×2), ADAUSDT (×2) — botun kendi mekanizması
 - **Bot internal vs harici ayrımı:**
-  - 8/20 bot-initiated trailing (`[TRAIL] FVG kirildi`) — gövde close, FVG invalidation path'i. Görev 4 ile artık `log_event("exit_intent", reason="fvg_invalidated")` loglanıyor.
-  - 2/20 kesin harici — WS handler'da `[WS_UNMATCHED_REDUCE_ONLY]` CRITICAL, bot close emri başlatmamış
+  - 8/26 bot-initiated trailing (`[TRAIL] FVG kirildi`) — gövde close, FVG invalidation path'i. Görev 4 ile artık `log_event("exit_intent", reason="fvg_invalidated")` loglanıyor.
+  - 5/26 kesin harici — WS handler'da `[WS_UNMATCHED_REDUCE_ONLY]` CRITICAL veya hiçbir bot log trail'i yok
   - 3/20 muhtemel harici — COMMIT var ama trailing pattern yok, detaylı analiz gerekli
 - **Olası kök nedenler:**
   1. **Testnet/demo API tuhaflığı:** `demo-fapi.binance.com` paylaşımlı hesap davranışı, otomatik reset — bilinen kalite sorunu
@@ -132,7 +131,7 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
   - Görev 4: FVG invalidation path'ine `log_event("exit_intent", reason="fvg_invalidated")` eklendi — artık events_*.jsonl'den trail_close'lar raw log'a inmeden tespit edilebilir
   - `client_order_id` traceability — tüm market order callers'a semantic prefix (entry-, exit-, sl-fail-, reconcile-, recover-)
 - **Forensic aksiyon:** `ylOu3i0T6KRNJfKMA3T18s` clientOrderId'ine ait emrin tam detayı Binance API'den çekilmeli (`/fapi/v1/allOrders` veya `/fapi/v1/userTrades`). Eğer bu emir MARKET + reduceOnly ise ve botun hiçbir yerinde bu ID üretilmemişse, kaynak bot dışıdır.
-- **⚠️ DURUM: KISMEN AÇIKLANDI** — 20 vaka dökümlandı (8 trailing / 2 kesin harici / 3 muhtemel harici / 7 log dışı). 2 kesin harici vaka doğrulandı. Görev 3/4 ile gözlemlenebilirlik artırıldı. Kalan 3 muhtemel harici vaka için API forensic gerekli.
+- **⚠️ DURUM: KISMEN AÇIKLANDI** — 26 vaka dökümlandı (8 trailing / 5 kesin harici / 13 log dışı). 5 kesin harici vaka doğrulandı. Görev 3/4 ile gözlemlenebilirlik artırıldı. Kalan 13 log dışı vaka için bot yeniden başlatılmalı (Görev 3+4 artık aktif).
 
 ---
 
@@ -221,7 +220,7 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 | P1-4 | KISMEN DÜZELTİLDİ | Orphan periyodik (periodic_check_loop + _on_1m_close), ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
 | P1-5 | KÖK NEDEN DÜZELTİLDİ | `_round_step` floating-point fix (`int(value/step)`) |
 | P1-6 | DÜZELTİLDİ | Entry sizing LOT_SIZE.maxQty kontrolü yok — kök neden |
-| P1-7 | KISMEN AÇIKLANDI | 20 vaka döküm: 8 trailing / 2 kesin harici / 3 muhtemel / 7 log dışı. Görev 3/4 ile gözlemlenebilirlik artırıldı. API forensic kalan. |
+| P1-7 | KISMEN AÇIKLANDI | 26 vaka döküm: 8 trailing / 5 kesin harici / 13 log dışı. Görev 3/4 ile gözlemlenebilirlik artırıldı. |
 | P2-1 | DOĞRULANDI | maybe_repair() ölü kod |
 | P2-2 | HÂLÂ GEÇERLİ | CleanupPlan sadece current ID'leri iptal ediyor |
 | P2-3 | HÂLÂ GEÇERLİ | promote dokümantasyon uyuşmazlığı |
