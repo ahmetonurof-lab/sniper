@@ -65,13 +65,14 @@
 - SL trailing durur, pozisyon korumasız kalır.
 - **⚠️ DURUM: HÂLÂ GEÇERLİ** — `update_trail_orders()` reject olduğunda eski SL'yi koruyor (order_manager.py:135) ama retry veya backoff mekanizması yok.
 
-### P1-3: OPUSDT — entry'den ~280ms sonra sistematik force_close
-**Kaynak:** `events_2026-07-20.jsonl` (1. analiz)
-- 2 ayrı OPUSDT entry'si de ~270-280ms sonra force_close ile kapanıyor.
-- Olası neden: entry anındaki SL/TP mesafesi borsadaki gerçek fiyatla uyuşmuyor, emir "immediately trigger" reddi.
-- entry_manager.py'de precision/fiyat hesaplama hatası olabilir.
-- **⚠️ DURUM: EVENT LOG'A BAĞLI** — Doğrulama için event log gerekli. Kodda belirgin bir hata görünmüyor ama `sniper/src/trading/entry_manager.py` incelenmeli.
-- **Ek not (2026-07-23):** `test_entry_manager.py`'deki 8 test (TestCalculateQty + TestCalculateSlTp) `calculate_sl_tp`/`calculate_qty` beklentileriyle uyuşmuyor. `72d06d9`'a kadar olan eski testler de aynı şekilde kırık — pre-existing. Testler eski london_high/low TP fallback beklentileriyle yazılmış, kod sonra 1:2 R:R sabit TP'ye geçmiş. Backlog: test expectations güncellenmeli.
+### P1-3: Short entry'de TP entry üstüne konuluyor — hemen tetikleniyor
+**Kaynak:** `events_2026-07-20.jsonl` (OPUSDT) + `events_2026-07-23.jsonl` (SEIUSDT)
+- 2 ayrı OPUSDT entry'si ~270-280ms sonra force_close ile kapanıyor (7/20).
+- SEIUSDT short entry @ 0.0462, TP @ 0.04625 — TP entry'den ÜSTTE, short'ta TP altta olmalı. Sonuç: hemen tetiklendi, -2.08 PnL (7/23).
+- **Kök neden:** `calculate_sl_tp()` short'larda TP'yi yanlış hesaplıyor — long tarafı ile aynı mantıkla entry üstüne koyuyor.
+- `post_entry_check_failed` (Görev 3) SEIUSDT'de doğru tespit etti (sl_ok=false, tp_ok=false).
+- **⚠️ DURUM: HÂLÂ GEÇERLİ** — `sniper/src/trading/entry_manager.py` incelenmeli, short TP fiyat hesaplaması düzeltilmeli.
+- **Ek not:** `test_entry_manager.py`'deki 8 test kırık — pre-existing. Testler eski london_high/low TP fallback beklentileriyle yazılmış, kod sonra 1:2 R:R sabit TP'ye geçmiş. Backlog: test expectations güncellenmeli.
 
 ### P1-4: Ghost/temizlik sadece restart'ta çalışır, periyodik değil
 **Kaynak:** 2. baş mühendis analizi — OPUSDT event log ile kanıtlı
@@ -156,7 +157,8 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
   - Görev 4: FVG invalidation path'ine `log_event("exit_intent", reason="fvg_invalidated")` eklendi — artık events_*.jsonl'den trail_close'lar raw log'a inmeden tespit edilebilir
   - `client_order_id` traceability — tüm market order callers'a semantic prefix (entry-, exit-, sl-fail-, reconcile-, recover-)
 - **Forensic aksiyon:** `ylOu3i0T6KRNJfKMA3T18s` clientOrderId'ine ait emrin tam detayı Binance API'den çekilmeli (`/fapi/v1/allOrders` veya `/fapi/v1/userTrades`). Eğer bu emir MARKET + reduceOnly ise ve botun hiçbir yerinde bu ID üretilmemişse, kaynak bot dışıdır.
-- **⚠️ DURUM: KISMEN AÇIKLANDI** — 26 vaka tamamı doğrulandı (9 bot trailing / 9 kesin harici / 5 muhtemel harici / 3 log dışı). Önceki sayım tutarsızlıkları düzeltildi (8→9 trailing, 5→9 kesin, 13→3 log dışı). Görev 3/4 ile gözlemlenebilirlik artırıldı. 5 muhtemel harici (#7,#8,#9,#12,#15) için deeper analiz gerekli.
+- **Testnet güvenliği (2026-07-23):** API key yenilendi ama `web_1FJn4hMop8dxxQeYCcLi` ile web arayüzünden emir gelmeye devam etti. Doğrulandı: kullanıcı Brave'de eski session ile kilitli kalmış, diğer browser'dan login olup bot pozisyonunu görmüş — `web_` order kendi diğer browser'ından kaynaklanıyor. Testnet paylaşımı veya sızma değil, kendi browser'ları arası session farkı. Mainnet'te reassess edilecek.
+- **⚠️ DURUM: KISMEN AÇIKLANDI** — 26 vaka tamamı doğrulandı (9 bot trailing / 9 kesin harici / 5 muhtemel harici / 3 log dışı). Önceki sayım tutarsızlıkları düzeltildi (8→9 trailing, 5→9 kesin, 13→3 log dışı). Görev 3/4 ile gözlemlenebilirlik artırıldı. 5 muhtemel harici (#7,#8,#9,#12,#15) için deeper analiz gerekli. Testnet'te external fill'ler testnet paylaşımdan kaynaklanıyor, mainnet'e geçişte reassess edilecek.
 
 ---
 
@@ -241,7 +243,7 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 | P0-4 | KISMEN DÜZELTİLDİ | `periodic_check_loop` ~60sn'de yakalar, ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
 | P1-1 | DÜZELTİLDİ | `estimate_market_price()` fallback eklendi |
 | P1-2 | HÂLÂ GEÇERLİ | Trail reject sonrası retry yok |
-| P1-3 | İNCELENMELİ | entry_manager.py precision kontrolü gerekli |
+| P1-3 | HÂLÂ GEÇERLİ | Short'ta TP entry üstüne konuluyor (OPUSDT 7/20, SEIUSDT 7/23). calculate_sl_tp() short TP fiyat hesaplaması hatalı. |
 | P1-4 | KISMEN DÜZELTİLDİ | Orphan periyodik (periodic_check_loop + _on_1m_close), ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
 | P1-5 | KÖK NEDEN DÜZELTİLDİ | `_round_step` floating-point fix (`int(value/step)`) |
 | P1-6 | DÜZELTİLDİ | Entry sizing LOT_SIZE.maxQty kontrolü yok — kök neden |

@@ -1,5 +1,11 @@
 # Chat Log
 
+## 2026-07-23 — P1-3 güncelleme + testnet güvenilirliği
+
+- **P1-3 kanıt genişletildi:** SEIUSDT 7/23 olayı — short entry @ 0.0462, TP @ 0.04625 (entry üstü), hemen tetiklendi -2.08 PnL. OPUSDT (7/20) ile aynı pattern. `calculate_sl_tp()` short'larda TP'yi yanlış hesaplıyor.
+- **Testnet güvenilirliği:** API key yenilendi, state silindi, bot restart edildi. `web_1FJn4hMop8dxxQeYCcLi` ile web arayüzünden emir gelmeye devam etti. Doğrulandı: Brave browser'da eski session kilitli kalmış, diğer browser'dan login olarak bot pozisyonunu görmüş — `web_` order kendi diğer browser'ından. Sızma değil, kendi browser'ları arası session farkı.
+- **bugs.md güncellendi:** P1-3 başlık/durum/güncelleme, P1-7'ye testnet güvenilirliği notu eklendi.
+
 ## 2026-07-23 — Görev 8: #22/#26 ONDOUSDT trail=3 sınıflandırma doğrulaması
 
 - `_oid_matches_trade()` tam history (current+prev+history SL+TP) kullanıyor — `_collect_trade_order_ids()` 6 alan topluyor, hem normalized hem legacy handler'da `oid_c` ve `oid_i` bu sete karşı kontrol ediliyor.
