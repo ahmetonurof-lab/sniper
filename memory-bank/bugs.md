@@ -71,6 +71,7 @@
 - Olası neden: entry anındaki SL/TP mesafesi borsadaki gerçek fiyatla uyuşmuyor, emir "immediately trigger" reddi.
 - entry_manager.py'de precision/fiyat hesaplama hatası olabilir.
 - **⚠️ DURUM: EVENT LOG'A BAĞLI** — Doğrulama için event log gerekli. Kodda belirgin bir hata görünmüyor ama `sniper/src/trading/entry_manager.py` incelenmeli.
+- **Ek not (2026-07-23):** `test_entry_manager.py`'deki 8 test (TestCalculateQty + TestCalculateSlTp) `calculate_sl_tp`/`calculate_qty` beklentileriyle uyuşmuyor. `72d06d9`'a kadar olan eski testler de aynı şekilde kırık — pre-existing. Testler eski london_high/low TP fallback beklentileriyle yazılmış, kod sonra 1:2 R:R sabit TP'ye geçmiş. Backlog: test expectations güncellenmeli.
 
 ### P1-4: Ghost/temizlik sadece restart'ta çalışır, periyodik değil
 **Kaynak:** 2. baş mühendis analizi — OPUSDT event log ile kanıtlı

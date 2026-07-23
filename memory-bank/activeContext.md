@@ -82,6 +82,7 @@
 | 60 | **P1-7: Harici kapanışlar (forensic)** | 2026-07-22 events logunda 20 WS_FALLBACK çıkışı — 8 trailing / 2 kesin harici / 3 muhtemel / 7 log dışı. 2 kesin harici vaka doğrulandı (ONDOUSDT, ADAUSDT). Görev 3/4 ile gözlemlenebilirlik artırıldı. |
 | 62 | **Görev 3: Post-entry sanity check** | `_try_entry()`'de successful entry sonrası ~2.5s bekleme + `get_open_order_ids()` ile SL/TP doğrulaması. Eksikse CRITICAL log + `post_entry_check_failed` event log. Sadece gözlem amaçlı — repair/recover tetiklemez. |
 | 63 | **Görev 4: FVG invalidation exit_intent log** | `_on_1m_close()`'deki FVG kirildi→market close path'ine `log_event("exit_intent", reason="fvg_invalidated")` eklendi. Artık events_*.jsonl'den trail_close'lar raw log'a inmeden tespit edilebilir. |
+| 64 | **Görev 5: test_entry_manager 8 test — PRE-EXISTING** | `72d06d9`'a kadar olan eski testler de aynı şekilde kırık. Testler eski london_high/low TP fallback beklentileriyle yazılmış, kod 1:2 R:R sabit TP'ye geçmiş. Regresyon değil — P1-3 backlog notu eklendi. |
 
 ## Aktif Kararlar
 
