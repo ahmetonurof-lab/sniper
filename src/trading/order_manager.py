@@ -114,19 +114,10 @@ class OrderManager:
                 )
                 return False
 
-        trade["status"] = STATUS_TRAIL_REPLACING
-
         new_sl = await self._rest.apply_price_precision(sym, new_sl)
         new_tp = await self._rest.apply_price_precision(sym, new_tp)
 
-        sl_side = "SELL" if trade["side"] == "long" else "BUY"
-        qty = trade.get("qty", trade.get("lot", 0))
-
-        # FIX: TP immediately trigger kontrolü — trailing TP'yi mevcut fiyatın
-        # üstünde/altında bırakmışsa placement'ı atla. Yoksa Binance reddeder
-        # ve TP ID'siz kalır → sonraki WS fill eşleşmez → fallback zinciri.
-        _current_price = trade.get("upnl")  # yaklaşık, tam fiyat yok
-        # Precision sonrası fiyat hatalıysa (0 veya çok küçük) placement'ı durdur
+        # Precision başarısız olursa TRAIL_REPLACING'e girmeden çık
         if new_sl <= 0 or new_tp <= 0:
             log.warning(
                 "[TRAIL] %s precision hatasi: sl=%.6f tp=%.6f — trailing atlaniyor",
@@ -135,6 +126,11 @@ class OrderManager:
                 new_tp,
             )
             return False
+
+        trade["status"] = STATUS_TRAIL_REPLACING
+
+        sl_side = "SELL" if trade["side"] == "long" else "BUY"
+        qty = trade.get("qty", trade.get("lot", 0))
 
         old_sl_id = trade.get("sl_order_id", "")
         old_tp_id = trade.get("tp_order_id", "")
@@ -312,8 +308,13 @@ class OrderManager:
             if not sl_ok and not tp_ok:
                 self._trail_failures[sym] = self._trail_failures.get(sym, 0) + 1
                 self._trail_failures[f"{sym}_ts"] = time.time()
-                trade["status"] = STATUS_ACTIVE
                 return False
+            else:
+                # Kısmi başarı (SL veya TP'den biri yok):
+                # placement hatasında TRAIL_REPLACING'den geri dön,
+                # yoksa trailing sonsuza kadar atlanır.
+                if trade.get("status") == STATUS_TRAIL_REPLACING:
+                    trade["status"] = STATUS_ACTIVE
 
         log.info(
             "[ORDER] %s trailing guncellendi sl=%.6f (id=%s) tp=%.6f (id=%s)",

@@ -122,11 +122,11 @@
 - 3 orphan pozisyon (NEARUSDT, LDOUSDT, APTUSDT) bot tarafından takip ediliyor: 2'si ACTIVE (LDOUSDT, APTUSDT), 1'i kapatıldı (NEARUSDT exit 1784803228413).
 - Bot sağlıklı: pid 83179 çalışıyor, 15m barlar akıyor, WS bağlantısı aktif.
 
-**Sıradaki açık iş:** P1-2 fix — `update_trail_orders()` TRAIL_REPLACING stuck. `trade["status"] = STATUS_TRAIL_REPLACING` satırı `apply_price_precision()` sonrasına taşınacak veya try/finally bloğu eklenecek.
+**Sıradaki açık iş:** Yok. P1-2/Görev 11 TRAIL_REPLACING stuck fix tamamlandı ve commit edildi (order_manager.py:117-315). Tüm P0 ve P1 maddeleri deployed ve doğrulandı.
 
 ## Sıradaki / Açık Konular
 
-- **P1-2 fix:** `update_trail_orders()` TRAIL_REPLACING stuck — `trade["status"] = STATUS_TRAIL_REPLACING` satırını `apply_price_precision()` sonrasına taşı veya try/finally ekle.
+- ~~**P1-2 fix:**~~ ~~`update_trail_orders()` TRAIL_REPLACING stuck — DÜZELTİLDİ (Görev 11, order_manager.py:117-315)~~
 - Canlı testte `_exit_trade()` cancel_all + reduceOnly flow'un Binance ile çalışması gözlemlenecek.
 - Backtest trailing port'u sonrası WR/DD değişimi canlı ile karşılaştırılacak.
 - WS_FALLBACK sayısı trail prev ID fix sonrası takip edilecek.

@@ -65,11 +65,11 @@
 - SL trailing durur, pozisyon korumasız kalır.
 - **🚨 YENİ BULGU (Görev 10.1/10.2):** `update_trail_orders()`'ta `trade["status"] = STATUS_TRAIL_REPLACING` (line 117) `apply_price_precision()` çağrısından (line 119-120) ÖNCE set ediliyor. `apply_price_precision()` hiçbir try/except kapsamında DEĞİL — `asyncio` timeout veya network hatasında status TRAIL_REPLACING'de kalıcı olarak asılı kalır. `UNRESTRICTED_STATUSES` TRAIL_REPLACING'i içermediği için `_on_1m_close()` trailing'i sonsuza kadar atlar.
 - **P1-9 SEIUSDT ghost loop'un devam eden kısmının kök nedeni budur:** P0-5 repair döngüsünü kırdı ama trailing sırasında status TRAIL_REPLACING'de kilitlenen pozisyon hâlâ kurtarılamıyor. `_trail_failures` backoff (line 96-115) sadece WARNING üretiyor, status recovery yok.
-- **⚠️ DURUM: HÂLÂ GEÇERLİ** — `update_trail_orders()` reject olduğunda eski SL'yi koruyor (order_manager.py:135) ama:
-  - `apply_price_precision()` öncesi try/except yok → TRAIL_REPLACING stuck riski
-  - `_on_1m_close()` çağıran tarafta try/except yok → exception event loop'a kadar yayılır
-  - Per-symbol lock: **gerekli değil** (`update_trail_orders` sadece `_on_1m_close`'dan çağrılır, eşzamanlılık yok). Asıl ihtiyaç: `try/finally` ile status recovery veya `apply_price_precision` öncesi status set etmeme.
-- **Önerilen fix:** `trade["status"] = STATUS_TRAIL_REPLACING` satırını `apply_price_precision()` çıktıktan sonra (line 120 sonrası) veya try/finally bloğu içine taşı.
+- **✅ DURUM: DÜZELTİLDİ (Görev 11, 2026-07-23)** — `order_manager.py:update_trail_orders()`:
+  - `apply_price_precision()` çağrıları (line 117-118) artık `STATUS_TRAIL_REPLACING` set'inden (line 130) ÖNCE.
+  - Precision sonrası validate (line 120-128): sl/tp <= 0 ise TRAIL_REPLACING'e girmeden çık.
+  - Kısmi başarı (SL OK, TP fail veya tamamen fail) durumunda status ACTIVE'e resetleniyor (line 310-315).
+  - Senaryo: (a) precision exception → status TRAIL_REPLACING'e girmez, (b) SL başarı + TP fail → status ACTIVE'e resetlenir, (c) her ikisi de fail → mevcut ACTIVE reset korunur.
 
 ### P1-3: SL/TP tahmini fiyatla hesaplanıyor, actual fill price ile güncellenmiyor - DÜZELTİLDİ
 **Kaynak:** `events_2026-07-23.jsonl` (SEIUSDT 08:48) + `trades_history.jsonl` + SSH ile sunucu kod doğrulaması
