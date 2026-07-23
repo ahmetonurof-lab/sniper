@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-23 15:30 — Görev 11 tamamlandı (beb696d). P0-5 deploy doğrulandı, P1-2/Görev 11 trailing stuck fix deployed. Sıradaki açık iş: canlı izleme.
+> **Son güncelleme:** 2026-07-23 21:04 — Yeni bug eklendi: P1-11 EXIT_REQUESTED runtime dead-end (paper_trade.log analizi).
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ## 🔴 P0 — Finance Risk
@@ -285,6 +285,31 @@ SL/TP yerleştirme log'da "SL OK" / "TP OK" dönse de, 2.5s sonra `get_open_orde
 
 ## 🟡 P2 — Medium Risk
 
+### P1-11: EXIT_REQUESTED runtime dead-end — status hiçbir yolla ACTIVE'ye dönmüyor
+**Kaynak:** `paper_trade.log` (15:46+, 2026-07-23) — 4 trade etkilendi
+- SEIUSDT: 19:30:07'de ACTIVE → SL stale 19:34:15 → EXIT_REQUESTED → log sonu (20:51) kadar hala EXIT_REQUESTED
+- UNIUSDT: 19:30:14'de ACTIVE → SL stale 19:45:06 → EXIT_REQUESTED → log sonu (20:51) kadar hala EXIT_REQUESTED
+- ONDOUSDT: 20:00:01'de ACTIVE → SL/TP sanity check fail → WS_FALLBACK → commit → trade kapandı
+- APTUSDT: 17:18:37'de ACTIVE → WS_FALLBACK → commit → trade kapandı
+
+**Kök neden:**
+1. `_exit_trade()` / `ExitLifecycleService.execute()` pozisyon hala açık bulunca `return False` döner — ama `_exit_already_closed = False` olduğu için `EXIT_SUBMITTED` → `EXIT_VERIFYING` status machine geçişini tetikler.
+2. Position verification başarısız olunca (5 deneme × 200ms) `_mark_repair_required()` çağrılır — trade `REPAIR_REQUIRED` olur.
+3. **Ancak P0-6 fix'i sonrası** `_exit_already_closed` guard'ı SL/TP/WS_FALLBACK için de çalışıyor — bu durumda status `EXIT_VERIFYING`'de kalıyor.
+4. `bot.py:_on_1m_close()` (line 461) `UNRESTRICTED_STATUSES` kontrolü EXIT_REQUESTED/EXIT_SUBMITTED/EXIT_VERIFYING'i **atlıyor** — bu trade'ler per-bar döngüde işlenmiyor.
+5. `recovery_manager.reconcile_orphan_orders()` (line 688) `UNRESTRICTED_STATUSES` olmayanları **atlıyor** — orphan sweep bu trade'lere dokunmuyor.
+6. **Tek çıkış yolu: restart** — `bot.py:1474-1495` restart'ta SL/TP varsa ACTIVE'ye döndürüyor.
+
+**H Boards:** Exit lifecycle pozisyon doğrulaması False döndüğünde status reset Yok. `verify_protection()` sonrası repair ediliyor ama status UNCARTED. WS handler unmatched-reduceOnly path'i False döndürüyor ama status'i korumuyor.
+
+**Etki:** Trade sonsuza kadar EXIT_REQUESTED'da kalıyor, yeni entry engellenmiyor ama mevcut pozisyonun koruması (SL/TP) Binance'te kalıyor — **manual müdahale veya restart gerekli**.
+
+**Düzeltme önerisi:**
+- `_exit_trade()` / `execute()` pozisyon doğrulaması başarısız olunca trade.status'u `STATUS_ACTIVE`'ye resetlemeli (SL/TP hâlâ Binance'te).
+- veya `EXIT_REQUESTED`/`EXIT_SUBMITTED`/`EXIT_VERIFYING` durumları için per-bar retry mekanizması eklemeli.
+
+**⚠️ DURUM: AÇIK — ANALİZ TAMAMLANDI**
+
 ### P2-1: `ProtectionLifecycleService.maybe_repair()` ölü kod
 **Dosya:** `sniper/src/trading/protection_lifecycle.py:157`
 - `tests/test_protection_lifecycle.py` dışında HİÇBİR YERDEN çağrılmıyor.
@@ -379,6 +404,7 @@ SL/TP yerleştirme log'da "SL OK" / "TP OK" dönse de, 2.5s sonra `get_open_orde
 | P1-8 | DÜZELDİ (P0-5) | 11/11 → 0/0 post-entry-check post-deploy (SSH doğrulandı) |
 | P1-9 | P0-5 YETERSİZ → P1-2 ile birleşti | P0-5 repair döngüsünü kırdı ama trailing TRAIL_REPLACING stuck hâlâ var — deploy sonrası 8dk daha reject devam etti |
 | P1-10 | DÜZELDİ (P0-5) | 49x -4005 → 0 post-deploy (SSH doğrulandı) |
+| P1-11 | AÇIK — ANALİZ TAMAMLANDI | EXIT_REQUESTED runtime dead-end; status hiçbir yolla ACTIVE'ye dönmüyor, sadece restart kurtarıyor |
 | P2-1 | DOĞRULANDI | maybe_repair() ölü kod |
 | P2-2 | HÂLÂ GEÇERLİ | CleanupPlan sadece current ID'leri iptal ediyor |
 | P2-3 | HÂLÂ GEÇERLİ | promote dokümantasyon uyuşmazlığı |

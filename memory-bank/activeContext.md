@@ -124,6 +124,7 @@
 - **⚠️ ACİL DURUM (15:33):** APTUSDT pozisyonu Binance'de HÂLÂ açık (short 1024.5 @ 0.62290, upnl=+5.12 USDT) ama bot 3 kez yanlışlıkla `EXIT: SL | PRICE: 0.62 | PNL: +1.62` logladı. P0-6 fix yazılıyor — deploy edilene kadar manuel izleme gerekli.
 
 **Sıradaki açık iş:** P0-6/Görev 12 — `_exit_already_closed` SL/TP result'larında position_still_open() kontrolü genişletme. exit_lifecycle.py + bot.py'da WS_FALLBACK guard'ı SL/TP için de aktif edilecek. APTUSDT canlı izleme altında.
+- **P1-11 (yeni, 2026-07-23 analizi):** `EXIT_REQUESTED` runtime dead-end — `_exit_trade()` pozisyon doğrulaması False döndüğünde status ACTIVE'ye resetlenmiyor. Bot per-bar döngüsü (`UNRESTRICTED_STATUSES`) ve orphan sweep (`should_skip_reconcile`) EXIT_REQUESTED'leri atlıyor → sadece restart kurtarıyor. SEIUSDT (~17 dk) ve UNIUSDT (~6 dk) etkilendi. TRAIL_REPLACING ise kısmi başarı durumunda ACTIVE'ye resetleniyor → dead-end değil.
 
 ## Sıradaki / Açık Konular
 
