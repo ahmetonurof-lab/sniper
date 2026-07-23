@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-23 12:17 — P1-3 fix deploy edildi + canlı log analizi (STRKUSDT 49x reject, SEIUSDT ghost loop, %100 post_entry_check_failed)
+> **Son güncelleme:** 2026-07-23 12:22 — P0-5 fix (openAlgoOrders sessiz yutma) + 3 katman None fail-safe deploy edildi
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ## 🔴 P0 — Finance Risk
@@ -232,6 +232,29 @@ SL/TP yerleştirme log'da "SL OK" / "TP OK" dönse de, 2.5s sonra `get_open_orde
 - **Olası neden:** Aynı ghost pozisyon traili (P0-4) — backoff devrede ama ghost loop bitmediği için reject'ler devam ediyor
 - **⚠️ DURUM: P0-4 ile bağlantılı** — P2-5 fix tek başına yetersiz, ghost pozisyon temizliği periyodik olmalı
 
+### P0-5: `get_all_orders()` openAlgoOrders hatasını sessizce yutuyor — false-negative koruma döngüsü
+**Kaynak:** 2026-07-23 12:21 — canlı server log analizi + kod doğrulaması (baş mühendis onayı)
+- `bot_binance.py:get_all_orders()` (bot_binance.py:635-647) `/fapi/v1/openAlgoOrders` endpoint'i hata verdiğinde sessizce yutup sadece normal emirlerle dönüyor
+- SL/TP emirleri `place_stop_order/place_tp_order` üzerinden **algo ID** ile açıldığı için listede hiç görünmüyor
+- Log seviyesi `debug` + "önemsiz" notu — aslında "korumanın varlığını asla doğrulayamıyoruz" demek
+
+**Zincirleme etki (iki ayrı yol):**
+
+1. **`verify_protection()` inline yol** (protection_service kapalıyken): `get_all_orders()` doğrudan çağrılır, algo hatası yutulur → `sl_present=False, tp_present=False` → gereksiz `repair_protection()` tetiklenir → yeni SL/TP (yine algo, yine görünmez) → **sonsuz döngü** (SEIUSDT ghost loop)
+
+2. **`verify_protection()` → `ProtectionLifecycleService.verify()` yolu** (varsayılan, canlıda aktif): `get_open_order_ids()` → `get_all_orders()` exception fırlatmaz (yutuldu), boş küme döner → `needs_repair=True` → **11/11 post_entry_check_failed**
+
+**Tasarım hatası:** "Sorgu başarısız = emirler yok" varsayımı. Doğrusu "sorgu başarısız = bilmiyoruz, dokunma".
+
+**Düzeltme (7e50331):**
+1. `bot_binance.py:get_all_orders()` — openAlgoOrders başarısızsa `RuntimeError` fırlatır
+2. `order_manager.py:get_open_order_ids()` — hata durumunda `None` (boş küme değil)
+3. `protection_lifecycle.py:verify()` — `None` alırsa `needs_repair=False` fail-safe
+4. `order_manager.py:verify_protection()` — aynı fail-safe
+5. `bot.py:post_entry_check` — None kontrolü
+
+**⚠️ DURUM: DÜZELTİLDİ (7e50331, 12:22)** — Diff baş mühendise onaya gönderildi.
+
 ---
 
 ## 🟡 P2 — Medium Risk
@@ -319,6 +342,7 @@ SL/TP yerleştirme log'da "SL OK" / "TP OK" dönse de, 2.5s sonra `get_open_orde
 | P0-2 | YENİ YOLDA DÜZELTİLDİ | Legacy path devre dışı (flag=True) |
 | P0-3 | KALDIRILDI | `_check_position` fonksiyonu yok, orphan sweep guard'lı |
 | P0-4 | KISMEN DÜZELTİLDİ | `periodic_check_loop` ~60sn'de yakalar, ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
+| P0-5 | DÜZELTİLDİ (7e50331) | get_all_orders() openAlgoOrders hatasını yutuyor — SEIUSDT ghost loop + %100 post_entry_check_failed kök nedeni |
 | P1-1 | DÜZELTİLDİ | `estimate_market_price()` fallback eklendi |
 | P1-2 | HÂLÂ GEÇERLİ | Trail reject sonrası retry yok |
 | P1-3 | DÜZELTİLDİ (2026-07-23) | execute_live_entry() içinde actual_price ile sl/tp yeniden hesaplanıyor + safety-net guard. |
