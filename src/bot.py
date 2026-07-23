@@ -855,25 +855,28 @@ class PaperTrader:
         return await self._exit_trade_legacy(sym, trade, exit_timestamp)
 
     async def _exit_trade_legacy(self, sym, trade, exit_timestamp: int):
-        # WS-FALLBACK guard: pozisyon hala aciksa stale/phantom event'tir.
-        # REST sorgusu basarisiz olursa da FAIL-SAFE davran: asla sessizce
-        # normal exit/cancel_all akisina dusme (eski davranistaki asil bug buydu).
-        if trade.get("result") == "WS_FALLBACK" and cfg.BINANCE_API_KEY:
+        # P0-6 EXPANDED: SL/TP/WS_FALLBACK result'larında pozisyonun gerçekten
+        # kapalı olup olmadığını REST ile doğrula. Stale/phantom event'lerde
+        # commit yapma, trade'i ACTIVE'e geri döndür ve protection kontrolü yap.
+        _exit_result = trade.get("result")
+        if _exit_result in ("SL", "TP", "WS_FALLBACK") and cfg.BINANCE_API_KEY:
             try:
                 position_open = await self.order_manager.position_still_open(sym)
             except Exception as e:
                 log.critical(
-                    "[EXIT] %s WS-FALLBACK pozisyon sorgusu basarisiz (%s) — "
+                    "[EXIT] %s %s pozisyon sorgusu basarisiz (%s) — "
                     "guvenlik nedeniyle exit/cancel_all TETIKLENMIYOR",
                     sym,
+                    _exit_result,
                     e,
                 )
                 return
 
             if position_open:
                 log.warning(
-                    "[EXIT] %s WS-FALLBACK stale event — pozisyon hala acik, exit iptal",
+                    "[EXIT] %s %s stale event — pozisyon hala acik, exit iptal",
                     sym,
+                    _exit_result,
                 )
                 try:
                     sl_present, tp_present = await self.order_manager.verify_protection(
@@ -881,9 +884,10 @@ class PaperTrader:
                     )
                 except Exception as e:
                     log.critical(
-                        "[EXIT] %s WS-FALLBACK koruma dogrulamasi basarisiz (%s) — "
+                        "[EXIT] %s %s koruma dogrulamasi basarisiz (%s) — "
                         "onarim atlanip guvenli tarafta kaliniyor",
                         sym,
+                        _exit_result,
                         e,
                     )
                     sl_present, tp_present = True, True

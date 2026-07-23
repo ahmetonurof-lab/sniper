@@ -264,6 +264,23 @@ SL/TP yerleştirme log'da "SL OK" / "TP OK" dönse de, 2.5s sonra `get_open_orde
 
 **✅ DURUM: DEPLOY EDİLDİ + DOĞRULANDI (7e50331, 14:32)** — Sunucuda mevcut, tüm fail-safe'ler aktif. STRKUSDT/SEIUSDT ghost loop'ları kapanmış.
 
+### P0-6: `_exit_already_closed` SL/TP result'larında da pozisyon doğrulaması yok
+**Kaynak:** 2026-07-23 15:33 — canlı izleme,APTUSDT false SL close
+- Bot 15:24, 15:27, 15:28'te 3 kez `EXIT: SL | PRICE: 0.62 | PNL: +1.62` logladı
+- Binance'de APTUSDT pozisyonu HÂLÂ açık: short 1024.5 @ 0.62290, upnl=+5.12 USDT
+- `_exit_trade_legacy()` (bot.py:857) ve `ExitLifecycleService.execute()` (exit_lifecycle.py:123) sadece `trade.get("result") == "WS_FALLBACK"` için `position_still_open()` REST kontrolü yapıyor
+- SL ve TP result'larında `_exit_already_closed = True` → market close atlanıyor → commit yapılıyor ama pozisyon hala açık
+- Sonuç: yanlış PnL kaydı, trade ACTIVE'den siliniyor, koruma emirleri iptal ediliyor → pozisyon korumasız kalıyor
+
+**Düzeltme (Görev 12):**
+- `exit_lifecycle.py:123` ve `bot.py:857`'de `_exit_already_closed` guard'ını SL/TP/WS_FALLBACK için de çalıştır
+- Pozisyon hala açıksa: stale/phantom event olarak işaretle, `verify_protection()` kontrol et, repair et, trade'i ACTIVE'e geri döndür
+- Sadece gerçekten pozisyon kapalıysa commit yap
+
+**Acil durum (canlı):** APTUSDT pozisyonu Binance'de açık, bot hata loglamaya devam ediyor. Fix deploy edilene kadar manuel izleme gerekli.
+
+**⚠️ DURUM: AÇIK — FIX YAZILIYOR (Görev 12)**
+
 ---
 
 ## 🟡 P2 — Medium Risk

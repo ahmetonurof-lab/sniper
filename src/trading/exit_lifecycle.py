@@ -121,25 +121,30 @@ class ExitLifecycleService:
     # ── Ana orkestrasyon ────────────────────────────────────────
 
     async def execute(self, sym: str, trade: Any, exit_timestamp: int) -> bool:
-        # WS-FALLBACK guard: pozisyon hala aciksa stale/phantom event'tir.
-        # REST sorgusu basarisiz olursa da FAIL-SAFE davran: asla sessizce
-        # normal exit/cancel_all akisina dusme (eski davranistaki asil bug buydu).
-        if trade.get("result") == "WS_FALLBACK" and cfg.BINANCE_API_KEY:
+        # P0-6 EXPANDED: SL/TP/WS_FALLBACK result'larında pozisyonun gerçekten
+        # kapalı olup olmadığını REST ile doğrula. Stale/phantom event'lerde
+        # commit yapma, trade'i ACTIVE'e geri döndür ve protection kontrolü yap.
+        # Bu, WS_FALLBACK için zaten yazılmış olan güvenlik mantığının
+        # SL/TP sonuçlarına da uygulanmasıdır.
+        _exit_result = trade.get("result")
+        if _exit_result in ("SL", "TP", "WS_FALLBACK") and cfg.BINANCE_API_KEY:
             try:
                 position_open = await self._order_manager.position_still_open(sym)
             except Exception as e:
                 log.critical(
-                    "[EXIT] %s WS-FALLBACK pozisyon sorgusu basarisiz (%s) — "
+                    "[EXIT] %s %s pozisyon sorgusu basarisiz (%s) — "
                     "guvenlik nedeniyle exit/cancel_all TETIKLENMIYOR",
                     sym,
+                    _exit_result,
                     e,
                 )
                 return False
 
             if position_open:
                 log.warning(
-                    "[EXIT] %s WS-FALLBACK stale event — pozisyon hala acik, exit iptal",
+                    "[EXIT] %s %s stale event — pozisyon hala acik, exit iptal",
                     sym,
+                    _exit_result,
                 )
                 try:
                     (
@@ -148,9 +153,10 @@ class ExitLifecycleService:
                     ) = await self._order_manager.verify_protection(sym, trade)
                 except Exception as e:
                     log.critical(
-                        "[EXIT] %s WS-FALLBACK koruma dogrulamasi basarisiz (%s) — "
+                        "[EXIT] %s %s koruma dogrulamasi basarisiz (%s) — "
                         "onarim atlanip guvenli tarafta kaliniyor",
                         sym,
+                        _exit_result,
                         e,
                     )
                     sl_present, tp_present = True, True

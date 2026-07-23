@@ -121,8 +121,9 @@
 - **SEIUSDT ghost loop:** Son event 1784799001314 (exit, TRAIL_CLOSE, trailing_count=10, ~13:30 UTC+3) — sonrasında yeni entry yok, loop kapanmış.
 - 3 orphan pozisyon (NEARUSDT, LDOUSDT, APTUSDT) bot tarafından takip ediliyor: 2'si ACTIVE (LDOUSDT, APTUSDT), 1'i kapatıldı (NEARUSDT exit 1784803228413).
 - Bot sağlıklı: pid 83179 çalışıyor, 15m barlar akıyor, WS bağlantısı aktif.
+- **⚠️ ACİL DURUM (15:33):** APTUSDT pozisyonu Binance'de HÂLÂ açık (short 1024.5 @ 0.62290, upnl=+5.12 USDT) ama bot 3 kez yanlışlıkla `EXIT: SL | PRICE: 0.62 | PNL: +1.62` logladı. P0-6 fix yazılıyor — deploy edilene kadar manuel izleme gerekli.
 
-**Sıradaki açık iş:** Yok. P1-2/Görev 11 TRAIL_REPLACING stuck fix tamamlandı ve commit edildi (order_manager.py:117-315). Tüm P0 ve P1 maddeleri deployed ve doğrulandı.
+**Sıradaki açık iş:** P0-6/Görev 12 — `_exit_already_closed` SL/TP result'larında position_still_open() kontrolü genişletme. exit_lifecycle.py + bot.py'da WS_FALLBACK guard'ı SL/TP için de aktif edilecek. APTUSDT canlı izleme altında.
 
 ## Sıradaki / Açık Konular
 
