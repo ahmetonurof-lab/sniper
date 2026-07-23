@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-23 — SSH ile sunucu kod doğrulaması + P1-3 kök neden analizi tamamlandı.
+> **Son güncelleme:** 2026-07-23 — P1-3 fix deploy edildi (onay: baş mühendis)
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ## 🔴 P0 — Finance Risk
@@ -243,7 +243,13 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 
 ## 🔵 P3 — Low Risk
 
-### P3-1: Genel — `except Exception` çok yaygın
+### P3-2: execute_live_entry() entry_log_msg tahmini fiyatı gösteriyor
+**Dosya:** `sniper/src/trading/entry_manager.py:437`
+- `entry_log_msg`'de `PRICE: {est_price:.2f}` yazıyor, `actual_price` değil
+- Davranışı etkilemez, sadece kozmetik
+- **⚠️ DURUM: HÂLÂ GEÇERLİ** — İstenirse actual_price ile güncellenebilir
+
+### P3-3: Genel — `except Exception` çok yaygın
 **Dosya:** `sniper/src/` geneli
 - Spesifik exception tipleri kullanılmalı.
 - Type hinting var ama runtime kontrol zayıf.
@@ -292,4 +298,5 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 | P2-3 | HÂLÂ GEÇERLİ | promote dokümantasyon uyuşmazlığı |
 | P2-4 | DÜZELTİLDİ | self-exit race guard (_SELF_EXIT_IN_PROGRESS_STATUSES) |
 | P2-5 | DÜZELTİLDİ | update_trail_orders -4005 fallback + trail backoff |
-| P3-1 | HÂLÂ GEÇERLİ | except Exception yaygın |
+| P3-1 | HÂLÂ GEÇERLİ | entry_log_msg tahmini fiyat gösteriyor (kozmetik) |
+| P3-2 | HÂLÂ GEÇERLİ | except Exception çok yaygın |
