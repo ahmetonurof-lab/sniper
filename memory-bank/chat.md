@@ -1,5 +1,13 @@
 # Chat Log
 
+## 2026-07-23 — Görev 8: #22/#26 ONDOUSDT trail=3 sınıflandırma doğrulaması
+
+- `_oid_matches_trade()` tam history (current+prev+history SL+TP) kullanıyor — `_collect_trade_order_ids()` 6 alan topluyor, hem normalized hem legacy handler'da `oid_c` ve `oid_i` bu sete karşı kontrol ediliyor.
+- #26 log'da fill `id=aAU4wDiMeq9HAb5PzoFWp0` (short alphanumeric client order ID), bot SL ID'si `1000000142578798` (numeric algo ID) — farklı format, fill bot SL'inden gelmemiş.
+- Sonuç: #22/#26 kesin harici sınıflandırması doğru, kodda eşleştirme açığı yok.
+- Forensic tur kapatıldı. P1-7 sağlam: 26 vaka doğrulandı, kova toplamı tutuyor (3+9+5+9=26).
+- Kalan adım (insan kararı): Binance `/fapi/v1/userTrades` ile #19 ADAUSDT veya #26 ONDOUSDT clientOrderId kaynağını teyit et.
+
 ## 2026-07-23 — Görev 7: P1-7 sayım tutarsızlığı düzeltmesi
 
 - **Sorun:** bugs.md P1-7'deki aritmetik tutarsız — "8/26 trailing / 5 kesin harici / 13 log dışı / 3/20 muhtemel harici" rakamları yanlış.

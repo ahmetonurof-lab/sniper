@@ -112,6 +112,7 @@
 - Canlı testte `_exit_trade()` cancel_all + reduceOnly flow'un Binance ile çalışması gözlemlenecek.
 - Backtest trailing port'u sonrası WR/DD değişimi canlı ile karşılaştırılacak.
 - WS_FALLBACK sayısı trail prev ID fix sonrası takip edilecek.
+- **P1-7 forensic turu kapatıldı (2026-07-23):** 26 vaka doğrulandı (9 bot trailing / 9 kesin harici / 5 muhtemel harici / 3 log dışı). #22/#26 ONDOUSDT trail=3 doğrulandı — `_oid_matches_trade` tam history kullanıyor, fill bot SL'inden değil dış kaynaktan. Kalan adım: Binance API ile #19/#26 clientOrderId kaynağını teyit (insan kararı).
 - **FVG marker konum bug'ı** (chart'ta gördüğümüz, 3 örnek: SOLUSDT aynı gün) — kök neden araştırılıyor.
 - **CBDR_RISK_MATRIX** canlı performansı gözlemlenecek — bucket çarpanlarının gerçek PnL'e uyumu kontrol edilecek.
 - **Session assignment** sonrası DEFAULT/REAL_CBDR/ASIA_RANGE geçişlerinde FVG bulunamama sorunu tekrarlarsa analiz edilecek.
