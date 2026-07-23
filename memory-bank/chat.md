@@ -19,6 +19,13 @@
 - **bugs.md güncellendi:** P1-8 → DÜZELDİ, P1-9 → P0-5 YETERSİZ + P1-2'ye birleşti, P1-10 → DÜZELDİ, P1-2 → TRAIL_REPLACING stuck vulnerability eklendi, P1-7 → 22/23 Temmuz ayrımı. Özet tablo güncellendi. Header timestamp güncellendi.
 - **activeContext.md güncellendi:** Görev 10 özet tablosu eklendi, sıradaki işlere P1-2 fix eklendi.
 
+## 2026-07-23 — P0-7 patch commit & push (cc6e48d)
+
+- **Patch apply:** `p0-7-tp-unchanged-and-precision-churn.patch` zaten sniper repo working directory'sinde uygulanmış durumdaydı (3 files: bugs.md, order_manager.py, test_order_manager.py). Pre-commit hook'ları geçti (ruff-format 1 file reformatted, ikinci denemede tümü geçti).
+- **Commit:** `cc6e48d` — `fix(P0-7): tp_unchanged'de gecerli TP iptalini onle + precision-residual sonsuz trail churn fix`
+- **Push:** origin/main'e başarıyla push'landı.
+- **Memory bank güncellendi:** progress.md, activeContext.md, chat.md.
+
 ## 2026-07-23 — P1-3 güncelleme + testnet güvenilirliği
 
 - **P1-3 kanıt genişletildi:** SEIUSDT 7/23 olayı — short entry @ 0.0462, TP @ 0.04625 (entry üstü), hemen tetiklendi -2.08 PnL. OPUSDT (7/20) ile aynı pattern. `calculate_sl_tp()` short'larda TP'yi yanlış hesaplıyor.

@@ -97,6 +97,7 @@
 | **client_order_id traceability** | ✅ `place_market_order()` parametre eklendi, tüm callers güncellendi. Semantic prefix'ler: entry-, exit-, sl-fail-, reconcile-, recover-. |
 | **Görev 3: Post-entry sanity check** | ✅ `bot.py:_try_entry()` — entry sonrası ~2.5s bekleme + SL/TP Binance'te açık mı doğrulaması. Eksikse CRITICAL log + `post_entry_check_failed` event. |
 | **Görev 4: FVG invalidation exit_intent** | ✅ `bot.py:_on_1m_close()` — FVG kirildi→market close path'ine `log_event("exit_intent", reason="fvg_invalidated")`. |
+| **P0-7: tp_unchanged TP iptal fix + precision-residual churn (cc6e48d)** | ✅ `order_manager.py`: `tp_ok and not tp_unchanged` guard + precision-sonrasi `sl/tp_really_unchanged` erken return. `evaluate_trail()` tick-altı rezidüde sonsuz tetiklenmeyi durdurur. 4 regresyon testi (TestTpUnchangedNoChurn + TestPrecisionResidualNoChurn). |
 
 ## Kalan İşler 🔧
 

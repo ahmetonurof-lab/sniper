@@ -107,6 +107,14 @@
 - **CBDR gövde bazlı (open/close)**: High/low değil.
 - **Backtest trailing live bot ile uyumlu**: `_fvg_close_confirmed()`, ATR buffer (`0.25×ATR`), `TRAIL_MIN_MOVE_MULT=0.2`, break-even (`1R` sonrası SL→entry).
 
+## P0-7 — Deploy Edildi (cc6e48d, 2026-07-23)
+
+**P0-7: `update_trail_orders()` TP iptal fix + precision-residual churn.**
+- `order_manager.py`: `tp_ok and not tp_unchanged` guard — TP fiyatı değişmediğinde eski geçerli TP emri iptal edilmiyor, `tp_order_id` boş string ile ezilmiyor.
+- `order_manager.py`: Precision-sonrası `sl_really_unchanged and tp_really_unchanged` erken return — tick-altı rezidüde emir atılmıyor/iptal edilmiyor, sonsuz churn önlendi.
+- 4 regresyon testi: `TestTpUnchangedNoChurn` (2 test: long/short) + `TestPrecisionResidualNoChurn` (2 test: guard + yanlış pozitif guard).
+- Patch `p0-7-tp-unchanged-and-precision-churn.patch`'ten apply edildi, commit: `cc6e48d`.
+
 ## Görev 10 — Post-Deploy Doğrulama (2026-07-23 13:11)
 
 **P0-5 fix (7e50331): DEPLOY EDİLDİ + DOĞRULANDI.** Sunucu main branch üzerinde, tüm ilgili dosyalarda mevcut:
