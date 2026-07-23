@@ -1,6 +1,6 @@
 # Active Context — Sniper Bot
 
-## Mevcut Durum (Temiz Başlangıç)
+## Mevcut Durum (Görev 10 — Post-deploy doğrulama tamam)
 
 - **Bot çalışıyor mu?**: Testnet'te, canlı emir gönderimi aktif.
 - **Testnet bakiyesi**: ~5,000 USDT
@@ -107,8 +107,23 @@
 - **CBDR gövde bazlı (open/close)**: High/low değil.
 - **Backtest trailing live bot ile uyumlu**: `_fvg_close_confirmed()`, ATR buffer (`0.25×ATR`), `TRAIL_MIN_MOVE_MULT=0.2`, break-even (`1R` sonrası SL→entry).
 
+## Görev 10 — Post-Deploy Doğrulama (2026-07-23 13:11)
+
+**SSH post-deploy sorgu:** Sunucuda `events_2026-07-23.jsonl`'de 12:22 (7e50331 deploy) sonrası 13 event tespit edildi (tümü SEIUSDT):
+
+| P1 | Deploy öncesi | Deploy sonrası | Karar |
+|----|--------------|---------------|-------|
+| P1-8 (post_entry_check_failed) | 11/11 trade | **0 event** | P0-5 ile DÜZELDİ |
+| P1-10 (STRKUSDT -4005) | 49x ardışık | **0 event** | P0-5 ile DÜZELDİ |
+| P1-9 (SEIUSDT ghost loop) | 4+ saat aktif | **8dk daha reject devam etti** | P0-5 YETERSİZ → P1-2'ye birleşti |
+
+**P1-9 devam eden kök neden (P1-2 güncellemesi):** `update_trail_orders()`'ta `trade["status"] = STATUS_TRAIL_REPLACING` (line 117) `apply_price_precision()` çağrısından (line 119-120) ÖNCE set ediliyor. `apply_price_precision()` hiçbir try/except kapsamında değil — network hatasında status TRAIL_REPLACING'de kalıcı olarak asılı kalır. `UNRESTRICTED_STATUSES` TRAIL_REPLACING'i içermediği için `_on_1m_close()` trailing'i sonsuza kadar atlar. Fix: status set'ini `apply_price_precision()` sonrasına taşı veya try/finally bloğu içine al.
+
+**P1-7 güncellemesi:** 22 Temmuz'daki 9 kesin-harici vaka 23 Temmuz'daki browser session'ından AYRI değerlendirilmeli — 22 Temmuz'da `web_` prefix'li OID yok.
+
 ## Sıradaki / Açık Konular
 
+- **P1-2 fix:** `update_trail_orders()` TRAIL_REPLACING stuck — `trade["status"] = STATUS_TRAIL_REPLACING` satırını `apply_price_precision()` sonrasına taşı veya try/finally ekle.
 - Canlı testte `_exit_trade()` cancel_all + reduceOnly flow'un Binance ile çalışması gözlemlenecek.
 - Backtest trailing port'u sonrası WR/DD değişimi canlı ile karşılaştırılacak.
 - WS_FALLBACK sayısı trail prev ID fix sonrası takip edilecek.

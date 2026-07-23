@@ -1,5 +1,24 @@
 # Chat Log
 
+## 2026-07-23 13:11 — Görev 10: Post-deploy doğrulama + P1-2 TRAIL_REPLACING stuck + P1-7 ayrım
+
+- **Görev 10.1 — SSH post-deploy sorgu:** Sunucuya SSH (169.58.41.73) ile bağlanıp `events_2026-07-23.jsonl` (257 satır, deploy öncesi 244 + sonrası 13) sorgulandı. Deploy sonrası (12:22 UTC+3) tüm event'ler SEIUSDT'ye ait.
+  - P1-8 (post_entry_check_failed): **0 post-deploy** → P0-5 ile DÜZELDİ.
+  - P1-10 (STRKUSDT -4005): **0 post-deploy** → P0-5 ile DÜZELDİ.
+  - P1-9 (SEIUSDT ghost loop): **7x sl_reject -2021 + 3x tp_reject post-deploy devam etti** → P0-5 YETERSİZ. Saat 12:30'da FVG invalidation ile force_close (-5.32 PnL).
+- **Görev 10.2 — update_trail_orders() lock & try/except analizi:**
+  - Per-symbol lock: GEREKLİ DEĞİL (sadece _on_1m_close'dan çağrılır, eşzamanlılık yok).
+  - **Kritik bug:** `trade["status"] = STATUS_TRAIL_REPLACING` (line 117) `apply_price_precision()` (line 119-120) ÖNCE set ediliyor. `apply_price_precision()` hiçbir try/except kapsamında DEĞİL. Network hatasında status TRAIL_REPLACING'de kalıcı asılı kalır. `UNRESTRICTED_STATUSES` TRAIL_REPLACING içermediği için `_on_1m_close()` trailing'i sonsuza kadar atlar.
+  - `_on_1m_close()`'da `update_trail_orders()` çağrısı etrafında try/except yok. `on_1m()`'de de yok. Exception event loop'a yayılır.
+  - **Önerilen fix:** status set'ini `apply_price_precision()` sonrasına taşımak veya try/finally bloğu eklemek.
+- **Görev 10.3 — P1-7 22 Temmuz vs 23 Temmuz ayrımı:**
+  - 23 Temmuz'da `web_` prefix OID'ler doğrudan browser session'ına bağlandı.
+  - 22 Temmuz'da `web_` prefix'li hiçbir OID yok. 9 kesin-harici vaka farklı kaynaktan olabilir.
+  - 23 Temmuz'un browser açıklaması 22 Temmuz'a genellenmemeli.
+  - bugs.md P1-7'ye bu ayrım eklendi.
+- **bugs.md güncellendi:** P1-8 → DÜZELDİ, P1-9 → P0-5 YETERSİZ + P1-2'ye birleşti, P1-10 → DÜZELDİ, P1-2 → TRAIL_REPLACING stuck vulnerability eklendi, P1-7 → 22/23 Temmuz ayrımı. Özet tablo güncellendi. Header timestamp güncellendi.
+- **activeContext.md güncellendi:** Görev 10 özet tablosu eklendi, sıradaki işlere P1-2 fix eklendi.
+
 ## 2026-07-23 — P1-3 güncelleme + testnet güvenilirliği
 
 - **P1-3 kanıt genişletildi:** SEIUSDT 7/23 olayı — short entry @ 0.0462, TP @ 0.04625 (entry üstü), hemen tetiklendi -2.08 PnL. OPUSDT (7/20) ile aynı pattern. `calculate_sl_tp()` short'larda TP'yi yanlış hesaplıyor.

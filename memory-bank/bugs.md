@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-23 12:22 — P0-5 fix (openAlgoOrders sessiz yutma) + 3 katman None fail-safe deploy edildi
+> **Son güncelleme:** 2026-07-23 13:11 — Görev 10: SSH post-deploy doğrulama. P1-8/P1-10 DÜZELDİ (P0-5). P1-9 P0-5 yetersiz — P1-2'ye birleşti (TRAIL_REPLACING stuck). P1-7: 22/23 Temmuz ayrımı netleştirildi.
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ## 🔴 P0 — Finance Risk
@@ -59,11 +59,17 @@
 - `recovery_manager.recover_positions()`'daki "mevcut fiyata göre yeniden hesapla" fallback'i burada yok.
 - **⚠️ DURUM: DÜZELTİLDİ** — `repair_protection()` artık SL/TP reddedilirse `estimate_market_price()` ile mevcut fiyata göre yeniden hesaplama yapıyor (aynı `recover_positions()`'daki fallback mantığı).
 
-### P1-2: `update_trail_orders()` reject sonrası retry/backoff yok
+### P1-2: `update_trail_orders()` reject sonrası retry/backoff yok + TRAIL_REPLACING stuck vulnerability
 **Dosya:** `sniper/src/trading/order_manager.py:64`
 - SEIUSDT event log'u ile teyit: aynı `old_id` ile 60sn arayla 2 reject, fiyat yeniden hesaplanmıyor.
 - SL trailing durur, pozisyon korumasız kalır.
-- **⚠️ DURUM: HÂLÂ GEÇERLİ** — `update_trail_orders()` reject olduğunda eski SL'yi koruyor (order_manager.py:135) ama retry veya backoff mekanizması yok.
+- **🚨 YENİ BULGU (Görev 10.1/10.2):** `update_trail_orders()`'ta `trade["status"] = STATUS_TRAIL_REPLACING` (line 117) `apply_price_precision()` çağrısından (line 119-120) ÖNCE set ediliyor. `apply_price_precision()` hiçbir try/except kapsamında DEĞİL — `asyncio` timeout veya network hatasında status TRAIL_REPLACING'de kalıcı olarak asılı kalır. `UNRESTRICTED_STATUSES` TRAIL_REPLACING'i içermediği için `_on_1m_close()` trailing'i sonsuza kadar atlar.
+- **P1-9 SEIUSDT ghost loop'un devam eden kısmının kök nedeni budur:** P0-5 repair döngüsünü kırdı ama trailing sırasında status TRAIL_REPLACING'de kilitlenen pozisyon hâlâ kurtarılamıyor. `_trail_failures` backoff (line 96-115) sadece WARNING üretiyor, status recovery yok.
+- **⚠️ DURUM: HÂLÂ GEÇERLİ** — `update_trail_orders()` reject olduğunda eski SL'yi koruyor (order_manager.py:135) ama:
+  - `apply_price_precision()` öncesi try/except yok → TRAIL_REPLACING stuck riski
+  - `_on_1m_close()` çağıran tarafta try/except yok → exception event loop'a kadar yayılır
+  - Per-symbol lock: **gerekli değil** (`update_trail_orders` sadece `_on_1m_close`'dan çağrılır, eşzamanlılık yok). Asıl ihtiyaç: `try/finally` ile status recovery veya `apply_price_precision` öncesi status set etmeme.
+- **Önerilen fix:** `trade["status"] = STATUS_TRAIL_REPLACING` satırını `apply_price_precision()` çıktıktan sonra (line 120 sonrası) veya try/finally bloğu içine taşı.
 
 ### P1-3: SL/TP tahmini fiyatla hesaplanıyor, actual fill price ile güncellenmiyor - DÜZELTİLDİ
 **Kaynak:** `events_2026-07-23.jsonl` (SEIUSDT 08:48) + `trades_history.jsonl` + SSH ile sunucu kod doğrulaması
@@ -196,8 +202,9 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
   - Görev 4: FVG invalidation path'ine `log_event("exit_intent", reason="fvg_invalidated")` eklendi — artık events_*.jsonl'den trail_close'lar raw log'a inmeden tespit edilebilir
   - `client_order_id` traceability — tüm market order callers'a semantic prefix (entry-, exit-, sl-fail-, reconcile-, recover-)
 - **Forensic aksiyon:** `ylOu3i0T6KRNJfKMA3T18s` clientOrderId'ine ait emrin tam detayı Binance API'den çekilmeli (`/fapi/v1/allOrders` veya `/fapi/v1/userTrades`). Eğer bu emir MARKET + reduceOnly ise ve botun hiçbir yerinde bu ID üretilmemişse, kaynak bot dışıdır.
-- **Testnet güvenliği (2026-07-23):** API key yenilendi ama `web_1FJn4hMop8dxxQeYCcLi` ile web arayüzünden emir gelmeye devam etti. Doğrulandı: kullanıcı Brave'de eski session ile kilitli kalmış, diğer browser'dan login olup bot pozisyonunu görmüş — `web_` order kendi diğer browser'ından kaynaklanıyor. Testnet paylaşımı veya sızma değil, kendi browser'ları arası session farkı. Mainnet'te reassess edilecek.
-- **⚠️ DURUM: KISMEN AÇIKLANDI** — 26 vaka tamamı doğrulandı (9 bot trailing / 9 kesin harici / 5 muhtemel harici / 3 log dışı). Önceki sayım tutarsızlıkları düzeltildi (8→9 trailing, 5→9 kesin, 13→3 log dışı). Görev 3/4 ile gözlemlenebilirlik artırıldı. 5 muhtemel harici (#7,#8,#9,#12,#15) için deeper analiz gerekli. Testnet'te external fill'ler testnet paylaşımdan kaynaklanıyor, mainnet'e geçişte reassess edilecek.
+- **Testnet güvenliği (2026-07-23):** API key yenilendi ama `web_1FJn4hMop8dxxQeYCcLi` ile web arayüzünden emir gelmeye devam etti. Doğrulandı: kullanıcı Brave'de eski session ile kilitli kalmış, diğer browser'dan login olup bot pozisyonunu görmüş — `web_` order kendi diğer browser'ından kaynaklanıyor.
+- **⚠️ 22 TEMMUZ vs 23 TEMMUZ AYRIMI (Görev 10.3):** 23 Temmuz'daki external fill'ler (`web_` prefix OID'ler, NEARUSDT ve SEIUSDT) doğrudan browser session'ına bağlandı. Ancak **22 Temmuz'daki 9 kesin-harici vakanın kaynağı BUNDAN FARKLI OLABİLİR** — 22 Temmuz'da `web_` prefix'li hiçbir OID yok. O günkü WS_UNMATCHED_REDUCE_ONLY event'leri (ADA, ONDO, TIA, SOL, DOGE) farklı bir kaynaktan (testnet paylaşımı, başka API key instance'ı, Binance testnet otomatik reset) gelebilir. 23 Temmuz'un browser açıklaması otomatik olarak 22 Temmuz'a genellenmemelidir. Forensic aksiyon (`ylOu3i0T6KRNJfKMA3T18s` clientOrderId sorgusu) hâlâ geçerli.
+- **⚠️ DURUM: KISMEN AÇIKLANDI** — 26 vaka tamamı doğrulandı (9 bot trailing / 9 kesin harici / 5 muhtemel harici / 3 log dışı). Önceki sayım tutarsızlıkları düzeltildi (8→9 trailing, 5→9 kesin, 13→3 log dışı). Görev 3/4 ile gözlemlenebilirlik artırıldı. 5 muhtemel harici (#7,#8,#9,#12,#15) için deeper analiz gerekli. **22 Temmuz'daki 9 kesin-harici vaka 23 Temmuz'daki browser session'ından AYRI değerlendirilmeli** — testnet paylaşımı veya diğer instance hâlâ olası. Mainnet'e geçişte reassess edilecek.
 
 ### P1-8: post_entry_check_failed %100 tüm trades — sistematik SL/TP kaybı (2026-07-23 canlı verisi)
 **Kaynak:** `events_2026-07-23.jsonl` (241 satır, sunucudan alındı) — SSH ile canlı analiz
@@ -214,23 +221,24 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 SL/TP yerleştirme log'da "SL OK" / "TP OK" dönse de, 2.5s sonra `get_open_order_ids()` bunları bulamıyor. Eğer `/fapi/v1/openAlgoOrders` testnette güvenilir değilse (boş dönüyorsa), `sl_id`/`tp_id` (algo ID) normal openOrders'ta olmadığı için `sl_ok=False, tp_ok=False` döner.
 
 - **İlişkili:** P0-1 (çift exit), P1-7 (harici kapanış), P0-4 (ghost loop) — hepsi aynı kökten besleniyor olabilir
-- **⚠️ DURUM: ARAŞTIRILIYOR** — `/fapi/v1/openAlgoOrders` testnet davranışı doğrulanmalı. Eğer testnet hatasıysa mainnet'te görülmeyebilir.
+- **⚠️ DURUM: P0-5 İLE DÜZELDİ** — Görev 10.1 (SSH post-deploy doğrulama): deploy sonrası (12:22→12:30 arası) **0 adet** `post_entry_check_failed` event'i. P0-5 fix (openAlgoOrders hatasını None fırlat + fail-safe) P1-8'i tamamen durdurdu. `/fapi/v1/openAlgoOrders` testnet sorgusu gerçekten bozuk dönüyordu, fix sonrası `None` fail-safe koruyor.
 
-### P1-9: SEIUSDT ghost loop 4+ saat — restart sonrası bile devam ediyor (2026-07-23)
-**Kaynak:** Sunucu canlı log + events_2026-07-23.jsonl
-- SEIUSDT short @ 0.0462 pozisyonu saat 08:47'den itibaren **12:18 itibarıyla hâlâ aktif**
+### P1-9: SEIUSDT ghost loop 4+ saat — restart + P0-5 deploy SONRASI bile devam etti (2026-07-23)
+**Kaynak:** Sunucu canlı log + events_2026-07-23.jsonl + Görev 10.1 SSH post-deploy sorgusu
+- SEIUSDT short @ 0.0462 pozisyonu saat 08:47'den itibaren **12:30'a kadar** aktif kaldı
 - Restart (12:14) sonrası recovery_manager tarafından yeniden oluşturuldu
 - `[ORPHAN] SEIUSDT status=TRAIL_REPLACING — orphan sweep bu sembolde atlaniyor`
 - Trailing SL sürekli -2021 (Order would immediately trigger) reject alıyor
-- P0-4 ghost pozisyon temizliğinin restart'ta bile çalışmadığını kanıtlıyor
+- **P0-5 deploy (12:22) SONRASI:** SEIUSDT trailing reject'leri 12:22:15'ten itibaren devam etti (7x sl_reject -2021, 3x tp_reject, tp_price=0.0001'e dejenere oldu). Saat 12:30'da FVG invalidation → force_close ile pozisyon kapatıldı (pnl=-5.32).
+- **⚠️ P0-5 YETERSİZ** — P1-9'un kök nedenlerinden 1. yol (verify_protection → sonsuz repair döngüsü) P0-5 ile kapandı ama 2. yol (update_trail_orders TRAIL_REPLACING'de asılı kalma) ayrı bir bug. `extra_trail_failures` backoff sadece warning üretiyor, status'u ACTIVE'e döndürmüyor. P1-9'un devam eden kısmı için **P1-2 ile birleştirildi** (aşağıdaki P1-2 güncellemesine bak).
 
 ### P1-10: STRKUSDT 49x consecutive -4005 rejection (2026-07-23 log bulgusu)
-**Kaynak:** `events_2026-07-23.jsonl` — SSH ile canlı analiz
+**Kaynak:** `events_2026-07-23.jsonl` — SSH ile canlı analiz + Görev 10.1 SSH post-deploy sorgusu
 - Aynı `old_id=1000000141695716`, aynı fiyat (`sl_price=0.0301`), 1+ saat boyunca her ~36s'de bir tekrarlanan -4005 hatası
 - 49 ardışık `sl_reject` event'i (1784764862643 → 1784784616885 arası)
 - `_trail_failures` backoff (P2-5 DÜZELTİLDİ) bu vakada çalışmamış
-- **Olası neden:** Aynı ghost pozisyon traili (P0-4) — backoff devrede ama ghost loop bitmediği için reject'ler devam ediyor
-- **⚠️ DURUM: P0-4 ile bağlantılı** — P2-5 fix tek başına yetersiz, ghost pozisyon temizliği periyodik olmalı
+- **Görev 10.1 doğrulaması:** STRKUSDT -4005 deploy sonrası **0 event** → kesinlikle durdu.
+- **⚠️ DURUM: P0-5 İLE DÜZELDİ** — STRKUSDT -4005 ghost döngüsünün kök nedeni openAlgoOrders sessiz yutmaydı. P0-5 fix ile sonsuz repair döngüsü kırıldı. P2-5 fallback/backoff artık gereksiz (P1-6 entry maxQty clamp zaten entry'de -4005'i engelliyor) ama defense-in-depth olarak kalmalı.
 
 ### P0-5: `get_all_orders()` openAlgoOrders hatasını sessizce yutuyor — false-negative koruma döngüsü
 **Kaynak:** 2026-07-23 12:21 — canlı server log analizi + kod doğrulaması (baş mühendis onayı)
@@ -344,15 +352,15 @@ SL/TP yerleştirme log'da "SL OK" / "TP OK" dönse de, 2.5s sonra `get_open_orde
 | P0-4 | KISMEN DÜZELTİLDİ | `periodic_check_loop` ~60sn'de yakalar, ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
 | P0-5 | DÜZELTİLDİ (7e50331) | get_all_orders() openAlgoOrders hatasını yutuyor — SEIUSDT ghost loop + %100 post_entry_check_failed kök nedeni |
 | P1-1 | DÜZELTİLDİ | `estimate_market_price()` fallback eklendi |
-| P1-2 | HÂLÂ GEÇERLİ | Trail reject sonrası retry yok |
+| P1-2 | HÂLÂ GEÇERLİ | Trail reject sonrası retry yok + TRAIL_REPLACING stuck (apply_price_precision öncesi status set) — P1-9'un devam eden kök nedeni |
 | P1-3 | DÜZELTİLDİ (2026-07-23) | execute_live_entry() içinde actual_price ile sl/tp yeniden hesaplanıyor + safety-net guard. |
 | P1-4 | KISMEN DÜZELTİLDİ | Orphan periyodik (periodic_check_loop + _on_1m_close), ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
 | P1-5 | KÖK NEDEN DÜZELTİLDİ | `_round_step` floating-point fix (`int(value/step)`) |
 | P1-6 | DÜZELTİLDİ | Entry sizing LOT_SIZE.maxQty kontrolü yok — kök neden |
-| P1-7 | KISMEN AÇIKLANDI | 26 vaka doğrulandı: 9 bot trailing / 9 kesin harici / 5 muhtemel harici / 3 log dışı. |
-| P1-8 | ARAŞTIRILIYOR | %100 post_entry_check_failed (11/11 trade) — /fapi/v1/openAlgoOrders testnet güvenilirliği? |
-| P1-9 | P0-4 ile bağlantılı | SEIUSDT ghost loop 4+ saat, restart sonrası bile devam |
-| P1-10 | P0-4 ile bağlantılı | STRKUSDT 49x consecutive -4005 rejection (ghost trailing) |
+| P1-7 | KISMEN AÇIKLANDI | 26 vaka doğrulandı: 9 bot trailing / 9 kesin harici (22 Temmuz browser'dan AYRI) / 5 muhtemel harici / 3 log dışı |
+| P1-8 | DÜZELDİ (P0-5) | 11/11 → 0/0 post-entry-check post-deploy (SSH doğrulandı) |
+| P1-9 | P0-5 YETERSİZ → P1-2 ile birleşti | P0-5 repair döngüsünü kırdı ama trailing TRAIL_REPLACING stuck hâlâ var — deploy sonrası 8dk daha reject devam etti |
+| P1-10 | DÜZELDİ (P0-5) | 49x -4005 → 0 post-deploy (SSH doğrulandı) |
 | P2-1 | DOĞRULANDI | maybe_repair() ölü kod |
 | P2-2 | HÂLÂ GEÇERLİ | CleanupPlan sadece current ID'leri iptal ediyor |
 | P2-3 | HÂLÂ GEÇERLİ | promote dokümantasyon uyuşmazlığı |
