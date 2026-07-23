@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-23 21:04 — Yeni bug eklendi: P1-11 EXIT_REQUESTED runtime dead-end (paper_trade.log analizi).
+> **Son güncelleme:** 2026-07-23 22:04 — P1-11 fix deploy edildi (b739bb3).
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ## 🔴 P0 — Finance Risk
@@ -308,7 +308,7 @@ SL/TP yerleştirme log'da "SL OK" / "TP OK" dönse de, 2.5s sonra `get_open_orde
 - `_exit_trade()` / `execute()` pozisyon doğrulaması başarısız olunca trade.status'u `STATUS_ACTIVE`'ye resetlemeli (SL/TP hâlâ Binance'te).
 - veya `EXIT_REQUESTED`/`EXIT_SUBMITTED`/`EXIT_VERIFYING` durumları için per-bar retry mekanizması eklemeli.
 
-**⚠️ DURUM: AÇIK — ANALİZ TAMAMLANDI**
+**⚠️ DURUM: DÜZELTİLDİ (b739bb3)** — `_exit_trade()` / `execute()` ve `_exit_trade_legacy()` stale-event dalında `trade["status"] = STATUS_ACTIVE` eklendi. Pozisyon hala açık ve koruma onarıldığında trade ACTIVE'ye dönüyor, per-bar döngü ve orphan sweep artık işliyor.
 
 ### P2-1: `ProtectionLifecycleService.maybe_repair()` ölü kod
 **Dosya:** `sniper/src/trading/protection_lifecycle.py:157`
@@ -404,7 +404,7 @@ SL/TP yerleştirme log'da "SL OK" / "TP OK" dönse de, 2.5s sonra `get_open_orde
 | P1-8 | DÜZELDİ (P0-5) | 11/11 → 0/0 post-entry-check post-deploy (SSH doğrulandı) |
 | P1-9 | P0-5 YETERSİZ → P1-2 ile birleşti | P0-5 repair döngüsünü kırdı ama trailing TRAIL_REPLACING stuck hâlâ var — deploy sonrası 8dk daha reject devam etti |
 | P1-10 | DÜZELDİ (P0-5) | 49x -4005 → 0 post-deploy (SSH doğrulandı) |
-| P1-11 | AÇIK — ANALİZ TAMAMLANDI | EXIT_REQUESTED runtime dead-end; status hiçbir yolla ACTIVE'ye dönmüyor, sadece restart kurtarıyor |
+| P1-11 | DÜZELTİLDİ (b739bb3) | EXIT_REQUESTED runtime dead-end; status ACTIVE'ye resetleniyor |
 | P2-1 | DOĞRULANDI | maybe_repair() ölü kod |
 | P2-2 | HÂLÂ GEÇERLİ | CleanupPlan sadece current ID'leri iptal ediyor |
 | P2-3 | HÂLÂ GEÇERLİ | promote dokümantasyon uyuşmazlığı |
