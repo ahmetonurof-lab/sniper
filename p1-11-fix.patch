@@ -1,0 +1,39 @@
+--- src/trading/exit_lifecycle.py	2026-07-23 18:48:46.533442807 +0000
++++ src/trading/exit_lifecycle.py	2026-07-23 18:49:00.653696853 +0000
+@@ -49,6 +49,7 @@
+ from models import (
+     INCIDENT_EXIT_UNCONFIRMED,
+     INCIDENT_PROTECTION_BROKEN,
++    STATUS_ACTIVE,
+     STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
+     STATUS_CLOSED,
+     STATUS_EXIT_SUBMITTED,
+@@ -176,6 +177,14 @@
+                 trade["pending_exit_order_id"] = None
+                 trade["pending_exit_timestamp"] = None
+                 trade["result"] = None
++                # P1-11 FIX: stale/phantom event nedeniyle exit iptal edildi ama
++                # status hala EXIT_REQUESTED/EXIT_SUBMITTED/EXIT_VERIFYING'de
++                # kalıyordu. UNRESTRICTED_STATUSES sadece ACTIVE/"" içerdiği
++                # için bot.py:_on_1m_close() ve recovery_manager orphan sweep
++                # bu trade'i bir daha asla işlemiyordu — sadece restart
++                # kurtarabiliyordu. Pozisyon gerçekten hala açık ve (varsa)
++                # onarılmış korumayla ACTIVE'e dönmesi gerekiyor.
++                trade["status"] = STATUS_ACTIVE
+                 return False
+
+             # FIX (A3): position_open == False -> gercek kapanis, pending
+--- src/bot.py	2026-07-23 18:48:46.672252398 +0000
++++ src/bot.py	2026-07-23 18:49:14.413760993 +0000
+@@ -907,6 +907,11 @@
+                 trade["pending_exit_order_id"] = None
+                 trade["pending_exit_timestamp"] = None
+                 trade["result"] = None
++                # P1-11 FIX: bkz. exit_lifecycle.py ExitLifecycleService.execute() —
++                # aynı gerekçeyle status ACTIVE'e döndürülüyor, aksi halde
++                # EXIT_REQUESTED/EXIT_SUBMITTED/EXIT_VERIFYING'de sonsuza kadar
++                # kilitli kalıp sadece restart'ta kurtarılabiliyordu.
++                trade["status"] = STATUS_ACTIVE
+                 return
+
+             # FIX (A3): position_open == False -> gercek kapanis, pending

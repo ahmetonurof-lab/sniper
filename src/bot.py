@@ -907,6 +907,11 @@ class PaperTrader:
                 trade["pending_exit_order_id"] = None
                 trade["pending_exit_timestamp"] = None
                 trade["result"] = None
+                # P1-11 FIX: bkz. exit_lifecycle.py ExitLifecycleService.execute() —
+                # aynı gerekçeyle status ACTIVE'e döndürülüyor, aksi halde
+                # EXIT_REQUESTED/EXIT_SUBMITTED/EXIT_VERIFYING'de sonsuza kadar
+                # kilitli kalıp sadece restart'ta kurtarılabiliyordu.
+                trade["status"] = STATUS_ACTIVE
                 return
 
             # FIX (A3): position_open == False -> gercek kapanis, pending

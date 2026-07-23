@@ -49,6 +49,7 @@ from event_log import log_event
 from models import (
     INCIDENT_EXIT_UNCONFIRMED,
     INCIDENT_PROTECTION_BROKEN,
+    STATUS_ACTIVE,
     STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
     STATUS_CLOSED,
     STATUS_EXIT_SUBMITTED,
@@ -176,6 +177,14 @@ class ExitLifecycleService:
                 trade["pending_exit_order_id"] = None
                 trade["pending_exit_timestamp"] = None
                 trade["result"] = None
+                # P1-11 FIX: stale/phantom event nedeniyle exit iptal edildi ama
+                # status hala EXIT_REQUESTED/EXIT_SUBMITTED/EXIT_VERIFYING'de
+                # kalıyordu. UNRESTRICTED_STATUSES sadece ACTIVE/"" içerdiği
+                # için bot.py:_on_1m_close() ve recovery_manager orphan sweep
+                # bu trade'i bir daha asla işlemiyordu — sadece restart
+                # kurtarabiliyordu. Pozisyon gerçekten hala açık ve (varsa)
+                # onarılmış korumayla ACTIVE'e dönmesi gerekiyor.
+                trade["status"] = STATUS_ACTIVE
                 return False
 
             # FIX (A3): position_open == False -> gercek kapanis, pending
