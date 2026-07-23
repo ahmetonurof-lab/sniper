@@ -111,17 +111,24 @@ class ProtectionLifecycleService:
 
     # ── Doğrulama ──────────────────────────────────────────────
 
-    def verify(self, trade: Any, open_order_ids: set[str]) -> ProtectionCheckResult:
+    def verify(
+        self, trade: Any, open_order_ids: set[str] | None
+    ) -> ProtectionCheckResult:
         """SL/TP emirlerinin Binance'te hâlâ açık olup olmadığını
         kontrol et.
 
         open_order_ids: OrderManager.get_open_order_ids()'ten gelen
-        güncel açık emir ID'leri.
-
-        FIX (A4): expects_sl / expects_tp mantığı — sl=0 ise SL
-        beklenmez (not_required), sl_order_id boş ama sl>0 ise
-        eksik (missing).
+        güncel açık emir ID'leri. None ise sorgu basarisiz demektir —
+        fail-safe: needs_repair=False (dokunma).
         """
+        if open_order_ids is None:
+            return ProtectionCheckResult(
+                sl_present=True,
+                tp_present=True,
+                sl_healthy=True,
+                tp_healthy=True,
+                needs_repair=False,
+            )
         s_id = str(trade.get("sl_order_id", ""))
         t_id = str(trade.get("tp_order_id", ""))
         expects_sl = bool(trade.get("sl"))

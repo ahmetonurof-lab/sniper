@@ -705,8 +705,16 @@ class PaperTrader:
                     try:
                         await asyncio.sleep(2.5)
                         open_ids = await self.order_manager.get_open_order_ids(sym)
-                        sl_ok = not sl_id or sl_id in open_ids
-                        tp_ok = not tp_id or tp_id in open_ids
+                        if open_ids is None:
+                            log.warning(
+                                "[POST_ENTRY] %s SL/TP sorgu basarisiz — check atlaniyor",
+                                sym,
+                            )
+                            sl_ok = True
+                            tp_ok = True
+                        else:
+                            sl_ok = not sl_id or sl_id in open_ids
+                            tp_ok = not tp_id or tp_id in open_ids
                         if not sl_ok or not tp_ok:
                             log.critical(
                                 "[POST_ENTRY] %s SL/TP sanity check BASARISIZ! "

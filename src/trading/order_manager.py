@@ -329,18 +329,20 @@ class OrderManager:
 
     # ── Canlı doğrulama (WS-FALLBACK guard için) ──────────────
 
-    async def get_open_order_ids(self, sym: str) -> set[str]:
+    async def get_open_order_ids(self, sym: str) -> set[str] | None:
         """Binance'teki tüm açık emirlerin ID'lerini döndür.
 
-        REST sorgusu başarısız olursa boş küme döner — çağıran
-        taraf fail-safe kararını kendi verir.
+        P0-FIX: REST sorgusu basarisiz olursa None döner (bos kume degil).
+        Cagiran 'None = bilmiyoruz, dokunma' fail-safe'ine dusmeli.
         """
         try:
             orders = await self._rest.get_all_orders(sym)
             return {str(o.get("algoId") or o.get("orderId") or "") for o in orders}
         except Exception as e:
-            log.warning("[VERIFY] %s acik emir sorgu hatasi: %s", sym, e)
-            return set()
+            log.critical(
+                "[VERIFY] %s acik emir sorgu HATASI: %s — fail-safe (dokunma)", sym, e
+            )
+            return None
 
     async def verify_protection(self, sym: str, trade: dict) -> "ProtectionCheckResult":
         """Binance'teki açık emirleri sorgulayıp sl_order_id / tp_order_id'nin
@@ -358,6 +360,14 @@ class OrderManager:
 
         if self._protection is not None:
             open_ids = await self.get_open_order_ids(sym)
+            if open_ids is None:
+                return ProtectionCheckResult(
+                    sl_present=True,
+                    tp_present=True,
+                    sl_healthy=True,
+                    tp_healthy=True,
+                    needs_repair=False,
+                )
             return self._protection.verify(trade, open_ids)
 
         s_id = str(trade.get("sl_order_id", ""))

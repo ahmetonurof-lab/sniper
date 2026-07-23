@@ -633,17 +633,17 @@ class BinanceRESTClient:
         return result if isinstance(result, list) else []
 
     async def get_all_orders(self, symbol: str) -> list:
-        """Normal + algo emirleri birleşik olarak döner."""
+        """Normal + algo emirleri birleşik olarak döner.
+
+        P0-FIX: openAlgoOrders basarisiz olursa exception firlat —
+        sessiz yutma koruma dongusune false-negative veriyordu.
+        """
         orders = await self.get_open_orders(symbol)
         r = await self.get("/fapi/v1/openAlgoOrders", f"symbol={symbol}")
         if r.is_ok and isinstance(r.value, list):
             orders.extend(r.value)
         elif r.is_err:
-            log.debug(
-                "[ORDERS] algoOrders alınamadı %s (önemsiz): %s",
-                symbol.ljust(12),
-                r.error,
-            )
+            raise RuntimeError(f"openAlgoOrders sorgusu basarisiz {symbol}: {r.error}")
         return orders
 
     async def get_balance(self) -> float:
