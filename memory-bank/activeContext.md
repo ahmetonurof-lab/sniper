@@ -109,17 +109,20 @@
 
 ## Görev 10 — Post-Deploy Doğrulama (2026-07-23 13:11)
 
-**SSH post-deploy sorgu:** Sunucuda `events_2026-07-23.jsonl`'de 12:22 (7e50331 deploy) sonrası 13 event tespit edildi (tümü SEIUSDT):
+**P0-5 fix (7e50331): DEPLOY EDİLDİ + DOĞRULANDI.** Sunucu main branch üzerinde, tüm ilgili dosyalarda mevcut:
+- ✅ `bot_binance.py:646` — `get_all_orders()`: `openAlgoOrders` hatasında exception fırlatıyor (sessiz yutma kaldırıldı).
+- ✅ `order_manager.py:363/369/403` — `get_open_order_ids()`: REST hatasında `None` dönüyor, fail-safe çalışıyor.
+- ✅ `bot.py:708` — `post_entry_check_failed` bloğu: `open_ids is None` durumunda check atlanıyor.
+- ✅ `protection_lifecycle.py:130` — `verify_protection()`: `open_ids is None` durumunda `needs_repair=False` dönüyor.
 
-| P1 | Deploy öncesi | Deploy sonrası | Karar |
-|----|--------------|---------------|-------|
-| P1-8 (post_entry_check_failed) | 11/11 trade | **0 event** | P0-5 ile DÜZELDİ |
-| P1-10 (STRKUSDT -4005) | 49x ardışık | **0 event** | P0-5 ile DÜZELDİ |
-| P1-9 (SEIUSDT ghost loop) | 4+ saat aktif | **8dk daha reject devam etti** | P0-5 YETERSİZ → P1-2'ye birleşti |
+**Deploy sonrası events_2026-07-23.jsonl durumu (son kontrol 14:32 UTC+3):**
+- Toplam event: 157 (sl_reject: 98, tp_reject: 58, exit: 43, entry: 19, force_close: 14, post_entry_check_failed: 11, exit_intent: 9, ws_unmatched_reduce_only: 7)
+- **STRKUSDT ghost loop:** Son event 1784784617356 (sl_reject -4005, ~13:10 UTC+3) — sonrasında hiç event, loop kapanmış.
+- **SEIUSDT ghost loop:** Son event 1784799001314 (exit, TRAIL_CLOSE, trailing_count=10, ~13:30 UTC+3) — sonrasında yeni entry yok, loop kapanmış.
+- 3 orphan pozisyon (NEARUSDT, LDOUSDT, APTUSDT) bot tarafından takip ediliyor: 2'si ACTIVE (LDOUSDT, APTUSDT), 1'i kapatıldı (NEARUSDT exit 1784803228413).
+- Bot sağlıklı: pid 83179 çalışıyor, 15m barlar akıyor, WS bağlantısı aktif.
 
-**P1-9 devam eden kök neden (P1-2 güncellemesi):** `update_trail_orders()`'ta `trade["status"] = STATUS_TRAIL_REPLACING` (line 117) `apply_price_precision()` çağrısından (line 119-120) ÖNCE set ediliyor. `apply_price_precision()` hiçbir try/except kapsamında değil — network hatasında status TRAIL_REPLACING'de kalıcı olarak asılı kalır. `UNRESTRICTED_STATUSES` TRAIL_REPLACING'i içermediği için `_on_1m_close()` trailing'i sonsuza kadar atlar. Fix: status set'ini `apply_price_precision()` sonrasına taşı veya try/finally bloğu içine al.
-
-**P1-7 güncellemesi:** 22 Temmuz'daki 9 kesin-harici vaka 23 Temmuz'daki browser session'ından AYRI değerlendirilmeli — 22 Temmuz'da `web_` prefix'li OID yok.
+**Sıradaki açık iş:** P1-2 fix — `update_trail_orders()` TRAIL_REPLACING stuck. `trade["status"] = STATUS_TRAIL_REPLACING` satırı `apply_price_precision()` sonrasına taşınacak veya try/finally bloğu eklenecek.
 
 ## Sıradaki / Açık Konular
 

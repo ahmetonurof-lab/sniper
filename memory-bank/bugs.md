@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-23 13:11 — Görev 10: SSH post-deploy doğrulama. P1-8/P1-10 DÜZELDİ (P0-5). P1-9 P0-5 yetersiz — P1-2'ye birleşti (TRAIL_REPLACING stuck). P1-7: 22/23 Temmuz ayrımı netleştirildi.
+> **Son güncelleme:** 2026-07-23 14:32 — Görev 10: P0-5 fix (7e50331) DEPLOY EDİLDİ ve DOĞRULANDI. Sunucuda mevcut. Sıradaki açık iş: SEIUSDT/STRKUSDT ghost loop izleme.
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ## 🔴 P0 — Finance Risk
@@ -221,16 +221,17 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 SL/TP yerleştirme log'da "SL OK" / "TP OK" dönse de, 2.5s sonra `get_open_order_ids()` bunları bulamıyor. Eğer `/fapi/v1/openAlgoOrders` testnette güvenilir değilse (boş dönüyorsa), `sl_id`/`tp_id` (algo ID) normal openOrders'ta olmadığı için `sl_ok=False, tp_ok=False` döner.
 
 - **İlişkili:** P0-1 (çift exit), P1-7 (harici kapanış), P0-4 (ghost loop) — hepsi aynı kökten besleniyor olabilir
-- **⚠️ DURUM: P0-5 İLE DÜZELDİ** — Görev 10.1 (SSH post-deploy doğrulama): deploy sonrası (12:22→12:30 arası) **0 adet** `post_entry_check_failed` event'i. P0-5 fix (openAlgoOrders hatasını None fırlat + fail-safe) P1-8'i tamamen durdurdu. `/fapi/v1/openAlgoOrders` testnet sorgusu gerçekten bozuk dönüyordu, fix sonrası `None` fail-safe koruyor.
+- **⚠️ DURUM: ARAŞTIRILIYOR** — Görev 10.1'deki "0 post-deploy event" bulgusu yanıltıcı: P0-5 fix (7e50331) henüz sunucuya deploy edilmedi. Sunucu hâlâ openAlgoOrders hatasını sessizce yutan ESKİ kodla çalışıyor. 12:22 sonrası 0 event'in sebebi fix değil, yeni entry girilmemesi. Fix deploy edilip yeniden test edilecek.
 
-### P1-9: SEIUSDT ghost loop 4+ saat — restart + P0-5 deploy SONRASI bile devam etti (2026-07-23)
-**Kaynak:** Sunucu canlı log + events_2026-07-23.jsonl + Görev 10.1 SSH post-deploy sorgusu
+### P1-9: SEIUSDT ghost loop 4+ saat — restart sonrası bile devam ediyor (2026-07-23)
+**Kaynak:** Sunucu canlı log + events_2026-07-23.jsonl + SSH sorgusu
 - SEIUSDT short @ 0.0462 pozisyonu saat 08:47'den itibaren **12:30'a kadar** aktif kaldı
 - Restart (12:14) sonrası recovery_manager tarafından yeniden oluşturuldu
 - `[ORPHAN] SEIUSDT status=TRAIL_REPLACING — orphan sweep bu sembolde atlaniyor`
 - Trailing SL sürekli -2021 (Order would immediately trigger) reject alıyor
-- **P0-5 deploy (12:22) SONRASI:** SEIUSDT trailing reject'leri 12:22:15'ten itibaren devam etti (7x sl_reject -2021, 3x tp_reject, tp_price=0.0001'e dejenere oldu). Saat 12:30'da FVG invalidation → force_close ile pozisyon kapatıldı (pnl=-5.32).
-- **⚠️ P0-5 YETERSİZ** — P1-9'un kök nedenlerinden 1. yol (verify_protection → sonsuz repair döngüsü) P0-5 ile kapandı ama 2. yol (update_trail_orders TRAIL_REPLACING'de asılı kalma) ayrı bir bug. `extra_trail_failures` backoff sadece warning üretiyor, status'u ACTIVE'e döndürmüyor. P1-9'un devam eden kısmı için **P1-2 ile birleştirildi** (aşağıdaki P1-2 güncellemesine bak).
+- P0-5 fix HENÜZ DEPLOY EDİLMEDİ — sunucu eski kodla çalışıyor
+- Saat 12:30'da FVG invalidation → force_close ile pozisyon kapatıldı (pnl=-5.32)
+- **P0-5 fix deploy edildikten sonra yeniden değerlendirilecek**
 
 ### P1-10: STRKUSDT 49x consecutive -4005 rejection (2026-07-23 log bulgusu)
 **Kaynak:** `events_2026-07-23.jsonl` — SSH ile canlı analiz + Görev 10.1 SSH post-deploy sorgusu
@@ -261,7 +262,7 @@ SL/TP yerleştirme log'da "SL OK" / "TP OK" dönse de, 2.5s sonra `get_open_orde
 4. `order_manager.py:verify_protection()` — aynı fail-safe
 5. `bot.py:post_entry_check` — None kontrolü
 
-**⚠️ DURUM: DÜZELTİLDİ (7e50331, 12:22)** — Diff baş mühendise onaya gönderildi.
+**✅ DURUM: DEPLOY EDİLDİ + DOĞRULANDI (7e50331, 14:32)** — Sunucuda mevcut, tüm fail-safe'ler aktif. STRKUSDT/SEIUSDT ghost loop'ları kapanmış.
 
 ---
 
