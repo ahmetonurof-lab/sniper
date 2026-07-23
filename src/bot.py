@@ -655,6 +655,12 @@ class PaperTrader:
                     entry_price,
                     balance=self._available_balance,
                     leverage=cfg.LEVERAGE,
+                    risk_pts=risk_pts,
+                    fvg_buf=fvg_buf,
+                    tp_rr=tp_rr,
+                    trigger_fvg=fvg,
+                    london_high=ss.london_high,
+                    london_low=ss.london_low,
                 )
                 if not exec_result.success:
                     self._pl(sym, "order_err", f"\u274c ORDER: {exec_result.error}")
@@ -735,7 +741,18 @@ class PaperTrader:
             else:
                 assert self.entry_manager is not None
                 paper_result = await self.entry_manager.execute_live_entry(
-                    sym, side, qty, sl, tp, entry_price
+                    sym,
+                    side,
+                    qty,
+                    sl,
+                    tp,
+                    entry_price,
+                    risk_pts=risk_pts,
+                    fvg_buf=fvg_buf,
+                    tp_rr=tp_rr,
+                    trigger_fvg=fvg,
+                    london_high=ss.london_high,
+                    london_low=ss.london_low,
                 )
                 if paper_result.entry_log_msg:
                     self._pl(sym, "entry", paper_result.entry_log_msg)

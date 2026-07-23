@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-22 — kod taranarak doğrulandı.
+> **Son güncelleme:** 2026-07-23 — SSH ile sunucu kod doğrulaması + P1-3 kök neden analizi tamamlandı.
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ## 🔴 P0 — Finance Risk
@@ -65,13 +65,48 @@
 - SL trailing durur, pozisyon korumasız kalır.
 - **⚠️ DURUM: HÂLÂ GEÇERLİ** — `update_trail_orders()` reject olduğunda eski SL'yi koruyor (order_manager.py:135) ama retry veya backoff mekanizması yok.
 
-### P1-3: Short entry'de TP entry üstüne konuluyor — hemen tetikleniyor
-**Kaynak:** `events_2026-07-20.jsonl` (OPUSDT) + `events_2026-07-23.jsonl` (SEIUSDT)
-- 2 ayrı OPUSDT entry'si ~270-280ms sonra force_close ile kapanıyor (7/20).
+### P1-3: SL/TP tahmini fiyatla hesaplanıyor, actual fill price ile güncellenmiyor
+**Kaynak:** `events_2026-07-23.jsonl` (SEIUSDT 08:48) + `trades_history.jsonl` + SSH ile sunucu kod doğrulaması
 - SEIUSDT short entry @ 0.0462, TP @ 0.04625 — TP entry'den ÜSTTE, short'ta TP altta olmalı. Sonuç: hemen tetiklendi, -2.08 PnL (7/23).
-- **Kök neden:** `calculate_sl_tp()` short'larda TP'yi yanlış hesaplıyor — long tarafı ile aynı mantıkla entry üstüne koyuyor.
-- `post_entry_check_failed` (Görev 3) SEIUSDT'de doğru tespit etti (sl_ok=false, tp_ok=false).
-- **⚠️ DURUM: HÂLÂ GEÇERLİ** — `sniper/src/trading/entry_manager.py` incelenmeli, short TP fiyat hesaplaması düzeltilmeli.
+- OPUSDT entry'leri de aynı gün ~270-280ms sonra force_close ile kapanmıştı (7/20) — muhtemel aynı kök neden.
+
+**Kök neden (2026-07-23'te SSH ile doğrulandı):**
+`calculate_sl_tp()` formülünün kendisi doğru (`tp = entry_price - risk_dist * tp_rr` short'ta). Sorun **bot.py akış sırası** ve **execute_live_entry()** içinde:
+1. `bot.py:552` — `entry_price = current.close = 0.0463` (15m bar kapanış fiyatı, tahmini)
+2. `bot.py:556` — `sl, tp = calculate_sl_tp(entry_price=0.0463)` → risk_dist=0.000025, tp=0.04625 (0.0463'ten küçük ✓)
+3. `entry_manager.py:280` — MARKET order gönderilir, `actual_price=0.0462` ile dolar (0.0001 kayma)
+4. `entry_manager.py:369-398` — SL/TP emirleri **actual_price bilinmesine rağmen** eski tahmini sl/tp ile gönderilir
+5. `bot.py:688` — `entry_price = actual_entry_price` olarak güncellenir ama sl/tp **yeniden hesaplanmaz**
+6. Sonuç: tp=0.04625 > actual_entry=0.0462 → short'ta TP entry üstünde → anında tetiklenir
+
+**Canlı kanıt (trades_history.jsonl):**
+```json
+"entry_price_estimate": 0.0463,  // current.close (tahmini)
+"entry_actual_price": 0.0462,    // Binance fill (gerçek)
+"sl": 0.046325, "tp": 0.04625   // 0.0463 bazlı hesaplama
+```
+- Tahmini entry (0.0463) ile: risk_dist=0.000025, tp=0.04625 < 0.0463 ✓
+- Gerçek entry (0.0462) ile: tp=0.04625 > 0.0462 ✗ → immediate trigger
+
+**MIN_STOP_DIST_PCT guard neden yakalamadı:**
+- `validate_risk`: min_risk_dist = atr(0.000165) × 0.1 = 0.0000165
+- risk_dist(0.000025) >= 0.0000165 → kıl payı PASS
+- `calculate_sl_tp`'de risk_dist için alt sınır kontrolü yok (sadece üst sınır: max_risk_dist)
+
+**Sunucu kod doğrulaması:** `entry_manager.py` ve `bot.py` yerel ile sunucu arasında **birebir aynı** (sadece CRLF/LF farkı). `config.py:TP_RR=2.0` da aynı.
+
+**Önerilen fix:** `entry_manager.py:execute_live_entry()` içinde, `actual_price` bilindikten sonra (satır 286), sl/tp actual_price ile güncellenmeli:
+```python
+if actual_price > 0 and est_price > 0 and actual_price != est_price:
+    slippage = actual_price - est_price
+    sl += slippage
+    tp += slippage
+```
+Ek olarak `calculate_sl_tp`'ye short'ta `tp >= entry_price` guard'ı eklenmeli.
+
+**İlişki:** Sonraki P0-4 zincirleme olayları (recovery/trailing döngüsü, 11:39 SL exit) bu bug'un sonucudur.
+
+- **⚠️ DURUM: HÂLÂ GEÇERLİ** — Fix `entry_manager.py:execute_live_entry()` katmanında yapılmalı, `bot.py`'de değil.
 - **Ek not:** `test_entry_manager.py`'deki 8 test kırık — pre-existing. Testler eski london_high/low TP fallback beklentileriyle yazılmış, kod sonra 1:2 R:R sabit TP'ye geçmiş. Backlog: test expectations güncellenmeli.
 
 ### P1-4: Ghost/temizlik sadece restart'ta çalışır, periyodik değil
@@ -243,7 +278,7 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 | P0-4 | KISMEN DÜZELTİLDİ | `periodic_check_loop` ~60sn'de yakalar, ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
 | P1-1 | DÜZELTİLDİ | `estimate_market_price()` fallback eklendi |
 | P1-2 | HÂLÂ GEÇERLİ | Trail reject sonrası retry yok |
-| P1-3 | HÂLÂ GEÇERLİ | Short'ta TP entry üstüne konuluyor (OPUSDT 7/20, SEIUSDT 7/23). calculate_sl_tp() short TP fiyat hesaplaması hatalı. |
+| P1-3 | HÂLÂ GEÇERLİ | SL/TP tahmini fiyatla hesaplanıyor, actual fill ile güncellenmiyor (SEIUSDT 7/23: estimate=0.0463, fill=0.0462). Fix: execute_live_entry() içinde slippage adjust. |
 | P1-4 | KISMEN DÜZELTİLDİ | Orphan periyodik (periodic_check_loop + _on_1m_close), ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
 | P1-5 | KÖK NEDEN DÜZELTİLDİ | `_round_step` floating-point fix (`int(value/step)`) |
 | P1-6 | DÜZELTİLDİ | Entry sizing LOT_SIZE.maxQty kontrolü yok — kök neden |

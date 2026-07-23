@@ -161,6 +161,24 @@ class EntryManager:
                 sl = entry_price + risk_pts * 2
                 risk_dist = abs(sl - entry_price)
             tp = entry_price - risk_dist * tp_rr
+
+        # ── P1-3 FIX: safety-net guard — TP yon hatasi varsa fallback ──
+        if (side == "short" and tp >= entry_price) or (
+            side == "long" and tp <= entry_price
+        ):
+            log.critical(
+                "[SL_CALC_GUARD] %s TP yon hatasi: entry=%.6f tp=%.6f — raw risk_pts fallback",
+                side,
+                entry_price,
+                tp,
+            )
+            if side == "short":
+                sl = entry_price + risk_pts * 2
+                tp = entry_price - risk_pts * 2 * tp_rr
+            else:
+                sl = entry_price - risk_pts * 2
+                tp = entry_price + risk_pts * 2 * tp_rr
+
         return sl, tp
 
     # ── 3. Canlı emir yerleştirme ────────────────────────────────
@@ -202,6 +220,12 @@ class EntryManager:
         entry_price: float | None = None,
         balance: float = 0.0,
         leverage: int = 1,
+        risk_pts: float = 0.0,
+        fvg_buf: float = 0.0,
+        tp_rr: float = 2.0,
+        trigger_fvg: "FVG | None" = None,
+        london_high: float = 0.0,
+        london_low: float = 0.0,
     ) -> EntryExecutionResult:
         """
         Binance üzerinde market + SL + TP emirlerini yerleştir.
@@ -363,6 +387,51 @@ class EntryManager:
             actual_price,
             quote_qty,
         )
+
+        # ── P1-3 FIX: SL/TP'yi actual fill price ile yeniden hesapla ──
+        if actual_price > 0 and risk_pts > 0:
+            sl, tp = EntryManager.calculate_sl_tp(
+                side=side,
+                entry_price=actual_price,
+                risk_pts=risk_pts,
+                fvg_buf=fvg_buf,
+                tp_rr=tp_rr,
+                trigger_fvg=trigger_fvg,
+                london_high=london_high,
+                london_low=london_low,
+            )
+            if (side == "short" and tp >= actual_price) or (
+                side == "long" and tp <= actual_price
+            ):
+                log.critical(
+                    "[SL_TP_RECALC] %s gecersiz TP yonu — side=%s entry=%.6f tp=%.6f — acil kapatma",
+                    sym,
+                    side,
+                    actual_price,
+                    tp,
+                )
+                opp_side = "SELL" if mkt_side == "BUY" else "BUY"
+                try:
+                    await self._rest.place_market_order(
+                        sym,
+                        opp_side,
+                        actual_qty,
+                        reduce_only=True,
+                        client_order_id=f"recalc-fail-{sym.lower()}-{int(time.time()*1000)}",
+                    )
+                except Exception as e:
+                    log.critical("[SL_TP_RECALC] %s acil kapatma basarisiz: %s", sym, e)
+                return EntryExecutionResult(
+                    success=False,
+                    error="SL_TP_RECALC: gecersiz TP yonu — pozisyon acil kapatildi",
+                )
+            log.info(
+                "[SL_TP_RECALC] %s sl/tp actual_price=%.6f ile yeniden hesaplandi: sl=%.6f tp=%.6f",
+                sym,
+                actual_price,
+                sl,
+                tp,
+            )
 
         # ── SL ve TP emirleri (actual_qty ile) ────────────────────
         order_qty = actual_qty if actual_qty > 0 else valid_qty
