@@ -65,7 +65,7 @@
 - SL trailing durur, pozisyon korumasız kalır.
 - **⚠️ DURUM: HÂLÂ GEÇERLİ** — `update_trail_orders()` reject olduğunda eski SL'yi koruyor (order_manager.py:135) ama retry veya backoff mekanizması yok.
 
-### P1-3: SL/TP tahmini fiyatla hesaplanıyor, actual fill price ile güncellenmiyor
+### P1-3: SL/TP tahmini fiyatla hesaplanıyor, actual fill price ile güncellenmiyor - DÜZELTİLDİ
 **Kaynak:** `events_2026-07-23.jsonl` (SEIUSDT 08:48) + `trades_history.jsonl` + SSH ile sunucu kod doğrulaması
 - SEIUSDT short entry @ 0.0462, TP @ 0.04625 — TP entry'den ÜSTTE, short'ta TP altta olmalı. Sonuç: hemen tetiklendi, -2.08 PnL (7/23).
 - OPUSDT entry'leri de aynı gün ~270-280ms sonra force_close ile kapanmıştı (7/20) — muhtemel aynı kök neden.
@@ -106,7 +106,11 @@ Ek olarak `calculate_sl_tp`'ye short'ta `tp >= entry_price` guard'ı eklenmeli.
 
 **İlişki:** Sonraki P0-4 zincirleme olayları (recovery/trailing döngüsü, 11:39 SL exit) bu bug'un sonucudur.
 
-- **⚠️ DURUM: HÂLÂ GEÇERLİ** — Fix `entry_manager.py:execute_live_entry()` katmanında yapılmalı, `bot.py`'de değil.
+- **⚠️ DURUM: DÜZELTİLDİ (2026-07-23)** — Fix `entry_manager.py:execute_live_entry()` katmanında yapıldı:
+  1. Market fill sonrası actual_price ile `calculate_sl_tp()` yeniden çağrılıyor
+  2. `calculate_sl_tp()` içinde defense-in-depth guard (tp yön hatası → fallback)
+  3. `execute_live_entry()` içinde safety-net guard (tp hatalıysa pozisyon acil kapatılır)
+  4. `bot.py:649,737`'den extra parametreler (risk_pts, fvg_buf, tp_rr, trigger_fvg, london_high/low) geçiliyor
 - **Ek not:** `test_entry_manager.py`'deki 8 test kırık — pre-existing. Testler eski london_high/low TP fallback beklentileriyle yazılmış, kod sonra 1:2 R:R sabit TP'ye geçmiş. Backlog: test expectations güncellenmeli.
 
 ### P1-4: Ghost/temizlik sadece restart'ta çalışır, periyodik değil
@@ -278,7 +282,7 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 | P0-4 | KISMEN DÜZELTİLDİ | `periodic_check_loop` ~60sn'de yakalar, ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
 | P1-1 | DÜZELTİLDİ | `estimate_market_price()` fallback eklendi |
 | P1-2 | HÂLÂ GEÇERLİ | Trail reject sonrası retry yok |
-| P1-3 | HÂLÂ GEÇERLİ | SL/TP tahmini fiyatla hesaplanıyor, actual fill ile güncellenmiyor (SEIUSDT 7/23: estimate=0.0463, fill=0.0462). Fix: execute_live_entry() içinde slippage adjust. |
+| P1-3 | DÜZELTİLDİ (2026-07-23) | execute_live_entry() içinde actual_price ile sl/tp yeniden hesaplanıyor + safety-net guard. |
 | P1-4 | KISMEN DÜZELTİLDİ | Orphan periyodik (periodic_check_loop + _on_1m_close), ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
 | P1-5 | KÖK NEDEN DÜZELTİLDİ | `_round_step` floating-point fix (`int(value/step)`) |
 | P1-6 | DÜZELTİLDİ | Entry sizing LOT_SIZE.maxQty kontrolü yok — kök neden |
