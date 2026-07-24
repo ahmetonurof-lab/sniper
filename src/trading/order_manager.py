@@ -169,6 +169,7 @@ class OrderManager:
             sl_resp = await self._rest.place_stop_order(
                 sym, sl_side, qty, new_sl, client_id=f"sl_{sym}_{int(time.time())}"
             )
+            log.debug("[ORDER] %s SL place_stop_order raw resp: %s", sym, sl_resp)
             new_sl_id = extract_order_id(sl_resp)
             if new_sl_id:
                 sl_ok = True
@@ -223,6 +224,7 @@ class OrderManager:
                 tp_resp = await self._rest.place_tp_order(
                     sym, sl_side, qty, new_tp, client_id=f"tp_{sym}_{int(time.time())}"
                 )
+                log.debug("[ORDER] %s TP place_tp_order raw resp: %s", sym, tp_resp)
                 new_tp_id = extract_order_id(tp_resp)
                 if new_tp_id:
                     tp_ok = True
@@ -680,6 +682,7 @@ class OrderManager:
                 sl_resp = await self._rest.place_stop_order(
                     sym, sl_side, trade["qty"], sl_price
                 )
+                log.debug("[ORDER] %s SL place_stop_order raw resp: %s", sym, sl_resp)
                 sl_id = extract_order_id(sl_resp)
 
                 if not sl_id and self._is_max_qty_error(sl_resp):
@@ -773,6 +776,7 @@ class OrderManager:
                 tp_resp = await self._rest.place_tp_order(
                     sym, tp_side, trade["qty"], tp_price
                 )
+                log.debug("[ORDER] %s TP place_tp_order raw resp: %s", sym, tp_resp)
                 tp_id = extract_order_id(tp_resp)
 
                 if not tp_id and self._is_max_qty_error(tp_resp):

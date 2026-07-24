@@ -437,6 +437,7 @@ class EntryManager:
         order_qty = actual_qty if actual_qty > 0 else valid_qty
         rounded_sl = await self._rest.apply_price_precision(sym, sl)
         sl_resp = await self._rest.place_stop_order(sym, sl_side, order_qty, rounded_sl)
+        log.debug("[ORDER] %s SL place_stop_order raw resp: %s", sym, sl_resp)
         sl_id = extract_order_id(sl_resp)
         if not sl_id:
             log.critical(
@@ -465,6 +466,7 @@ class EntryManager:
         # ── TP emri ───────────────────────────────────────────────
         rounded_tp = await self._rest.apply_price_precision(sym, tp)
         tp_resp = await self._rest.place_tp_order(sym, sl_side, order_qty, rounded_tp)
+        log.debug("[ORDER] %s TP place_tp_order raw resp: %s", sym, tp_resp)
         tp_id = extract_order_id(tp_resp)
         if tp_id:
             log.info("[ORDER] %s TP OK algoId=%s", sym, tp_id)

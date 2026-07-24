@@ -242,49 +242,96 @@ class UserDataHandler:
                                     trade.get("status"),
                                 )
                                 return
-                            trade["pending_exit_reason"] = (
-                                INCIDENT_WS_UNMATCHED_REDUCE_ONLY
-                            )
-                            trade["pending_exit_price"] = price
-                            if cum_qty > 0:
+                            # ── REST cross-validation before WS_FALLBACK ──
+                            # ID formati bulmacasini cozmek yerine,
+                            # borsadan sorgula: s_id/t_id hâlâ openAlgoOrders'ta
+                            # var mi? Birisi yoksa → o leg gerçekten tetiklenmistir.
+                            _open_ids = None
+                            try:
+                                _open_ids = await _order_manager.get_open_order_ids(sym)
+                            except Exception as _e:
+                                log.warning(
+                                    "[WS-ORDER] %s get_open_order_ids hatasi: %s — "
+                                    "WS_FALLBACK fallback'a dönülüyor",
+                                    sym,
+                                    _e,
+                                )
+                            if _open_ids is not None:
+                                _s_missing = bool(s_id) and s_id not in _open_ids
+                                _t_missing = bool(t_id) and t_id not in _open_ids
+                                if _s_missing and not _t_missing:
+                                    result = "SL"
+                                elif _t_missing and not _s_missing:
+                                    result = "TP"
+                                elif _s_missing and _t_missing:
+                                    result = _resolve_fill_result(
+                                        oid_c or oid_i, s_id, t_id, s_id_prev, s_id_hist
+                                    )
+                                else:
+                                    result = "WS_FALLBACK"
+                            else:
+                                result = "WS_FALLBACK"
+                            if result in ("SL", "TP"):
+                                _pl(
+                                    sym,
+                                    "filled_confirm",
+                                    f"\u2705 REST CROSS-CHECK: {result} tetiklendi @ {price} ({result})",
+                                )
+                                trade["pending_exit_price"] = price
                                 trade["pending_exit_qty"] = cum_qty
-                            if cum_quote > 0:
-                                trade["exit_quote_qty"] = cum_quote
-                            trade["pending_exit_order_id"] = oid
-                            trade["pending_exit_timestamp"] = evt.ts_ms
-                            trade["result"] = "WS_FALLBACK"
-                            # NOT: status snapshot _exit_trade cagrilmadan
-                            # ONCE alinmali — _exit_trade basariliysa trade
-                            # STATUS_CLOSED'a gecip active_trades'ten pop'lanir,
-                            # sonradan okumaya calisirsak kaybolur.
-                            _status_snapshot = trade.get("status", "")
-                            await _exit_trade(
-                                sym, trade, evt.ts_ms or int(time.time() * 1000)
-                            )
-                            log.critical(
-                                "[%s] %s reduceOnly FILLED ID eslesmedi "
-                                "(oid=%s, beklenen_sl=%s, beklenen_tp=%s, "
-                                "onceki_status=%s) — trade kapatildi, kaynak "
-                                "arastirilmali",
-                                INCIDENT_WS_UNMATCHED_REDUCE_ONLY,
-                                sym,
-                                oid,
-                                s_id,
-                                t_id,
-                                _status_snapshot,
-                            )
-                            log_event(
-                                "ws_unmatched_reduce_only",
-                                sym,
-                                oid=oid,
-                                expected_sl=s_id,
-                                expected_tp=t_id,
-                                trade_status_before_exit=_status_snapshot,
-                            )
-                            # raise KALDIRILDI — exit basariyla commit
-                            # edildi, exception firlatmanin rollback faydasi
-                            # yok, sadece websocket.py'nin generic except'ine
-                            # gurultu olarak duser.
+                                trade["pending_exit_order_id"] = oid
+                                trade["pending_exit_timestamp"] = evt.ts_ms
+                                trade["result"] = result
+                                if cum_quote > 0:
+                                    trade["exit_quote_qty"] = cum_quote
+                                await _exit_trade(
+                                    sym, trade, evt.ts_ms or int(time.time() * 1000)
+                                )
+                                return
+                            if result == "WS_FALLBACK":
+                                trade["pending_exit_reason"] = (
+                                    INCIDENT_WS_UNMATCHED_REDUCE_ONLY
+                                )
+                                trade["pending_exit_price"] = price
+                                if cum_qty > 0:
+                                    trade["pending_exit_qty"] = cum_qty
+                                if cum_quote > 0:
+                                    trade["exit_quote_qty"] = cum_quote
+                                trade["pending_exit_order_id"] = oid
+                                trade["pending_exit_timestamp"] = evt.ts_ms
+                                trade["result"] = "WS_FALLBACK"
+                                # NOT: status snapshot _exit_trade cagrilmadan
+                                # ONCE alinmali — _exit_trade basariliysa trade
+                                # STATUS_CLOSED'a gecip active_trades'ten pop'lanir,
+                                # sonradan okumaya calisirsak kaybolur.
+                                _status_snapshot = trade.get("status", "")
+                                await _exit_trade(
+                                    sym, trade, evt.ts_ms or int(time.time() * 1000)
+                                )
+                                log.critical(
+                                    "[%s] %s reduceOnly FILLED ID eslesmedi "
+                                    "(oid=%s, beklenen_sl=%s, beklenen_tp=%s, "
+                                    "onceki_status=%s) — trade kapatildi, kaynak "
+                                    "arastirilmali",
+                                    INCIDENT_WS_UNMATCHED_REDUCE_ONLY,
+                                    sym,
+                                    oid,
+                                    s_id,
+                                    t_id,
+                                    _status_snapshot,
+                                )
+                                log_event(
+                                    "ws_unmatched_reduce_only",
+                                    sym,
+                                    oid=oid,
+                                    expected_sl=s_id,
+                                    expected_tp=t_id,
+                                    trade_status_before_exit=_status_snapshot,
+                                )
+                                # raise KALDIRILDI — exit basariyla commit
+                                # edildi, exception firlatmanin rollback faydasi
+                                # yok, sadece websocket.py'nin generic except'ine
+                                # gurultu olarak duser.
                 else:
                     if is_reduce_only:
                         log.info(
@@ -400,43 +447,92 @@ class UserDataHandler:
                                     trade.get("status"),
                                 )
                                 return
-                            trade["pending_exit_reason"] = (
-                                INCIDENT_WS_UNMATCHED_REDUCE_ONLY
-                            )
-                            trade["pending_exit_price"] = price
-                            if cum_qty > 0:
+                            # ── REST cross-validation before WS_FALLBACK ──
+                            # ID formati bulmacasini cozmek yerine,
+                            # borsadan sorgula: s_id/t_id hâlâ openAlgoOrders'ta
+                            # var mi? Birisi yoksa → o leg gerçekten tetiklenmistir.
+                            _open_ids = None
+                            try:
+                                _open_ids = await _order_manager.get_open_order_ids(sym)
+                            except Exception as _e:
+                                log.warning(
+                                    "[WS-ORDER] %s get_open_order_ids hatasi: %s — "
+                                    "WS_FALLBACK fallback'a dönülüyor",
+                                    sym,
+                                    _e,
+                                )
+                            if _open_ids is not None:
+                                _s_missing = bool(s_id) and s_id not in _open_ids
+                                _t_missing = bool(t_id) and t_id not in _open_ids
+                                if _s_missing and not _t_missing:
+                                    result = "SL"
+                                elif _t_missing and not _s_missing:
+                                    result = "TP"
+                                elif _s_missing and _t_missing:
+                                    result = _resolve_fill_result(
+                                        oid_c or oid_i, s_id, t_id, s_id_prev, s_id_hist
+                                    )
+                                else:
+                                    result = "WS_FALLBACK"
+                            else:
+                                result = "WS_FALLBACK"
+                            if result in ("SL", "TP"):
+                                _pl(
+                                    sym,
+                                    "filled_confirm",
+                                    f"\u2705 REST CROSS-CHECK: {result} tetiklendi @ {price} ({result})",
+                                )
+                                trade["pending_exit_price"] = price
                                 trade["pending_exit_qty"] = cum_qty
-                            if cum_quote > 0:
-                                trade["exit_quote_qty"] = cum_quote
-                            trade["pending_exit_order_id"] = oid
-                            trade["pending_exit_timestamp"] = int(time.time() * 1000)
-                            trade["result"] = "WS_FALLBACK"
-                            _status_snapshot = trade.get("status", "")
-                            await _exit_trade(sym, trade, int(time.time() * 1000))
-                            log.critical(
-                                "[%s] %s reduceOnly FILLED ID eslesmedi "
-                                "(oid=%s, beklenen_sl=%s, beklenen_tp=%s, "
-                                "onceki_status=%s) — trade kapatildi, kaynak "
-                                "arastirilmali",
-                                INCIDENT_WS_UNMATCHED_REDUCE_ONLY,
-                                sym,
-                                oid,
-                                s_id,
-                                t_id,
-                                _status_snapshot,
-                            )
-                            log_event(
-                                "ws_unmatched_reduce_only",
-                                sym,
-                                oid=oid,
-                                expected_sl=s_id,
-                                expected_tp=t_id,
-                                trade_status_before_exit=_status_snapshot,
-                            )
-                            # raise KALDIRILDI — exit basariyla commit
-                            # edildi, exception firlatmanin rollback faydasi
-                            # yok, sadece websocket.py'nin generic except'ine
-                            # gurultu olarak duser.
+                                trade["pending_exit_order_id"] = oid
+                                trade["pending_exit_timestamp"] = int(
+                                    time.time() * 1000
+                                )
+                                trade["result"] = result
+                                if cum_quote > 0:
+                                    trade["exit_quote_qty"] = cum_quote
+                                await _exit_trade(sym, trade, int(time.time() * 1000))
+                                return
+                            if result == "WS_FALLBACK":
+                                trade["pending_exit_reason"] = (
+                                    INCIDENT_WS_UNMATCHED_REDUCE_ONLY
+                                )
+                                trade["pending_exit_price"] = price
+                                if cum_qty > 0:
+                                    trade["pending_exit_qty"] = cum_qty
+                                if cum_quote > 0:
+                                    trade["exit_quote_qty"] = cum_quote
+                                trade["pending_exit_order_id"] = oid
+                                trade["pending_exit_timestamp"] = int(
+                                    time.time() * 1000
+                                )
+                                trade["result"] = "WS_FALLBACK"
+                                _status_snapshot = trade.get("status", "")
+                                await _exit_trade(sym, trade, int(time.time() * 1000))
+                                log.critical(
+                                    "[%s] %s reduceOnly FILLED ID eslesmedi "
+                                    "(oid=%s, beklenen_sl=%s, beklenen_tp=%s, "
+                                    "onceki_status=%s) — trade kapatildi, kaynak "
+                                    "arastirilmali",
+                                    INCIDENT_WS_UNMATCHED_REDUCE_ONLY,
+                                    sym,
+                                    oid,
+                                    s_id,
+                                    t_id,
+                                    _status_snapshot,
+                                )
+                                log_event(
+                                    "ws_unmatched_reduce_only",
+                                    sym,
+                                    oid=oid,
+                                    expected_sl=s_id,
+                                    expected_tp=t_id,
+                                    trade_status_before_exit=_status_snapshot,
+                                )
+                                # raise KALDIRILDI — exit basariyla commit
+                                # edildi, exception firlatmanin rollback faydasi
+                                # yok, sadece websocket.py'nin generic except'ine
+                                # gurultu olarak duser.
                 else:
                     if is_reduce_only:
                         log.info(
