@@ -73,11 +73,18 @@ class OrderManager:
     async def update_trail_orders(
         self, sym: str, trade: dict, new_sl: float, new_tp: float, new_trail_count: int
     ) -> bool:
-        """Trailing sonrası SL/TP emirlerini güncelle.
+        """Trailing sonrası SL/TP emirlerini günceller — ATOMİK (all-or-nothing).
 
-        Başarılıysa trade sözlüğündeki ilgili alanlar güncellenir.
-
-        Returns: True if at least one order (SL or TP) was updated successfully.
+        P1-2 FIX: SL ve TP artık birbirinden bağımsız işlenmiyor. Eski davranışta
+        SL başarılı olup TP reddedilirse (veya tersi), sadece başarılı taraf
+        state'e yazılıyor, diğeri eski (senkron olmayan) değerinde kalıyordu —
+        bu da SL/TP çiftinin R:R'sini bozup sonraki cycle'da yanlış delta
+        hesaplanmasına yol açıyordu. Şimdi: yeni SL önce atılır ama ESKİ SL/TP
+        hiçbiri iptal edilmez. TP de gerekiyorsa ve başarılı olursa, ancak o
+        zaman eski emirler iptal edilip state güncellenir. TP başarısız olursa
+        yeni atılan SL geri alınır (iptal edilir), trade tamamen eski (tutarlı)
+        haline döner. Ayrıca fail_count artık "en az biri ok" ile sıfırlanmıyor
+        — sadece TAM başarıda sıfırlanıyor, böylece backoff gerçekten çalışır.
         """
         if trade.get("status") not in UNRESTRICTED_STATUSES:
             log.info(
@@ -117,7 +124,6 @@ class OrderManager:
         new_sl = await self._rest.apply_price_precision(sym, new_sl)
         new_tp = await self._rest.apply_price_precision(sym, new_tp)
 
-        # Precision başarısız olursa TRAIL_REPLACING'e girmeden çık
         if new_sl <= 0 or new_tp <= 0:
             log.warning(
                 "[TRAIL] %s precision hatasi: sl=%.6f tp=%.6f — trailing atlaniyor",
@@ -127,15 +133,6 @@ class OrderManager:
             )
             return False
 
-        # ── FIX (kök neden guard, P0-7 ile ilişkili): evaluate_trail() ham
-        # (precision-öncesi) hedefi, bir önceki cycle'da precision-rounded
-        # kaydedilmiş mevcut trade["sl"]/trade["tp"] ile kıyaslıyor.
-        # Tick-size/precision bu ince (tick-altı) farkı yutunca evaluate_trail
-        # sonsuza dek "trail var" sanıp tetikleniyor, ama precision uygulandıktan
-        # SONRA SL de TP de aslında hiç değişmemiş oluyor. Böyle bir durumda
-        # emir atmaya/iptale hiç gerek yok — churn'i burada, kesin kaynağında
-        # kes. (evaluate_trail senkron/pure ve precision'a erişemediği için
-        # asıl guard mecburen burada, precision sonrasında olmalı.)
         sl_really_unchanged = abs(new_sl - trade.get("sl", 0.0)) < 1e-8
         tp_really_unchanged = abs(new_tp - trade.get("tp", 0.0)) < 1e-8
         if sl_really_unchanged and tp_really_unchanged:
@@ -161,7 +158,13 @@ class OrderManager:
         tp_ok = False
         tp_unchanged = abs(new_tp - old_tp_price) < 1e-8
 
-        # ── 1. YENİ SL EMRİNİ AT (ESKİYİ HENÜZ SİLME) ──
+        def _fail_and_reset_status() -> bool:
+            self._trail_failures[sym] = self._trail_failures.get(sym, 0) + 1
+            self._trail_failures[f"{sym}_ts"] = time.time()
+            trade["status"] = STATUS_ACTIVE
+            return False
+
+        # ── 1. YENİ SL EMRİNİ AT (ESKİ SL/TP'DEN HİÇBİRİNİ İPTAL ETME) ──
         try:
             sl_resp = await self._rest.place_stop_order(
                 sym, sl_side, qty, new_sl, client_id=f"sl_{sym}_{int(time.time())}"
@@ -198,17 +201,22 @@ class OrderManager:
                         )
                     if new_sl_id:
                         sl_ok = True
-                if not sl_ok:
-                    log.warning(
-                        "[TRAIL] %s SL reject (yeni emir alinamadi) -> eski SL korunuyor",
-                        sym,
-                    )
         except Exception as e:
-            log.warning("[TRAIL] %s SL place hatasi: %s -> eski SL korunuyor", sym, e)
+            log.warning(
+                "[TRAIL] %s SL place hatasi: %s -> eski SL/TP korunuyor", sym, e
+            )
+
+        if not sl_ok:
+            log.warning(
+                "[TRAIL] %s SL reject (yeni emir alinamadi) -> eski SL/TP korunuyor, "
+                "trailing bu tur atlaniyor",
+                sym,
+            )
+            return _fail_and_reset_status()
 
         # ── 2. YENİ TP EMRİNİ AT (fiyat değişmediyse atla) ──
         if tp_unchanged:
-            tp_ok = True  # eski TP zaten duruyor, başarılı say
+            tp_ok = True
             log.debug("[TRAIL] %s TP fiyati degismedi — atlaniyor", sym)
         else:
             try:
@@ -247,55 +255,59 @@ class OrderManager:
                             )
                         if new_tp_id:
                             tp_ok = True
-                    if not tp_ok:
-                        log.warning(
-                            "[TRAIL] %s TP reject (yeni emir alinamadi) -> eski TP korunuyor",
-                            sym,
-                        )
             except Exception as e:
-                log.warning(
-                    "[TRAIL] %s TP place hatasi: %s -> eski TP korunuyor", sym, e
-                )
+                log.warning("[TRAIL] %s TP place hatasi: %s", sym, e)
 
-        # ── 3. SADECE BAŞARILI OLANLARI STATE'E YAZ (FIX #1) ──
-        if sl_ok:
-            trade["sl"] = new_sl
-            if self._protection is not None:
-                self._protection.begin_replace_sl(trade, new_sl_id)
-                self._protection.promote_sl(trade)
-            else:
-                if old_sl_id:
-                    hist = trade.setdefault("sl_order_id_history", [])
-                    if not isinstance(hist, list):
-                        hist = []
-                        trade["sl_order_id_history"] = hist
-                    hist.append(old_sl_id)
-                    trade["sl_order_id_history"] = hist[-5:]
-                trade["sl_order_id"] = new_sl_id
-                trade["sl_order_id_prev"] = old_sl_id
-            if old_sl_id:
+        if not tp_ok:
+            # ── ROLLBACK: SL basariyla degisti ama TP degisemedi — yeni SL'yi
+            # geri al, eski SL/TP hicbir zaman iptal edilmedigi icin trade
+            # tamamen tutarli (eski) haline doner. ──
+            log.warning(
+                "[TRAIL] %s TP reject (yeni emir alinamadi) -> yeni SL geri aliniyor, "
+                "eski SL/TP korunuyor",
+                sym,
+            )
+            if new_sl_id:
                 try:
                     await self._rest.cancel_order(
-                        old_sl_id, sym, reason="trail_update", is_algo=True
+                        new_sl_id, sym, reason="trail_rollback", is_algo=True
                     )
                 except Exception as e:
-                    log.warning(
-                        "[CANCEL] %s eski SL iptal hatasi (id=%s): %s",
+                    log.critical(
+                        "[TRAIL] %s ROLLBACK BASARISIZ — yeni SL (id=%s) iptal "
+                        "edilemedi, hem eski hem yeni SL borsada acik olabilir! %s",
                         sym,
-                        old_sl_id,
+                        new_sl_id,
                         e,
                     )
+            return _fail_and_reset_status()
 
-        # FIX (P0-7): tp_unchanged=True iken tp_ok da True'ya set ediliyor
-        # ("yeni emir gerekmiyor, mevcut TP zaten duruyor" — bkz. yukarısı),
-        # ama new_tp_id bu durumda hep "" kalır (yeni emir hiç atılmadı).
-        # Eskiden bu blok yalnızca `tp_ok` şartına bakıyordu; bu yüzden TP
-        # değişmediğinde bile tp_order_id boş string ile eziliyor VE hâlâ
-        # geçerli olan eski TP emri Binance'te iptal ediliyor — pozisyon
-        # cancel↔repair penceresinde gerçekten TP'siz kalıyordu (her ~45-90sn'de
-        # bir, her trailing cycle'ında). `not tp_unchanged` şartı: bu blok
-        # yalnızca gerçekten YENİ bir TP emri başarıyla atıldığında çalışsın.
-        if tp_ok and not tp_unchanged:
+        # ── 3. İKİSİ DE BAŞARILI — ŞİMDİ ESKİ EMİRLERİ İPTAL ET, STATE'İ YAZ ──
+        trade["sl"] = new_sl
+        if self._protection is not None:
+            self._protection.begin_replace_sl(trade, new_sl_id)
+            self._protection.promote_sl(trade)
+        else:
+            if old_sl_id:
+                hist = trade.setdefault("sl_order_id_history", [])
+                if not isinstance(hist, list):
+                    hist = []
+                    trade["sl_order_id_history"] = hist
+                hist.append(old_sl_id)
+                trade["sl_order_id_history"] = hist[-5:]
+            trade["sl_order_id"] = new_sl_id
+            trade["sl_order_id_prev"] = old_sl_id
+        if old_sl_id:
+            try:
+                await self._rest.cancel_order(
+                    old_sl_id, sym, reason="trail_update", is_algo=True
+                )
+            except Exception as e:
+                log.warning(
+                    "[CANCEL] %s eski SL iptal hatasi (id=%s): %s", sym, old_sl_id, e
+                )
+
+        if not tp_unchanged:
             trade["tp"] = new_tp
             if self._protection is not None:
                 self._protection.begin_replace_tp(trade, new_tp_id)
@@ -323,29 +335,8 @@ class OrderManager:
                         e,
                     )
 
-        if sl_ok or tp_ok:
-            trade["trailing_count"] = new_trail_count
+        trade["trailing_count"] = new_trail_count
 
-        if not (sl_ok and tp_ok):
-            log.warning(
-                "[TRAIL] %s trailing kismen/tamamen basarisiz (sl=%s, tp=%s)",
-                sym,
-                sl_ok,
-                tp_ok,
-            )
-            if not sl_ok and not tp_ok:
-                self._trail_failures[sym] = self._trail_failures.get(sym, 0) + 1
-                self._trail_failures[f"{sym}_ts"] = time.time()
-                return False
-            else:
-                # Kısmi başarı (SL veya TP'den biri yok):
-                # placement hatasında TRAIL_REPLACING'den geri dön,
-                # yoksa trailing sonsuza kadar atlanır.
-                if trade.get("status") == STATUS_TRAIL_REPLACING:
-                    trade["status"] = STATUS_ACTIVE
-
-        # tp_unchanged durumunda new_tp_id hep bostur (yeni emir atilmadi) —
-        # log'da kafa karistirmasin diye halen aktif olan gercek id'yi goster.
         _logged_tp_id = new_tp_id or trade.get("tp_order_id", "")
         log.info(
             "[ORDER] %s trailing guncellendi sl=%.6f (id=%s) tp=%.6f (id=%s)",
