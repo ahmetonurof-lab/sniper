@@ -41,7 +41,14 @@
 | BE chart bar index fix | ✅ evaluate_break_even 15m bar index kullanıyor |
 | Sweep level ActiveTrade | ✅ `sweep_level` field + `_try_entry()` beslemesi |
 | on_sweep_confirmed rewrite | ✅ sweep invalidation gate + no reset on no-FVG + no unconditional reset |
-| output/ gitignore | ✅ exception'lar kaldırıldı, indexten çıkarıldı |
+| P1-8 debug log canlıya deploy | ✅ `log.warning` level, TIAUSDT vakasında ilk sonuç alındı |
+| `_fmt_price()` dinamik fiyat formatlama | ✅ `bot_infra.py` — küçük fiyatlı coinlerde SL/TP artık ayırt edilebiliyor |
+
+## Devam Eden Soruşturmalar 🔍
+
+| Soruşturma | Durum | Sonraki adım |
+|-----------|-------|-------------|
+| **P1-8 post_entry_check fail** | 🔍 Kök neden #1 (hızlı fill → false positive) tespit edildi | Diğer vakalarda `raw_orders_count` bekleniyor |
 | SNIPER_OUTPUT_DIR izolasyon | ✅ Backtest output/ klasörü production'dan ayrı |
 | update_trail_orders signature | ✅ `new_sl/tp/trail_count` param + paper mod güncellemesi + `apply_price_precision` içe taşındı |
 | Trailing partial success | ✅ `sl_ok or tp_ok` → `trailing_count` güncellenir, tek başarısızlıkta `False` dönme kaldırıldı |

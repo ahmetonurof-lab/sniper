@@ -1,5 +1,13 @@
 # Active Context — Sniper Bot
 
+## Aktif Görev: P1-8 post_entry_check %100 fail soruşturması
+
+- **Soru 1 cevaplandı:** 7 vaka P0-5 deploy'undan SONRA (23 Tem 14:32 → 24 Tem 14:45+)
+- **Soru 2 cevaplandı:** TIAUSDT canlı debug — SL hızlı doldu, false positive tespit edildi
+- **Soru 3 bekliyor:** Diğer vakalar (NEARUSDT, ONDOUSDT vb.) için `raw_orders_count` bekleniyor
+- **Yapılanlar:** `_fmt_price()` eklendi (fiyat formatlama düzeldi), debug log canlıda aktif
+- **Bir sonraki adım:** Diğer vakalarda `raw_orders_count=0` mı `>0` mu çıktığını bekliyoruz
+
 ## Mevcut Durum (Görev 10 — Post-deploy doğrulama tamam)
 
 - **Bot çalışıyor mu?**: Testnet'te, canlı emir gönderimi aktif.

@@ -20,7 +20,7 @@
 | **P1-3** | ✅ | SL/TP tahmini fiyatla hesaplama | DÜZELTİLDİ |
 | **P1-6** | ✅ | Entry sizing max_qty clamp yok | DÜZELTİLDİ |
 | **P1-7** | 📎 | Harici kapanışlar (26 WS_FALLBACK) + ONDOUSDT fix | KISMEN AÇIKLANDI |
-| **P1-8** | 🐛 | POST_ENTRY check %100 başarısız — P0-5 zinciri | ARAŞTIRILIYOR |
+| **P1-8** | 🐛 | POST_ENTRY check %100 başarısız — iki kök neden tespit edildi | DEBUG LOG AKTİF, KÖK NEDEN AYRIMINDA |
 | **P1-13** | 🐛 | DD circuit breaker bypass + defense entry engellemiyor | AÇIK |
 | **🆕 P1-14** | 🐛 | SL stale event → exit 27dk'ya kadar gecikiyor | AÇIK |
 | **D-2** | 🐛 | Trailing/entry formülleri 3 motorunda kopya kod | AÇIK |
@@ -250,9 +250,28 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 SL/TP yerleştirme log'da "SL OK" / "TP OK" dönse de, 2.5s sonra `get_open_order_ids()` bunları bulamıyor. Eğer `/fapi/v1/openAlgoOrders` testnette güvenilir değilse (boş dönüyorsa), `sl_id`/`tp_id` (algo ID) normal openOrders'ta olmadığı için `sl_ok=False, tp_ok=False` döner.
 
 - **İlişkili:** P0-1 (çift exit), P1-7 (harici kapanış), P0-4 (ghost loop) — hepsi aynı kökten besleniyor olabilir
-- **⚠️ DURUM: ARAŞTIRILIYOR** — Görev 10.1'deki "0 post-deploy event" bulgusu yanıltıcı: P0-5 fix (7e50331) henüz sunucuya deploy edilmedi. Sunucu hâlâ openAlgoOrders hatasını sessizce yutan ESKİ kodla çalışıyor. 12:22 sonrası 0 event'in sebebi fix değil, yeni entry girilmemesi. Fix deploy edilip yeniden test edilecek.
+- **⚠️ DURUM: İKİ AYRI KÖK NEDEN TESPİT EDİLDİ (25 Tem debug log)**
 
-- **📎 25 TEMMUZ DOĞRULAMA (2026-07-25):** P0-5 fix deploy edilmesine rağmen 25/Jul'da **9+ entry → 9+ post_entry_check_failed** kaydedildi. Delta (entry_fill → check) sabit: ortalama=5.41s, std=0.18s. DD ile korelasyon: yok. SL/TP emirleri `SL OK`/`TP OK` ile yerleştirilmiş, dakikalar sonra `CANCEL` ile iptal edilmiş — yani emirler exchange'de mevcuttu ama check bunları bulamıyor. **P0-5 fix tek başına çözüm değil**, ayrı bir kök neden olabilir (check fonksiyonu wrong API endpoint kullanıyor olabilir — `openAlgoOrders` yerine normal `openOrders` çağrılıyor olmalı).
+**📎 25 TEMMUZ CANLI DEBUG SONUÇLARI (2026-07-25, canlı debug log yakalandı):**
+P0-5 fix deploy edilmesine rağmen 25/Jul'da **17+ post_entry_check_failed** kaydedildi (events_2026-07-25.jsonl). `debug` log seviyesi `warning`'e çevrilerek canlıya deploy edildi,ilk debug sonucu yakalandı:
+
+**TIAUSDT vakası (18:05:02) — CANLI DEBUG:**
+```
+[POST_ENTRY_DEBUG] TIAUSDT raw_orders_count=1 raw_ids=['1000000145939996'] filtered_empty=False
+```
+- `raw_orders_count=1` → API 1 emir döndürdü (sadece TP: `1000000145939996`)
+- SL order (`1000000145939992`) listede YOK → zaten FILLED olmuş
+- `18:05:02.802` exit_lifecycle SL fill tespit etti → **SL gerçekten çalıştı ama check'e yetişemedi**
+- **Kök neden (TIAUSDT): SL çok hızlı doldu → 2.5s sleep + API call süresinde SL zaten open orders'tan çıktı → false positive**
+- Tip uyuşmazlığı ELANDI — `sl_order_id: str`, `open_ids: set[str]`, `str in set[str]` tutarlı
+
+**İki ayrık kök neden olasılığı:**
+1. **Hızlı fill vakası (TIAUSDT):** SL order placement ile check arasında SL zaten dolmuş → `openAlgoOrders` sadece açık emirleri döndüğü için görünmüyor → **false positive** — check mekanizması zaten çalışmayan bir şeyi kontrol etmiş oluyor
+2. **Eventual consistency vakaları (NEARUSDT 14:45, ONDOUSDT 15:45 vb.):** SL/TP henüz AÇIKKEN check yine de bulamamış → bu vakalar için `raw_orders_count=0` veya algo order'lar endpoint'te geçici olarak görünmüyor olabilir → **bir sonraki entry'de `raw_orders_count` bekleniyor**
+
+**Kod düzeltmeleri (25 Tem):**
+- `bot_infra.py:_fmt_price()` eklendi → küçük fiyatlı coinlerde (OPUSDT 0.09) SL/TP artık ayırt edilebiliyor
+- `order_manager.py:get_open_order_ids()` + `bot.py:post_entry_check` → debug log eklendi (`log.warning` level)
 
 ### P1-9: SEIUSDT ghost loop 4+ saat — restart sonrası bile devam ediyor (2026-07-23)
 **Kaynak:** Sunucu canlı log + events_2026-07-23.jsonl + SSH sorgusu
