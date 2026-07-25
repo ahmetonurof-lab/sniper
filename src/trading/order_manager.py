@@ -362,7 +362,15 @@ class OrderManager:
         """
         try:
             orders = await self._rest.get_all_orders(sym)
-            return {str(o.get("algoId") or o.get("orderId") or "") for o in orders}
+            id_set = {str(o.get("algoId") or o.get("orderId") or "") for o in orders}
+            log.debug(
+                "[POST_ENTRY_DEBUG] %s raw_orders_count=%d raw_ids=%s filtered_empty=%s",
+                sym,
+                len(orders),
+                [str(o.get("algoId") or o.get("orderId") or "") for o in orders],
+                "" in id_set,
+            )
+            return id_set
         except Exception as e:
             log.critical(
                 "[VERIFY] %s acik emir sorgu HATASI: %s — fail-safe (dokunma)", sym, e

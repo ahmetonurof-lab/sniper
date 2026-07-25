@@ -705,6 +705,15 @@ class PaperTrader:
                     try:
                         await asyncio.sleep(2.5)
                         open_ids = await self.order_manager.get_open_order_ids(sym)
+                        log.debug(
+                            "[POST_ENTRY_DEBUG] %s raw_ids=%s sl_id=%s tp_id=%s sl_id_type=%s tp_id_type=%s",
+                            sym,
+                            sorted(open_ids) if open_ids is not None else None,
+                            sl_id,
+                            tp_id,
+                            type(sl_id).__name__,
+                            type(tp_id).__name__,
+                        )
                         if open_ids is None:
                             log.warning(
                                 "[POST_ENTRY] %s SL/TP sorgu basarisiz — check atlaniyor",
