@@ -856,3 +856,98 @@ Eğer birisi `EXIT_LIFECYCLE_SERVICE_ENABLED=False` yaparsa (örn. rollback) P1-
 #### Fix (opsiyonel, temizlik)
 
 `_exit_trade_legacy()`'ye `exit_lifecycle.py:150-188` ile aynı cross-validation mantığını ekle. Ya da legacy path'i tamamen kaldır (EXIT_LIFECYCLE_SERVICE_ENABLED kalıcı True iken gereksiz dead code).
+
+---
+
+## 🔍 25 Tem 2026 — 18:45:23+ Log Analizi (Baş Mühendis Notu İçin)
+
+> Kaynak: `paper_trade.log` (18:45:23 → 19:09) + `events_2026-07-25.jsonl` (son 50 satır)
+> Hiçbiri benim fix'lerimden kaynaklanmıyor. Ya deploy eksik, ya pre-existing, ya da fix'in doğru çalıştığını doğruluyor.
+
+### 📋 Olay Özeti (18:45 → 19:09)
+
+| Zaman | Sembol | Olay | Sonuç |
+|---|---|---|---|
+| 18:45:00 | ARBUSDT | DD DEFENSE → entry | P1-8a: sl_ok=False (type mismatch) |
+| 18:45:21 | ENAUSDT | DD DEFENSE → entry | P1-8a: sl_ok=False |
+| 18:45:30 | ENAUSDT | SL fill (WS) → exit | ✅ P1-14 cross-val çalıştı, pnl=-2.16 |
+| 18:47–19:05 | ARBUSDT | 7x stale event / 18dk | SL/TP open_ids'de → pozisyon gerçekten açık (doğru behavior) |
+| 19:00:00 | ENAUSDT | DD DEFENSE → tekrar entry | P1-13 deploy eksik, DD'de tekrar girdi |
+| 19:00:20 | ENAUSDT | SL fill (WS) → exit | P1-14 çalıştı, pnl=-2.25 |
+| 19:00:37 | OPUSDT | DD DEFENSE → entry | P1-8a: sl_ok=False |
+
+### 🔴 P1-13: DD Guard Hâlâ Çalışmıyor — Bot Restart Edilmemiş
+
+**Kanıt:** `[DD_GUARD]` log'da hiç görünmüyor. `[DEFENSE]` (eski kod, bot.py:614-621) 5 kez görünüyor.
+
+```
+18:45:00 [DEFENSE] ARBUSDT DD limitinde! EL ve Elite CBDR iptal. final=1.00x
+18:45:21 [DEFENSE] ENAUSDT DD limitinde! EL ve Elite CBDR iptal. final=0.80x
+19:00:00 [DEFENSE] ENAUSDT DD limitinde! EL ve Elite CBDR iptal. final=0.80x
+19:00:37 [DEFENSE] OPUSDT DD limitinde! EL ve Elite CBDR iptal. final=0.80x
+```
+
+Fix commit edildi (d62df19) ama **bot restart edilmemiş**. Eski kod çalışıyor.
+
+**Etki:** DD aktifken 4 yeni pozisyon. ENAUSDT 2x gir-çık → toplam -4.41$.
+
+**Aksiyon:** Bot'u restart et. `[DD_GUARD]` log'unun görünmesini doğrula.
+
+### 🟡 ENAUSDT "DD Entry → Hızlı SL" Pattern
+
+```
+18:45:21  ENAUSDT short @ 0.0858  DD=0.80x  →  18:45:30  SL @ 0.0861  pnl=-2.16  (7sn)
+19:00:01  ENAUSDT short @ 0.0858  DD=0.80x  →  19:00:20  SL @ 0.0861  pnl=-2.25  (16sn)
+```
+
+DD guard devre dışı (deploy eksik) olduğu için bot her 15dk'da aynı sembole tekrar giriyor. DEFENSE sadece qty'yi küçültüyor (0.80x), girişi engellemiyor. P1-13 fix'i deploy edilince çözülür.
+
+### 🟡 ARBUSDT 18 Dakikalık Stale Event Döngüsü
+
+7 stale event, 18 dakika (18:47 → 19:05):
+
+| Zaman | raw_orders_count | raw_ids |
+|---|---|---|
+| 18:47:14 | 2 | `['1000000145977785', '1000000145977782']` |
+| 18:47:15 | 2 | aynı |
+| 18:52:14 | 2 | aynı |
+| 18:56:15 | 2 | aynı |
+| 19:02:15 | 2 | aynı |
+| 19:03:15 | 2 | aynı |
+| 19:05:01 | 2 | aynı |
+
+SL ve TP her seferinde open_ids'de → pozisyon gerçekten açık. WS SL tetikleme event'leri geliyor ama Binance'te SL order henüz fill olmamış (fiyat SL seviyesine dokunup geri çekiliyor). **Bu doğru behavior** — P1-14 cross-validation SL/TP'nin open_ids'de olduğunu gördü → stale olarak tanımladı → exit iptal. Doğru karar.
+
+### ✅ P1-14 Cross-Validation ENAUSDT'de Doğrulandı
+
+```
+18:45:23  ENAUSDT entry OK (orderId=429731445)
+18:45:30  WS SL fill (clientOrderId=Hj017ZT4IfzmvDOe6HYjDo)
+18:45:30  raw_orders_count=1 raw_ids=['1000000145978052']  ← SL (1000000145978048) kaybolmuş
+18:45:30  [COMMIT] ENAUSDT SL exit=0.0861 pnl=-2.16  ← exit devam etti
+```
+
+SL open_ids'den çıktığında P1-14 cross-validation doğru çalışarak exit'i onayladı. ~7sn gecikme kabul edilebilir.
+
+### 🔴 P1-8a: 100% Type Mismatch Devam
+
+Her POST_ENTRY_DEBUG:
+```
+sl_id=1000000145977782 sl_id_type=int    ← int
+raw_ids=['1000000145977782', ...]         ← set[str]
+→ sl_ok=False  (int in set[str] = False her zaman)
+```
+
+Bu pencerede 4 entry — hepsinde `sl_ok=False, tp_ok=False`.
+
+### 📊 İlişki Tablosu (Yeni Bulgular vs Fix'ler)
+
+| Bulgu | Fix'lerle İlişki | Kök Neden |
+|---|---|---|
+| P1-13 çalışmıyor | ❌ İlgisi yok | Bot restart edilmemiş, eski kod çalışıyor |
+| P1-8a type mismatch | ❌ Ben ortaya çıkardım | Pre-existing bug, debug loglar说esizleştirildi |
+| ARBUSDT stale loop | ❌ İlgisi yok | Doğru behavior — P1-14 doğru çalıştı |
+| ENAUSDT DD repeat entry | ❌ İlgisi yok | P1-13 deploy eksik, fix deploy edilince çözülür |
+| P1-14 ENAUSDT working | ✅ Fix doğru çalışıyor | Cross-validation SL kaybolduğunda exit'i onayladı |
+
+**Sonuç:** Hiçbiri regressyon değil. Ya deploy eksik (P1-13) ya pre-existing (P1-8a) ya da fix'in doğru çalıştığını doğruluyor (P1-14).
