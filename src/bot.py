@@ -18,7 +18,13 @@ from datetime import UTC, datetime, timezone, timedelta
 
 import config as cfg
 from bot_binance import BinanceRESTClient
-from bot_infra import _close_ohlc_writers, _RateLimiter
+from bot_infra import (
+    _close_ohlc_writers,
+    _flush_ohlc_writers,
+    export_ohlc_1m,
+    export_ohlc_15m,
+    _RateLimiter,
+)
 from indicators import calculate_true_range, update_atr
 from models import (
     ActiveTrade,
@@ -326,6 +332,7 @@ class PaperTrader:
         fvg_buf = sym_cfg["FVG_BUFFER_MULT"]
 
         current = bars_15m[-1]
+        export_ohlc_15m(current, sym)
 
         # ── Gerçek Wilder's ATR güncelle (her 15m kapanışında) ──
         prev_close = self._atr_prev_close.get(sym, current.open)
@@ -451,11 +458,14 @@ class PaperTrader:
             return
 
         current = bars_1m[-1]
+        export_ohlc_1m(current, sym)
 
         # ── Orphan sweep (every 5 calls, tüm sembolleri tarar) ──
         self._orphan_check_counter += 1
         if self._orphan_check_counter % 5 == 0:
             await self.recovery_manager.reconcile_orphan_orders()
+        if self._orphan_check_counter % 10 == 0:
+            _flush_ohlc_writers()
 
         # ── Trailing + Exit: yalnizca unrestricted durumda ──
         if trade.get("status") in UNRESTRICTED_STATUSES:
