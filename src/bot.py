@@ -456,16 +456,18 @@ class PaperTrader:
     async def _on_1m_close(self, sym: str, bars_1m: list[Bar]):
         current = bars_1m[-1]
         export_ohlc_1m(current, sym)
+
+        self._orphan_check_counter += 1
+        if self._orphan_check_counter % 10 == 0:
+            _flush_ohlc_writers()
+
         trade = self.active_trades.get(sym)
         if not trade:
             return
 
         # ── Orphan sweep (every 5 calls, tüm sembolleri tarar) ──
-        self._orphan_check_counter += 1
         if self._orphan_check_counter % 5 == 0:
             await self.recovery_manager.reconcile_orphan_orders()
-        if self._orphan_check_counter % 10 == 0:
-            _flush_ohlc_writers()
 
         # ── Trailing + Exit: yalnizca unrestricted durumda ──
         if trade.get("status") in UNRESTRICTED_STATUSES:
