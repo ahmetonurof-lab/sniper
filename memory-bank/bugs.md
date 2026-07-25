@@ -1,7 +1,34 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-23 22:04 — P1-11 fix deploy edildi (b739bb3). P0-7 patch'i yazıldı/test edildi, deploy bekliyor.
+> **Son güncelleme:** 2026-07-25 — `paper_trade.log` + `events_2026-07-25.jsonl` analizi. P1-8/P1-13 doğrulandı, P1-14/P2-6/P2-7/P3-4 eklendi, D-2 taşındı.
+> **Önceki güncelleme:** 2026-07-24 — P1-12 ve P1-13 olarak eklendi.
 > Dosya referansları `sniper/src/` olarak güncellendi.
+
+---
+
+## 🔴 AKTİF BUG ÖZETİ (25 Tem 2026)
+
+> 🆕 = 25 Tem'de yeni keşfedildi | 🐛 = açık/henüz fix yok | 🔧 = fix yazıldı/pending deploy | ✅ = fix deploy edildi | 📎 = mevcut bug'a veri eklendi
+
+| ID | Durum | Başlık | Aciliyet |
+|---|---|---|---|
+| **P0-1** | ✅ | STRKUSDT çift-exit/çift-PnL | KISMEN DÜZELTİLDİ |
+| **P0-5** | ✅ | get_all_orders openAlgoOrders hata yutma | DEPLOY + DOĞRULANDI |
+| **P0-6** | 🔧 | _exit_already_closed SL/TP pozisyon doğrulaması yok | FIX YAZILIYOR |
+| **P0-7** | 🔧 | TP unchanged iptal + precision-residual churn | HAZIR, DEPLOY BEKLİYOR |
+| **P1-2** | ✅ | update_trail_orders retry/backoff yok | DÜZELTİLDİ |
+| **P1-3** | ✅ | SL/TP tahmini fiyatla hesaplama | DÜZELTİLDİ |
+| **P1-6** | ✅ | Entry sizing max_qty clamp yok | DÜZELTİLDİ |
+| **P1-7** | 📎 | Harici kapanışlar (26 WS_FALLBACK) + ONDOUSDT fix | KISMEN AÇIKLANDI |
+| **P1-8** | 🐛 | POST_ENTRY check %100 başarısız — P0-5 zinciri | ARAŞTIRILIYOR |
+| **P1-13** | 🐛 | DD circuit breaker bypass + defense entry engellemiyor | AÇIK |
+| **🆕 P1-14** | 🐛 | SL stale event → exit 27dk'ya kadar gecikiyor | AÇIK |
+| **D-2** | 🐛 | Trailing/entry formülleri 3 motorunda kopya kod | AÇIK |
+| **🆕 P2-6** | 🐛 | TIAUSDT her bar close'da gir-çık döngüsü | AÇIK |
+| **🆕 P2-7** | 🐛 | Tüm TRAIL_CLOSE çıkışları negatif (5/5) | AÇIK |
+| **🆕 P3-4** | 🐛 | NEARUSDT SL çok dar (0.055%) | AÇIK |
+
+---
 
 ## 🔴 P0 — Finance Risk
 
@@ -206,9 +233,11 @@ exit OPUSDT WS_FALLBACK exit=0.0949 qty=0.1 pnl=-0.0
 - **⚠️ 22 TEMMUZ vs 23 TEMMUZ AYRIMI (Görev 10.3):** 23 Temmuz'daki external fill'ler (`web_` prefix OID'ler, NEARUSDT ve SEIUSDT) doğrudan browser session'ına bağlandı. Ancak **22 Temmuz'daki 9 kesin-harici vakanın kaynağı BUNDAN FARKLI OLABİLİR** — 22 Temmuz'da `web_` prefix'li hiçbir OID yok. O günkü WS_UNMATCHED_REDUCE_ONLY event'leri (ADA, ONDO, TIA, SOL, DOGE) farklı bir kaynaktan (testnet paylaşımı, başka API key instance'ı, Binance testnet otomatik reset) gelebilir. 23 Temmuz'un browser açıklaması otomatik olarak 22 Temmuz'a genellenmemelidir. Forensic aksiyon (`ylOu3i0T6KRNJfKMA3T18s` clientOrderId sorgusu) hâlâ geçerli.
 - **⚠️ DURUM: KISMEN AÇIKLANDI** — 26 vaka tamamı doğrulandı (9 bot trailing / 9 kesin harici / 5 muhtemel harici / 3 log dışı). Önceki sayım tutarsızlıkları düzeltildi (8→9 trailing, 5→9 kesin, 13→3 log dışı). Görev 3/4 ile gözlemlenebilirlik artırıldı. 5 muhtemel harici (#7,#8,#9,#12,#15) için deeper analiz gerekli. **22 Temmuz'daki 9 kesin-harici vaka 23 Temmuz'daki browser session'ından AYRI değerlendirilmeli** — testnet paylaşımı veya diğer instance hâlâ olası. Mainnet'e geçişte reassess edilecek.
 
-### P1-8: post_entry_check_failed %100 tüm trades — sistematik SL/TP kaybı (2026-07-23 canlı verisi)
-**Kaynak:** `events_2026-07-23.jsonl` (241 satır, sunucudan alındı) — SSH ile canlı analiz
-- **11/11 post_entry_check_failed** — o gün yapılan TÜM trade'lerde SL/TP 2.5s sonra Binance'te bulunamadı
+- **📎 ONDOUSDT FIX (nexus-mcp, 2026-07-24):** `user_data_handler.py`'ye REST cross-validation eklendi. WS'ten gelen unmatched reduceOnly FILLED event'inde, `WS_FALLBACK`'e geçmeden önce `get_open_order_ids()` ile SL/TP algo ID'leri sorgulanıyor: SL eksikse → `result="SL"`, TP eksikse → `result="TP"`, ikisi de eksikse → fill result'a göre çözümleme. Bu fix P1-7'deki "kesin harici" vakaların çoğunu aslında genuine SL/TP trigger olarak yeniden sınıflandırabilir.
+
+### P1-8: post_entry_check_failed %100 tüm trades — sistematik SL/TP kaybı (2026-07-23 + 25 canlı verisi)
+**Kaynak:** `events_2026-07-23.jsonl` + `paper_trade.log` (24/Jul 7 vaka, 25/Jul 9+ vaka) — SSH + yerel analiz
+- **11/11 post_entry_check_failed** (23/Jul) + **7/7** (24/Jul) + **9+/9+** (25/Jul) — 3 gündür **%100 failure rate**
 - **Etkilenenler:** TIAUSDT (x3), SEIUSDT, ENAUSDT (x4), APTUSDT, LDOUSDT, NEARUSDT
 - **İkinci grup (geçici):** ENAUSDT × 3 arka arkaya → hepsi `fvg_invalidated` → `force_close` (pattern mi tesadüf mü?)
 
@@ -222,6 +251,8 @@ SL/TP yerleştirme log'da "SL OK" / "TP OK" dönse de, 2.5s sonra `get_open_orde
 
 - **İlişkili:** P0-1 (çift exit), P1-7 (harici kapanış), P0-4 (ghost loop) — hepsi aynı kökten besleniyor olabilir
 - **⚠️ DURUM: ARAŞTIRILIYOR** — Görev 10.1'deki "0 post-deploy event" bulgusu yanıltıcı: P0-5 fix (7e50331) henüz sunucuya deploy edilmedi. Sunucu hâlâ openAlgoOrders hatasını sessizce yutan ESKİ kodla çalışıyor. 12:22 sonrası 0 event'in sebebi fix değil, yeni entry girilmemesi. Fix deploy edilip yeniden test edilecek.
+
+- **📎 25 TEMMUZ DOĞRULAMA (2026-07-25):** P0-5 fix deploy edilmesine rağmen 25/Jul'da **9+ entry → 9+ post_entry_check_failed** kaydedildi. Delta (entry_fill → check) sabit: ortalama=5.41s, std=0.18s. DD ile korelasyon: yok. SL/TP emirleri `SL OK`/`TP OK` ile yerleştirilmiş, dakikalar sonra `CANCEL` ile iptal edilmiş — yani emirler exchange'de mevcuttu ama check bunları bulamıyor. **P0-5 fix tek başına çözüm değil**, ayrı bir kök neden olabilir (check fonksiyonu wrong API endpoint kullanıyor olabilir — `openAlgoOrders` yerine normal `openOrders` çağrılıyor olmalı).
 
 ### P1-9: SEIUSDT ghost loop 4+ saat — restart sonrası bile devam ediyor (2026-07-23)
 **Kaynak:** Sunucu canlı log + events_2026-07-23.jsonl + SSH sorgusu
@@ -239,7 +270,7 @@ SL/TP yerleştirme log'da "SL OK" / "TP OK" dönse de, 2.5s sonra `get_open_orde
 - 49 ardışık `sl_reject` event'i (1784764862643 → 1784784616885 arası)
 - `_trail_failures` backoff (P2-5 DÜZELTİLDİ) bu vakada çalışmamış
 - **Görev 10.1 doğrulaması:** STRKUSDT -4005 deploy sonrası **0 event** → kesinlikle durdu.
-- **⚠️ DURUM: P0-5 İLE DÜZELDİ** — STRKUSDT -4005 ghost döngüsünün kök nedeni openAlgoOrders sessiz yutmaydı. P0-5 fix ile sonsuz repair döngüsü kırıldı. P2-5 fallback/backoff artık gereksiz (P1-6 entry maxQty clamp zaten entry'de -4005'i engelliyor) ama defense-in-depth olarak kalmalı.
+- **⚠️ DURUM: P0-5 İLE DÜZELTİLDİ** — STRKUSDT -4005 ghost döngüsünün kök nedeni openAlgoOrders sessiz yutmaydı. P0-5 fix ile sonsuz repair döngüsü kırıldı. P2-5 fallback/backoff artık gereksiz (P1-6 entry maxQty clamp zaten entry'de -4005'i engelliyor) ama defense-in-depth olarak kalmalı.
 
 ### P0-5: `get_all_orders()` openAlgoOrders hatasını sessizce yutuyor — false-negative koruma döngüsü
 **Kaynak:** 2026-07-23 12:21 — canlı server log analizi + kod doğrulaması (baş mühendis onayı)
@@ -389,52 +420,281 @@ trail#3..#7 → aynı desen tekrarlıyor (raw sl=0.045658 tp=0.044958, 7 kez bir
 
 ---
 
-## ✅ Verified Correct (analizlerde doğrulanan)
+## 🔴 P1-12: 2026-07-24 paper_trade.log analizi — sistematik WS_FALLBACK + POST_ENTRY check failure zinciri
 
-### V1: SEIUSDT sl_reject×2 — eski SL korunuyor ✓
-- `events_2026-07-20`: aynı `old_id` ile 60sn arayla 2 reject.
-- `order_manager.update_trail_orders()` yeni SL reddedilince eski SL'yi değiştirmiyor (order_manager.py:135).
-- Sonuç: trailing_count=3 ile orijinal SL tetiklendi, pozisyon korumasız kalmadı.
+**Kaynak:** `paper_trade.log` (1803 satır, 2026-07-24 14:12–20:35) + `events_2026-07-24.jsonl` (100 satır)
 
-### V2: GMXUSDT force_close + WS_FALLBACK — beklenen davranış ✓
-- Unmatched reduceOnly fill → `INCIDENT_WS_UNMATCHED_REDUCE_ONLY` → `WSFallbackError`.
-- `user_data_handler.py`'deki tasarlanmış yol, doğru çalışıyor.
+### 📊 Event dağılımı (events_2026-07-24.jsonl)
+| Event Type | Count |
+|---|---|
+| post_entry_check_failed | 23 |
+| exit | 23 |
+| entry | 23 |
+| ws_unmatched_reduce_only | 21 |
+| force_close | 5 |
+| exit_intent | 5 |
 
-### V3: `execute()` çift tetiklenme koruması — atomic pop ✓
-- `_commit_confirmed_exit()` içinde `pop()`, öncesinde `await` yok → GIL/single-thread event loop'da atomic.
+### 🔍 Paper_trade.log'daki kritik olaylar
+| Saat | Event | Sembol | Açıklama |
+|---|---|---|---|
+| 14:45 | POST_ENTRY FAIL | NEARUSDT | SL/TP sanity check BASARISIZ (sl_ok=False, tp_ok=False) |
+| 15:11 | WS_UNMATCHED_REDUCE_ONLY | ONDOUSDT | reduceOnly fill, ID eşleşmedi, status=ACTIVE |
+| 15:42 | WS_UNMATCHED_REDUCE_ONLY | NEARUSDT | reduceOnly fill, ID eşleşmedi, status=ACTIVE |
+| 15:45 | POST_ENTRY FAIL | ONDOUSDT | SL/TP sanity check BASARISIZ |
+| 16:06 | WS_UNMATCHED_REDUCE_ONLY | ONDOUSDT | reduceOnly fill, ID eşleşmedi |
+| 18:15 | POST_ENTRY FAIL | ALGOUSDT | SL/TP sanity check BASARISIZ |
+| 18:16 | WS_UNMATCHED_REDUCE_ONLY | ALGOUSDT | reduceOnly fill, ID eşleşmedi |
+| 18:30 | POST_ENTRY FAIL | ALGOUSDT | SL/TP sanity check BASARISIZ |
+| 19:00 | 🚨 DEVRE KESICI | INJUSDT | DD: %21.22 >= %15.00 |
+| 19:00 | POST_ENTRY FAIL | INJUSDT | SL/TP sanity check BASARISIZ |
+| 19:06 | WS_UNMATCHED_REDUCE_ONLY | INJUSDT | reduceOnly fill, ID eşleşmedi |
+| 19:15 | POST_ENTRY FAIL | PYTHUSDT | SL/TP sanity check BASARISIZ |
+| 20:00 | POST_ENTRY FAIL | NEARUSDT | SL/TP sanity check BASARISIZ |
+| 20:34 | WS_UNMATCHED_REDUCE_ONLY | NEARUSDT | reduceOnly fill, ID eşleşmedi |
+| 20:35 | WS_UNMATCHED_REDUCE_ONLY | PYTHUSDT | reduceOnly fill, ID eşleşmedi |
 
-### V4: `recovery_manager.reconcile_orphan_orders()` transition-aware ✓
-- `should_skip_reconcile()` kontrolü doğru çalışıyor (protection_lifecycle.py:102).
-- `_known_protection_ids()` current+prev+history+pending'in tamamını topluyor (protection_lifecycle.py:73).
-- 60sn `_check_position()`'ın aksine, burada guard var.
+### 🔗 Tespit edilen pattern'ler
+
+**Pattern 1: POST_ENTRY → WS_UNMATCHED_REDUCE_ONLY zinciri**
+- Her `post_entry_check_failed` sonrası, aynı sembol için 5–60dk içinde `ws_unmatched_reduce_only` event'i geliyor
+- Bu, bot'un SL/TP emirlerini yerleştirmesine rağmen Binance'ın reduceOnly fill ile pozisyonu kapatması anlamına geliyor
+- Bot bu fill'leri "unmatched" olarak logluyor → WS_FALLBACK → yanlış PnL kaydı
+
+**Pattern 2: DD Circuit Breaker → POST_ENTRY FAIL**
+- 19:00'da INJUSDT için DD %21.22 → circuit breaker patladı
+- Sonraki 15dk içinde INJUSDT entry yapıldı ama POST_ENTRY check BASARISIZ
+- DD limiti aktifken entry yapılması ve ardından SL/TP sanity check fail'i — **risk kontrolü bypass**
+
+**Pattern 3: FVG invalidation → force_close → WS_FALLBACK**
+- PYTHUSDT, OPUSDT, ONDOUSDT, AAVEUSDT, RENDERUSDT — hepsi `fvg_invalidated` → `force_close` → `WS_FALLBACK`
+- Bu, P1-3 (SL/TP actual_price ile hesaplama) bug'ının 24 Temmuz'da hâlâ yaşanıyor olabileceğine işaret ediyor
+
+### ⚠️ Durum: P0-5 ARAŞTIRILIYOR — P1-12 P1-8 ZINCİRİNİN DEVAMI
+- 23 post_entry_check_failed event'i → hepsi `sl_ok=False, tp_ok=False`
+- 21 ws_unmatched_reduce_only event'i → hepsi `trade_status_before_exit=ACTIVE`
+- P1-12 bağımsız yeni bug DEĞİL — P1-8 ile aynı kök neden (P0-5: get_all_orders openAlgoOrders hata yutma)
+- P0-5 fix (7e50331) deploy edildi — SSH ile sunucuda `get_all_orders()` debug logu alınmalı, openAlgoOrders endpoint'i test edilmeli
+
+### 🔧 Önerilen aksiyonlar
+1. SSH ile sunucuda `get_all_orders()` debug logu alınmalı — openAlgoOrders endpoint'i hâlâ hata yutuyor mu?
+2. P0-5 fix (7e50331) deploy edildi.
+3. DD circuit breaker sonrası entry yapılmasını engelleyin veya `_post_entry_check`'a DD state guard ekleyin
+4. `post_entry_check_failed` → `ws_unmatched_reduce_only` zincirindeki PnL kayıpları quantify edilmeli
+5. `fvg_invalidated` → `force_close` → `WS_FALLBACK` pattern'i için SL/TP recalculation after actual fill doğrulaması eklenmeli
 
 ---
 
-## 📊 Özet
+## 🔍 2026-07-24 Log Analizi — paper_trade.log + events_2026-07-24.jsonl
 
-| Bug | Durum | Not |
-|-----|-------|-----|
-| P0-1 | KISMEN DÜZELTİLDİ | Yeni exit_service REST doğrulama ekledi |
-| P0-2 | YENİ YOLDA DÜZELTİLDİ | Legacy path devre dışı (flag=True) |
-| P0-3 | KALDIRILDI | `_check_position` fonksiyonu yok, orphan sweep guard'lı |
-| P0-4 | KISMEN DÜZELTİLDİ | `periodic_check_loop` ~60sn'de yakalar, ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
-| P0-5 | DÜZELTİLDİ (7e50331) | get_all_orders() openAlgoOrders hatasını yutuyor — SEIUSDT ghost loop + %100 post_entry_check_failed kök nedeni |
-| P0-7 | PATCH HAZIR, DEPLOY EDİLMEDİ | tp_unchanged'de hâlâ geçerli TP iptal ediliyordu + precision-residual sonsuz trail churn (SEIUSDT trail#1..#7) |
-| P1-1 | DÜZELTİLDİ | `estimate_market_price()` fallback eklendi |
-| P1-2 | HÂLÂ GEÇERLİ | Trail reject sonrası retry yok + TRAIL_REPLACING stuck (apply_price_precision öncesi status set) — P1-9'un devam eden kök nedeni |
-| P1-3 | DÜZELTİLDİ (2026-07-23) | execute_live_entry() içinde actual_price ile sl/tp yeniden hesaplanıyor + safety-net guard. |
-| P1-4 | KISMEN DÜZELTİLDİ | Orphan periyodik (periodic_check_loop + _on_1m_close), ghost hala restart'ta, restart'ta REPAIR→ACTIVE temizlik var |
-| P1-5 | KÖK NEDEN DÜZELTİLDİ | `_round_step` floating-point fix (`int(value/step)`) |
-| P1-6 | DÜZELTİLDİ | Entry sizing LOT_SIZE.maxQty kontrolü yok — kök neden |
-| P1-7 | KISMEN AÇIKLANDI | 26 vaka doğrulandı: 9 bot trailing / 9 kesin harici (22 Temmuz browser'dan AYRI) / 5 muhtemel harici / 3 log dışı |
-| P1-8 | DÜZELDİ (P0-5) | 11/11 → 0/0 post-entry-check post-deploy (SSH doğrulandı) |
-| P1-9 | P0-5 YETERSİZ → P1-2 ile birleşti | P0-5 repair döngüsünü kırdı ama trailing TRAIL_REPLACING stuck hâlâ var — deploy sonrası 8dk daha reject devam etti |
-| P1-10 | DÜZELDİ (P0-5) | 49x -4005 → 0 post-deploy (SSH doğrulandı) |
-| P1-11 | DÜZELTİLDİ (b739bb3) | EXIT_REQUESTED runtime dead-end; status ACTIVE'ye resetleniyor |
-| P2-1 | DOĞRULANDI | maybe_repair() ölü kod |
-| P2-2 | HÂLÂ GEÇERLİ | CleanupPlan sadece current ID'leri iptal ediyor |
-| P2-3 | HÂLÂ GEÇERLİ | promote dokümantasyon uyuşmazlığı |
-| P2-4 | DÜZELTİLDİ | self-exit race guard (_SELF_EXIT_IN_PROGRESS_STATUSES) |
-| P2-5 | DÜZELTİLDİ | update_trail_orders -4005 fallback + trail backoff |
-| P3-1 | HÂLÂ GEÇERLİ | entry_log_msg tahmini fiyat gösteriyor (kozmetik) |
-| P3-2 | HÂLÂ GEÇERLİ | except Exception çok yaygın |
+### Yeni Bulgular (P1-12, P1-13)
+
+### P1-12: 24 Temmuz post_entry_check_failed %100 — P0-5/P1-8 zincirinin devamı
+**Kaynak:** `events_2026-07-24.jsonl` (100 satır) + `paper_trade.log` (1803 satır)
+- **23/23 entry** sonrası `post_entry_check_failed` — SL/TP Binance'te bulunamadı (sl_ok=False, tp_ok=False)
+- **21/21** `ws_unmatched_reduce_only` event'i — trade ACTIVE durumundayken Binance reduceOnly fill gönderdi
+- **5 force_close** event'i — FVG invalidation → force_close → WS_FALLBACK zinciri
+- **5 exit_intent** event'i — hepsi `fvg_invalidated` reason'li
+- **Pattern:** Her entry → ~2.5s sonra post_entry_check_failed → FVG invalidation → force_close → WS_FALLBACK exit
+
+**P1-12 bağımsız yeni bug DEĞİL** — P1-8 (23 Temmuz) ile aynı kök neden: `get_all_orders()` openAlgoOrders endpoint hata yutuyor → SL/TP algo ID'leri görünmez → post_entry_check_failed her trade'de tetikleniyor.
+
+P0-5 fix (7e50331, 23 Temmuz 14:32 deploy) bunu çözmeliydi ama 24 Temmuz'da %100 devam ediyor. İki olasılık:
+1. Fix deploy edildi ama farklı bir kök neden var (testnet paylaşımı, farklı API key instance'ı)
+2. Farklı bir kök neden (testnet paylaşımı, farklı API key instance'ı)
+
+**Önemli:** 24 Temmuz'daki `ws_unmatched_reduce_only` event'leri 22 Temmuz'daki ile aynı pattern — `trade_status_before_exit=ACTIVE`. Bu, bot'un kendi exit emirlerini göndermediğini, Binance'in bağımsız bir şekilde pozisyonu kapatığını gösteriyor.
+
+**⚠️ Durum: P0-5 ARAŞTIRILIYOR** — SSH ile sunucuda `get_all_orders()` debug logu alınmalı, openAlgoOrders endpoint'i test edilmeli. Fix deploy durumu doğrulanmalı.
+
+### P1-13: DD Circuit Breaker sonrası entry — SL/TP sanity check fail zinciri
+**Kaynak:** `paper_trade.log` (1365-1377, 19:00:00)
+- 19:00:00 — `🚨 DEVRE KESICI PATLADI! DD: %21.22 >= %15.00`
+- 19:00:00 — `[DEFENSE] INJUSDT DD limitinde! EL ve Elite CBDR iptal. final=1.00x`
+- 19:00:07 — `[POST_ENTRY] INJUSDT SL/TP sanity check BASARISIZ!` — INJUSDT entry yapılmış ama SL/TP Binance'te bulunamadı
+- 19:06:22 — `[WS_UNMATCHED_REDUCE_ONLY] INJUSDT reduceOnly FILLED` — INJUSDT pozisyonu dışarıdan kapatıldı
+
+**Pattern:** DD circuit breaker tetiklenmiş, defense olarak CBDR iptal edilmiş ama entry zaten açılmış. Entry sonrası SL/TP placement'i başarısız → pozisyon korumasız → 6 dakika sonra dışarıdan kapatıldı.
+
+**Aynı pattern tekrarlandı:**
+- 19:15 — PYTHUSDT DD defense → post_entry_check_failed → force_close → WS_FALLBACK
+- 20:00 — NEARUSDT DD defense → post_entry_check_failed → WS_UNMATCHED_REDUCE_ONLY
+
+**Kök neden:** `_post_entry_check` DD state'ini kontrol etmiyor — defense mekanizması CBDR/EL iptal ediyor ama entry sonrası SL/TP placement riskini azaltmıyor. DD yüksekken entry yapılması itself bir risk.
+
+**⚠️ Durum: YENI BULGU** — Önerilen aksiyon: DD circuit breaker aktifken `_post_entry_check`'a guard ekleyin, veya entry sırasında DD state kontrolü yapın.
+
+- **📎 25 TEMMUZ DETAYLI ANALİZ (2026-07-25):** 25/Jul'da **9 DEFENSE tetiklemesinin her birinde** 0.24-1.01s içinde yeni market entry açıldı. 1'i circuit breaker bypass (ENAUSDT, 245ms):
+  ```
+  09:30:07,856  🚨 DEVRE KESICI PATLADI! DD: %20.86 >= %15.00
+  09:30:08,101  [MARKET] ENAUSDT orderId fill bekleniyor...  ← 245ms!
+  ```
+  DD aktifken toplam **6 yeni pozisyon** birikmiş. DEFENSE sadece pozisyon boyutunu küçültüyor (0.80x/1.00x), yeni girişi engellemiyor. `entry_manager.py:submit_entry()`'de DD state guard'ı YOK.
+
+### 📊 24 Temmuz Event Özeti
+
+| Event Type | Count | Açıklama |
+|---|---|---|
+| post_entry_check_failed | 23 | SL/TP Binance'te bulunamadı — P0-5/P1-8 zincirinin devamı |
+| ws_unmatched_reduce_only | 21 | Binance reduceOnly fill, bot-dışı kaynak |
+| force_close | 5 | FVG invalidation → force close |
+| exit_intent | 5 | fvg_invalidated reason |
+| entry | 23 | Tüm entry'ler |
+| exit | 23 | Tüm exit'ler (WS_FALLBACK) |
+
+**PnL Impact:** 24 Temmuz'daki tüm exit'ler WS_FALLBACK veya TRAIL_CLOSE ile gerçekleşti. `ws_unmatched_reduce_only` event'leri bot'un kontrolü dışında kalan pozisyonları gösteriyor — bu, P1-7 (harici kapanış) pattern'in 24 Temmuz'da da devam ettiğini gösteriyor.
+
+**P1-12 bağımsız bug DEĞİL** — P1-8 ile aynı kök neden (P0-5: get_all_orders openAlgoOrders hata yutma). P0-5 fix (7e50331) deploy edildi.
+
+### 🔧 Önerilen aksiyonlar
+1. SSH ile sunucuda `get_all_orders()` debug logu alınmalı — openAlgoOrders endpoint'i hâlâ hata yutuyor mu?
+2. P0-5 fix (7e50331) deploy edilip edilmediği doğrulanmalı
+3. DD circuit breaker sonrası entry yapılmasını engelleyin veya `_post_entry_check`'a DD state guard ekleyin
+4. `post_entry_check_failed` → `ws_unmatched_reduce_only` zincirindeki PnL kayıpları quantify edilmeli
+5. `fvg_invalidated` → `force_close` → `WS_FALLBACK` pattern'i için SL/TP recalculation after actual fill doğrulaması eklenmeli
+
+---
+
+## 🔧 Mimari Risk
+
+### 🆕 D-2: Trailing/entry formülleri live + 2 backtest motorunda kopya kod, senkronizasyon garantisi yok
+**Severity:** HIGH
+**Status:** OPEN
+**Date:** 2026-07-24
+**Files:**
+- `sniper/src/trading/trailing_manager.py` (live — TrailingManager.evaluate_trail)
+- `sniper/simulate.py` (fast backtest — inline trailing block)
+- `backtest-sniper/src/analyzer_v5.py` (benchmark engine — collect_fvg_profile trailing block)
+
+### Problem
+
+Trailing/entry formülleri üç ayrı yerde elle kopyalanmış, tek bir modülden import edilmiyor. Geçmişte yapılan fix'ler sadece birine uygulanmış, diğerleri kalmış.
+
+### Tespit Edilen Farklar
+
+#### Fark 1 (HIGH): `exit_now` guard — FVG kırıldı exit'i
+
+Live (`trailing_manager.py:95-96, 109-110`):
+```python
+# Long
+if new_sl >= current.close:
+    return TrailResult(exit_now=True)
+# Short
+if new_sl <= current.close:
+    return TrailResult(exit_now=True)
+```
+
+Backtest'lerde (**simulate.py** ve **analyzer_v5.py**): **YOK**
+
+**Etki:** Canlıda FVG fiyatı geçtiyse trade hemen kapatılıyor. Backtest'lerde fiyat eski FVG'yi geçmiş olsa bile trailing devam ediyor — backtest sonuçları optimist olur.
+
+#### Fark 2 (MEDIUM): `fvg_close_confirmed` — `is_closed` kontrolü
+
+Live'da var, backtest'lerde YOK.
+
+#### Fark 3 (MEDIUM): `is_closed` guard — trigger seviyesinde
+
+`analyzer_v5.py` inline RSM — `is_closed` guard'ı yok. Açık bar'da trigger olabilir.
+
+#### Fark 4 (LOW): `trailing_count` sayımı
+
+`simulate.py` her zaman 1 sayıyor, FVG sayısına bakmıyor.
+
+#### Fark 5 (LOW): Session filter farkı
+
+Farklı session boundary hesaplayıcıları, farklı giriş noktalarına yol açabilir.
+
+### Önerilen Çözüm
+
+1. `evaluate_trail()` ve `fvg_close_confirmed()` ortak bir modüle çıkar
+2. Backtest'lerde inline trailing blokları yerine bu import'u kullan
+3. `exit_now` guard'ı backtest'lere de ekle
+4. Session filter'ı tek bir yere indir
+
+---
+
+## 🟠 Ek Bulgular (P1 — High Risk)
+
+### 🆕 P1-14: SL Stale Event → Exit 27 Dakikaya Kadar Gecikiyor
+**Severity:** HIGH
+**Status:** OPEN
+**Date:** 2026-07-25
+**Evidence:** `paper_trade.log` — 10 stale event, 3 symbol
+
+### Problem
+
+SL emri exchange'de tetiklendiğinde bot WS'ten `stale event` alıyor ve "pozisyon hala açık" diyerek exit'i iptal ediyor. Gerçek SL/TP fill ignore ediliyor.
+
+| Symbol | Stale Sayısı | Stale Aralığı | Gerçek Exit | Gecikme | Ek Zarar |
+|---|---|---|---|---|---|
+| NEARUSDT | 4 | 07:15→07:18 | TP @ 1.807 | ~4 dk | -0.99 (fee) |
+| ONDOUSDT | 3 | 11:07→11:09 | SL @ 0.3749 | **~27 dk** | fiyat SL(0.3759) altına düşmüş |
+| ARBUSDT | 3 | 11:55→12:15 | TRAIL @ 0.0827 | **~21 dk** | pozisyon açık kalmış |
+
+### Kök Neden
+
+SL/TP emirleri `clientOrderId` (Binance rastgele string'i) WS event'indeki `c` field'ı ile eşleşmiyor. Bot kendi numeric algo ID'leriyle karşılaştırıyor, her zaman fail oluyor. P1-7 ile ilişkili ama stale event mekanizması ayrı bir katman.
+
+### İlişkili
+
+- P0-6 (_exit_already_closed pozisyon doğrulama yok)
+- P1-7 (harici kapanışlar / WS_UNMATCHED_REDUCE_ONLY)
+- P1-11 (EXIT_REQUESTED dead-end — stale event bu status'a sokuyor)
+
+### Önerilen Çözüm
+
+1. `exit_lifecycle.py` stale event handler: WS fill event'ini doğrudan kabul etmeli
+2. P1-7 REST cross-validation stale handler'a da uygulanmalı
+3. Stale event geldiğinde REST ile pozisyon durumu kontrol edilmeli
+
+---
+
+## 🟡 P2 — Medium Risk (Yeni Bulgular)
+
+### 🆕 P2-6: TIAUSDT Her Bar Close'da Gir-Çık Döngüsü
+**Severity:** MEDIUM
+**Status:** OPEN
+**Date:** 2026-07-25
+**Evidence:** `paper_trade.log` — 4 consecutive entries, all TRAIL_CLOSE within 1 min
+
+TIAUSDT 4 bar üst üste her 15 dk'da bir entry almış, her biri ~1 dk içinde TRAIL_CLOSE ile kapanmış:
+
+```
+07:45:07  entry @ 0.3420  →  07:46:01  TRAIL_CLOSE  pnl=-0.99  (54s)
+08:00:07  entry @ 0.3414  →  08:01:01  TRAIL_CLOSE  pnl=-1.57  (54s)
+08:15:07  entry @ 0.3412  →  08:16:01  TRAIL_CLOSE  pnl=-0.70  (54s)
+09:30:03  entry @ 0.3384  →  açık (log sonu)
+```
+
+Toplam zarar: -$3.26. D-2 ile ilişkili olabilir — live trailing formülü backtest'ten farklıysa optimizasyon yanlış çalışıyordur.
+
+### 🆕 P2-7: Tüm TRAIL_CLOSE Çıkışları Negatif (5/5)
+**Severity:** MEDIUM
+**Status:** OPEN
+**Date:** 2026-07-25
+**Evidence:** `paper_trade.log` — 5 TRAIL_CLOSE exit, 0 positive
+
+| Symbol | Exit Price | PnL | Süre |
+|---|---|---|---|
+| ATOMUSDT | 1.386 | -0.99 | ~1 dk |
+| TIAUSDT | 0.342 | -0.99 | ~1 dk |
+| TIAUSDT | 0.3416 | -1.57 | ~1 dk |
+| TIAUSDT | 0.3411 | -0.70 | ~1 dk |
+| ARBUSDT | 0.0827 | -2.71 | ~31 dk |
+
+Trailing stop kâr kilitleme yerine her seferinde zararla çıkış üretiyor. D-2'deki trailing formül farklılıklarıyla ilişkili olabilir.
+
+---
+
+## 🔵 P3 — Low Risk (Yeni Bulgu)
+
+### 🆕 P3-4: NEARUSDT SL Çok Dar (0.055%)
+**Severity:** LOW
+**Status:** OPEN
+**Date:** 2026-07-25
+**Evidence:** `paper_trade.log` line 1523-1548
+
+```
+Entry @ 1.807  →  SL @ 1.806  (0.001 = 0.055% mesafe)
+```
+
+SL neredeyse entry fiyatında. Her küçük wick tetikliyor → 4 stale event (07:15-07:18) → sonunda TP @ 1.807 ile ($0.99 fee zararıyla) çıkıyor. P1-14 stale event sorununu daha da kötüleştiriyor.
