@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-25 — `paper_trade.log` + `events_2026-07-25.jsonl` analizi. P1-8/P1-13 doğrulandı, P1-14/P2-6/P2-7/P3-4 eklendi, D-2 taşındı.
+> **Son güncelleme:** 2026-07-25 — Baş mühendis review: P1-8a type mismatch, P1-13b dead code, P1-14b legacy path eksik eklendi.
 > **Önceki güncelleme:** 2026-07-24 — P1-12 ve P1-13 olarak eklendi.
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
@@ -21,12 +21,15 @@
 | **P1-6** | ✅ | Entry sizing max_qty clamp yok | DÜZELTİLDİ |
 | **P1-7** | 📎 | Harici kapanışlar (26 WS_FALLBACK) + ONDOUSDT fix | KISMEN AÇIKLANDI |
 | **P1-8** | 🐛 | POST_ENTRY check %100 başarısız — iki kök neden tespit edildi | DEBUG LOG AKTİF, KÖK NEDEN AYRIMINDA |
-| **P1-13** | ✅ | DD circuit breaker bypass — entry engellendi | FIX DEPLOY (d62df19) |
-| **🆕 P1-14** | ✅ | SL stale event → exit 27dk'ya kadar gecikiyor | FIX DEPLOY (d62df19) |
+| **P1-13** | ✅🔧 | DD circuit breaker bypass — fix deploy + ölü kod temizliği bekliyor | DEPLOY + TEMİZLİK |
+| **🆕 P1-14** | ✅🔧 | SL stale event — fix deploy + legacy path eksik | DEPLOY + EŞİTLEME |
 | **D-2** | 🐛 | Trailing/entry formülleri 3 motorunda kopya kod | AÇIK |
 | **🆕 P2-6** | 🐛 | TIAUSDT her bar close'da gir-çık döngüsü | AÇIK |
 | **🆕 P2-7** | 🐛 | Tüm TRAIL_CLOSE çıkışları negatif (5/5) | AÇIK |
 | **🆕 P3-4** | 🐛 | NEARUSDT SL çok dar (0.055%) | AÇIK |
+| **🆕 P1-8a** | 🐛 | POST_ENTRY type mismatch: int vs str set check | AÇIK |
+| **🆕 P1-13b** | 🐛 | P1-13 DD guard sonrası ölü kod (unreachable block) | AÇIK |
+| **🆕 P1-14b** | 🐛 | _exit_trade_legacy'de P1-14 cross-val eksik | AÇIK |
 
 ---
 
@@ -733,3 +736,123 @@ Entry @ 1.807  →  SL @ 1.806  (0.001 = 0.055% mesafe)
 ```
 
 SL neredeyse entry fiyatında. Her küçük wick tetikliyor → 4 stale event (07:15-07:18) → sonunda TP @ 1.807 ile ($0.99 fee zararıyla) çıkıyor. P1-14 stale event sorununu daha da kötüleştiriyor.
+
+---
+
+## 🔴 Açık Buglar — Baş Mühendis Notu (25 Tem 2026)
+
+> Baş mühendis review'undan çıkan 3 açık bug. Bloklayıcı değil, temizlik/debt.
+
+### 🆕 P1-8a: POST_ENTRY Type Mismatch — `int in set[str]` Her Zaman False
+**Severity:** HIGH
+**Status:** OPEN — kök neden tespit edildi, fix henüz uygulanmadı
+**Date:** 2026-07-25
+**File:** `src/bot.py:732-733`
+
+#### Problem
+
+`sl_id` ve `tp_id` runtime'da `int` tipinde geliyor (debug log: `sl_id_type=int`). `get_open_order_ids()` ise `set[str]` döndürüyor (`raw_ids=['1000000145966694']` — string).
+
+```python
+# bot.py:732-733 — mevcut kırık kod
+sl_ok = not sl_id or sl_id in open_ids   # int in set[str] → HER ZAMAN False
+tp_ok = not tp_id or tp_id in open_ids   # int in set[str] → HER ZAMAN False
+```
+
+**Sonuç:** `sl_ok=False, tp_ok=False` → her trade'de `post_entry_check_failed` tetikleniyor.
+
+#### Kök Neden Analizi
+
+`entry_manager.py:45-46` field'ları `str` olarak tanımlı (`sl_order_id: str`). Ama `sl_id = exec_result.order_id` çağrısında `order_id` Binance REST yanıtından `int` olarak geliyor ve field assignment casting yapmıyor. Runtime'da `sl_id` bir `int` oluyor.
+
+#### Etki
+
+25 Temmuz'da **17 `post_entry_check_failed`** — hepsi bu type mismatch'ten. Debug log kanıtı:
+```
+sl_id=1000000145966694 sl_id_type=int  →  raw_ids=['1000000145966694'] (str)
+```
+
+#### Fix
+
+```python
+# bot.py:732-733 — düzeltilmiş
+sl_ok = not sl_id or str(sl_id) in open_ids
+tp_ok = not tp_id or str(tp_id) in open_ids
+```
+
+**Alternatif (daha temiz):** `entry_manager.py` tarafında `sl_id`/`tp_id`'yi `str()` cast ile ata — böylece tüm downstream kodlar tutarlı çalışır. Ama bu daha geniş değişiklik gerektirir, mevcut fix daha güvenli.
+
+---
+
+### 🆕 P1-13b: P1-13 DD Guard Sonrası Ölü Kod
+**Severity:** LOW
+**Status:** OPEN — temizlik borcu, bloklayıcı değil
+**Date:** 2026-07-25
+**File:** `src/bot.py:614-621`
+
+#### Problem
+
+P1-13 fix'inde (d62df19) `_on_15m_close()`'ye erken return eklendi:
+
+```python
+# bot.py:607-611 — P1-13 guard
+if is_defense_mode:
+    log.warning("[DD_GUARD] %s DD devre kesici aktif — entry ENGELLENDI", sym)
+    log_event("entry_blocked_dd", sym, dd_active=True)
+    rsm.reset()
+    return   # ← burada fonksiyon terk ediliyor
+```
+
+Ama 7 satır aşağıda hâlâ eski DEFENSE bloğu duruyor:
+
+```python
+# bot.py:614-621 — ÖLÜ KOD (asla ulaşilemez)
+if is_defense_mode:
+    # PORTFOY KANIYOR (DD > %15): Elite CBDR gelse bile riski buyutme
+    final_risk_mult = 1.0 * min(cbdr_mult, 1.0)
+    log.warning(
+        "[DEFENSE] %s DD limitinde! EL ve Elite CBDR iptal. final=%.2fx",
+        sym,
+        final_risk_mult,
+    )
+```
+
+`is_defense_mode=True` ise fonksiyon zaten line 611'de `return` ile çıkmış oluyor. Line 614'e asla ulaşılamıyor.
+
+#### Etki
+
+Kod okunabilirliği — dead code, bakım sırasında yanıltabilir. Fonksiyonel etkisi yok.
+
+#### Fix
+
+Line 614-621'i sil. `else:` bloğunu (line 622-624) koru ama `if is_defense_mode:` guardian'ı olmaksızın doğrudan `final_risk_mult = risk_mgr_mult * cbdr_mult` olarak basitleştir:
+
+```python
+# ── Nihai carpan (Guvenlik Freni) ──
+# is_defense_mode True ise zaten return ile çıkıldı (line 607-611).
+final_risk_mult = risk_mgr_mult * cbdr_mult
+```
+
+---
+
+### 🆕 P1-14b: `_exit_trade_legacy`'de P1-14 Cross-Validation Eksik
+**Severity:** LOW
+**Status:** OPEN — temizlik borcu, legacy path devre dışı
+**Date:** 2026-07-25
+**File:** `src/bot.py:873-889` vs `src/trading/exit_lifecycle.py:150-188`
+
+#### Problem
+
+P1-14 cross-validation (SL/TP open orders'tan yoksa 400ms retry) sadece `ExitLifecycleService.execute()`'da mevcut (`exit_lifecycle.py:150-188`). `_exit_trade_legacy()` (`bot.py:873-889`)'de yok.
+
+#### Neden Kritik Değil
+
+`EXIT_LIFECYCLE_SERVICE_ENABLED=True` (varsayılan) olduğu için `_exit_trade_legacy()` zaten çalışmıyor — `_exit_trade()` wrapper'ı (line 869-871) `exit_service.execute()`'a delege ediyor. Bu, P0-1/P0-2/P0-6 ile aynı yapısal davranış pattern'i.
+
+#### Risk
+
+Eğer birisi `EXIT_LIFECYCLE_SERVICE_ENABLED=False` yaparsa (örn. rollback) P1-14 cross-validation da devre dışı kalır. Legacy path'i geri yükleyen kişi bunu bilmeli.
+
+#### Fix (opsiyonel, temizlik)
+
+`_exit_trade_legacy()`'ye `exit_lifecycle.py:150-188` ile aynı cross-validation mantığını ekle. Ya da legacy path'i tamamen kaldır (EXIT_LIFECYCLE_SERVICE_ENABLED kalıcı True iken gereksiz dead code).
