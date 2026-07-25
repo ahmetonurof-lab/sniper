@@ -22,11 +22,14 @@ kapsanır.
 
 `bugs.md`'ye P3-5 eklendi: WS-ORDER PARTIALLY_FILLED tekrarları (gözlemlendi, zararsız, aksiyon gerekmiyor).
 
-## Son İşlem: OHLC export path düzeltme + _fmt_price log fix (2026-07-26 00:30)
+## Son İşlem: _on_1m_close flush/counter pozisyon bağımsız hale getirildi (2026-07-26 00:50)
 
-1. **OHLC path sabitlendi** (`bot_infra.py`): `export_ohlc_1m` ve `export_ohlc_15m` artık `_OUTPUT_DIR` (script dizinine göre) kullanıyor. Daha önce relative `"output"` path kullanılıyordu — sunucunun çalışma dizini farklıydığından CSV dosyaları yanlış yere yazılmıyordu.
-2. **P3-2 log düzeltme**: `bot.py` `[PAPER]` logu ve `entry_manager.py` `entry_log_msg` `_fmt_price()` kullanımına güncellendi.
-3. **P3-5** eklendi: WS-ORDER PARTIALLY_FILLED tekrarları (gözlemlendi, zararsız).
+`src/bot.py:456-468` — `_on_1m_close()` yeniden yapılandırıldı:
+1. `export_ohlc_1m(current, sym)` → en başta (pozisyon bağımsız)
+2. `_orphan_check_counter += 1` + `_flush_ohlc_writers()` (mod-10) → trade gate'den önce
+3. Orphan sweep (mod-5) → sadece trade varsa
+
+Flusher ve OHLC export artık her 1m bar'da çalışıyor, pozisyon olsun olmasın.
 
 ## Aktif Görev: P1-8 post_entry_check %100 fail soruşturması
 
