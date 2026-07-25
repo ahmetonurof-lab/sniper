@@ -21,7 +21,7 @@ import time
 from typing import TYPE_CHECKING
 
 import config as cfg
-from bot_infra import extract_order_id
+from bot_infra import _fmt_price, extract_order_id
 from event_log import log_event
 from models import (
     INCIDENT_POSITION_OPEN_BUT_STATE_MISSING,
@@ -162,14 +162,14 @@ class RecoveryManager:
                         self._pl(
                             sym,
                             "recover",
-                            f"\U0001f512 {direction.upper()} @ {entry:.2f} | SL={sl_price:.2f} TP={tp_price:.2f} | yeni trade engellendi",
+                            f"🔒 {direction.upper()} @ {_fmt_price(entry)} | SL={_fmt_price(sl_price)} TP={_fmt_price(tp_price)} | yeni trade engellendi",
                         )
                 else:
                     if not quiet:
                         self._pl(
                             sym,
                             "recover",
-                            f"[{INCIDENT_POSITION_OPEN_BUT_STATE_MISSING}] \u26a0\ufe0f {direction.upper()} @ {entry:.2f} | SL/TP bulunamadi (pozisyon korumasiz)",
+                            f"[{INCIDENT_POSITION_OPEN_BUT_STATE_MISSING}] ⚠️ {direction.upper()} @ {_fmt_price(entry)} | SL/TP bulunamadi (pozisyon korumasiz)",
                         )
                     # Gercek ATR varsa kullan. Yoksa DEFAULT_ATR_FALLBACK_PCT (0.01%)
                     # KULLANMA: SL/TP giris fiyatina yapisir, Binance "immediately
@@ -408,7 +408,7 @@ class RecoveryManager:
                         self._pl(
                             sym,
                             "recover_emergency_close",
-                            f"\U0001f6a8 {direction.upper()} @ {entry:.2f} | SL kurulamadi -> ACIL KAPANIS tetiklendi",
+                            f"🚨 {direction.upper()} @ {_fmt_price(entry)} | SL kurulamadi -> ACIL KAPANIS tetiklendi",
                         )
                         close_result = None
                         close_error = None
@@ -531,7 +531,7 @@ class RecoveryManager:
                         self._pl(
                             sym,
                             "recover",
-                            f"\U0001f512 {direction.upper()} @ {entry:.2f} | SL={sl:.2f} (id={sl_id}) TP={tp:.2f} (id={tp_id}){protection_note} kuruldu",
+                            f"🔒 {direction.upper()} @ {_fmt_price(entry)} | SL={_fmt_price(sl)} (id={sl_id}) TP={_fmt_price(tp)} (id={tp_id}){protection_note} kuruldu",
                         )
         except Exception as e:
             if not quiet:
@@ -606,14 +606,14 @@ class RecoveryManager:
                         self._pl(
                             sym,
                             "ghost_missing_sltp",
-                            f"\u26a0\ufe0f GHOST: {direction.upper()} @ {entry:.2f} | SL={has_sl} TP={has_tp} eksik",
+                            f"⚠️ GHOST: {direction.upper()} @ {_fmt_price(entry)} | SL={has_sl} TP={has_tp} eksik",
                         )
                     else:
                         log_event("ghost_ok", sym, side=direction, entry=entry)
                         self._pl(
                             sym,
                             "ghost_ok",
-                            f"\U0001f512 GHOST: {direction.upper()} @ {entry:.2f} | SL/TP mevcut",
+                            f"🔒 GHOST: {direction.upper()} @ {_fmt_price(entry)} | SL/TP mevcut",
                         )
                 else:
                     mark_trade_closed(sym)

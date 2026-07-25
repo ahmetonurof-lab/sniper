@@ -22,6 +22,17 @@ from models import Bar, Result
 log = logging.getLogger("sniper.live")
 
 
+def _fmt_price(p: float) -> str:
+    """Fiyat buyuklugune gore uygun ondalik basamak sayisi."""
+    if p >= 100:
+        return f"{p:.2f}"
+    if p >= 1:
+        return f"{p:.4f}"
+    if p >= 0.01:
+        return f"{p:.5f}"
+    return f"{p:.7f}"
+
+
 class TradeEntry(TypedDict, total=False):
     symbol: str
     direction: str
