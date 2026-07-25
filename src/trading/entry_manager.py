@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import config as cfg
-from bot_infra import extract_order_id
+from bot_infra import extract_order_id, _fmt_price
 
 if TYPE_CHECKING:
     from models import FVG
@@ -485,8 +485,8 @@ class EntryManager:
             tp_order_id=tp_id,
             entry_log_msg=(
                 f"\U0001f7e8 ENTRY: {side.upper()} | "
-                f"PRICE: {est_price:.2f} (filled @ {actual_price:.4f}) | "
-                f"SL: {sl:.2f} | TP: {tp:.2f} | "
+                f"PRICE: {_fmt_price(est_price)} (filled @ {_fmt_price(actual_price)}) | "
+                f"SL: {_fmt_price(sl)} | TP: {_fmt_price(tp)} | "
                 f"QTY: {valid_qty:.4f} (filled: {actual_qty:.4f})"
             ),
         )

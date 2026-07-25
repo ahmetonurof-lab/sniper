@@ -21,6 +21,7 @@ from bot_binance import BinanceRESTClient
 from bot_infra import (
     _close_ohlc_writers,
     _flush_ohlc_writers,
+    _fmt_price,
     export_ohlc_1m,
     export_ohlc_15m,
     _RateLimiter,
@@ -793,12 +794,12 @@ class PaperTrader:
                 live_requested_qty = 0.0
 
             log.info(
-                "[PAPER] %s %s @ %.2f sl=%.2f tp=%.2f qty=%.4f",
+                "[PAPER] %s %s @ %s sl=%s tp=%s qty=%.4f",
                 sym,
                 side,
-                entry_price,
-                sl,
-                tp,
+                _fmt_price(entry_price),
+                _fmt_price(sl),
+                _fmt_price(tp),
                 qty,
             )
 

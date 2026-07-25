@@ -236,17 +236,32 @@ Trailing stop kâr kilitleme yerine her seferinde zararla çıkış üretiyor. D
 
 ## 🔵 P3 — Low Risk
 
-### P3-2: execute_live_entry() entry_log_msg tahmini fiyatı gösteriyor
-**Dosya:** `sniper/src/trading/entry_manager.py:437`
-- `entry_log_msg`'de `PRICE: {est_price:.2f}` yazıyor, `actual_price` değil
-- Davranışı etkilemez, sadece kozmetik
-- **⚠️ DURUM: HÂLÂ GEÇERLİ** — İstenirse actual_price ile güncellenebilir
+### P3-2: execute_live_entry() entry_log_msg + bot.py [PAPER] logları fiyat formatı sorunu
+**Dosya:** `sniper/src/trading/entry_manager.py:437`, `sniper/src/bot.py:795-803`
+- `entry_log_msg`'de `PRICE: {est_price:.2f}` ve `[PAPER]` logunda `@ %.2f sl=%.2f tp=%.2f` kullanılıyor
+- Küçük fiyatlı coinlerde (ENAUSDT ~0.0859, OPUSDT ~0.09) tüm fiyatlar aynı görünür (ör: 0.09)
+- `_fmt_price()` zaten `bot_infra.py`'de var ve dinamik ondalik basamak kullanıyor
+- **⚠️ DURUM: DÜZELTİLDİ** — `entry_log_msg` ve `[PAPER]` logları `_fmt_price()` kullanımına güncellendi (2026-07-25)
 
 ### P3-3: Genel — `except Exception` çok yaygın
 **Dosya:** `sniper/src/` geneli
 - Spesifik exception tipleri kullanılmalı.
 - Type hinting var ama runtime kontrol zayıf.
 - **⚠️ DURUM: HÂLÂ GEÇERLİ** — exit_lifecycle.py, recovery_manager.py, bot.py'de yaygın `except Exception` kullanımı var.
+
+### 🆕 P3-5: WS-ORDER PARTIALLY_FILLED tekrarları (gözlemlendi, zararsız)
+**Severity:** LOW
+**Status:** OBSERVED — aksiyon gerekmiyor
+**Date:** 2026-07-25
+
+`entry-enausdt-1785008701386` order ID için `status=PARTIALLY_FILLED` WS event'i 19 kez arka arkaya loglandı (22:45:01.656 → 22:45:01.864). Ardından `status=FILLED` geldi.
+
+**Analiz:**
+- Handler bu status'ta hiçbir aksiyon almıyor — sadece log üretiyor
+- Entry sonrası POST_ENTRY check ve SL/TP yerleşimi normal çalışıyor
+- Binance WS tarafından aynı event'in tekrar gönderilmesi veya handler'daki dedup eksikliği olabilir
+- **Zarar:** Yok — sadece log hacmini artırır, fonksiyonel etkisi yok
+- **Önerilen aksiyon:** Yok
 
 ### 🆕 P3-4: NEARUSDT SL Çok Dar (0.055%)
 **Severity:** LOW

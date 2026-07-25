@@ -14,6 +14,14 @@
 CSV birikir — DD tetikleme anları, stale-event soruşturmaları, pozisyonsuz dönemler
 kapsanır.
 
+## Son İşlem: P3-2 fiyat formatı fix + P3-5 PARTIALLY_FILLED notu (2026-07-26 00:01)
+
+`bot.py` ve `entry_manager.py`'deki log satırları `_fmt_price()` kullanımına güncellendi:
+- `bot.py:795-803` — `[PAPER] ENAUSDT short @ 0.09 sl=0.09 tp=0.09` → `_fmt_price()` ile dinamik ondalık basamak
+- `entry_manager.py:486-491` — `entry_log_msg` içinde `est_price:.2f` → `_fmt_price()` ile dinamik format
+
+`bugs.md`'ye P3-5 eklendi: WS-ORDER PARTIALLY_FILLED tekrarları (gözlemlendi, zararsız, aksiyon gerekmiyor).
+
 ## Aktif Görev: P1-8 post_entry_check %100 fail soruşturması
 
 - **Soru 1 cevaplandı:** 7 vaka P0-5 deploy'undan SONRA (23 Tem 14:32 → 24 Tem 14:45+)
