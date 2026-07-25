@@ -82,7 +82,7 @@ def _round_price(price: float, tick: float) -> float:
 
 def extract_order_id(resp: dict) -> str:
     """Binance response'dan order ID çıkar (algoId > orderId > id)."""
-    return resp.get("algoId") or resp.get("orderId") or resp.get("id") or ""
+    return str(resp.get("algoId") or resp.get("orderId") or resp.get("id") or "")
 
 
 def fmt_bool(val: bool) -> str:

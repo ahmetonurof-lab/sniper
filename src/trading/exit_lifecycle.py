@@ -222,6 +222,11 @@ class ExitLifecycleService:
                 trade["pending_exit_qty"] = None
                 trade["pending_exit_order_id"] = None
                 trade["pending_exit_timestamp"] = None
+                log.warning(
+                    "[P_DEBUG] %s result reset ediliyor, onceki=%s",
+                    sym,
+                    trade.get("result"),
+                )
                 trade["result"] = None
                 # P1-11 FIX: stale/phantom event nedeniyle exit iptal edildi ama
                 # status hala EXIT_REQUESTED/EXIT_SUBMITTED/EXIT_VERIFYING'de
