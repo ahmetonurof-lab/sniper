@@ -1,5 +1,11 @@
 # Progress — Sniper Bot
 
+## Son İşlem
+
+| Tarih | İşlem | Detay |
+|-------|-------|-------|
+| 2026-07-25 22:15 | Bug Registry bölünmesi | `bugs.md` → `bugs.md` (17 aktif) + `bugs_archive.md` (19 sabit). Commit: `8155ada` |
+
 ## Çalışanlar ✅
 
 | Bileşen | Durum |

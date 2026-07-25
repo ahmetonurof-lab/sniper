@@ -1,5 +1,12 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: Bug Registry Bölünmesi (2026-07-25 22:15)
+
+`memory-bank/bugs.md` ikiye bölündü:
+- **bugs_archive.md** (436 satır): 19 sabit madde tam içerikle taşındı (P0-2, P0-3, P0-4, P0-5, P1-1, P1-2, P1-3, P1-5, P1-6, P1-8a, P1-9, P1-10, P1-11, P1-13, P1-14, P2-1, P2-4, P2-5 + P1-12 analiz + 25 Tem log analizi)
+- **bugs.md** (461 satır, 1017'den %55 küçültüldü): 17 aktif madde + arşiv izleri
+- Commit: `8155ada`
+
 ## Aktif Görev: P1-8 post_entry_check %100 fail soruşturması
 
 - **Soru 1 cevaplandı:** 7 vaka P0-5 deploy'undan SONRA (23 Tem 14:32 → 24 Tem 14:45+)
