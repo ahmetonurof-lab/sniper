@@ -603,6 +603,13 @@ class PaperTrader:
         )
         is_defense_mode = self.risk_mgr.is_circuit_broken
 
+        # ── P1-13: DD devre kesici → entry tamamen engelle ──
+        if is_defense_mode:
+            log.warning("[DD_GUARD] %s DD devre kesici aktif — entry ENGELLENDI", sym)
+            log_event("entry_blocked_dd", sym, dd_active=True)
+            rsm.reset()
+            return
+
         # ── Nihai carpan (Guvenlik Freni) ──
         if is_defense_mode:
             # PORTFOY KANIYOR (DD > %15): Elite CBDR gelse bile riski buyutme

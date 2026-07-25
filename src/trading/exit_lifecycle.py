@@ -142,6 +142,52 @@ class ExitLifecycleService:
                 return False
 
             if position_open:
+                # ── P1-14: cross-validation — SL/TP hâlâ açık emirlerde mi? ──
+                # position_still_open() /fapi/v2/positionRisk'a guveniyor ama
+                # bu endpoint eventual-consistency gecikebilir (P0-5 ile ayni
+                # tur sorun). Eger SL/TP ID'leri zaten open orders'tan
+                # cikmislarsa pozisyon aslinda kapanmis olabilir.
+                try:
+                    _open_ids = await self._order_manager.get_open_order_ids(sym)
+                except Exception:
+                    _open_ids = None
+                _sl_id = str(trade.get("sl_order_id", ""))
+                _tp_id = str(trade.get("tp_order_id", ""))
+                _sl_in = _open_ids is not None and _sl_id in _open_ids
+                _tp_in = _open_ids is not None and _tp_id in _open_ids
+                if _open_ids is not None and not _sl_in and not _tp_in:
+                    log.warning(
+                        "[EXIT] %s %s P1-14 cross-val: SL/TP open_orders'ta yok "
+                        "(sl=%s tp=%s open_ids=%d) — position_still_open bekleniyor",
+                        sym,
+                        _exit_result,
+                        _sl_id,
+                        _tp_id,
+                        len(_open_ids),
+                    )
+                    await asyncio.sleep(0.4)
+                    try:
+                        position_open = await self._order_manager.position_still_open(
+                            sym
+                        )
+                    except Exception:
+                        position_open = True
+                    if not position_open:
+                        log.info(
+                            "[EXIT] %s %s P1-14 retry: pozisyon kapanmis — "
+                            "exit devam ediyor",
+                            sym,
+                            _exit_result,
+                        )
+                    else:
+                        log.warning(
+                            "[EXIT] %s %s P1-14 retry: pozisyon hâlâ acik — "
+                            "stale kabul ediliyor",
+                            sym,
+                            _exit_result,
+                        )
+
+            if position_open:
                 log.warning(
                     "[EXIT] %s %s stale event — pozisyon hala acik, exit iptal",
                     sym,
