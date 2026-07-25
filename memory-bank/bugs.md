@@ -27,7 +27,7 @@
 | **🆕 P2-6** | 🐛 | TIAUSDT her bar close'da gir-çık döngüsü | AÇIK |
 | **🆕 P2-7** | 🐛 | Tüm TRAIL_CLOSE çıkışları negatif (5/5) | AÇIK |
 | **🆕 P3-4** | 🐛 | NEARUSDT SL çok dar (0.055%) | AÇIK |
-| **🆕 P1-8a** | ✅🔧 | POST_ENTRY type mismatch: int vs str set check | FIX DEPLOY (e45d0a9), DOĞRULANIYOR |
+| **🆕 P1-8a** | ✅ | POST_ENTRY type mismatch: int vs str set check | FIX DEPLOY + CANLI DOĞRULANDI |
 | **🆕 P1-13b** | 🐛 | P1-13 DD guard sonrası ölü kod (unreachable block) | AÇIK |
 | **🆕 P1-14b** | 🐛 | _exit_trade_legacy'de P1-14 cross-val eksik | AÇIK |
 | **🆕 P1-15** | 🔍 | ARBUSDT stale event loop — _on_1m_close result reset mi tetikliyor? | ARAŞTIRILIYOR |
@@ -746,7 +746,7 @@ SL neredeyse entry fiyatında. Her küçük wick tetikliyor → 4 stale event (0
 
 ### 🆕 P1-8a: POST_ENTRY Type Mismatch — `int in set[str]` Her Zaman False
 **Severity:** HIGH
-**Status:** ✅ FIX DEPLOY (e45d0a9) — `extract_order_id()` str cast + bot.py:732-733 str() cast. Doğrulanıyor.
+**Status:** ✅ FIX DEPLOY + DOĞRULANDI (e45d0a9) — `extract_order_id()` str cast + bot.py:732-733 str() cast. 21:02 SEIUSDT temiz TP çıkışı (pnl=+4.11) ile canlı doğrulandı. `sl_ok=False` false positive artık yok.
 **Date:** 2026-07-25
 **File:** `src/bot_infra.py:85`, `src/bot.py:732-733`
 
