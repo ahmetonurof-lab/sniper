@@ -22,6 +22,12 @@ kapsanır.
 
 `bugs.md`'ye P3-5 eklendi: WS-ORDER PARTIALLY_FILLED tekrarları (gözlemlendi, zararsız, aksiyon gerekmiyor).
 
+## Son İşlem: OHLC export path düzeltme + _fmt_price log fix (2026-07-26 00:30)
+
+1. **OHLC path sabitlendi** (`bot_infra.py`): `export_ohlc_1m` ve `export_ohlc_15m` artık `_OUTPUT_DIR` (script dizinine göre) kullanıyor. Daha önce relative `"output"` path kullanılıyordu — sunucunun çalışma dizini farklıydığından CSV dosyaları yanlış yere yazılmıyordu.
+2. **P3-2 log düzeltme**: `bot.py` `[PAPER]` logu ve `entry_manager.py` `entry_log_msg` `_fmt_price()` kullanımına güncellendi.
+3. **P3-5** eklendi: WS-ORDER PARTIALLY_FILLED tekrarları (gözlemlendi, zararsız).
+
 ## Aktif Görev: P1-8 post_entry_check %100 fail soruşturması
 
 - **Soru 1 cevaplandı:** 7 vaka P0-5 deploy'undan SONRA (23 Tem 14:32 → 24 Tem 14:45+)

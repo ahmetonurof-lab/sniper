@@ -50,6 +50,8 @@
 | on_sweep_confirmed rewrite | ✅ sweep invalidation gate + no reset on no-FVG + no unconditional reset |
 | P1-8 debug log canlıya deploy | ✅ `log.warning` level, TIAUSDT vakasında ilk sonuç alındı |
 | `_fmt_price()` dinamik fiyat formatlama | ✅ `bot_infra.py` — küçük fiyatlı coinlerde SL/TP artık ayırt edilebiliyor |
+| OHLC export path sabitleme | ✅ `bot_infra.py` — `export_ohlc_1m`/`export_ohlc_15m` artık `_OUTPUT_DIR` (script dizinine göre) kullanıyor, çalışma dizinine bağlı relative path sorunu düzeltildi |
+| `entry_log_msg` + `[PAPER]` log `_fmt_price()` güncellemesi | ✅ `entry_manager.py` + `bot.py` — tahmini fiyat yerine gerçek fiyat, düzgün ondalık basamak |
 
 ## Devam Eden Soruşturmalar 🔍
 

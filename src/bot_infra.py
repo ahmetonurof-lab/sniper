@@ -21,6 +21,9 @@ from models import Bar, Result
 
 log = logging.getLogger("sniper.live")
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_OUTPUT_DIR = os.path.join(_SCRIPT_DIR, "..", "output")
+
 
 def _fmt_price(p: float) -> str:
     """Fiyat buyuklugune gore uygun ondalik basamak sayisi."""
@@ -122,7 +125,7 @@ def _close_ohlc_writers() -> None:
 
 
 def export_ohlc_15m(bar: Bar, symbol: str) -> None:
-    filepath = os.path.join("output", "live_ohlc", f"{symbol}_15m.csv")
+    filepath = os.path.join(_OUTPUT_DIR, "live_ohlc", f"{symbol}_15m.csv")
     writer = _get_ohlc_writer(filepath)
     ts = datetime.fromtimestamp(bar.timestamp / 1000, tz=UTC).strftime(
         "%Y-%m-%d %H:%M:%S"
@@ -131,7 +134,7 @@ def export_ohlc_15m(bar: Bar, symbol: str) -> None:
 
 
 def export_ohlc_1m(bar: Bar, symbol: str) -> None:
-    filepath = os.path.join("output", "live_ohlc", f"{symbol}_1m.csv")
+    filepath = os.path.join(_OUTPUT_DIR, "live_ohlc", f"{symbol}_1m.csv")
     writer = _get_ohlc_writer(filepath)
     ts = datetime.fromtimestamp(bar.timestamp / 1000, tz=UTC).strftime(
         "%Y-%m-%d %H:%M:%S"
