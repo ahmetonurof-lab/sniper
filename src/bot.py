@@ -453,12 +453,11 @@ class PaperTrader:
     # ── 1m: Trailing + Exit (hibrit izleme) ──
 
     async def _on_1m_close(self, sym: str, bars_1m: list[Bar]):
+        current = bars_1m[-1]
+        export_ohlc_1m(current, sym)
         trade = self.active_trades.get(sym)
         if not trade:
             return
-
-        current = bars_1m[-1]
-        export_ohlc_1m(current, sym)
 
         # ── Orphan sweep (every 5 calls, tüm sembolleri tarar) ──
         self._orphan_check_counter += 1

@@ -4,6 +4,7 @@
 
 | Tarih | İşlem | Detay |
 |-------|-------|-------|
+| 2026-07-25 23:41 | export_ohlc_1m pozisyonsuz bar'lara taşındı | `bot.py:455-460` — `_on_1m_close()`'da export, trade guard'inden önceye alındı. Her 1m bar CSV'ye düşer. |
 | 2026-07-25 22:15 | Bug Registry bölünmesi | `bugs.md` → `bugs.md` (17 aktif) + `bugs_archive.md` (19 sabit). Commit: `8155ada` |
 
 ## Çalışanlar ✅

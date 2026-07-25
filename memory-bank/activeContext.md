@@ -7,6 +7,13 @@
 - **bugs.md** (461 satır, 1017'den %55 küçültüldü): 17 aktif madde + arşiv izleri
 - Commit: `8155ada`
 
+## Son İşlem: export_ohlc_1m pozisyonsuz bar'lara taşındı (2026-07-25 23:41)
+
+`src/bot.py:455-460` — `_on_1m_close()` içinde `export_ohlc_1m(current, sym)` çağrısı
+`active_trades` guard'inden ÖNCE taşındı. Artık pozisyon olmasa bile her 1m bar'da
+CSV birikir — DD tetikleme anları, stale-event soruşturmaları, pozisyonsuz dönemler
+kapsanır.
+
 ## Aktif Görev: P1-8 post_entry_check %100 fail soruşturması
 
 - **Soru 1 cevaplandı:** 7 vaka P0-5 deploy'undan SONRA (23 Tem 14:32 → 24 Tem 14:45+)
