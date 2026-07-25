@@ -8,6 +8,15 @@
 - **Yapılanlar:** `_fmt_price()` eklendi (fiyat formatlama düzeldi), debug log canlıda aktif
 - **Bir sonraki adım:** Diğer vakalarda `raw_orders_count=0` mı `>0` mu çıktığını bekliyoruz
 
+## Tamamlanan Fixler (25 Tem)
+
+| Fix | Commit | Açıklama |
+|-----|--------|----------|
+| P1-13 DD guard | d62df19 | `bot.py`'de `is_circuit_broken` → entry tamamen engelleniyor |
+| P1-14 stale retry | d62df19 | `exit_lifecycle.py` cross-validation: SL/TP open_orders'ta yoksa 400ms retry |
+| `_fmt_price()` | bb1b350 | Dinamik ondalik basamak, OPUSDT gibi coinlerde SL/TP ayirt edilebiliyor |
+| POST_ENTRY_DEBUG | ded89ce | `log.warning` level, canlıda görünüyor |
+
 ## Mevcut Durum (Görev 10 — Post-deploy doğrulama tamam)
 
 - **Bot çalışıyor mu?**: Testnet'te, canlı emir gönderimi aktif.

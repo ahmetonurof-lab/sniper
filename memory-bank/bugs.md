@@ -21,8 +21,8 @@
 | **P1-6** | ✅ | Entry sizing max_qty clamp yok | DÜZELTİLDİ |
 | **P1-7** | 📎 | Harici kapanışlar (26 WS_FALLBACK) + ONDOUSDT fix | KISMEN AÇIKLANDI |
 | **P1-8** | 🐛 | POST_ENTRY check %100 başarısız — iki kök neden tespit edildi | DEBUG LOG AKTİF, KÖK NEDEN AYRIMINDA |
-| **P1-13** | 🐛 | DD circuit breaker bypass + defense entry engellemiyor | AÇIK |
-| **🆕 P1-14** | 🐛 | SL stale event → exit 27dk'ya kadar gecikiyor | AÇIK |
+| **P1-13** | ✅ | DD circuit breaker bypass — entry engellendi | FIX DEPLOY (d62df19) |
+| **🆕 P1-14** | ✅ | SL stale event → exit 27dk'ya kadar gecikiyor | FIX DEPLOY (d62df19) |
 | **D-2** | 🐛 | Trailing/entry formülleri 3 motorunda kopya kod | AÇIK |
 | **🆕 P2-6** | 🐛 | TIAUSDT her bar close'da gir-çık döngüsü | AÇIK |
 | **🆕 P2-7** | 🐛 | Tüm TRAIL_CLOSE çıkışları negatif (5/5) | AÇIK |
@@ -540,7 +540,7 @@ P0-5 fix (7e50331, 23 Temmuz 14:32 deploy) bunu çözmeliydi ama 24 Temmuz'da %1
 
 **Kök neden:** `_post_entry_check` DD state'ini kontrol etmiyor — defense mekanizması CBDR/EL iptal ediyor ama entry sonrası SL/TP placement riskini azaltmıyor. DD yüksekken entry yapılması itself bir risk.
 
-**⚠️ Durum: YENI BULGU** — Önerilen aksiyon: DD circuit breaker aktifken `_post_entry_check`'a guard ekleyin, veya entry sırasında DD state kontrolü yapın.
+**⚠️ Durum: DÜZELTİLDİ (d62df19)** — `bot.py:_on_15m_close()`'de `execute_live_entry` çağrısından ÖNCE `is_circuit_broken` guard eklendi. DD aktifken entry tamamen engelleniyor, qty bile hesaplanmıyor.
 
 - **📎 25 TEMMUZ DETAYLI ANALİZ (2026-07-25):** 25/Jul'da **9 DEFENSE tetiklemesinin her birinde** 0.24-1.01s içinde yeni market entry açıldı. 1'i circuit breaker bypass (ENAUSDT, 245ms):
   ```
@@ -564,12 +564,28 @@ P0-5 fix (7e50331, 23 Temmuz 14:32 deploy) bunu çözmeliydi ama 24 Temmuz'da %1
 
 **P1-12 bağımsız bug DEĞİL** — P1-8 ile aynı kök neden (P0-5: get_all_orders openAlgoOrders hata yutma). P0-5 fix (7e50331) deploy edildi.
 
+### P1-14: SL stale event → exit 27dk'ya kadar gecikiyor
+**Kaynak:** `exit_lifecycle.py:execute()` + `order_manager.py:position_still_open()`
+- `position_still_open()` → `/fapi/v2/account` (NOT `/fapi/v2/positionRisk`)
+- Exit event'i (SL/TP/WS_FALLBACK) geldiğinde REST ile pozisyon hâlâ açık mı diye kontrol ediliyor
+- Eğer `position_still_open()` True dönerse → "stale event" kabul ediliyor → exit iptal, trade ACTIVE'e dönüyor
+- **Sorun:** `/fapi/v2/account` endpoint'i de eventual-consistency gecikebilir — SL zaten tetiklenmiş ama pozisyon hâlâ "açık" görünüyor
+- P1-14 tablosu: ONDOUSDT 27dk, ARBUSDT 21dk gecikme
+
+**Düzeltme (d62df19):**
+`exit_lifecycle.py:execute()` içinde `position_open=True` çıktığında, cross-validation eklendi:
+1. `get_open_order_ids(sym)` ile SL/TP ID'lerinin hâlâ open orders'ta olup olmadığı kontrol ediliyor
+2. İkisi de yoksa (tetiklenmiş) → 400ms bekleme + `position_still_open()` bir kez daha sorgulanıyor
+3. Retry'da pozisyon kapandıysa → exit devam ediyor (false stale engellendi)
+4. Retry'da hâlâ açıksa → stale kabul ediliyor (güvenli tarafta)
+
 ### 🔧 Önerilen aksiyonlar
-1. SSH ile sunucuda `get_all_orders()` debug logu alınmalı — openAlgoOrders endpoint'i hâlâ hata yutuyor mu?
-2. P0-5 fix (7e50331) deploy edilip edilmediği doğrulanmalı
-3. DD circuit breaker sonrası entry yapılmasını engelleyin veya `_post_entry_check`'a DD state guard ekleyin
+1. ~~SSH ile sunucuda `get_all_orders()` debug logu alınmalı~~ → P1-8 debug log canlıda aktif, sonuç bekleniyor
+2. ~~P0-5 fix (7e50331) deploy edilip edilmediği doğrulanmalı~~ → ✅ Deploy edildi (7e50331)
+3. ~~DD circuit breaker sonrası entry yapılmasını engelleyin~~ → ✅ DÜZELTİLDİ (P1-13, d62df19)
 4. `post_entry_check_failed` → `ws_unmatched_reduce_only` zincirindeki PnL kayıpları quantify edilmeli
 5. `fvg_invalidated` → `force_close` → `WS_FALLBACK` pattern'i için SL/TP recalculation after actual fill doğrulaması eklenmeli
+6. P1-14 stale event cross-validation deploy sonrası ONDOUSDT/ARBUSDT benzeri vakalar için gecikme süresini test et
 
 ---
 
