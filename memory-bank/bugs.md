@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-25 — Baş mühendis review: P1-8a type mismatch, P1-13b dead code, P1-14b legacy path eksik eklendi.
+> **Son güncelleme:** 2026-07-25 20:34 — extract_order_id str cast deploy (e45d0a9), stale loop araştırma devam, ARBUSDT stale cycle P_DEBUG eklendi.
 > **Önceki güncelleme:** 2026-07-24 — P1-12 ve P1-13 olarak eklendi.
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
@@ -27,9 +27,10 @@
 | **🆕 P2-6** | 🐛 | TIAUSDT her bar close'da gir-çık döngüsü | AÇIK |
 | **🆕 P2-7** | 🐛 | Tüm TRAIL_CLOSE çıkışları negatif (5/5) | AÇIK |
 | **🆕 P3-4** | 🐛 | NEARUSDT SL çok dar (0.055%) | AÇIK |
-| **🆕 P1-8a** | 🐛 | POST_ENTRY type mismatch: int vs str set check | AÇIK |
+| **🆕 P1-8a** | ✅🔧 | POST_ENTRY type mismatch: int vs str set check | FIX DEPLOY (e45d0a9), DOĞRULANIYOR |
 | **🆕 P1-13b** | 🐛 | P1-13 DD guard sonrası ölü kod (unreachable block) | AÇIK |
 | **🆕 P1-14b** | 🐛 | _exit_trade_legacy'de P1-14 cross-val eksik | AÇIK |
+| **🆕 P1-15** | 🔍 | ARBUSDT stale event loop — _on_1m_close result reset mi tetikliyor? | ARAŞTIRILIYOR |
 
 ---
 
@@ -745,9 +746,9 @@ SL neredeyse entry fiyatında. Her küçük wick tetikliyor → 4 stale event (0
 
 ### 🆕 P1-8a: POST_ENTRY Type Mismatch — `int in set[str]` Her Zaman False
 **Severity:** HIGH
-**Status:** OPEN — kök neden tespit edildi, fix henüz uygulanmadı
+**Status:** ✅ FIX DEPLOY (e45d0a9) — `extract_order_id()` str cast + bot.py:732-733 str() cast. Doğrulanıyor.
 **Date:** 2026-07-25
-**File:** `src/bot.py:732-733`
+**File:** `src/bot_infra.py:85`, `src/bot.py:732-733`
 
 #### Problem
 
@@ -951,3 +952,66 @@ Bu pencerede 4 entry — hepsinde `sl_ok=False, tp_ok=False`.
 | P1-14 ENAUSDT working | ✅ Fix doğru çalışıyor | Cross-validation SL kaybolduğunda exit'i onayladı |
 
 **Sonuç:** Hiçbiri regressyon değil. Ya deploy eksik (P1-13) ya pre-existing (P1-8a) ya da fix'in doğru çalıştığını doğruluyor (P1-14).
+
+---
+
+## 🔍 P1-15: ARBUSDT Stale Event Loop — `_on_1m_close` Result Reset mi Tetikliyor?
+
+**Severity:** MEDIUM
+**Status:** 🔍 ARAŞTIRILIYOR
+**Date:** 2026-07-25
+**File:** `src/trading/exit_lifecycle.py:225`, `src/bot.py:505-512`, `src/trading/trailing_manager.py:148-162`
+
+### Problem
+
+ARBUSDT pozisyonu 18:45:01'de açıldı. 18:47:14'ten 19:24:45'e kadar (~37dk) **9 stale event** tekrarlandı. Her stale event'te SL/TP open_ids'de hâlâ mevcut → pozisyon gerçekten açık.
+
+### Zaman Çizelgesi
+
+```
+18:45:01  ARBUSDT entry (SL=0.082725, TP=0.083550)
+18:47:14  stale #1  (no WS-ORDER before)
+18:47:15  stale #2
+18:52:14  stale #3
+18:56:15  stale #4
+19:02:15  stale #5
+19:03:15  stale #6
+19:05:01  stale #7
+19:09:14  stale #8
+19:14:16  stale #9   ← bot restart sonrası, WS reconnect
+19:24:01  stale #10
+19:24:45  GERÇEK WS SL fill → exit devam etti, pnl=-4.43
+```
+
+### Tespit
+
+Stale event'lerden **hiçbirinde** `[WS-ORDER]` satırı yok. Ama timing 1m bar close ile hizalı:
+
+| Stale Event | En yakın 1m Bar Close | Fark |
+|---|---|---|
+| 19:14:16 | 19:14:00 | +16sn |
+| 19:24:01 | 19:24:00 | +1sn |
+
+### Kök Neden Hipotezi
+
+`_on_1m_close()` (bot.py:505-512) her 1m bar close'da `TrailingManager.check_exit()` çağırıyor. `check_exit()` (trailing_manager.py:148-162) bar'ın low/high değerlerini SL/TP ile karşılaştırıyor:
+
+```python
+# trailing_manager.py:158 — short pozisyon için
+if current.high >= sl:
+    return ExitDecision(triggered=True, result="SL", exit_price=sl)
+```
+
+Eğer ARBUSDT short pozisyonu için 1m bar high'u SL (0.082725) seviyesine değerse → `result="SL"` → `_exit_trade()` → `exit_service.execute()` → `position_still_open=True` → stale event.
+
+**Kritik nokta:** Stale event sonunda `trade["result"] = None` (exit_lifecycle.py:225) ile result reset ediliyor. Ama bir sonraki 1m bar close'da `check_exit()` tekrar `result="SL"` set edebilir — eğer bar high'u SL'e değmeye devam ederse.
+
+### Doğrulama Bekleniyor
+
+1. **`[P_DEBUG]` logu:** `trade["result"] = None` çalışıyorsa stale event'ten hemen önce `[P_DEBUG] ARBUSDT result reset ediliyor, onceki=SL` görünmeli. Bu, `_on_1m_close()`'ün her bar'da kendi result'unu set ettiğini doğrular.
+
+2. **1m OHLC verisi:** `live_ohlc/ARBUSDT_1m.csv`'den 19:14:00 ve 19:24:00 bar'larının high değeri SL (0.082725) ile karşılaştırılmalı. High >= SL ise → **doğru behavior** (fiyat SL'e değiyor, exit tetikleniyor ama pozisyon kapanmıyor).
+
+### Geçici Sonuç
+
+**Henüz kapatılmadı.** `[P_DEBUG]` ve OHLC verisi bekleniyor. Eğer her ikisi de hipotezi doğrularsa → bu doğru behavior (fiyat SL seviyesinde dalgalanıyor), bug değil. Eğer `[P_DEBUG]` çalışmıyorsa → result reset bug'ı var, fix gerekiyor.
