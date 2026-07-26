@@ -47,6 +47,16 @@ Flusher ve OHLC export artık her 1m bar'da çalışıyor, pozisyon olsun olmas�
 
 Bugs.md güncellendi: D-2 Fark 1 ✅, P2-6/P2-7 🔧 (canlı doğrulama bekleniyor).
 
+## Son İşlem: P0-1 FULL FIX (2026-07-26 15:05)
+- `EXIT_LIFECYCLE_SERVICE_ENABLED` flag temizliği (kaynak kod + config).
+- `_exit_trade_legacy` silindi, artık tüm exit'ler `ExitLifecycleService.execute()` üzerinden.
+- Idempotency guard eklenmiş: `_exit_log[ sym ][entry_bar_index+entry_price] = result` — aynı trade+result ikinci kez commit edilemez.
+- Per-trade lock: `asyncio.Lock` key `sym_{entry_bar_index}_{entry_price}` — `position_still_open()` dahil tüm execute() gövdesini korur, farklı trade'ler birbirini bloklamaz.
+- Test: 3 yeni P0-1 senaryo (stale→real PnL tek, guard engelleme, concurrent lock) + 31/31 suite geçti.
+- P0-6/P0-7/P2-2 durumları doğrulandı.
+- **Commit:** `440125c`
+- **Git:** `bfd4ae7..440125c main -> main`
+
 ## Aktif Görev: P1-8 post_entry_check %100 fail soruşturması
 
 - **Soru 1 cevaplandı:** 7 vaka P0-5 deploy'undan SONRA (23 Tem 14:32 → 24 Tem 14:45+)

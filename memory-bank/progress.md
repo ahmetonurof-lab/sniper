@@ -5,6 +5,7 @@
 | Tarih | İşlem | Detay |
 |-------|-------|-------|
 | 2026-07-26 10:38 | D-2 Fark 1: exit_now guard kaldırıldı (P2-6/P2-7 kök neden fix) | `trailing_manager.py:evaluate_trail()` — new_sl >= current.close → exit_now guard'ı analyzer_v5 backtest ile uyumlu kaldırıldı. 2 regression test (long + short). 81/81 test geçti. |
+| 2026-07-26 15:05 | P0-1 FULL FIX: flag temizliği, legacy silme, idempotency guard, per‑trade lock | `bot.py`, `config.py`, `state_writer.py`, `exit_lifecycle.py`, `test_exit_lifecycle.py` güncellendi. `_exit_reason_log` (entry_bar_index+entry_price bazlı) + per‑trade asyncio.Lock. 3 yeni P0-1 test + 31/31 suite geçti. Commit: `440125c`. |
 | 2026-07-26 09:25 | P1-15 check_exit teorisi çürütüldü, repr() debug log aktif | CSV high=0.0447 < sl=0.044729 → check_exit tetiklenmemeli. WS handler + recovery_manager elendi. [P1-15_DEBUG] repr(high/sl) WARNING log eklendi, stale event bekleniyor. |
 | 2026-07-26 08:15 | P1-15 SEIUSDT stale event kök neden doğrulaması (AŞAĞI ÇEKİLDİ) | csv.writer precision reddedildi ama check_exit teorisi de CSV ile çelişiyor — repr() ile çözülecek. |
 | 2026-07-25 23:41 | export_ohlc_1m pozisyonsuz bar'lara taşındı | `bot.py:455-460` — `_on_1m_close()`'da export, trade guard'inden önceye alındı. Her 1m bar CSV'ye düşer. |
