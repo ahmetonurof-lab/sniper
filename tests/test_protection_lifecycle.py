@@ -325,6 +325,60 @@ class TestCleanupAfterConfirmedExit:
         plan = svc.cleanup_after_confirmed_exit(t, "TRAIL_CLOSE")
         assert plan.cancel_ids == []
 
+    # ── P2-2 regression: prev/pending/history ID'leri de iptal edilmeli ──
+
+    def test_sl_result_also_cancels_transitional_ids(self, svc):
+        t = _trade(
+            sl_order_id="SL_1",
+            tp_order_id="TP_1",
+            sl_order_id_prev="SL_OLD",
+            tp_order_id_prev="TP_OLD",
+            pending_sl_order_id="SL_PEND",
+            pending_tp_order_id="TP_PEND",
+            sl_order_id_history=["SL_H1", "SL_H2"],
+            tp_order_id_history=["TP_H1"],
+        )
+        plan = svc.cleanup_after_confirmed_exit(t, "SL")
+        # trigger tarafinin kendi ID'si (SL_1) hala haric tutulur — zaten dolmus
+        assert "SL_1" not in plan.cancel_ids
+        assert set(plan.cancel_ids) == {
+            "TP_1",
+            "SL_OLD",
+            "TP_OLD",
+            "SL_PEND",
+            "TP_PEND",
+            "SL_H1",
+            "SL_H2",
+            "TP_H1",
+        }
+
+    def test_synthetic_result_also_cancels_transitional_ids(self, svc):
+        t = _trade(
+            sl_order_id="SL_1",
+            tp_order_id="TP_1",
+            pending_sl_order_id="SL_PEND",
+            sl_order_id_history=["SL_H1"],
+        )
+        plan = svc.cleanup_after_confirmed_exit(t, "TRAIL_CLOSE")
+        assert set(plan.cancel_ids) == {"SL_1", "TP_1", "SL_PEND", "SL_H1"}
+
+    def test_transitional_ids_deduplicated(self, svc):
+        # ayni ID hem history'de hem prev'te olabilir (uzun trailing zinciri)
+        t = _trade(
+            sl_order_id="SL_1",
+            tp_order_id="TP_1",
+            sl_order_id_prev="SL_OLD",
+            sl_order_id_history=["SL_OLD", "SL_H1"],
+        )
+        plan = svc.cleanup_after_confirmed_exit(t, "SL")
+        assert plan.cancel_ids.count("SL_OLD") == 1
+
+    def test_no_transitional_ids_unchanged_behavior(self, svc):
+        # prev/pending/history bos ise davranis oncekiyle birebir ayni
+        t = _trade(sl_order_id="SL_1", tp_order_id="TP_1")
+        plan = svc.cleanup_after_confirmed_exit(t, "SL")
+        assert plan.cancel_ids == ["TP_1"]
+
 
 # ═══════════════════════════════════════════════════════════════════
 # begin_replace / promote tests

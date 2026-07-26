@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-26 09:40 — P0-6, P0-7, P1-13b, P1-14b kapatıldı.
+> **Son güncelleme:** 2026-07-26 10:05 — P2-2, P2-3, P3-2 kapatıldı. Toplam arşiv: 25 madde.
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ---
@@ -18,11 +18,11 @@
 | **P1-7** | 📎 | Harici kapanışlar (26 WS_FALLBACK) + ONDOUSDT fix | KISMEN AÇIKLANDI |
 | **P1-8** | 🐛 | POST_ENTRY check %100 başarısız — iki kök neden tespit edildi | DEBUG LOG AKTİF, KÖK NEDEN AYRIMINDA |
 | **D-2** | 🐛 | Trailing/entry formülleri 3 motorunda kopya kod | AÇIK |
-| **P2-2** | 🐛 | CleanupPlan eksik | HÂLÂ GEÇERLİ |
-| **P2-3** | 🐛 | promote_sl/tp() niyet uyuşmazlığı | HÂLÂ GEÇERLİ |
+| **P2-2** | ✅ | CleanupPlan eksik (prev/pending/history) | DÜZELTİLDİ, ARŞİVLENDİ |
+| **P2-3** | ✅ | promote_sl/tp() niyet uyuşmazlığı (docstring) | DÜZELTİLDİ, ARŞİVLENDİ |
 | **🆕 P2-6** | 🐛 | TIAUSDT her bar close'da gir-çık döngüsü | AÇIK |
 | **🆕 P2-7** | 🐛 | Tüm TRAIL_CLOSE çıkışları negatif (5/5) | AÇIK |
-| **P3-2** | 🐛 | entry_log_msg tahmini fiyat | HÂLÂ GEÇERLİ |
+| **P3-2** | ✅ | entry_log_msg tahmini fiyat (_fmt_price) | DÜZELTİLDİ, ARŞİVLENDİ |
 | **P3-3** | 🐛 | except Exception yaygın | HÂLÂ GEÇERLİ |
 | **🆕 P3-4** | 🐛 | NEARUSDT SL çok dar (0.055%) | AÇIK |
 | **🆕 P1-13b** | ✅ | P1-13 DD guard sonrası ölü kod (unreachable block) | DÜZELTİLDİ, ARŞİVLENDİ |
@@ -54,8 +54,11 @@
 - **P1-14:** SL stale event → exit gecikmesi — ✅ DÜZELTİLDİ (d62df19 cross-val), detay: bugs_archive.md
 - **P1-14b:** _exit_trade_legacy'de P1-14 cross-val eksik — ✅ DÜZELTİLDİ (b0f2408, legacy path cross-validation eklendi), detay: bugs_archive.md
 - **P2-1:** `ProtectionLifecycleService.maybe_repair()` ölü kod — ✅ DOĞRULANDI, detay: bugs_archive.md
+- **P2-2:** `CleanupPlan` eksik — prev/history/pending ID'leri iptal etmiyor — ✅ DÜZELTİLDİ (protection_lifecycle.py:cleanup_after_confirmed_exit prev/pending/history ID'leri de topluyor, dedup'lu, 4 yeni test), detay: bugs_archive.md
+- **P2-3:** `promote_sl/tp()` dokümantasyon/niyet uyuşmazlığı — ✅ DÜZELTİLDİ (begin_replace_sl/tp() docstring'leri gerçek çağrı desenini yansıtıyor — aynı senkron blokta atomik replace), detay: bugs_archive.md
 - **P2-4:** user_data_handler kendi exit'ini WS_FALLBACK sanıyor — ✅ DÜZELTİLDİ, detay: bugs_archive.md
 - **P2-5:** update_trail_orders -4005 fallback yok — ✅ DÜZELTİLDİ, detay: bugs_archive.md
+- **P3-2:** `entry_log_msg` + `[PAPER]` logları fiyat formatı sorunu — ✅ DÜZELTİLDİ (_fmt_price() kullanımı, bot_infra.py), detay: bugs_archive.md
 
 ---
 
@@ -189,19 +192,13 @@ P0-5 fix deploy edilmesine rağmen 25/Jul'da **17+ post_entry_check_failed** kay
 
 ## 🟡 P2 — Medium Risk
 
-### P2-2: `CleanupPlan` eksik — prev/history/pending ID'leri iptal etmiyor
-**Dosya:** `sniper/src/trading/protection_lifecycle.py:171`
-- `cleanup_after_confirmed_exit()` sadece `sl_order_id`/`tp_order_id` iptal ediyor.
-- `sl_order_id_prev`, `tp_order_id_prev`, `pending_*`, `*_history` atlanıyor.
-- **Telafi:** `order_manager.cleanup_on_exit()` sonunda `cancel_all_open_orders()` broad-sweep var — canlı modda risk düşük ama CleanupPlan başlı başına yanıltıcı.
-- **⚠️ DURUM: HÂLÂ GEÇERLİ** — cleanup_after_confirmed_exit (protection_lifecycle.py:196-208) sadece current ID'leri topluyor.
+### ✅ P2-2: `CleanupPlan` eksik — DÜZELTİLDİ
+**Dosya:** `sniper/src/trading/protection_lifecycle.py:188-230`
+- **⚠️ DURUM: DÜZELTİLDİ** — cleanup_after_confirmed_exit() artık tetikleyen tarafın kendi ID'si hariç tüm prev/pending/history ID'lerini de cancel_ids'e ekliyor, dedup'lu. 4 yeni test (SL result transitional, synthetic result, dedup, unchanged behavior).
 
-### P2-3: `promote_sl/tp()` dokümantasyon/niyet uyuşmazlığı
-**Dosya:** `sniper/src/trading/protection_lifecycle.py:230`
-- Doküman: "pending bekler, eski ID hemen silinmez."
-- Gerçek: `begin_replace_*` + `promote_*` aynı senkron blokta çağrılır, pending state anlık.
-- Şu an zararsız ama ileride yanıltıcı.
-- **⚠️ DURUM: HÂLÂ GEÇERLİ** — begin_replace + promote aynı akışta (order_manager.py:139-141).
+### ✅ P2-3: `promote_sl/tp()` dokümantasyon/niyet uyuşmazlığı — DÜZELTİLDİ
+**Dosya:** `sniper/src/trading/protection_lifecycle.py:249-274`
+- **⚠️ DURUM: DÜZELTİLDİ** — begin_replace_sl/tp() docstring'leri gerçek çağrı desenini yansıtıyor: promote ile aynı senkron blokta art arda çağrılıyor, pending alanı sadece ara adım. Davranış değişikliği yok, sadece doküman fix.
 
 ### 🆕 P2-6: TIAUSDT Her Bar Close'da Gir-Çık Döngüsü
 **Severity:** MEDIUM
@@ -240,7 +237,7 @@ Trailing stop kâr kilitleme yerine her seferinde zararla çıkış üretiyor. D
 
 ## 🔵 P3 — Low Risk
 
-### P3-2: execute_live_entry() entry_log_msg + bot.py [PAPER] logları fiyat formatı sorunu
+### ✅ P3-2: execute_live_entry() entry_log_msg + bot.py [PAPER] logları fiyat formatı sorunu — DÜZELTİLDİ
 **Dosya:** `sniper/src/trading/entry_manager.py:437`, `sniper/src/bot.py:795-803`
 - `entry_log_msg`'de `PRICE: {est_price:.2f}` ve `[PAPER]` logunda `@ %.2f sl=%.2f tp=%.2f` kullanılıyor
 - Küçük fiyatlı coinlerde (ENAUSDT ~0.0859, OPUSDT ~0.09) tüm fiyatlar aynı görünür (ör: 0.09)

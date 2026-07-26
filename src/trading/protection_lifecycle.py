@@ -188,22 +188,46 @@ class ProtectionLifecycleService:
         FIX (A7): Acil market close YALNIZCA SL/TP tetiklenme
         path'inde ve tetiklenen tarafın Binance ID'si yoksa.
         Synthetic/market path'lerde pozisyon zaten kapatılmıştır.
+
+        FIX (P2-2): current sl_order_id/tp_order_id dışında,
+        trailing replace döngülerinden kalmış olabilecek geçiş
+        ID'leri de (prev/pending/history) iptal listesine eklenir.
+        Bunlar promote_sl()/promote_tp() ile current'tan düşürülmüş
+        ama Binance'te iptal edilmemiş olabilir; önceden bu ID'ler
+        CleanupPlan'da hiç yer almıyordu ve yalnızca
+        cancel_all_open_orders() broad-sweep'ine güveniliyordu.
         """
         cancel_ids: list[str] = []
 
+        def _add(oid: Any) -> None:
+            if not oid:
+                return
+            sid = str(oid)
+            if sid not in cancel_ids:
+                cancel_ids.append(sid)
+
         if result == "SL":
-            tp_id = trade.get("tp_order_id")
-            if tp_id:
-                cancel_ids.append(str(tp_id))
+            _add(trade.get("tp_order_id"))
         elif result == "TP":
-            sl_id = trade.get("sl_order_id")
-            if sl_id:
-                cancel_ids.append(str(sl_id))
+            _add(trade.get("sl_order_id"))
         else:
             for k in ("sl_order_id", "tp_order_id"):
-                oid = trade.get(k)
-                if oid:
-                    cancel_ids.append(str(oid))
+                _add(trade.get(k))
+
+        # FIX (P2-2): prev / pending / history ID'lerini de ekle —
+        # tetiklenen tarafın kendi (trigger) ID'si hâlâ kasıtlı olarak
+        # dışarıda tutuluyor (result=="SL" iken sl_order_id gibi),
+        # çünkü o emir zaten dolmuş durumda.
+        for k in (
+            "sl_order_id_prev",
+            "tp_order_id_prev",
+            "pending_sl_order_id",
+            "pending_tp_order_id",
+        ):
+            _add(trade.get(k))
+        for k in ("sl_order_id_history", "tp_order_id_history"):
+            for oid in trade.get(k) or []:
+                _add(oid)
 
         plan = CleanupPlan(cancel_ids=cancel_ids)
 
@@ -225,13 +249,36 @@ class ProtectionLifecycleService:
     def begin_replace_sl(self, trade: Any, new_id: str) -> None:
         """Yeni SL emri alındı — pending olarak işaretle.
 
-        FIX (A6): Eski ID hemen silinmez; yeni emir pending'de
-        bekler. promote_sl() ile current'a taşınır.
+        FIX (A6): Eski current ID hemen silinmez; yeni emir önce
+        pending alanına yazılır, promote_sl() çağrıldığında current'a
+        taşınır ve eski current prev/history'ye arşivlenir.
+
+        FIX (P2-3) — NOT (dokümantasyon/niyet uyuşmazlığı düzeltmesi):
+        Bu metod ile promote_sl(), tek çağıranı olan
+        OrderManager.update_trail_orders() içinde aynı senkron blokta
+        art arda çağrılıyor (begin_replace_sl hemen ardından
+        promote_sl). Yani "pending'de bekler" ifadesi gözlemlenebilir
+        bir zaman aralığı ifade ETMİYOR — pending alanı sadece
+        current/prev/history defterinin doğru sırayla güncellenmesi
+        için ara adım olarak kullanılıyor, iki çağrı arasında trade
+        gerçekten "pending" durumda kalmıyor. Alan, ileride bu iki
+        adımın gerçekten ayrışacağı (ör. Binance onayı beklenen,
+        çağrılar arasında await olan) bir akış için altyapı olarak
+        duruyor; bugünkü tek kullanım atomik bir "replace" gibi
+        davranır. Şu an davranışsal bir risk yok — bu not yalnızca
+        kodu okuyanın "pending" adını yanlış yorumlamasını (gerçek bir
+        bekleme/async onay varmış gibi) önlemek içindir.
         """
         trade["pending_sl_order_id"] = new_id
 
     def begin_replace_tp(self, trade: Any, new_id: str) -> None:
-        """Yeni TP emri alındı — pending olarak işaretle."""
+        """Yeni TP emri alındı — pending olarak işaretle.
+
+        begin_replace_sl() ile aynı niyet/kullanım deseni geçerlidir —
+        bkz. begin_replace_sl() docstring'indeki P2-3 notu: bu metod da
+        promote_tp() ile aynı senkron blokta art arda çağrılır, pending
+        state gözlemlenebilir bir bekleme süresi ifade etmez.
+        """
         trade["pending_tp_order_id"] = new_id
 
     def promote_sl(self, trade: Any) -> None:
