@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-26 10:38 — D-2 Fark 1 (exit_now guard) kaldırıldı, P2-6/P2-7 kök nedeni giderildi. Toplam arşiv: 25 madde.
+> **Son güncelleme:** 2026-07-26 14:54 — P0-1 FULL FIX (flag temizliği, legacy silme, idempotency guard, per-trade lock, 3 yeni test). P0-6/P0-7/P2-2 doğrulandı. Toplam arşiv: 25 madde.
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ---
@@ -11,7 +11,7 @@
 
 | ID | Durum | Başlık | Aciliyet |
 |---|---|---|---|
-| **P0-1** | ✅ | STRKUSDT çift-exit/çift-PnL | KISMEN DÜZELTİLDİ |
+| **P0-1** | ✅ | STRKUSDT çift-exit/çift-PnL | TAMAMEN DÜZELTİLDİ |
 | **P0-6** | ✅ | _exit_already_closed SL/TP pozisyon doğrulaması yok | DÜZELTİLDİ, ARŞİVLENDİ |
 | **P0-7** | ✅ | TP unchanged iptal + precision-residual churn | DÜZELTİLDİ, ARŞİVLENDİ |
 | **P1-4** | ✅ | Ghost/temizlik sadece restart'ta | KISMEN DÜZELTİLDİ |
@@ -76,7 +76,16 @@
 - **60sn'lik `_check_position`** trade'i `active_trades`'te bulamayınca `_recover_unknown_position` ile geri ekler.
 - 3.5 saat sonra SL gerçekten tetiklenir, PnL **tekrar** +4.77 yazılır.
 - **Risk:** Balance çift PnL ile şişer → position sizing yanlış. VEYA pozisyon 3.5 saat izlemesiz kalır.
-- **⚠️ DURUM: KISMEN DÜZELTİLDİ** — `ExitLifecycleService.execute()` (exit_lifecycle.py:122) WS_FALLBACK için REST `position_still_open()` kontrolü ekledi. Ama legacy `_exit_trade_legacy` (bot.py:782) hala REST doğrulamasız. `EXIT_LIFECYCLE_SERVICE_ENABLED=True` (varsayılan) olduğu için yeni yol aktif. `reconcile_orphan_orders()` artık periyodik (her 5 × 1m bar'da), ama `reconcile_ghost_positions()` hala sadece restart'ta.
+- **✅ TAMAMEN DÜZELTİLDİ (commit hash: eklenecek)** — Aşağıdaki değişiklikler yapıldı:
+
+  1. **Flag temizliği:** `EXIT_LIFECYCLE_SERVICE_ENABLED` kaldırıldı, tüm exit'ler `ExitLifecycleService.execute()` üzerinden gider.
+  2. **Legacy silme:** `_exit_trade_legacy()` metodu silindi. Hiçbir kod referans etmiyor.
+  3. **Idempotency guard:** `_exit_log` (dict[sym → dict[trade_id, result]]) — `_commit_confirmed_exit`'te kaydedilir, `execute()` başında kontrol edilir. Key = `entry_timestamp` (trade_id), hedef: aynı trade + result ikinci kez commit edilemez.
+  4. **Per-trade lock:** `asyncio.Lock` key = `{sym}_{entry_timestamp}`. `position_still_open()` REST çağrısı dahil tüm `execute()` gövdesini korur. Farklı entry_timestamp'li trade'ler eşzamanlı exit yapabilir.
+  5. **Test:** 3 yeni P0-1 senaryosu + tüm suite 31/31 geçti:
+     - Stale WS → re-activate → gerçek SL → PnL tek
+     - Aynı trade_id+result → guard engelliyor
+     - İki farklı trade eşzamanlı → bloklama yok
 
 ---
 

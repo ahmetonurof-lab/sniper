@@ -33,14 +33,8 @@ from models import (
     PendingLock,
     Result,
     STATUS_ACTIVE,
-    STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
-    STATUS_CLOSED,
     STATUS_EXIT_REQUESTED,
-    STATUS_EXIT_SUBMITTED,
-    STATUS_EXIT_VERIFYING,
     STATUS_REPAIR_REQUIRED,
-    INCIDENT_EXIT_UNCONFIRMED,
-    INCIDENT_PROTECTION_BROKEN,
     UNRESTRICTED_STATUSES,
 )
 from retrace_state import RetraceStateMachine
@@ -54,13 +48,10 @@ from session_router import (
 )
 from state_manager import (
     mark_trade_opened,
-    mark_trade_closed,
     reconcile_from_active,
     get_trade_count_today,
-    mark_sweep_consumed,
 )
 from state_writer import write_state
-from snapshot.snapshot import capture_snapshot
 from event_log import cleanup_old_event_logs, log_event
 from trading import (
     SignalEngine,
@@ -173,18 +164,11 @@ log = logging.getLogger("sniper.paper")
 INITIAL_CAPITAL = cfg.INITIAL_BALANCE
 RISK_PER_TRADE = cfg.RISK_PER_TRADE
 
-# Patch Set 2 (new_refactoring_plan1.md) rollout flag. Ayrı bir modül seviyesi
-# isim olarak tutuluyor (cfg.EXIT_LIFECYCLE_SERVICE_ENABLED değil) — aynen
-# INITIAL_CAPITAL/RISK_PER_TRADE gibi. Sebep: mevcut testler `@patch("bot.cfg",
-# autospec=True)` ile TÜM cfg modülünü mock'luyor; o mock üzerinde
-# ayarlanmamış her attribute varsayılan olarak truthy bir MagicMock döner.
-# Eğer bu flag doğrudan cfg.EXIT_LIFECYCLE_SERVICE_ENABLED olarak okunsaydı,
-# flag'i hiç bilmeyen eski testler yanlışlıkla "enabled" dalına düşerdi.
-EXIT_LIFECYCLE_SERVICE_ENABLED = cfg.EXIT_LIFECYCLE_SERVICE_ENABLED
-
+# Patch Set 2 (new_refactoring_plan1.md) — ExitLifecycleService rollout.
+# EXIT_LIFECYCLE_SERVICE_ENABLED kaldirildi (P0-1): tum exit'ler
+# ExitLifecycleService.execute() uzerinden gider. Eski flag ve legacy
+# _exit_trade_legacy silindi.
 # Patch Set 3 (new_refactoring_plan1.md) rollout flag.
-# EXIT_LIFECYCLE_SERVICE_ENABLED ile aynı sebepten modül seviyesinde
-# ayrı bir isim olarak tutuluyor.
 PROTECTION_LIFECYCLE_SERVICE_ENABLED = cfg.PROTECTION_LIFECYCLE_SERVICE_ENABLED
 
 
@@ -223,6 +207,10 @@ class PaperTrader:
         self._available_balance: float = (
             INITIAL_CAPITAL  # REST availableBalance (position sizing)
         )
+        # P0-1 idempotency guard: _exit_reason_log[sym]["exit_price"] = exit_reason
+        self._exit_reason_log: dict[str, dict[float, str]] = {}
+        # P0-1 per-trade lock: key = sym + entry_timestamp
+        self._exit_locks: dict[str, asyncio.Lock] = {}
 
         api_key = cfg.BINANCE_API_KEY or ""
         api_secret = cfg.BINANCE_API_SECRET or ""
@@ -248,10 +236,7 @@ class PaperTrader:
         if PROTECTION_LIFECYCLE_SERVICE_ENABLED:
             self.protection_service = ProtectionLifecycleService()
             self.order_manager._protection = self.protection_service
-        # Patch Set 2 (new_refactoring_plan1.md): _exit_trade'in canlı riskin
-        # kalbi olan mantığı ExitLifecycleService'e taşındı. cfg.EXIT_LIFECYCLE_SERVICE_ENABLED
-        # False iken _exit_trade, _exit_trade_legacy'ye (eski inline implementasyon,
-        # değiştirilmedi) delege etmeye devam eder — rollback tek env değişikliği.
+        # P0-1: ExitLifecycleService tum exit'leri yonetir. Legacy kaldirildi.
         self.exit_service = ExitLifecycleService(
             rest_client=self.rest,
             order_manager=self.order_manager,
@@ -266,6 +251,8 @@ class PaperTrader:
             wallet_balance_getter=lambda: self._wallet_balance,
             output_dir=_OUTPUT_DIR,
             fvg_state_file=_FVG_STATE_FILE,
+            exit_log=self._exit_reason_log,
+            exit_locks=self._exit_locks,
         )
         # ── Gerçek Wilder's ATR rolling state (sembol bazlı) ──
         # TANIM: RecoveryManager'dan ÖNCE gelmeli (atr_state parametresi)
@@ -869,484 +856,8 @@ class PaperTrader:
         rsm.reset()
 
     async def _exit_trade(self, sym, trade, exit_timestamp: int):
-        """Exit orkestrasyonu için ince wrapper (Patch Set 2).
-
-        cfg.EXIT_LIFECYCLE_SERVICE_ENABLED=True ise gerçek mantık
-        ExitLifecycleService.execute()'a delege edilir. False (varsayılan)
-        iken aşağıdaki _exit_trade_legacy — eski, değiştirilmemiş inline
-        implementasyon — aynen çalışır. Rollback tek env değişikliği.
-        """
-        if EXIT_LIFECYCLE_SERVICE_ENABLED:
-            return await self.exit_service.execute(sym, trade, exit_timestamp)
-        return await self._exit_trade_legacy(sym, trade, exit_timestamp)
-
-    async def _exit_trade_legacy(self, sym, trade, exit_timestamp: int):
-        # P0-6 EXPANDED: SL/TP/WS_FALLBACK result'larında pozisyonun gerçekten
-        # kapalı olup olmadığını REST ile doğrula. Stale/phantom event'lerde
-        # commit yapma, trade'i ACTIVE'e geri döndür ve protection kontrolü yap.
-        _exit_result = trade.get("result")
-        if _exit_result in ("SL", "TP", "WS_FALLBACK") and cfg.BINANCE_API_KEY:
-            try:
-                position_open = await self.order_manager.position_still_open(sym)
-            except Exception as e:
-                log.critical(
-                    "[EXIT] %s %s pozisyon sorgusu basarisiz (%s) — "
-                    "guvenlik nedeniyle exit/cancel_all TETIKLENMIYOR",
-                    sym,
-                    _exit_result,
-                    e,
-                )
-                return
-
-            if position_open:
-                log.warning(
-                    "[EXIT] %s %s stale event — pozisyon hala acik, exit iptal",
-                    sym,
-                    _exit_result,
-                )
-                # P1-14 cross-validation: open orders'ta SL/TP yoksa 400ms bekle
-                try:
-                    open_ids = await self.order_manager.get_open_order_ids(sym)
-                    sl_missing = (
-                        open_ids is not None
-                        and trade.get("sl_order_id") not in open_ids
-                    )
-                    tp_missing = (
-                        open_ids is not None
-                        and trade.get("tp_order_id") not in open_ids
-                    )
-                    if sl_missing or tp_missing:
-                        await asyncio.sleep(0.4)
-                        position_open = await self.order_manager.position_still_open(
-                            sym
-                        )
-                except Exception:
-                    pass
-                if position_open:
-                    try:
-                        (
-                            sl_present,
-                            tp_present,
-                        ) = await self.order_manager.verify_protection(sym, trade)
-                    except Exception as e:
-                        log.critical(
-                            "[EXIT] %s %s koruma dogrulamasi basarisiz (%s) — "
-                            "onarim atlanip guvenli tarafta kaliniyor",
-                            sym,
-                            _exit_result,
-                            e,
-                        )
-                        sl_present, tp_present = True, True
-                    if not sl_present or not tp_present:
-                        log.warning(
-                            "[EXIT] %s koruma eksik (sl=%s tp=%s) — onariliyor",
-                            sym,
-                            sl_present,
-                            tp_present,
-                        )
-                        await self.order_manager.repair_protection(
-                            sym, trade, has_sl=sl_present, has_tp=tp_present
-                        )
-                trade["pending_exit_reason"] = None
-                trade["pending_exit_price"] = None
-                trade["pending_exit_qty"] = None
-                trade["pending_exit_order_id"] = None
-                trade["pending_exit_timestamp"] = None
-                trade["result"] = None
-                # P1-11 FIX: bkz. exit_lifecycle.py ExitLifecycleService.execute() —
-                # aynı gerekçeyle status ACTIVE'e döndürülüyor, aksi halde
-                # EXIT_REQUESTED/EXIT_SUBMITTED/EXIT_VERIFYING'de sonsuza kadar
-                # kilitli kalıp sadece restart'ta kurtarılabiliyordu.
-                trade["status"] = STATUS_ACTIVE
-                return
-
-            # FIX (A3): position_open == False -> gercek kapanis, pending
-            # exit verisi confirmed alanlara promote edilir.
-            if trade.get("pending_exit_price"):
-                trade["exit_price"] = trade["pending_exit_price"]
-                trade["exit_actual_price"] = trade["pending_exit_price"]
-            if trade.get("pending_exit_qty"):
-                trade["exit_actual_qty"] = trade["pending_exit_qty"]
-            if trade.get("pending_exit_order_id"):
-                trade["exit_order_id"] = trade["pending_exit_order_id"]
-            if trade.get("pending_exit_timestamp"):
-                trade["exit_timestamp"] = trade["pending_exit_timestamp"]
-            trade["pending_exit_reason"] = None
-            trade["pending_exit_price"] = None
-            trade["pending_exit_qty"] = None
-            trade["pending_exit_order_id"] = None
-            trade["pending_exit_timestamp"] = None
-
-        # Patch Set 4 (WS normalization): WS handler matched-fill path'i
-        # artık pending_exit_* alanlarına yazıyor. WS_FALLBACK dışındaki
-        # result'lar (SL/TP matched fill) için pending → confirmed promotion
-        # burada yapılır.
-        if trade.get("pending_exit_price") is not None:
-            trade["exit_price"] = trade["pending_exit_price"]
-            trade["exit_actual_price"] = trade["pending_exit_price"]
-        if trade.get("pending_exit_qty") is not None:
-            trade["exit_actual_qty"] = trade["pending_exit_qty"]
-        if trade.get("pending_exit_order_id"):
-            trade["exit_order_id"] = trade["pending_exit_order_id"]
-        if trade.get("pending_exit_timestamp"):
-            trade["exit_timestamp"] = trade["pending_exit_timestamp"]
-        trade["pending_exit_reason"] = None
-        trade["pending_exit_price"] = None
-        trade["pending_exit_qty"] = None
-        trade["pending_exit_order_id"] = None
-        trade["pending_exit_timestamp"] = None
-
-        # FIX (A1): artik burada pop ETMIYORUZ. Trade, kapanis Binance
-        # tarafindan DOGRULANANA kadar active_trades'te kaliyor. Boylece:
-        #   - invalid fill / basarisiz market close durumunda trade
-        #     sessizce dict'ten dusmuyor
-        #   - pnl/balance/peak_equity commit'i, gercek fill fiyati belli
-        #     olmadan calismiyor
-        trade = self.active_trades.get(sym)
-        if not trade:
-            log.warning("[EXIT] %s zaten kapali, ikinci exit engellendi", sym)
-            return
-
-        # ── Bazı exit tipleri zaten Binance tarafindan kapatilmistir ──
-        _exit_already_closed = trade.get("result") in ("SL", "TP", "WS_FALLBACK")
-
-        # Sprint C: explicit state machine — EXIT_REQUESTED → EXIT_SUBMITTED → EXIT_VERIFYING
-        if not _exit_already_closed:
-            trade["status"] = STATUS_EXIT_SUBMITTED
-        else:
-            trade["status"] = STATUS_EXIT_VERIFYING
-
-        # FIX (A7): erken/koşulsuz cancel_all_open_orders() kaldırıldı — close
-        # doğrulanmadan tüm korumayı (SL/TP) iptal etmek, close başarısız
-        # olursa pozisyonu korumasız + açık bırakıyordu. İptal artık yalnızca
-        # exit doğrulanıp commit edildikten sonra cleanup_on_exit() içinde.
-
-        # ── Pozisyon kapatma (reduceOnly market) — SL/TP ile kapandıysa atla ──
-        if cfg.BINANCE_API_KEY and not _exit_already_closed:
-            mkt_side = "SELL" if trade["side"] == "long" else "BUY"
-            close_resp = {}
-            log.info(
-                "[INTENT] %s pozisyonunu kapatma istegi (side=%s, qty=%.6f)",
-                sym,
-                mkt_side,
-                trade["qty"],
-            )
-            try:
-                log.debug(
-                    "[EXECUTION] %s place_market_order (reduceOnly=True) baslatiliyor...",
-                    sym,
-                )
-                close_resp = await self.rest.place_market_order(
-                    sym,
-                    mkt_side,
-                    trade["qty"],
-                    reduce_only=True,
-                    client_order_id=(
-                        f"exit-{sym.lower()}-{int(datetime.now(UTC).timestamp()*1000)}"
-                    ),
-                )
-            except Exception as e:
-                log.warning("[EXIT] %s reduceOnly market HATASI (devam): %s", sym, e)
-
-            # Sprint C: EXIT_SUBMITTED → EXIT_VERIFYING
-            trade["status"] = STATUS_EXIT_VERIFYING
-
-            # FIX (A10): adapter'dan gelen _status alanı ile belirsizlik ayrımı
-            adapter_status = close_resp.get("_status", "")
-
-            if adapter_status == "REJECTED":
-                # Emir borsaya hiç gönderilmedi (qty/precision sorunu)
-                # → force close ile dene
-                log.warning(
-                    "[EXIT] %s market order REJECTED — force close deneniyor...",
-                    sym,
-                )
-                log_event(
-                    "force_close",
-                    sym,
-                    side=trade["side"],
-                    qty=trade["qty"],
-                    success=False,
-                )
-                try:
-                    forced = await self.rest.place_force_close_order(
-                        sym, mkt_side, trade["side"]
-                    )
-                    if forced:
-                        log.info(
-                            "[EXIT] %s closePosition force-close kabul edildi", sym
-                        )
-                except Exception as e:
-                    log.warning(
-                        "[EXIT] %s closePosition force-close hatasi: %s", sym, e
-                    )
-
-            elif adapter_status == "EXECUTION_CONFIRMED":
-                # orderId mevcut — fill varsa PnL'e yaz
-                log.info("[CONFIRMATION] %s reduceOnly market order basarili", sym)
-                _q, _p, _ = EntryManager.parse_market_fill(close_resp)
-                if _q > 0 and _p > 0:
-                    trade["exit_actual_price"] = _p
-                    trade["exit_actual_qty"] = _q
-                    trade["exit_price"] = _p
-                    log.info(
-                        "[CONFIRMATION] %s market close fill: qty=%.4f @ %.4f",
-                        sym,
-                        _q,
-                        _p,
-                    )
-                log_event(
-                    "force_close",
-                    sym,
-                    side=trade["side"],
-                    qty=trade["qty"],
-                    success=True,
-                )
-                log.info("[EXIT] %s reduceOnly market BASARILI", sym)
-
-            elif adapter_status in ("REQUEST_SENT", "ORDER_ACKNOWLEDGED"):
-                # FIX (A10): emir gönderildi ama kimlik/fill yok — belirsiz
-                # Pozisyon doğrulamasına geçeceğiz ama commit yapılmayacak
-                log.warning(
-                    "[EXIT] %s market close AMBIGUOUS (_status=%s) — "
-                    "pozisyon dogrulamasi ile kontrol edilecek",
-                    sym,
-                    adapter_status,
-                )
-                log_event(
-                    "force_close",
-                    sym,
-                    side=trade["side"],
-                    qty=trade["qty"],
-                    success=False,
-                    ambiguous_status=adapter_status,
-                )
-
-            else:
-                # Tamamen boş response ({}) — adapter hiçbir şey dönmedi
-                log.warning(
-                    "[EXIT] %s market close yaniti bos/bilinmiyor — "
-                    "force close deneniyor...",
-                    sym,
-                )
-                log_event(
-                    "force_close",
-                    sym,
-                    side=trade["side"],
-                    qty=trade["qty"],
-                    success=False,
-                )
-                try:
-                    forced = await self.rest.place_force_close_order(
-                        sym, mkt_side, trade["side"]
-                    )
-                    if forced:
-                        log.info(
-                            "[EXIT] %s closePosition force-close kabul edildi", sym
-                        )
-                except Exception as e:
-                    log.warning(
-                        "[EXIT] %s closePosition force-close hatasi: %s", sym, e
-                    )
-
-            # ── Pozisyon doğrulama: 5 deneme, 200ms bekle, positionAmt == 0 ──
-            pos_closed = False
-            for attempt in range(5):
-                await asyncio.sleep(0.2)
-                try:
-                    positions = await self.rest.get_positions()
-                    for p in positions:
-                        if p["symbol"] == sym:
-                            amt = float(p.get("positionAmt", 0))
-                            if abs(amt) < 0.0001:
-                                pos_closed = True
-                            break
-                    else:
-                        pos_closed = True
-                except Exception:
-                    pass
-                if pos_closed:
-                    break
-                log.info(
-                    "[EXIT] %s verify attempt %d/5 — pozisyon hala acik",
-                    sym,
-                    attempt + 2,
-                )
-
-            if not pos_closed:
-                log.critical(
-                    "[%s] %s pozisyon 5 denemede kapanmadi — manual müdahale gerekli",
-                    INCIDENT_EXIT_UNCONFIRMED,
-                    sym,
-                )
-                self._pl(
-                    sym,
-                    f"critical_{sym}",
-                    f"\U0001f6a8 {INCIDENT_EXIT_UNCONFIRMED}: {sym} kapanmadi!",
-                    force=True,
-                )
-                # FIX (A9): geri alinacak bir pnl/balance/peak_equity commit'i
-                # ARTIK YOK. Ancak basarisiz close sonrasi koruma (SL/TP)
-                # emirlerinin bosaltilmamasi ve trade'in normal ACTIVE olarak
-                # isleme devam etmemesi gerekir.
-                trade["status"] = STATUS_REPAIR_REQUIRED
-                try:
-                    sl_present, tp_present = await self.order_manager.verify_protection(
-                        sym, trade
-                    )
-                    if not sl_present or not tp_present:
-                        log.warning(
-                            "[REPAIR] [%s] %s market close basarisiz, koruma eksik (sl=%s tp=%s) — onariliyor",
-                            INCIDENT_PROTECTION_BROKEN,
-                            sym,
-                            sl_present,
-                            tp_present,
-                        )
-                        await self.order_manager.repair_protection(
-                            sym, trade, has_sl=sl_present, has_tp=tp_present
-                        )
-                except Exception as e:
-                    log.critical(
-                        "[REPAIR] [%s] %s market close basarisiz, protection onarimi hata aldi: %s",
-                        INCIDENT_PROTECTION_BROKEN,
-                        sym,
-                        e,
-                    )
-                return
-
-        # ── BURADAN ITIBAREN kapanis Binance tarafindan DOGRULANMIS demektir
-        # (WS ile onceden, ya da yukaridaki market close + pozisyon
-        # dogrulamasiyla). Muhasebe SADECE burada, TEK SEFER, exit_price'in
-        # NIHAI (varsa gercek market fill ile guncellenmis) haliyle
-        # hesaplaniyor. ──
-
-        trade["status"] = STATUS_CLOSED
-        trade = self.active_trades.pop(sym, None)
-        if not trade:
-            log.warning(
-                "[CONFIRMATION] %s dogrulama sirasinda ikinci exit ile kapanmis, atlaniyor",
-                sym,
-            )
-            return
-
-        log.info(
-            "[COMMIT] %s pnl hesaplama ve muhasebe defterine kayit basliyor...", sym
-        )
-        actual_entry_price = trade.get("entry_actual_price", 0) or trade["entry_price"]
-        actual_entry_qty = trade.get("entry_actual_qty", 0) or trade["qty"]
-        actual_exit_price = trade.get("exit_actual_price", 0) or trade["exit_price"]
-        actual_exit_qty = trade.get("exit_actual_qty", 0) or actual_entry_qty
-        if actual_entry_price <= 0 or actual_exit_price <= 0 or actual_entry_qty <= 0:
-            # FIX (A1): trade artik SESSIZCE KAYBOLMUYOR. Pozisyon borsada
-            # dogrulanmis sekilde kapali ama fill verisi gecersiz oldugu
-            # icin PNL commit edilemiyor — trade INCELENEBILIR halde geri
-            # birakiliyor. Bu gecici bir alan; A2 ile gercek status enum'una
-            # (EXIT_UNCONFIRMED / BROKEN_MANUAL_INTERVENTION_REQUIRED) tasinacak.
-            log.critical(
-                "[EXIT] %s gecersiz fill verisi — PnL hesaplanamadi, pozisyon "
-                "kapali ama muhasebe commit edilmedi (manuel kontrol gerekli)",
-                sym,
-            )
-            trade["result"] = None
-            trade["status"] = STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED
-            trade["exit_unconfirmed_reason"] = "invalid_fill_data"
-            self.active_trades[sym] = trade
-            self._pl(
-                sym,
-                f"exit_unconfirmed_{exit_timestamp}",
-                f"\U0001f6a8 EXIT_UNCONFIRMED: {sym} pozisyon kapandi ama fill verisi "
-                f"gecersiz — PNL commit edilmedi, manuel kontrol gerekli",
-                force=True,
-            )
-            return
-
-        pnl_qty = min(actual_entry_qty, actual_exit_qty)
-        diff = (
-            (actual_exit_price - actual_entry_price)
-            if trade["side"] == "long"
-            else (actual_entry_price - actual_exit_price)
-        )
-        entry_fee = actual_entry_price * pnl_qty * COMMISSION_RATE
-        exit_fee = actual_exit_price * pnl_qty * COMMISSION_RATE
-        total_fee = entry_fee + exit_fee
-        pnl = round(diff * pnl_qty - total_fee, 2)
-        trade["entry_price"] = actual_entry_price
-        trade["qty"] = pnl_qty
-        trade["exit_price"] = actual_exit_price
-        trade["entry_fee"] = round(entry_fee, 2)
-        trade["exit_fee"] = round(exit_fee, 2)
-        trade["fee"] = round(total_fee, 2)
-        self._available_balance += pnl
-        self.risk_mgr.update_peak(self._available_balance)
-        self._pl(
-            sym,
-            f"exit_{exit_timestamp}",
-            f"\U0001f7e5 EXIT: {trade['result']} | PRICE: {trade['exit_price']:.2f} | PNL: {pnl:+.2f} | AVL: {self._available_balance:.2f} | WAL: {self._wallet_balance:.2f} | TRAIL: {trade['trailing_count']}",
-        )
-        log.info(
-            "[PAPER] %s %s exit=%s pnl=%.2f available=%.2f",
-            sym,
-            trade["result"],
-            trade["exit_price"],
-            pnl,
-            self._available_balance,
-        )
-
-        log_event(
-            "exit",
-            sym,
-            side=trade["side"],
-            entry_price=trade["entry_price"],
-            exit_price=trade["exit_price"],
-            qty=trade["qty"],
-            pnl=pnl,
-            result=trade["result"],
-            trailing_count=trade["trailing_count"],
-        )
-        await self.order_manager.cleanup_on_exit(sym, trade, trade["result"])
-
-        # FVG state dosyasini temizle
-        try:
-            if os.path.exists(_FVG_STATE_FILE):
-                data = json.loads(open(_FVG_STATE_FILE, "r", encoding="utf-8").read())
-                data.pop(sym, None)
-                open(_FVG_STATE_FILE, "w", encoding="utf-8").write(
-                    json.dumps(data, ensure_ascii=False)
-                )
-        except Exception:
-            pass
-
-        try:
-            snap = capture_snapshot(sym, trade, pnl, self.states[sym])
-            if snap:
-                trade["snapshot_file"] = snap
-        except Exception:
-            log.warning("[SNAPSHOT] %s snapshot alinamadi", sym)
-
-        record = {
-            **trade,
-            "sym": sym,
-            "pnl": pnl,
-            "exit_bar": trade.get("exit_bar", 0),
-            "close_time": exit_timestamp,
-        }
-        self.trades.append(record)
-        try:
-            trades_file = os.path.join(_OUTPUT_DIR, "trades_history.jsonl")
-            with open(trades_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
-        except Exception:
-            log.warning("[TRADES] %s jsonl yazma hatasi", sym)
-        mark_trade_closed(sym)
-
-        # ── Sweep consumption mark — aynı level sweep tekrar tetiklenmesin ──
-        rsm = self.rsms.get(sym)
-        if rsm and rsm.sweep_level is not None and rsm.direction is not None:
-            try:
-                mark_sweep_consumed(rsm.direction, rsm.sweep_level)
-            except Exception:
-                pass
-        rsm.reset()
+        """P0-1: tum exit'ler ExitLifecycleService.execute() uzerinden."""
+        return await self.exit_service.execute(sym, trade, exit_timestamp)
 
     async def on_15m(self, sym: str, bars: list[Bar]):
         if len(bars) < 10:

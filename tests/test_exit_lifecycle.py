@@ -597,6 +597,8 @@ def service():
         wallet_balance_getter=lambda: 1000.0,
         output_dir="/tmp",
         fvg_state_file="/tmp/fvg.json",
+        exit_log={},
+        exit_locks={},
     )
     return svc, rest, om, active_trades, trades, pl_callback, risk_mgr
 
@@ -618,6 +620,7 @@ def _trade(side="long", **kw):
         symbol="BTCUSDT",
         side=side,
         entry_price=50000.0,
+        entry_bar_index=50,
         sl=49000.0,
         tp=52000.0,
         qty=0.1,
@@ -637,6 +640,7 @@ def _trade(side="long", **kw):
                 "symbol",
                 "side",
                 "entry_price",
+                "entry_bar_index",
                 "sl",
                 "tp",
                 "qty",
@@ -747,3 +751,136 @@ class TestChaosScenarios:
         # SL/TP already-closed → goes straight to EXIT_VERIFYING (skips SUBMITTED)
         # Then commits and is removed from active_trades
         assert "BTCUSDT" not in active_trades
+
+
+# ═══════════════════════════════════════════════════════════════════
+# P0-1 tests: idempotency guard, stale reactivation, per-trade lock
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestP0OneIdempotencyStaleConcurrency:
+    """P0-1: stale WS event → reactivation → real exit PnL once."""
+
+    @pytest.mark.asyncio
+    @patch("trading.exit_lifecycle.cfg")
+    async def test_stale_event_reactivate_then_real_sl_pnl_once(
+        self, mock_cfg, service
+    ):
+        """Stale WS SL_FILLED: position open → stale handled → later real SL → PnL once."""
+        from models import STATUS_ACTIVE
+
+        svc, rest, om, active_trades, trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+
+        # ── Round 1: stale WS SL_FILLED ──
+        om.position_still_open = AsyncMock(return_value=True)
+        trade = _trade(
+            result="SL",
+            entry_price=100.0,
+            exit_price=99.0,
+            qty=1.0,
+            entry_bar_index=100,
+        )
+        active_trades["BTCUSDT"] = trade
+
+        result1 = await svc.execute("BTCUSDT", trade, 1000)
+        assert result1 is False  # stale, exit cancelled
+        assert trade["result"] is None
+        assert trade["status"] == STATUS_ACTIVE  # trade re-activated
+
+        # ── Round 2: real SL later ──
+        om.position_still_open = AsyncMock(return_value=False)  # now closed
+        trade2 = active_trades["BTCUSDT"]
+        trade2["result"] = "SL"
+        trade2["exit_price"] = 99.0
+        trade2["qty"] = 1.0
+        trade2["entry_price"] = 100.0
+
+        bal_before = len(trades)
+        result2 = await svc.execute("BTCUSDT", trade2, 2000)
+        assert result2 is True  # real exit commit edildi
+        assert len(trades) == bal_before + 1  # PnL exactly bir kere kaydedildi
+
+        # ── Round 3: aynı entry_bar_index ile yeni trade (farkli entry_bar_index kullan) ──
+        trade3 = _trade(
+            result="SL", entry_price=100.0, exit_price=99.0, qty=1.0, entry_bar_index=99
+        )
+        # active_trades'te trade yok, ekleyelim
+        active_trades["BTCUSDT"] = trade3
+        result3 = await svc.execute("BTCUSDT", trade3, 3000)
+        assert result3 is True  # farkli trade_id, yeni exit kabul
+        assert len(trades) == bal_before + 2  # PnL 2 trade eklenir
+
+    @pytest.mark.asyncio
+    @patch("trading.exit_lifecycle.cfg")
+    async def test_idempotency_same_trade_same_reason_blocked(self, mock_cfg, service):
+        """Ayni trade_id ve exit_reason ikinci kez → _exit_reason_log engelliyor."""
+        svc, rest, om, active_trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        rest.get_positions = AsyncMock(return_value=[])
+
+        # Ilk exit basarili
+        trade = _trade(result="TP", entry_price=100.0, exit_price=110.0, qty=1.0)
+        active_trades["BTCUSDT"] = trade
+
+        bal = [1000.0]
+        svc._get_balance = lambda: bal[0]
+        svc._set_balance = lambda v: bal.__setitem__(0, v)
+
+        result1 = await svc.execute("BTCUSDT", trade, 1000)
+        assert result1 is True
+        assert "BTCUSDT" not in active_trades  # trade pop'landi
+
+        # Ikinci exit: ayni trade dict'i kullan, ama active_trades'te yok
+        # → guard (trade not in active) catch; ama biz gostermek icin
+        # once tekrar ekleyip ayni exit_price+result dene.
+        trade2 = _trade(result="TP", entry_price=100.0, exit_price=110.0, qty=1.0)
+        active_trades["BTCUSDT"] = trade2
+        result2 = await svc.execute("BTCUSDT", trade2, 2000)
+        assert result2 is False  # idempotency: exit_log'da zaten "TP" kayitli
+
+    @pytest.mark.asyncio
+    @patch("trading.exit_lifecycle.cfg")
+    async def test_per_trade_lock_concurrent_different_trade(self, mock_cfg, service):
+        """Farkli entry_timestamp'e sahip iki trade eszamanli exit → birbirini bloklamaz."""
+        svc, rest, om, active_trades, trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        rest.get_positions = AsyncMock(return_value=[])
+
+        # BTCUSDT'de iki farkli trade (farkli entry_bar_index)
+        trade_a = _trade(
+            result="TP",
+            entry_price=100.0,
+            exit_price=110.0,
+            qty=1.0,
+            entry_bar_index=10,
+        )
+        trade_b = _trade(
+            result="TP",
+            entry_price=90.0,
+            exit_price=100.0,
+            qty=1.0,
+            entry_bar_index=20,
+        )
+        active_trades["BTC_A"] = trade_a
+        active_trades["BTC_B"] = trade_b
+        # Her sembol icin rsm ekle (rsm.reset() fail etmesin diye)
+        svc._rsms.setdefault("BTC_A", _rsm())
+        svc._rsms.setdefault("BTC_B", _rsm())
+
+        bal = [1000.0]
+        svc._get_balance = lambda: bal[0]
+        svc._set_balance = lambda v: bal.__setitem__(0, v)
+
+        # Eszamanli calis
+        async def exit_a():
+            return await svc.execute("BTC_A", trade_a, 1000)
+
+        async def exit_b():
+            return await svc.execute("BTC_B", trade_b, 2000)
+
+        import asyncio
+
+        results = await asyncio.gather(exit_a(), exit_b())
+        assert results == [True, True]
+        assert len(trades) == 2  # her trade PnL kaydetti

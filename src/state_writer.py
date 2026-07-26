@@ -34,7 +34,6 @@ def write_state(
         "symbols": {},
         # Patch Set 6: operator visibility — hangi kod yollari aktif?
         "feature_flags": {
-            "exit_lifecycle_service": cfg.EXIT_LIFECYCLE_SERVICE_ENABLED,
             "protection_lifecycle_service": cfg.PROTECTION_LIFECYCLE_SERVICE_ENABLED,
             "ws_event_normalization": cfg.WS_EVENT_NORMALIZATION_ENABLED,
         },

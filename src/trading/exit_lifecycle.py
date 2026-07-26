@@ -104,6 +104,8 @@ class ExitLifecycleService:
         wallet_balance_getter: Callable[[], float],
         output_dir: str,
         fvg_state_file: str,
+        exit_log: dict | None = None,
+        exit_locks: dict | None = None,
     ):
         self._rest = rest_client
         self._order_manager = order_manager
@@ -118,132 +120,153 @@ class ExitLifecycleService:
         self._get_wallet_balance = wallet_balance_getter
         self._output_dir = output_dir
         self._fvg_state_file = fvg_state_file
+        # P0-1 idempotency guard: {sym: {exit_price: result}}
+        self._exit_log: dict[str, dict[float, str]] = exit_log or {}
+        # P0-1 per-trade lock: key = sym+entry_timestamp
+        self._exit_locks: dict[str, asyncio.Lock] = exit_locks or {}
 
     # ── Ana orkestrasyon ────────────────────────────────────────
 
     async def execute(self, sym: str, trade: Any, exit_timestamp: int) -> bool:
-        # P0-6 EXPANDED: SL/TP/WS_FALLBACK result'larında pozisyonun gerçekten
-        # kapalı olup olmadığını REST ile doğrula. Stale/phantom event'lerde
-        # commit yapma, trade'i ACTIVE'e geri döndür ve protection kontrolü yap.
-        # Bu, WS_FALLBACK için zaten yazılmış olan güvenlik mantığının
-        # SL/TP sonuçlarına da uygulanmasıdır.
-        _exit_result = trade.get("result")
-        if _exit_result in ("SL", "TP", "WS_FALLBACK") and cfg.BINANCE_API_KEY:
-            try:
-                position_open = await self._order_manager.position_still_open(sym)
-            except Exception as e:
-                log.critical(
-                    "[EXIT] %s %s pozisyon sorgusu basarisiz (%s) — "
-                    "guvenlik nedeniyle exit/cancel_all TETIKLENMIYOR",
-                    sym,
-                    _exit_result,
-                    e,
+        # P0-1: per-trade lock — aynı sembolde farklı trade'ler birbirini bloklamaz.
+        _trade_id_key = (
+            f"{trade.get('entry_bar_index', -1)}_{trade.get('entry_price', 0)}"
+        )
+        trade_key = f"{sym}_{_trade_id_key}"
+        lock = self._exit_locks.setdefault(trade_key, asyncio.Lock())
+        async with lock:
+            # ── Idempotency guard (P0-1): entry_bar_index+entry_price bazli ──
+            _exit_reason = trade.get("result", "")
+            if _exit_reason:
+                _trade_id = (
+                    f"{trade.get('entry_bar_index', -1)}_{trade.get('entry_price', 0)}"
                 )
-                return False
-
-            if position_open:
-                # ── P1-14: cross-validation — SL/TP hâlâ açık emirlerde mi? ──
-                # position_still_open() /fapi/v2/positionRisk'a guveniyor ama
-                # bu endpoint eventual-consistency gecikebilir (P0-5 ile ayni
-                # tur sorun). Eger SL/TP ID'leri zaten open orders'tan
-                # cikmislarsa pozisyon aslinda kapanmis olabilir.
-                try:
-                    _open_ids = await self._order_manager.get_open_order_ids(sym)
-                except Exception:
-                    _open_ids = None
-                _sl_id = str(trade.get("sl_order_id", ""))
-                _tp_id = str(trade.get("tp_order_id", ""))
-                _sl_in = _open_ids is not None and _sl_id in _open_ids
-                _tp_in = _open_ids is not None and _tp_id in _open_ids
-                if _open_ids is not None and not _sl_in and not _tp_in:
+                prev_result = self._exit_log.get(sym, {}).get(_trade_id)
+                if prev_result == _exit_reason:
                     log.warning(
-                        "[EXIT] %s %s P1-14 cross-val: SL/TP open_orders'ta yok "
-                        "(sl=%s tp=%s open_ids=%d) — position_still_open bekleniyor",
+                        "[EXIT] %s idempotency guard: trade_id=%s result=%s zaten kayitli — tekrar engellendi",
                         sym,
-                        _exit_result,
-                        _sl_id,
-                        _tp_id,
-                        len(_open_ids),
+                        _trade_id,
+                        _exit_reason,
                     )
-                    await asyncio.sleep(0.4)
-                    try:
-                        position_open = await self._order_manager.position_still_open(
-                            sym
-                        )
-                    except Exception:
-                        position_open = True
-                    if not position_open:
-                        log.info(
-                            "[EXIT] %s %s P1-14 retry: pozisyon kapanmis — "
-                            "exit devam ediyor",
-                            sym,
-                            _exit_result,
-                        )
-                    else:
-                        log.warning(
-                            "[EXIT] %s %s P1-14 retry: pozisyon hâlâ acik — "
-                            "stale kabul ediliyor",
-                            sym,
-                            _exit_result,
-                        )
+                    return False
 
-            if position_open:
-                log.warning(
-                    "[EXIT] %s %s stale event — pozisyon hala acik, exit iptal",
-                    sym,
-                    _exit_result,
-                )
+            # P0-6 EXPANDED: SL/TP/WS_FALLBACK result'larında pozisyonun gerçekten
+            # kapalı olup olmadığını REST ile doğrula.
+            _exit_result = trade.get("result")
+            if _exit_result in ("SL", "TP", "WS_FALLBACK") and cfg.BINANCE_API_KEY:
                 try:
-                    (
-                        sl_present,
-                        tp_present,
-                    ) = await self._order_manager.verify_protection(sym, trade)
+                    position_open = await self._order_manager.position_still_open(sym)
                 except Exception as e:
                     log.critical(
-                        "[EXIT] %s %s koruma dogrulamasi basarisiz (%s) — "
-                        "onarim atlanip guvenli tarafta kaliniyor",
+                        "[EXIT] %s %s pozisyon sorgusu basarisiz (%s) — "
+                        "guvenlik nedeniyle exit/cancel_all TETIKLENMIYOR",
                         sym,
                         _exit_result,
                         e,
                     )
-                    sl_present, tp_present = True, True
-                if not sl_present or not tp_present:
+                    return False
+
+                if position_open:
+                    try:
+                        _open_ids = await self._order_manager.get_open_order_ids(sym)
+                    except Exception:
+                        _open_ids = None
+                    _sl_id = str(trade.get("sl_order_id", ""))
+                    _tp_id = str(trade.get("tp_order_id", ""))
+                    _sl_in = _open_ids is not None and _sl_id in _open_ids
+                    _tp_in = _open_ids is not None and _tp_id in _open_ids
+                    if _open_ids is not None and not _sl_in and not _tp_in:
+                        log.warning(
+                            "[EXIT] %s %s P1-14 cross-val: SL/TP open_orders'ta yok "
+                            "(sl=%s tp=%s open_ids=%d) — position_still_open bekleniyor",
+                            sym,
+                            _exit_result,
+                            _sl_id,
+                            _tp_id,
+                            len(_open_ids),
+                        )
+                        await asyncio.sleep(0.4)
+                        try:
+                            position_open = (
+                                await self._order_manager.position_still_open(sym)
+                            )
+                        except Exception:
+                            position_open = True
+                        if not position_open:
+                            log.info(
+                                "[EXIT] %s %s P1-14 retry: pozisyon kapanmis — "
+                                "exit devam ediyor",
+                                sym,
+                                _exit_result,
+                            )
+                        else:
+                            log.warning(
+                                "[EXIT] %s %s P1-14 retry: pozisyon hâlâ acik — "
+                                "stale kabul ediliyor",
+                                sym,
+                                _exit_result,
+                            )
+
+                if position_open:
                     log.warning(
-                        "[EXIT] %s koruma eksik (sl=%s tp=%s) — onariliyor",
+                        "[EXIT] %s %s stale event — pozisyon hala acik, exit iptal",
                         sym,
-                        sl_present,
-                        tp_present,
+                        _exit_result,
                     )
-                    await self._order_manager.repair_protection(
-                        sym, trade, has_sl=sl_present, has_tp=tp_present
-                    )
+                    try:
+                        (
+                            sl_present,
+                            tp_present,
+                        ) = await self._order_manager.verify_protection(sym, trade)
+                    except Exception as e:
+                        log.critical(
+                            "[EXIT] %s %s koruma dogrulamasi basarisiz (%s) — "
+                            "onarim atlanip guvenli tarafta kaliniyor",
+                            sym,
+                            _exit_result,
+                            e,
+                        )
+                        sl_present, tp_present = True, True
+                    if not sl_present or not tp_present:
+                        log.warning(
+                            "[EXIT] %s koruma eksik (sl=%s tp=%s) — onariliyor",
+                            sym,
+                            sl_present,
+                            tp_present,
+                        )
+                        await self._order_manager.repair_protection(
+                            sym, trade, has_sl=sl_present, has_tp=tp_present
+                        )
+                    trade["pending_exit_reason"] = None
+                    trade["pending_exit_price"] = None
+                    trade["pending_exit_qty"] = None
+                    trade["pending_exit_order_id"] = None
+                    trade["pending_exit_timestamp"] = None
+                    trade["result"] = None
+                    trade["status"] = STATUS_ACTIVE
+                    return False
+
+                if trade.get("pending_exit_price"):
+                    trade["exit_price"] = trade["pending_exit_price"]
+                    trade["exit_actual_price"] = trade["pending_exit_price"]
+                if trade.get("pending_exit_qty"):
+                    trade["exit_actual_qty"] = trade["pending_exit_qty"]
+                if trade.get("pending_exit_order_id"):
+                    trade["exit_order_id"] = trade["pending_exit_order_id"]
+                if trade.get("pending_exit_timestamp"):
+                    trade["exit_timestamp"] = trade["pending_exit_timestamp"]
                 trade["pending_exit_reason"] = None
                 trade["pending_exit_price"] = None
                 trade["pending_exit_qty"] = None
                 trade["pending_exit_order_id"] = None
                 trade["pending_exit_timestamp"] = None
-                log.warning(
-                    "[P_DEBUG] %s result reset ediliyor, onceki=%s",
-                    sym,
-                    trade.get("result"),
-                )
-                trade["result"] = None
-                # P1-11 FIX: stale/phantom event nedeniyle exit iptal edildi ama
-                # status hala EXIT_REQUESTED/EXIT_SUBMITTED/EXIT_VERIFYING'de
-                # kalıyordu. UNRESTRICTED_STATUSES sadece ACTIVE/"" içerdiği
-                # için bot.py:_on_1m_close() ve recovery_manager orphan sweep
-                # bu trade'i bir daha asla işlemiyordu — sadece restart
-                # kurtarabiliyordu. Pozisyon gerçekten hala açık ve (varsa)
-                # onarılmış korumayla ACTIVE'e dönmesi gerekiyor.
-                trade["status"] = STATUS_ACTIVE
-                return False
 
-            # FIX (A3): position_open == False -> gercek kapanis, pending
-            # exit verisi confirmed alanlara promote edilir.
-            if trade.get("pending_exit_price"):
+            # Patch Set 4 (WS normalization)
+            if trade.get("pending_exit_price") is not None:
                 trade["exit_price"] = trade["pending_exit_price"]
                 trade["exit_actual_price"] = trade["pending_exit_price"]
-            if trade.get("pending_exit_qty"):
+            if trade.get("pending_exit_qty") is not None:
                 trade["exit_actual_qty"] = trade["pending_exit_qty"]
             if trade.get("pending_exit_order_id"):
                 trade["exit_order_id"] = trade["pending_exit_order_id"]
@@ -255,62 +278,27 @@ class ExitLifecycleService:
             trade["pending_exit_order_id"] = None
             trade["pending_exit_timestamp"] = None
 
-        # Patch Set 4 (WS normalization): WS handler matched-fill path'i
-        # artık pending_exit_* alanlarına yazıyor. WS_FALLBACK dışındaki
-        # result'lar (SL/TP matched fill) için pending → confirmed promotion
-        # burada yapılır.
-        if trade.get("pending_exit_price") is not None:
-            trade["exit_price"] = trade["pending_exit_price"]
-            trade["exit_actual_price"] = trade["pending_exit_price"]
-        if trade.get("pending_exit_qty") is not None:
-            trade["exit_actual_qty"] = trade["pending_exit_qty"]
-        if trade.get("pending_exit_order_id"):
-            trade["exit_order_id"] = trade["pending_exit_order_id"]
-        if trade.get("pending_exit_timestamp"):
-            trade["exit_timestamp"] = trade["pending_exit_timestamp"]
-        trade["pending_exit_reason"] = None
-        trade["pending_exit_price"] = None
-        trade["pending_exit_qty"] = None
-        trade["pending_exit_order_id"] = None
-        trade["pending_exit_timestamp"] = None
-
-        # FIX (A1): artik burada pop ETMIYORUZ. Trade, kapanis Binance
-        # tarafindan DOGRULANANA kadar active_trades'te kaliyor. Boylece:
-        #   - invalid fill / basarisiz market close durumunda trade
-        #     sessizce dict'ten dusmuyor
-        #   - pnl/balance/peak_equity commit'i, gercek fill fiyati belli
-        #     olmadan calismiyor
-        trade = self._active_trades.get(sym)
-        if not trade:
-            log.warning("[EXIT] %s zaten kapali, ikinci exit engellendi", sym)
-            return False
-
-        # ── Bazı exit tipleri zaten Binance tarafindan kapatilmistir ──
-        _exit_already_closed = trade.get("result") in ("SL", "TP", "WS_FALLBACK")
-
-        # Sprint C: explicit state machine
-        if not _exit_already_closed:
-            trade["status"] = STATUS_EXIT_SUBMITTED
-        else:
-            trade["status"] = STATUS_EXIT_VERIFYING
-
-        # FIX (A7): erken/koşulsuz cancel_all_open_orders() kaldırıldı — close
-        # doğrulanmadan tüm korumayı (SL/TP) iptal etmek, close başarısız
-        # olursa pozisyonu korumasız + açık bırakıyordu. İptal artık yalnızca
-        # exit doğrulanıp commit edildikten sonra cleanup_on_exit() içinde.
-
-        # ── Pozisyon kapatma (reduceOnly market) — SL/TP ile kapandıysa atla ──
-        if cfg.BINANCE_API_KEY and not _exit_already_closed:
-            pos_closed = await self._submit_and_verify_market_close(sym, trade)
-            if not pos_closed:
+            trade = self._active_trades.get(sym)
+            if not trade:
+                log.warning("[EXIT] %s zaten kapali, ikinci exit engellendi", sym)
                 return False
 
-        # ── BURADAN ITIBAREN kapanis Binance tarafindan DOGRULANMIS demektir
-        # (WS ile onceden, ya da yukaridaki market close + pozisyon
-        # dogrulamasiyla). Muhasebe SADECE burada, TEK SEFER, exit_price'in
-        # NIHAI (varsa gercek market fill ile guncellenmis) haliyle
-        # hesaplaniyor. ──
-        return await self._commit_confirmed_exit(sym, trade, exit_timestamp)
+            _exit_already_closed = trade.get("result") in ("SL", "TP", "WS_FALLBACK")
+
+            if not _exit_already_closed:
+                trade["status"] = STATUS_EXIT_SUBMITTED
+            else:
+                trade["status"] = STATUS_EXIT_VERIFYING
+
+            if cfg.BINANCE_API_KEY and not _exit_already_closed:
+                pos_closed = await self._submit_and_verify_market_close(sym, trade)
+                if not pos_closed:
+                    return False
+
+            result = await self._commit_confirmed_exit(sym, trade, exit_timestamp)
+            # Clean up exit log key after commit
+            self._exit_locks.pop(trade_key, None)
+            return result
 
     # ── Market close gönderimi + doğrulama + repair-on-failure ──
 
@@ -689,5 +677,9 @@ class ExitLifecycleService:
             except Exception:
                 pass
         rsm.reset()
+
+        # P0-1 idempotency log: entry_bar_index+entry_price bazlı
+        _trade_id = f"{trade.get('entry_bar_index', -1)}_{trade.get('entry_price', 0)}"
+        self._exit_log.setdefault(sym, {})[_trade_id] = trade.get("result", "")
 
         return True
