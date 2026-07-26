@@ -514,6 +514,13 @@ class PaperTrader:
                     return
 
             # ── Exit kontrolü ──
+            log.warning(
+                "[P1-15_DEBUG] %s check_exit oncesi: current.high=%r trade_sl=%r current.ts=%s",
+                sym,
+                current.high,
+                trade.get("sl"),
+                current.timestamp,
+            )
             exit_decision = TrailingManager.check_exit(current, trade)
             if exit_decision.triggered:
                 trade["status"] = STATUS_EXIT_REQUESTED
