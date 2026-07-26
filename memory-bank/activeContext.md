@@ -54,8 +54,8 @@ Bugs.md güncellendi: D-2 Fark 1 ✅, P2-6/P2-7 🔧 (canlı doğrulama bekleniy
 - Per-trade lock: `asyncio.Lock` key `sym_{entry_bar_index}_{entry_price}` — `position_still_open()` dahil tüm execute() gövdesini korur, farklı trade'ler birbirini bloklamaz.
 - Test: 3 yeni P0-1 senaryo (stale→real PnL tek, guard engelleme, concurrent lock) + 31/31 suite geçti.
 - P0-6/P0-7/P2-2 durumları doğrulandı.
-- **Commit:** `440125c`
-- **Git:** `bfd4ae7..440125c main -> main`
+- **Commit:** `440125c`, `6a0154b`, `e6ed18e`
+- **Git:** `bfd4ae7..e6ed18e main -> main`
 
 ## Aktif Görev: P1-8 post_entry_check %100 fail soruşturması
 
