@@ -41,6 +41,12 @@ Flusher ve OHLC export artık her 1m bar'da çalışıyor, pozisyon olsun olmas�
 - APTUSDT'te debug log çalışıyor (high > sl, check_exit doğru tetikleniyor)
 - bugs.md status: "ARAŞTIRILIYOR — repr() sonucu bekleniyor"
 
+## Son İşlem: D-2 Fark 1 exit_now guard kaldırıldı (2026-07-26 10:38)
+
+`trailing_manager.py:evaluate_trail()`'den `exit_now` guard kaldırıldı — analyzer_v5.py backtest ile uyumlu hale getirildi. Eski guard (new_sl >= current.close → exit_now=True), iyileşme kontrolü yapmadan pozisyonu zararla kapatıyordu (P2-6/P2-7 kök nedeni). 2 regression test eklendi (long + short). 81/81 test geçti.
+
+Bugs.md güncellendi: D-2 Fark 1 ✅, P2-6/P2-7 🔧 (canlı doğrulama bekleniyor).
+
 ## Aktif Görev: P1-8 post_entry_check %100 fail soruşturması
 
 - **Soru 1 cevaplandı:** 7 vaka P0-5 deploy'undan SONRA (23 Tem 14:32 → 24 Tem 14:45+)

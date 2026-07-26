@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-26 10:05 — P2-2, P2-3, P3-2 kapatıldı. Toplam arşiv: 25 madde.
+> **Son güncelleme:** 2026-07-26 10:38 — D-2 Fark 1 (exit_now guard) kaldırıldı, P2-6/P2-7 kök nedeni giderildi. Toplam arşiv: 25 madde.
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ---
@@ -17,11 +17,11 @@
 | **P1-4** | ✅ | Ghost/temizlik sadece restart'ta | KISMEN DÜZELTİLDİ |
 | **P1-7** | 📎 | Harici kapanışlar (26 WS_FALLBACK) + ONDOUSDT fix | KISMEN AÇIKLANDI |
 | **P1-8** | 🐛 | POST_ENTRY check %100 başarısız — iki kök neden tespit edildi | DEBUG LOG AKTİF, KÖK NEDEN AYRIMINDA |
-| **D-2** | 🐛 | Trailing/entry formülleri 3 motorunda kopya kod | AÇIK |
+| **D-2** | 🔧 | Trailing/entry formülleri kopya kod — exit_now Fark 1 DÜZELTİLDİ | FARK 1 DÜZELTİLDİ, FARK 2-5 AÇIK |
 | **P2-2** | ✅ | CleanupPlan eksik (prev/pending/history) | DÜZELTİLDİ, ARŞİVLENDİ |
 | **P2-3** | ✅ | promote_sl/tp() niyet uyuşmazlığı (docstring) | DÜZELTİLDİ, ARŞİVLENDİ |
-| **🆕 P2-6** | 🐛 | TIAUSDT her bar close'da gir-çık döngüsü | AÇIK |
-| **🆕 P2-7** | 🐛 | Tüm TRAIL_CLOSE çıkışları negatif (5/5) | AÇIK |
+| **🆕 P2-6** | 🔧 | TIAUSDT her bar close'da gir-çık döngüsü | D-2 FARK 1 FIX İLE GİDERİLDİ, CANLI DOĞRULAMA BEKLİYOR |
+| **🆕 P2-7** | 🔧 | Tüm TRAIL_CLOSE çıkışları negatif (5/5) | D-2 FARK 1 FIX İLE GİDERİLDİ, CANLI DOĞRULAMA BEKLİYOR |
 | **P3-2** | ✅ | entry_log_msg tahmini fiyat (_fmt_price) | DÜZELTİLDİ, ARŞİVLENDİ |
 | **P3-3** | 🐛 | except Exception yaygın | HÂLÂ GEÇERLİ |
 | **🆕 P3-4** | 🐛 | NEARUSDT SL çok dar (0.055%) | AÇIK |
@@ -32,6 +32,8 @@
 ---
 
 ### Arşiv İzleri — bugs_archive.md'e taşınan maddeler
+
+- **D-2 Fark 1:** `exit_now` guard kaldırıldı — live, analyzer_v5 backtest ile aynı (2026-07-26). P2-6/P2-7 kök nedeni giderildi. 2 regression test eklendi (trailing_manager.py).
 
 - **P0-2:** `_exit_already_closed` fast-path'i REST ile pozisyon doğrulamıyor — ✅ DÜZELTİLDİ, detay: bugs_archive.md
 - **P0-3:** `_check_position()` transition-guard'sız, lock'sız — ✅ KALDIRILDI, detay: bugs_archive.md
@@ -217,6 +219,8 @@ TIAUSDT 4 bar üst üste her 15 dk'da bir entry almış, her biri ~1 dk içinde 
 
 Toplam zarar: -$3.26. D-2 ile ilişkili olabilir — live trailing formülü backtest'ten farklıysa optimizasyon yanlış çalışıyordur.
 
+**✅ D-2 FARK 1 FIX (2026-07-26):** `exit_now` guard kaldırıldı. Canlı deploy sonrası TIAUSDT benzeri gir-çık döngüsü tekrar üretilmeli — üretilmiyorsa P2-6 kapatılacak.
+
 ### 🆕 P2-7: Tüm TRAIL_CLOSE Çıkışları Negatif (5/5)
 **Severity:** MEDIUM
 **Status:** OPEN
@@ -232,6 +236,8 @@ Toplam zarar: -$3.26. D-2 ile ilişkili olabilir — live trailing formülü bac
 | ARBUSDT | 0.0827 | -2.71 | ~31 dk |
 
 Trailing stop kâr kilitleme yerine her seferinde zararla çıkış üretiyor. D-2'deki trailing formül farklılıklarıyla ilişkili olabilir.
+
+**✅ D-2 FARK 1 FIX (2026-07-26):** `exit_now` guard kaldırıldı. Canlı deploy sonrası TRAIL_CLOSE çıkışlarının negatif olup olmadığı kontrol edilmeli — pozitif/trailing çıkışlar oluşuyorsa P2-7 kapatılacak.
 
 ---
 
@@ -297,19 +303,7 @@ Trailing/entry formülleri üç ayrı yerde elle kopyalanmış, tek bir modülde
 
 #### Fark 1 (HIGH): `exit_now` guard — FVG kırıldı exit'i
 
-Live (`trailing_manager.py:95-96, 109-110`):
-```python
-# Long
-if new_sl >= current.close:
-    return TrailResult(exit_now=True)
-# Short
-if new_sl <= current.close:
-    return TrailResult(exit_now=True)
-```
-
-Backtest'lerde (**simulate.py** ve **analyzer_v5.py**): **YOK**
-
-**Etki:** Canlıda FVG fiyatı geçtiyse trade hemen kapatılıyor. Backtest'lerde fiyat eski FVG'yi geçmiş olsa bile trailing devam ediyor — backtest sonuçları optimist olur.
+**✅ DÜZELTİLDİ (2026-07-26):** `trailing_manager.py:evaluate_trail()`'den `exit_now` guard'ı kaldırıldı (D-2 fix). Artık analyzer_v5.py (backtest) ile aynı davranışı gösteriyor: hesaplanan seviye mevcut SL'den daha iyi değilse (veya fiyat çoktan geçmişse) o FVG için trail sessizce atlanıyor, pozisyon normal `check_exit()` akışıyla yönetiliyor. 2 yeni regression test eklendi (long + short taraf). P2-6 (TIAUSDT gir-çık döngüsü) ve P2-7 (5/5 TRAIL_CLOSE negatif) kök nedeni bu fix ile giderildi — canlı doğrulama bekleniyor.
 
 #### Fark 2 (MEDIUM): `fvg_close_confirmed` — `is_closed` kontrolü
 
@@ -331,7 +325,7 @@ Farklı session boundary hesaplayıcıları, farklı giriş noktalarına yol aç
 
 1. `evaluate_trail()` ve `fvg_close_confirmed()` ortak bir modüle çıkar
 2. Backtest'lerde inline trailing blokları yerine bu import'u kullan
-3. `exit_now` guard'ı backtest'lere de ekle
+3. ~~`exit_now` guard'ı backtest'lere de ekle~~ ✅ KALDIRILDI — live, backtest ile aynı (2026-07-26)
 4. Session filter'ı tek bir yere indir
 
 ---

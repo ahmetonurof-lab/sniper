@@ -57,11 +57,27 @@ class TrailingManager:
         atr_val: float,
         min_fvg_size: float,
     ) -> TrailResult:
+        """FVG trailing hesabı.
+
+        FIX (D-2): `exit_now` erken-çıkış guard'ı kaldırıldı — analyzer_v5.py
+        (backtest benchmark motoru) ile birleştirildi. Eski guard, hesaplanan
+        yeni SL seviyesi `new_sl > current_sl` iyileştirmesini bile
+        SAĞLAMADAN — yani trail için gerçekten uygulanabilir olup olmadığına
+        bakılmaksızın — sadece `new_sl` güncel kapanışın "arkasında" kaldığında
+        aninda market close tetikliyordu (bot.py: TRAIL_CLOSE @ current.close).
+        Bu, entry'den kısa süre sonra yakın bir FVG oluştuğunda neredeyse her
+        zaman zararla aninda çıkışa yol açıyordu (P2-6: TIAUSDT ~1dk içinde
+        gir-çık döngüsü; P2-7: 5/5 TRAIL_CLOSE çıkışı negatif). analyzer_v5.py
+        bu guard'ı hiç içermiyor ve backtest sonuçlarında bu davranış
+        doğrulanmış durumda — bu yüzden live de aynı şekilde davranıyor:
+        hesaplanan seviye mevcut SL'den daha iyi değilse (veya fiyat çoktan
+        geçmişse) o FVG için trail'i sessizce atlar, pozisyon normal
+        check_exit() akışıyla yönetilmeye devam eder.
+        """
         if not bars_15m or len(bars_15m) <= 1:
             return TrailResult()
 
         chunk = bars_15m[:-1] if len(bars_15m) > 1 else bars_15m
-        current = bars_15m[-1]  # validation icin son barin kapanisi
         fvgs = detect_fvgs(
             chunk,
             lookback=min(50, len(chunk)),
@@ -91,9 +107,6 @@ class TrailingManager:
 
             if side == "long":
                 new_sl = fvg.bottom - atr_buffer
-                # FVG kirildi — price new_sl seviyesini coktan gecti, trade bitmis
-                if new_sl >= current.close:
-                    return TrailResult(exit_now=True)
                 if (
                     new_sl > current_sl
                     and (new_sl - current_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
@@ -105,9 +118,6 @@ class TrailingManager:
                     updated = True
             else:
                 new_sl = fvg.top + atr_buffer
-                # FVG kirildi — price new_sl seviyesini coktan gecti, trade bitmis
-                if new_sl <= current.close:
-                    return TrailResult(exit_now=True)
                 if (
                     new_sl < current_sl
                     and (current_sl - new_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT

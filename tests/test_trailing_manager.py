@@ -272,6 +272,64 @@ class TestEvaluateTrail:
         result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
         assert result.updated is False
 
+    # ── D-2: exit_now guard removed (aligned with analyzer_v5 backtest) ──
+
+    @patch("trading.trailing_manager.cfg")
+    def test_d2_price_past_new_level_no_longer_forces_exit_now(self, mock_cfg):
+        """FIX (D-2): eski implementasyonda son bar'in close'u hesaplanan
+        new_sl seviyesinin "gerisinde" kaldiginda (new_sl >= current.close)
+        aninda TrailResult(exit_now=True) donuyordu — new_sl'in mevcut SL'den
+        bir iyilesme olup olmadigina bile bakmadan (P2-6/P2-7 kok nedeni).
+        analyzer_v5.py (backtest) bu guard'i hic icermiyor; simdi live de
+        ayni sekilde davraniyor: gecerli bir trail varsa normal updated=True
+        olarak isleniyor, exit_now hicbir zaman True donmuyor.
+        """
+        mock_cfg.TRAIL_MIN_MOVE_MULT = 0.2
+        mock_cfg.ATR_TRAIL_MULT = 0.25
+        trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
+
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 103, 105, 102, 104),
+            _bar(2, 106, 110, 105, 108),  # bullish FVG: bottom=103
+            _bar(3, 103, 106, 102, 104),  # close in FVG range → confirms FVG
+            # son bar (chunk'tan haric tutulur) close=100.0 — eski kodda
+            # new_sl(102.925) >= current.close(100.0) oldugu icin exit_now
+            # tetiklenirdi. Artik bu bar hic okunmuyor.
+            _bar(4, 108, 112, 95, 100.0),
+        ]
+        result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
+
+        assert result.exit_now is False
+        assert result.updated is True
+        assert result.new_sl == pytest.approx(102.925)
+
+    @patch("trading.trailing_manager.cfg")
+    def test_d2_short_side_price_past_new_level_no_exit_now(self, mock_cfg):
+        """D-2 fix — short taraf icin ayni senaryo. FVG dogrulanmis (bearish,
+        top=109/bottom=108) ama iyilesme degil (new_sl=109.075 > current_sl=103,
+        short icin kotu yon) — eski kodda bile bu durumda new_sl<=current.close
+        oldugu icin (109.075<=110) exit_now tetiklenirdi; artik hicbir zaman
+        tetiklenmiyor, updated da False kaliyor (gercek davranis degismedi,
+        sadece yanlis erken-exit kaldirildi)."""
+        mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
+        mock_cfg.ATR_TRAIL_MULT = 0.25
+        trade = _trade(side="short", entry_price=100.0, sl=103.0, tp=94.0, risk_pts=3.0)
+
+        bars = [
+            _bar(0, 110, 113, 109, 111),
+            _bar(1, 109, 111, 107, 108),
+            _bar(2, 106, 108, 103, 105),  # bearish FVG: top=109, bottom=108
+            _bar(3, 107, 109, 106, 108.5),  # close in [108,109] → confirms
+            # son bar (chunk'tan haric) close=110 — eski kodda
+            # new_sl(109.075) <= current.close(110) oldugu icin exit_now
+            # tetiklenirdi (iyilesme olup olmadigina bakilmaksizin).
+            _bar(4, 109, 111, 108, 110.0),
+        ]
+        result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
+        assert result.exit_now is False
+        assert result.updated is False  # zaten iyilesme degil — davranis ayni
+
 
 # ═══════════════════════════════════════════════════════════════════
 # check_exit tests

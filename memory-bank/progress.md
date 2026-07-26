@@ -4,6 +4,7 @@
 
 | Tarih | İşlem | Detay |
 |-------|-------|-------|
+| 2026-07-26 10:38 | D-2 Fark 1: exit_now guard kaldırıldı (P2-6/P2-7 kök neden fix) | `trailing_manager.py:evaluate_trail()` — new_sl >= current.close → exit_now guard'ı analyzer_v5 backtest ile uyumlu kaldırıldı. 2 regression test (long + short). 81/81 test geçti. |
 | 2026-07-26 09:25 | P1-15 check_exit teorisi çürütüldü, repr() debug log aktif | CSV high=0.0447 < sl=0.044729 → check_exit tetiklenmemeli. WS handler + recovery_manager elendi. [P1-15_DEBUG] repr(high/sl) WARNING log eklendi, stale event bekleniyor. |
 | 2026-07-26 08:15 | P1-15 SEIUSDT stale event kök neden doğrulaması (AŞAĞI ÇEKİLDİ) | csv.writer precision reddedildi ama check_exit teorisi de CSV ile çelişiyor — repr() ile çözülecek. |
 | 2026-07-25 23:41 | export_ohlc_1m pozisyonsuz bar'lara taşındı | `bot.py:455-460` — `_on_1m_close()`'da export, trade guard'inden önceye alındı. Her 1m bar CSV'ye düşer. |
@@ -17,7 +18,7 @@
 | CBDR → Sweep → FVG → Entry flow | ✅ ICT fix uygulandı |
 | SignalEngine (primary entry) | ✅ Bias + session filtresi + close guard + wick ratio > 0.75 |
 | ~~RetradeEngine (retrade entry + LHR fallback)~~ | ❌ Silindi (V3) |
-| TrailingManager (1m FVG trailing) | ✅ Close-teyitli FVG trailing |
+| TrailingManager (1m FVG trailing) | ✅ Close-teyitli FVG trailing + exit_now guard kaldırıldı (D-2 F1, analyzer_v5 uyumlu) |
 | EntryManager (live order placement) | ✅ Market + SL(StopMarket) + TP(TakeProfitMarket) |
 | OrderManager (trailing update + repair) | ✅ Önce yeni order, sonra eski cancel |
 | OrderManager (cancel_all_open_orders) | ✅ Exit öncesi tüm emirleri iptal |
@@ -117,6 +118,7 @@
 | **Görev 3: Post-entry sanity check** | ✅ `bot.py:_try_entry()` — entry sonrası ~2.5s bekleme + SL/TP Binance'te açık mı doğrulaması. Eksikse CRITICAL log + `post_entry_check_failed` event. |
 | **Görev 4: FVG invalidation exit_intent** | ✅ `bot.py:_on_1m_close()` — FVG kirildi→market close path'ine `log_event("exit_intent", reason="fvg_invalidated")`. |
 | **P0-7: tp_unchanged TP iptal fix + precision-residual churn (cc6e48d)** | ✅ `order_manager.py`: `tp_ok and not tp_unchanged` guard + precision-sonrasi `sl/tp_really_unchanged` erken return. `evaluate_trail()` tick-altı rezidüde sonsuz tetiklenmeyi durdurur. 4 regresyon testi (TestTpUnchangedNoChurn + TestPrecisionResidualNoChurn). |
+| **D-2 Fark 1: exit_now guard kaldırıldı (2026-07-26)** | ✅ `trailing_manager.py:evaluate_trail()` — new_sl >= current.close → exit_now guard'ı kaldırıldı. analyzer_v5 backtest ile aynı davranış. P2-6/P2-7 kök nedeni giderildi. 2 regression test (long + short). 81/81 test. |
 
 ## Kalan İşler 🔧
 
@@ -151,6 +153,7 @@
 | ~~Trail prev ID penceresinde WS_FALLBACK~~ | ✅ Fix: `*_order_id_prev` geçiş id'si saklanıyor, WS fill eşleşmesi genişletildi |
 | ~~SOLUSDT FVG bar index restart bug~~ | ✅ `_resolve_fvg_bar_index()` fiyat bazlı arama öncelikli yapıldı. Restart sonrası bar indeksleri sıfırlandığında offset formülü (~81 FVG'yi ~77-78 barına işaret ediyordu). |
 | ~~console_reporter SyntaxError~~ | ✅ `display_fvg_status()` TRIGGER_READY bloğu indent fix — elif artık if'siz kalmıyor. |
+| ~~D-2 Fark 1: exit_now guard (P2-6/P2-7 kök neden)~~ | ✅ `trailing_manager.py:evaluate_trail()` — exit_now guard kaldırıldı. analyzer_v5 backtest uyumlu. 2 regression test. |
 
 ## Test Sonuçları (Backtest — All Coin 2026 Q2)
 
