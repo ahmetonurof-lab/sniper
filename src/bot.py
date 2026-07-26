@@ -630,17 +630,8 @@ class PaperTrader:
             return
 
         # ── Nihai carpan (Guvenlik Freni) ──
-        if is_defense_mode:
-            # PORTFOY KANIYOR (DD > %15): Elite CBDR gelse bile riski buyutme
-            final_risk_mult = 1.0 * min(cbdr_mult, 1.0)
-            log.warning(
-                "[DEFENSE] %s DD limitinde! EL ve Elite CBDR iptal. final=%.2fx",
-                sym,
-                final_risk_mult,
-            )
-        else:
-            # PORTFOY SAGLIKLI: Zaman (EL) x Kurulum (CBDR) carpani
-            final_risk_mult = risk_mgr_mult * cbdr_mult
+        # is_defense_mode True ise zaten return ile çıkıldı (P1-13 guard).
+        final_risk_mult = risk_mgr_mult * cbdr_mult
 
         adjusted_risk_pct = RISK_PER_TRADE * final_risk_mult
 
@@ -913,29 +904,49 @@ class PaperTrader:
                     sym,
                     _exit_result,
                 )
+                # P1-14 cross-validation: open orders'ta SL/TP yoksa 400ms bekle
                 try:
-                    sl_present, tp_present = await self.order_manager.verify_protection(
-                        sym, trade
+                    open_ids = await self.order_manager.get_open_order_ids(sym)
+                    sl_missing = (
+                        open_ids is not None
+                        and trade.get("sl_order_id") not in open_ids
                     )
-                except Exception as e:
-                    log.critical(
-                        "[EXIT] %s %s koruma dogrulamasi basarisiz (%s) — "
-                        "onarim atlanip guvenli tarafta kaliniyor",
-                        sym,
-                        _exit_result,
-                        e,
+                    tp_missing = (
+                        open_ids is not None
+                        and trade.get("tp_order_id") not in open_ids
                     )
-                    sl_present, tp_present = True, True
-                if not sl_present or not tp_present:
-                    log.warning(
-                        "[EXIT] %s koruma eksik (sl=%s tp=%s) — onariliyor",
-                        sym,
-                        sl_present,
-                        tp_present,
-                    )
-                    await self.order_manager.repair_protection(
-                        sym, trade, has_sl=sl_present, has_tp=tp_present
-                    )
+                    if sl_missing or tp_missing:
+                        await asyncio.sleep(0.4)
+                        position_open = await self.order_manager.position_still_open(
+                            sym
+                        )
+                except Exception:
+                    pass
+                if position_open:
+                    try:
+                        (
+                            sl_present,
+                            tp_present,
+                        ) = await self.order_manager.verify_protection(sym, trade)
+                    except Exception as e:
+                        log.critical(
+                            "[EXIT] %s %s koruma dogrulamasi basarisiz (%s) — "
+                            "onarim atlanip guvenli tarafta kaliniyor",
+                            sym,
+                            _exit_result,
+                            e,
+                        )
+                        sl_present, tp_present = True, True
+                    if not sl_present or not tp_present:
+                        log.warning(
+                            "[EXIT] %s koruma eksik (sl=%s tp=%s) — onariliyor",
+                            sym,
+                            sl_present,
+                            tp_present,
+                        )
+                        await self.order_manager.repair_protection(
+                            sym, trade, has_sl=sl_present, has_tp=tp_present
+                        )
                 trade["pending_exit_reason"] = None
                 trade["pending_exit_price"] = None
                 trade["pending_exit_qty"] = None
