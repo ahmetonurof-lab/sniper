@@ -434,3 +434,53 @@ SL open_ids'den çıktığında P1-14 cross-validation doğru çalışarak exit'
 - `sl_reject`/`tp_reject` `log_event` çağrılarına `error_code` alanı eklenmedi.
 - Ardışık trailing başarısızlıkları için backoff mekanizması yoktu — -4005 hatası dakikada bir sonsuza kadar WARNING spam'i üretiyordu.
 - **DURUM: DÜZELTİLDİ** — SL/TP placement'a closePosition fallback eklendi, `error_code` log_event'a eklendi, `_trail_failures` backoff (3 başarısızlık → 5dk + CRITICAL).
+
+---
+
+## 🔴 P0 — Finance Risk (Arşiv)
+
+### P0-1: STRKUSDT çift-exit/çift-PnL — TAMAMEN DÜZELTİLDİ (440125c)
+**Senaryo:** WS "SL FILLED" event'i ile `_exit_already_closed` fast-path'i pozisyonu kapatır ama borsada açık kalır → `_check_position` geri ekler → gerçek SL tetiklenince PnL tekrar yazılır.
+**Yapılan değişiklikler:**
+1. `EXIT_LIFECYCLE_SERVICE_ENABLED` flag temizliği
+2. `_exit_trade_legacy` silindi
+3. Idempotency guard: `_exit_log[ sym ][entry_bar_index+entry_price] = result`
+4. Per-trade lock: `asyncio.Lock` key `sym_{entry_bar_index}_{entry_price}`
+5. 3 yeni test (stale→real PnL tek, guard engelleme, concurrent) + 31/31 suite pass
+
+---
+
+## 🟡 P2 — Medium Risk (Arşiv)
+
+### P2-2: `CleanupPlan` eksik — DÜZELTİLDİ
+**Dosya:** `protection_lifecycle.py:cleanup_after_confirmed_exit()`
+- `cancel_ids` set'i sadece tetikleyen tarafın ID'sini içeriyordu; prev/pending/history ID'leri eklenmiyordu.
+- **DURUM: DÜZELTİLDİ** — tüm prev/pending/history ID'leri cancel_ids'e dedup'lu olarak ekleniyor. 4 yeni test.
+
+### P2-3: `promote_sl/tp()` dokümantasyon/niyet uyuşmazlığı — DÜZELTİLDİ
+**Dosya:** `protection_lifecycle.py:begin_replace_sl/tp()`
+- Docstring "asynchronous replace" izlenimi veriyordu ama aynı senkron blokta atomik replace yapılıyor.
+- **DURUM: DÜZELTİLDİ** — docstring gerçek çağrı desenini yansıtıyor.
+
+---
+
+## 🟢 P3 — Low Risk (Arşiv)
+
+### P3-2: entry_log_msg + [PAPER] log fiyat formatı — DÜZELTİLDİ
+**Dosya:** `entry_manager.py:437`, `bot.py:795-803`
+- Küçük fiyatlı coinlerde (OPUSDT ~0.09) tüm fiyatlar aynı görünüyordu.
+- **DURUM: DÜZELTİLDİ** — `_fmt_price()` kullanımına güncellendi.
+
+---
+
+## 🔴 Açık Buglar — Baş Mühendis Notu (Arşiv)
+
+### P1-13b: P1-13 DD guard sonrası ölü kod — DÜZELTİLDİ (b0f2408 → 440125c)
+**Dosya:** `bot.py:_on_15m_close()`
+- P1-13 fix'inde erken return eklendikten sonra 7 satır aşağıda ölü `if is_defense_mode:` bloğu kalmıştı.
+- **DURUM: DÜZELTİLDİ** — P0-1 fix kapsamında bot.py yeniden yapılandırıldı.
+
+### P1-14b: `_exit_trade_legacy`'de P1-14 cross-validation eksik — DÜZELTİLDİ (440125c)
+**Dosya:** `bot.py` (_exit_trade_legacy silindi)
+- P1-14 cross-validation sadece `ExitLifecycleService.execute()`'da mevcuttu, legacy path'te yoktu.
+- **DURUM: DÜZELTİLDİ** — P0-1 fix kapsamında `_exit_trade_legacy` ve `EXIT_LIFECYCLE_SERVICE_ENABLED` silindi. Cross-validation zaten yeni yolda mevcut.

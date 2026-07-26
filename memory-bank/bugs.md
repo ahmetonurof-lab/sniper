@@ -11,22 +11,14 @@
 
 | ID | Durum | Başlık | Aciliyet |
 |---|---|---|---|
-| **P0-1** | ✅ | STRKUSDT çift-exit/çift-PnL | TAMAMEN DÜZELTİLDİ |
-| **P0-6** | ✅ | _exit_already_closed SL/TP pozisyon doğrulaması yok | DÜZELTİLDİ, ARŞİVLENDİ |
-| **P0-7** | ✅ | TP unchanged iptal + precision-residual churn | DÜZELTİLDİ, ARŞİVLENDİ |
 | **P1-4** | ✅ | Ghost/temizlik sadece restart'ta | KISMEN DÜZELTİLDİ |
 | **P1-7** | 📎 | Harici kapanışlar (26 WS_FALLBACK) + ONDOUSDT fix | KISMEN AÇIKLANDI |
 | **P1-8** | 🐛 | POST_ENTRY check %100 başarısız — iki kök neden tespit edildi | DEBUG LOG AKTİF, KÖK NEDEN AYRIMINDA |
 | **D-2** | 🔧 | Trailing/entry formülleri kopya kod — exit_now Fark 1 DÜZELTİLDİ | FARK 1 DÜZELTİLDİ, FARK 2-5 AÇIK |
-| **P2-2** | ✅ | CleanupPlan eksik (prev/pending/history) | DÜZELTİLDİ, ARŞİVLENDİ |
-| **P2-3** | ✅ | promote_sl/tp() niyet uyuşmazlığı (docstring) | DÜZELTİLDİ, ARŞİVLENDİ |
 | **🆕 P2-6** | 🔧 | TIAUSDT her bar close'da gir-çık döngüsü | D-2 FARK 1 FIX İLE GİDERİLDİ, CANLI DOĞRULAMA BEKLİYOR |
 | **🆕 P2-7** | 🔧 | Tüm TRAIL_CLOSE çıkışları negatif (5/5) | D-2 FARK 1 FIX İLE GİDERİLDİ, CANLI DOĞRULAMA BEKLİYOR |
-| **P3-2** | ✅ | entry_log_msg tahmini fiyat (_fmt_price) | DÜZELTİLDİ, ARŞİVLENDİ |
 | **P3-3** | 🐛 | except Exception yaygın | HÂLÂ GEÇERLİ |
 | **🆕 P3-4** | 🐛 | NEARUSDT SL çok dar (0.055%) | AÇIK |
-| **🆕 P1-13b** | ✅ | P1-13 DD guard sonrası ölü kod (unreachable block) | DÜZELTİLDİ, ARŞİVLENDİ |
-| **🆕 P1-14b** | ✅ | _exit_trade_legacy'de P1-14 cross-val eksik | DÜZELTİLDİ, ARŞİVLENDİ |
 | **🆕 P1-15** | 🔍 | SEIUSDT+ARBUSDT stale event loop — check_exit teorisi CSV kanıtıyla çürütüldü, WS latency/periodic_check_loop test ediliyor | ARAŞTIRILIYOR — repr() sonucu bekleniyor |
 
 ---
@@ -35,6 +27,7 @@
 
 - **D-2 Fark 1:** `exit_now` guard kaldırıldı — live, analyzer_v5 backtest ile aynı (2026-07-26). P2-6/P2-7 kök nedeni giderildi. 2 regression test eklendi (trailing_manager.py).
 
+- **P0-1:** STRKUSDT çift-exit/çift-PnL — ✅ TAMAMEN DÜZELTİLDİ (440125c — flag temizliği, legacy silme, idempotency guard, per-trade lock, 3 test), detay: bugs_archive.md
 - **P0-2:** `_exit_already_closed` fast-path'i REST ile pozisyon doğrulamıyor — ✅ DÜZELTİLDİ, detay: bugs_archive.md
 - **P0-3:** `_check_position()` transition-guard'sız, lock'sız — ✅ KALDIRILDI, detay: bugs_archive.md
 - **P0-4:** OPUSDT — 2. pozisyon exit event'i hiç yazılmamış — ✅ DÜZELTİLDİ, detay: bugs_archive.md
@@ -62,32 +55,7 @@
 - **P2-5:** update_trail_orders -4005 fallback yok — ✅ DÜZELTİLDİ, detay: bugs_archive.md
 - **P3-2:** `entry_log_msg` + `[PAPER]` logları fiyat formatı sorunu — ✅ DÜZELTİLDİ (_fmt_price() kullanımı, bot_infra.py), detay: bugs_archive.md
 
----
-
-## 🔴 P0 — Finance Risk
-
-### P0-1: STRKUSDT çift-exit/çift-PnL (event log'dan tespit)
-**Kaynak:** `events_2026-07-20.jsonl` replay
-```
-14:59:00 exit STRKUSDT short entry=0.029 exit=0.0287 qty=17593 pnl=4.77 result=SL
-18:47:15 exit STRKUSDT short entry=0.029 exit=0.0287 qty=17593 pnl=4.77 result=SL  ← AYNI trade!
-```
-- **Senaryo:** WS "SL FILLED" event'i ile `_exit_already_closed` fast-path'i çalışır, REST doğrulaması OLMADAN pozisyonu kapatır. Ama pozisyon borsada açık kalır.
-- **60sn'lik `_check_position`** trade'i `active_trades`'te bulamayınca `_recover_unknown_position` ile geri ekler.
-- 3.5 saat sonra SL gerçekten tetiklenir, PnL **tekrar** +4.77 yazılır.
-- **Risk:** Balance çift PnL ile şişer → position sizing yanlış. VEYA pozisyon 3.5 saat izlemesiz kalır.
-- **✅ TAMAMEN DÜZELTİLDİ (commit hash: eklenecek)** — Aşağıdaki değişiklikler yapıldı:
-
-  1. **Flag temizliği:** `EXIT_LIFECYCLE_SERVICE_ENABLED` kaldırıldı, tüm exit'ler `ExitLifecycleService.execute()` üzerinden gider.
-  2. **Legacy silme:** `_exit_trade_legacy()` metodu silindi. Hiçbir kod referans etmiyor.
-  3. **Idempotency guard:** `_exit_log` (dict[sym → dict[trade_id, result]]) — `_commit_confirmed_exit`'te kaydedilir, `execute()` başında kontrol edilir. Key = `entry_timestamp` (trade_id), hedef: aynı trade + result ikinci kez commit edilemez.
-  4. **Per-trade lock:** `asyncio.Lock` key = `{sym}_{entry_timestamp}`. `position_still_open()` REST çağrısı dahil tüm `execute()` gövdesini korur. Farklı entry_timestamp'li trade'ler eşzamanlı exit yapabilir.
-  5. **Test:** 3 yeni P0-1 senaryosu + tüm suite 31/31 geçti:
-     - Stale WS → re-activate → gerçek SL → PnL tek
-     - Aynı trade_id+result → guard engelliyor
-     - İki farklı trade eşzamanlı → bloklama yok
-
----
+<!-- P0-1 moved to archive -->
 
 ## 🟠 P1 — High Risk
 
@@ -203,14 +171,6 @@ P0-5 fix deploy edilmesine rağmen 25/Jul'da **17+ post_entry_check_failed** kay
 
 ## 🟡 P2 — Medium Risk
 
-### ✅ P2-2: `CleanupPlan` eksik — DÜZELTİLDİ
-**Dosya:** `sniper/src/trading/protection_lifecycle.py:188-230`
-- **⚠️ DURUM: DÜZELTİLDİ** — cleanup_after_confirmed_exit() artık tetikleyen tarafın kendi ID'si hariç tüm prev/pending/history ID'lerini de cancel_ids'e ekliyor, dedup'lu. 4 yeni test (SL result transitional, synthetic result, dedup, unchanged behavior).
-
-### ✅ P2-3: `promote_sl/tp()` dokümantasyon/niyet uyuşmazlığı — DÜZELTİLDİ
-**Dosya:** `sniper/src/trading/protection_lifecycle.py:249-274`
-- **⚠️ DURUM: DÜZELTİLDİ** — begin_replace_sl/tp() docstring'leri gerçek çağrı desenini yansıtıyor: promote ile aynı senkron blokta art arda çağrılıyor, pending alanı sadece ara adım. Davranış değişikliği yok, sadece doküman fix.
-
 ### 🆕 P2-6: TIAUSDT Her Bar Close'da Gir-Çık Döngüsü
 **Severity:** MEDIUM
 **Status:** OPEN
@@ -251,13 +211,6 @@ Trailing stop kâr kilitleme yerine her seferinde zararla çıkış üretiyor. D
 ---
 
 ## 🔵 P3 — Low Risk
-
-### ✅ P3-2: execute_live_entry() entry_log_msg + bot.py [PAPER] logları fiyat formatı sorunu — DÜZELTİLDİ
-**Dosya:** `sniper/src/trading/entry_manager.py:437`, `sniper/src/bot.py:795-803`
-- `entry_log_msg`'de `PRICE: {est_price:.2f}` ve `[PAPER]` logunda `@ %.2f sl=%.2f tp=%.2f` kullanılıyor
-- Küçük fiyatlı coinlerde (ENAUSDT ~0.0859, OPUSDT ~0.09) tüm fiyatlar aynı görünür (ör: 0.09)
-- `_fmt_price()` zaten `bot_infra.py`'de var ve dinamik ondalik basamak kullanıyor
-- **⚠️ DURUM: DÜZELTİLDİ** — `entry_log_msg` ve `[PAPER]` logları `_fmt_price()` kullanımına güncellendi (2026-07-25)
 
 ### P3-3: Genel — `except Exception` çok yaygın
 **Dosya:** `sniper/src/` geneli
@@ -339,84 +292,7 @@ Farklı session boundary hesaplayıcıları, farklı giriş noktalarına yol aç
 
 ---
 
-## 🔴 Açık Buglar — Baş Mühendis Notu (25 Tem 2026)
-
-> Baş mühendis review'undan çıkan açık bug'lar. Bloklayıcı değil, temizlik/debt.
-
-### ✅ P1-13b: P1-13 DD Guard Sonrası Ölü Kod — DÜZELTİLDİ (b0f2408)
-**Severity:** LOW
-**Status:** ✅ DÜZELTİLDİ — dead code silindi
-**Date:** 2026-07-25 (keşif), 2026-07-26 (fix)
-**File:** `src/bot.py:632-634` (eski: 614-621)
-
-#### Problem
-
-P1-13 fix'inde (d62df19) `_on_15m_close()`'ye erken return eklendi:
-
-```python
-# bot.py:607-611 — P1-13 guard
-if is_defense_mode:
-    log.warning("[DD_GUARD] %s DD devre kesici aktif — entry ENGELLENDI", sym)
-    log_event("entry_blocked_dd", sym, dd_active=True)
-    rsm.reset()
-    return   # ← burada fonksiyon terk ediliyor
-```
-
-Ama 7 satır aşağıda hâlâ eski DEFENSE bloğu duruyor:
-
-```python
-# bot.py:614-621 — ÖLÜ KOD (asla ulaşilemez)
-if is_defense_mode:
-    # PORTFOY KANIYOR (DD > %15): Elite CBDR gelse bile riski buyutme
-    final_risk_mult = 1.0 * min(cbdr_mult, 1.0)
-    log.warning(
-        "[DEFENSE] %s DD limitinde! EL ve Elite CBDR iptal. final=%.2fx",
-        sym,
-        final_risk_mult,
-    )
-```
-
-`is_defense_mode=True` ise fonksiyon zaten line 611'de `return` ile çıkmış oluyor. Line 614'e asla ulaşılamıyor.
-
-#### Etki
-
-Kod okunabilirliği — dead code, bakım sırasında yanıltabilir. Fonksiyonel etkisi yok.
-
-#### Fix
-
-Line 614-621'i sil. `else:` bloğunu (line 622-624) koru ama `if is_defense_mode:` guardian'ı olmaksızın doğrudan `final_risk_mult = risk_mgr_mult * cbdr_mult` olarak basitleştir:
-
-```python
-# ── Nihai carpan (Guvenlik Freni) ──
-# is_defense_mode True ise zaten return ile çıkıldı (line 607-611).
-final_risk_mult = risk_mgr_mult * cbdr_mult
-```
-
----
-
-### ✅ P1-14b: `_exit_trade_legacy`'de P1-14 Cross-Validation Eksik — DÜZELTİLDİ (b0f2408)
-**Severity:** LOW
-**Status:** ✅ DÜZELTİLDİ — legacy path cross-validation eklendi
-**Date:** 2026-07-25 (keşif), 2026-07-26 (fix)
-**File:** `src/bot.py:907-916` (eski: 873-889)
-
-#### Problem
-
-P1-14 cross-validation (SL/TP open orders'tan yoksa 400ms retry) sadece `ExitLifecycleService.execute()`'da mevcut (`exit_lifecycle.py:150-188`). `_exit_trade_legacy()` (`bot.py:873-889`)'de yok.
-
-#### Neden Kritik Değil
-
-`EXIT_LIFECYCLE_SERVICE_ENABLED=True` (varsayılan) olduğu için `_exit_trade_legacy()` zaten çalışmıyor — `_exit_trade()` wrapper'ı (line 869-871) `exit_service.execute()`'a delege ediyor. Bu, P0-1/P0-2/P0-6 ile aynı yapısal davranış pattern'i.
-
-#### Risk
-
-Eğer birisi `EXIT_LIFECYCLE_SERVICE_ENABLED=False` yaparsa (örn. rollback) P1-14 cross-validation da devre dışı kalır. Legacy path'i geri yükleyen kişi bunu bilmeli.
-
-#### Fix (opsiyonel, temizlik)
-
-`_exit_trade_legacy()`'ye `exit_lifecycle.py:150-188` ile aynı cross-validation mantığını ekle. Ya da legacy path'i tamamen kaldır (EXIT_LIFECYCLE_SERVICE_ENABLED kalıcı True iken gereksiz dead code).
-
----
+<!-- P1-13b, P1-14b moved to archive -->
 
 ## 🔍 P1-15: SEIUSDT+ARBUSDT Stale Event Loop — WS Event Latency Kök Nedeni
 
