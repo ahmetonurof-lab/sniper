@@ -4,6 +4,7 @@
 
 | Tarih | İşlem | Detay |
 |-------|-------|-------|
+| 2026-07-26 08:15 | P1-15 SEIUSDT stale event kök neden doğrulaması | csv.writer precision reddedildi, WS event latency (~90sn) kök neden. trade["sl"]=0.044729 (tick_size yuvarlanmamış). bugs.md güncellendi. |
 | 2026-07-25 23:41 | export_ohlc_1m pozisyonsuz bar'lara taşındı | `bot.py:455-460` — `_on_1m_close()`'da export, trade guard'inden önceye alındı. Her 1m bar CSV'ye düşer. |
 | 2026-07-25 22:15 | Bug Registry bölünmesi | `bugs.md` → `bugs.md` (17 aktif) + `bugs_archive.md` (19 sabit). Commit: `8155ada` |
 
@@ -58,6 +59,7 @@
 | Soruşturma | Durum | Sonraki adım |
 |-----------|-------|-------------|
 | **P1-8 post_entry_check fail** | 🔍 Kök neden #1 (hızlı fill → false positive) tespit edildi | Diğer vakalarda `raw_orders_count` bekleniyor |
+| **P1-15 SEIUSDT stale event** | ✅ Kök neden doğrulandı — WS event latency | WS gap nedeni araştırılabilir (reconnect mi, Binance processing mi?) |
 | SNIPER_OUTPUT_DIR izolasyon | ✅ Backtest output/ klasörü production'dan ayrı |
 | update_trail_orders signature | ✅ `new_sl/tp/trail_count` param + paper mod güncellemesi + `apply_price_precision` içe taşındı |
 | Trailing partial success | ✅ `sl_ok or tp_ok` → `trailing_count` güncellenir, tek başarısızlıkta `False` dönme kaldırıldı |

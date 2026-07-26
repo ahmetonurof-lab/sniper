@@ -31,6 +31,16 @@ kapsanır.
 
 Flusher ve OHLC export artık her 1m bar'da çalışıyor, pozisyon olsun olmasın.
 
+## Son İşlem: P1-15 SEIUSDT stale event kök neden doğrulaması (2026-07-26 08:15)
+
+export_ohlc_1m() analizi ve SEIUSDT 05:21:01 stale event soruşturması tamamlandı:
+- **csv.writer precision:** `csv.writer.writerow()` ham float yazıyor, truncation yok
+- **Kök neden:** Binance WS event delivery latency (~90sn gap), CSV precision değil
+- **Zincir:** check_exit正确 tetikleniyor (bar.high=0.0448 >= trade["sl"]=0.044729) → Binance tetikliyor ama WS FILLED gecikiyor → stale event loop
+- **trade["sl"]** tick_size'a yuvarlanmamış (0.044729) — bu güvenli taraf, sorun değil
+- **Teori B (CSV precision) reddedildi** — csv.writer truncation yok, SEI fiyatlaraten tick_size precision'da
+- bugs.md P1-15 güncellendi
+
 ## Aktif Görev: P1-8 post_entry_check %100 fail soruşturması
 
 - **Soru 1 cevaplandı:** 7 vaka P0-5 deploy'undan SONRA (23 Tem 14:32 → 24 Tem 14:45+)

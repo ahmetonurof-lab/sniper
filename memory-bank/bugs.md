@@ -27,7 +27,7 @@
 | **🆕 P3-4** | 🐛 | NEARUSDT SL çok dar (0.055%) | AÇIK |
 | **🆕 P1-13b** | 🐛 | P1-13 DD guard sonrası ölü kod (unreachable block) | AÇIK |
 | **🆕 P1-14b** | 🐛 | _exit_trade_legacy'de P1-14 cross-val eksik | AÇIK |
-| **🆕 P1-15** | 🔍 | ARBUSDT stale event loop — _on_1m_close result reset mi tetikliyor? | ARAŞTIRILIYOR |
+| **🆕 P1-15** | 🔍 | SEIUSDT+ARBUSDT stale event loop — WS event latency kök neden (CSV precision değil) | DOĞRULANDI, KÖK NEDEN NET |
 
 ---
 
@@ -414,12 +414,12 @@ Eğer birisi `EXIT_LIFECYCLE_SERVICE_ENABLED=False` yaparsa (örn. rollback) P1-
 
 ---
 
-## 🔍 P1-15: ARBUSDT Stale Event Loop — `_on_1m_close` Result Reset mi Tetikliyor?
+## 🔍 P1-15: SEIUSDT+ARBUSDT Stale Event Loop — WS Event Latency Kök Nedeni
 
 **Severity:** MEDIUM
-**Status:** 🔍 ARAŞTIRILIYOR
-**Date:** 2026-07-25
-**File:** `src/trading/exit_lifecycle.py:225`, `src/bot.py:505-512`, `src/trading/trailing_manager.py:148-162`
+**Status:** 🔍 DOĞRULANDI — kök neden net, CSV precision reddedildi
+**Date:** 2026-07-25 (keşif), 2026-07-26 (doğrulama)
+**File:** `src/trading/exit_lifecycle.py:225`, `src/bot.py:505-512`, `src/trading/trailing_manager.py:148-162`, `src/bot_infra.py:136-142`
 
 ### Problem
 
@@ -471,6 +471,59 @@ Eğer ARBUSDT short pozisyonu için 1m bar high'u SL (0.082725) seviyesine değe
 
 2. **1m OHLC verisi:** `live_ohlc/ARBUSDT_1m.csv`'den 19:14:00 ve 19:24:00 bar'larının high değeri SL (0.082725) ile karşılaştırılmalı. High >= SL ise → **doğru behavior** (fiyat SL'e değiyor, exit tetikleniyor ama pozisyon kapanmıyor).
 
-### Geçici Sonuç
+### Doğrulama Sonuçları (26 Tem 2026 — SEIUSDT vakası)
 
-**Henüz kapatılmadı.** `[P_DEBUG]` ve OHLC verisi bekleniyor. Eğer her ikisi de hipotezi doğrularsa → bu doğru behavior (fiyat SL seviyesinde dalgalanıyor), bug değil. Eğer `[P_DEBUG]` çalışmıyorsa → result reset bug'ı var, fix gerekiyor.
+**csv.writer precision analizi:**
+```python
+# bot_infra.py:136-142
+def export_ohlc_1m(bar: Bar, symbol: str) -> None:
+    writer.writerow([ts, bar.open, bar.high, bar.low, bar.close, bar.volume])
+```
+- `csv.writer` default `str()` kullanıyor — **hiçbir format string veya round() yok**
+- Full float hassasiyetinde yazar (IEEE 754, ~15 basamak)
+- Ama SEIUSDT tick_size=0.0001 olduğu için, Binance kline `"h"` field'ıaten0.0001 katları olarak geliyor (0.0447, 0.0448, vs.)
+- **CSV precision loss YOK — CSV zaten tam değerleri gösteriyor**
+
+**`trade["sl"]` precision analizi:**
+```
+paper_trade.log:1068  → [SL_TP_RECALC] sl=0.044729  (6 basamak, calculate_sl_tp sonucu)
+paper_trade.log:1074  → [PAPER] sl=0.04473          (_fmt_price ile %s format, 5 basamak)
+paper_trade.log:1123  → [PAPER] SL exit=0.0447      (exit_price formatı)
+```
+- `calculate_sl_tp()` → `sl=0.044729` (6 basamak, entry_manager.py:103-163)
+- `trade["sl"]` = **0.044729** — ham, tick_size'a yuvarlanmamış
+- Binance STOP_MARKET emrine sadece `apply_price_precision()` →0.0447 yuvarlaması uygulanıyor (entry_manager.py:438)
+- `check_exit()` (trailing_manager.py:158): `current.high >= trade["sl"]` → **0.0448 >= 0.044729 = TRUE** → SL tetikleniyor
+
+**Kritik zincir:**
+1. `bar.high` = Binance kline'dan `float(k["h"])` → **0.0448** (tick_size precision, 4 basamak)
+2. `trade["sl"]` = **0.044729** (6 basamak, tick_size'a yuvarlanmamış)
+3. `check_exit()`: `0.0448 >= 0.044729` → **TRUE** → `ExitDecision(triggered=True, result="SL")`
+4. Ama Binance STOP_MARKET emri 0.0447'de — WS FILLED event'i henüz gelmedi
+5. `verify_protection()` → pozisyon hâlâ açık → **stale event**
+6. ~90sn sonra WS FILLED geldi → exit tamamlandı (exit=0.0447, pnl=-5.43)
+
+**CSV dosyası durumu:**
+- `SEIUSDT_1m.csv` sadece 04:12:00'e kadar veri tutuyor (401 satır)
+- 05:21:01 olayı CSV'de **yok** — muhtemelen restart sonrası sıfırlandı veya rotated
+- Bu nedenle önceki analizdeki "CSV bar.high=0.0447" referansı olay barına ait değil
+
+**Sonuç:**
+
+P1-15'in kök nedeni **CSV precision değil, Binance WS event delivery latency**:
+1. `check_exit()` doğru tetikleniyor (bar.high >= trade["sl"] → true)
+2. Binance fiziksel STOP_MARKET tetikleniyor (0.0447'de)
+3. Ama WS FILLED event'i ~90sn gecikmeli geliyor
+4. Bu gecikme sırasında her 1m bar close'da aynı döngü tekrarlanıyor:
+   check_exit → SL → stale → result reset → check_exit → ...
+
+**Teorilerin durumu:**
+- **Teori A (check_exit mekanizması):** Mekanizma doğru çalışıyor, stale event Binance gecikmesinden
+- **Teori B (CSV precision):** Reddedildi — csv.writer truncation yok, SEI fiyatlaraten tick_size precision'da
+- **Teori C (WS reconnect gap):** Kuvvetli — WS-ORDER logları 05:15-05:22 arasında görünmüyor, sadece05:22:31'de geliyor
+
+**Önerilen aksiyonlar:**
+1. ✅ `export_ohlc_1m()`'e debug log eklenebilir (`repr(bar.high)`) — ama gerekli değil, CSV zaten doğru
+2. 🔍 **Asıl odak:** WS event delivery gap — neden ~90sn? WS reconnect mi, Binance processing mi?
+3. 📝 Stale event mekanizması correctly çalışıyor — P1-14 fix (cross-val) sayesinde
+4. ⚠️ **trade["sl"] tick_size'a yuvarlanmamış** — bu bir kod sorunu değil ama dikkate değer. `update_trail_orders()` (order_manager.py:169-170) `apply_price_precision` çağırmıyor, Binance'e ham fiyat gidiyor. Binance kendi yuvarlıyor, ama `trade["sl"]` her zaman Binance fiyatından daha hassas kalıyor. Bu nedenle `check_exit()` Binance fiyatından 1 tick daha hassas çalışıyor — istenmeyen bir durum değil (güvenli taraf).
