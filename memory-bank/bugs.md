@@ -18,8 +18,8 @@
 | **🆕 P2-6** | 🔧 | TIAUSDT her bar close'da gir-çık döngüsü | D-2 FARK 1 FIX İLE GİDERİLDİ, CANLI DOĞRULAMA BEKLİYOR |
 | **🆕 P2-7** | 🔧 | Tüm TRAIL_CLOSE çıkışları negatif (5/5) | D-2 FARK 1 FIX İLE GİDERİLDİ, CANLI DOĞRULAMA BEKLİYOR |
 | **P3-3** | 🐛 | except Exception yaygın | HÂLÂ GEÇERLİ |
-| **🆕 P3-4** | 🐛 | NEARUSDT SL çok dar (0.055%) | AÇIK |
-| **🆕 P1-15** | 🔍 | SEIUSDT+ARBUSDT stale event loop — check_exit teorisi CSV kanıtıyla çürütüldü, WS latency/periodic_check_loop test ediliyor | ARAŞTIRILIYOR — repr() sonucu bekleniyor |
+| **🆕 P3-4** | 🔧 | NEARUSDT SL çok dar (0.055%) — MIN_SL_DISTANCE_PCT=%0.15 taban eşik eklendi | FIX YAZILDI, PENDING DEPLOY (entry_manager.py) |
+| **🆕 P1-15** | 👁️ | SEIUSDT+ARBUSDT+NEARUSDT stale event loop — WS latency ~45-60sn sabit, mekanizma doğru çalışıyor | GÖZLEM, DÜŞÜK ÖNCELİK — kapatılmadı, gecikme bandı testnet için kabul edilebilir |
 
 ---
 
@@ -243,6 +243,13 @@ Entry @ 1.807  →  SL @ 1.806  (0.001 = 0.055% mesafe)
 ```
 
 SL neredeyse entry fiyatında. Her küçük wick tetikliyor → 4 stale event (07:15-07:18) → sonunda TP @ 1.807 ile ($0.99 fee zararıyla) çıkıyor. P1-14 stale event sorununu daha da kötüleştiriyor.
+
+**Fix:** `config.py:MIN_SL_DISTANCE_PCT = 0.0015` (%0.15) eklendi. `EntryManager.calculate_sl_tp()` sonunda `apply_min_sl_distance()` ile SL mesafesi garanti altına alınır:
+- Round-trip komisyon: %0.10 (2 × %0.05)
+- Tipik slippage: %0.05
+- Toplam eşik: **%0.15**
+- ATR bazlı SL primary kalır; bu sadece taban guard.
+- Formül: long'da `min(sl, entry - min_dist)`, short'ta `max(sl, entry + min_dist)` — ikisi de SL'i entry'den uzaklaştırır, asla yaklaştırmaz.
 
 ---
 

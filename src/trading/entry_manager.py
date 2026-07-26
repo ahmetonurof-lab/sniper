@@ -179,9 +179,22 @@ class EntryManager:
                 sl = entry_price - risk_pts * 2
                 tp = entry_price + risk_pts * 2 * tp_rr
 
+        # P3-4: MIN_SL_DISTANCE_PCT taban guard — SL asla entry'ye çok yaklaşamaz
+        sl = EntryManager.apply_min_sl_distance(entry_price, sl, side)
+
         return sl, tp
 
     # ── 3. Canlı emir yerleştirme ────────────────────────────────
+
+    @staticmethod
+    def apply_min_sl_distance(entry_price: float, sl: float, side: str) -> float:
+        min_dist = entry_price * cfg.MIN_SL_DISTANCE_PCT
+        if side == "long":
+            min_sl_price = entry_price - min_dist
+            return min(sl, min_sl_price)
+        else:
+            min_sl_price = entry_price + min_dist
+            return max(sl, min_sl_price)
 
     @staticmethod
     def parse_market_fill(response: dict) -> tuple[float, float, float]:

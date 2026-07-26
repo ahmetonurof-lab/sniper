@@ -603,3 +603,8 @@ PROTECTION_LIFECYCLE_SERVICE_ENABLED = (
 WS_EVENT_NORMALIZATION_ENABLED = (
     os.getenv("WS_EVENT_NORMALIZATION_ENABLED", "True").lower() == "true"
 )
+
+# P3-4: Minimum SL mesafesi (entry_price yüzdesi). Round-trip komisyon
+# (2 × %0.05) + tipik slippage (%0.05) baz alınmıştır = %0.15.
+# ATR bazlı SL hesaplamasını BOZMAZ, sadece taban garanti altına alır.
+MIN_SL_DISTANCE_PCT = 0.0015

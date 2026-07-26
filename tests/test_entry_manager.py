@@ -301,6 +301,49 @@ class TestCalculateSlTp:
 
 
 # ═══════════════════════════════════════════════════════════════════
+# P3-4: apply_min_sl_distance tests
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestApplyMinSlDistance:
+    """MIN_SL_DISTANCE_PCT=%0.15 taban guard'ı doğrulaması."""
+
+    @patch("trading.entry_manager.cfg")
+    def test_long_sl_too_close_expands(self, mock_cfg):
+        mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
+        entry = 100.0
+        tight_sl = 99.95  # %0.05 mesafe
+        result = EntryManager.apply_min_sl_distance(entry, tight_sl, "long")
+        assert result == entry - entry * 0.0015  # 99.85
+        assert result < tight_sl  # SL daha uzağa itildi
+
+    @patch("trading.entry_manager.cfg")
+    def test_long_sl_already_wide_unchanged(self, mock_cfg):
+        mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
+        entry = 100.0
+        wide_sl = 98.0  # %2 mesafe
+        result = EntryManager.apply_min_sl_distance(entry, wide_sl, "long")
+        assert result == wide_sl  # dokunulmaz
+
+    @patch("trading.entry_manager.cfg")
+    def test_short_sl_too_close_expands(self, mock_cfg):
+        mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
+        entry = 100.0
+        tight_sl = 100.05  # %0.05 mesafe
+        result = EntryManager.apply_min_sl_distance(entry, tight_sl, "short")
+        assert result == entry + entry * 0.0015  # 100.15
+        assert result > tight_sl
+
+    @patch("trading.entry_manager.cfg")
+    def test_short_sl_already_wide_unchanged(self, mock_cfg):
+        mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
+        entry = 100.0
+        wide_sl = 102.0
+        result = EntryManager.apply_min_sl_distance(entry, wide_sl, "short")
+        assert result == wide_sl
+
+
+# ═══════════════════════════════════════════════════════════════════
 # execute_live_entry tests
 # ═══════════════════════════════════════════════════════════════════
 
