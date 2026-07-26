@@ -1,19 +1,19 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-25 22:15 — bugs.md bölündü. Sabit maddeler: bugs_archive.md'e taşındı.
+> **Son güncelleme:** 2026-07-26 09:40 — P0-6, P0-7, P1-13b, P1-14b kapatıldı.
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ---
 
-## 🔴 AKTİF BUG ÖZETİ (25 Tem 2026)
+## 🔴 AKTİF BUG ÖZETİ (26 Tem 2026)
 
-> 🆕 = 25 Tem'de yeni keşfedildi | 🐛 = açık/henüz fix yok | 🔧 = fix yazıldı/pending deploy | ✅ = fix deploy edildi | 📎 = mevcut bug'a veri eklendi
+> 🆕 = yeni keşfedildi | 🐛 = açık/henüz fix yok | 🔧 = fix yazıldı/pending deploy | ✅ = fix deploy edildi | 📎 = mevcut bug'a veri eklendi
 
 | ID | Durum | Başlık | Aciliyet |
 |---|---|---|---|
 | **P0-1** | ✅ | STRKUSDT çift-exit/çift-PnL | KISMEN DÜZELTİLDİ |
-| **P0-6** | 🔧 | _exit_already_closed SL/TP pozisyon doğrulaması yok | FIX YAZILIYOR |
-| **P0-7** | 🔧 | TP unchanged iptal + precision-residual churn | HAZIR, DEPLOY BEKLİYOR |
+| **P0-6** | ✅ | _exit_already_closed SL/TP pozisyon doğrulaması yok | DÜZELTİLDİ, ARŞİVLENDİ |
+| **P0-7** | ✅ | TP unchanged iptal + precision-residual churn | DÜZELTİLDİ, ARŞİVLENDİ |
 | **P1-4** | ✅ | Ghost/temizlik sadece restart'ta | KISMEN DÜZELTİLDİ |
 | **P1-7** | 📎 | Harici kapanışlar (26 WS_FALLBACK) + ONDOUSDT fix | KISMEN AÇIKLANDI |
 | **P1-8** | 🐛 | POST_ENTRY check %100 başarısız — iki kök neden tespit edildi | DEBUG LOG AKTİF, KÖK NEDEN AYRIMINDA |
@@ -25,8 +25,8 @@
 | **P3-2** | 🐛 | entry_log_msg tahmini fiyat | HÂLÂ GEÇERLİ |
 | **P3-3** | 🐛 | except Exception yaygın | HÂLÂ GEÇERLİ |
 | **🆕 P3-4** | 🐛 | NEARUSDT SL çok dar (0.055%) | AÇIK |
-| **🆕 P1-13b** | 🐛 | P1-13 DD guard sonrası ölü kod (unreachable block) | AÇIK |
-| **🆕 P1-14b** | 🐛 | _exit_trade_legacy'de P1-14 cross-val eksik | AÇIK |
+| **🆕 P1-13b** | ✅ | P1-13 DD guard sonrası ölü kod (unreachable block) | DÜZELTİLDİ, ARŞİVLENDİ |
+| **🆕 P1-14b** | ✅ | _exit_trade_legacy'de P1-14 cross-val eksik | DÜZELTİLDİ, ARŞİVLENDİ |
 | **🆕 P1-15** | 🔍 | SEIUSDT+ARBUSDT stale event loop — check_exit teorisi CSV kanıtıyla çürütüldü, WS latency/periodic_check_loop test ediliyor | ARAŞTIRILIYOR — repr() sonucu bekleniyor |
 
 ---
@@ -37,6 +37,8 @@
 - **P0-3:** `_check_position()` transition-guard'sız, lock'sız — ✅ KALDIRILDI, detay: bugs_archive.md
 - **P0-4:** OPUSDT — 2. pozisyon exit event'i hiç yazılmamış — ✅ DÜZELTİLDİ, detay: bugs_archive.md
 - **P0-5:** `get_all_orders()` openAlgoOrders hatasını sessizce yutuyor — ✅ DÜZELTİLDİ + DOĞRULANDI, detay: bugs_archive.md
+- **P0-6:** `_exit_already_closed` SL/TP result'larında pozisyon doğrulaması yok — ✅ DÜZELTİLDİ (exit_lifecycle.py:124-131 P0-6 EXPANDED guard + P1-14 cross-val), detay: bugs_archive.md
+- **P0-7:** TP unchanged iptal + precision-residual churn — ✅ DÜZELTİLDİ (order_manager.py:136-138 sl/tp_really_unchanged guard + line 159 tp_unchanged guard), detay: bugs_archive.md
 - **P1-1:** `repair_protection()` fiyatı yeniden hesaplamıyor — ✅ DÜZELTİLDİ, detay: bugs_archive.md
 - **P1-2:** `update_trail_orders()` reject sonrası retry/backoff yok — ✅ DÜZELTİLDİ, detay: bugs_archive.md
 - **P1-3:** SL/TP tahmini fiyatla hesaplanıyor — ✅ DÜZELTİLDİ, detay: bugs_archive.md
@@ -48,7 +50,9 @@
 - **P1-11:** EXIT_REQUESTED runtime dead-end — ✅ DÜZELTİLDİ, detay: bugs_archive.md
 - **P1-12:** 24 Temmuz post_entry_check_failed analizi — ✅ P1-8/P0-5 kök nedeni ile aynı, detay: bugs_archive.md
 - **P1-13:** DD circuit breaker bypass — ✅ DÜZELTİLDİ (d62df19), detay: bugs_archive.md
+- **P1-13b:** P1-13 DD guard sonrası ölü kod — ✅ DÜZELTİLDİ (b0f2408, dead code silindi), detay: bugs_archive.md
 - **P1-14:** SL stale event → exit gecikmesi — ✅ DÜZELTİLDİ (d62df19 cross-val), detay: bugs_archive.md
+- **P1-14b:** _exit_trade_legacy'de P1-14 cross-val eksik — ✅ DÜZELTİLDİ (b0f2408, legacy path cross-validation eklendi), detay: bugs_archive.md
 - **P2-1:** `ProtectionLifecycleService.maybe_repair()` ölü kod — ✅ DOĞRULANDI, detay: bugs_archive.md
 - **P2-4:** user_data_handler kendi exit'ini WS_FALLBACK sanıyor — ✅ DÜZELTİLDİ, detay: bugs_archive.md
 - **P2-5:** update_trail_orders -4005 fallback yok — ✅ DÜZELTİLDİ, detay: bugs_archive.md
@@ -339,11 +343,11 @@ Farklı session boundary hesaplayıcıları, farklı giriş noktalarına yol aç
 
 > Baş mühendis review'undan çıkan açık bug'lar. Bloklayıcı değil, temizlik/debt.
 
-### 🆕 P1-13b: P1-13 DD Guard Sonrası Ölü Kod
+### ✅ P1-13b: P1-13 DD Guard Sonrası Ölü Kod — DÜZELTİLDİ (b0f2408)
 **Severity:** LOW
-**Status:** OPEN — temizlik borcu, bloklayıcı değil
-**Date:** 2026-07-25
-**File:** `src/bot.py:614-621`
+**Status:** ✅ DÜZELTİLDİ — dead code silindi
+**Date:** 2026-07-25 (keşif), 2026-07-26 (fix)
+**File:** `src/bot.py:632-634` (eski: 614-621)
 
 #### Problem
 
@@ -390,11 +394,11 @@ final_risk_mult = risk_mgr_mult * cbdr_mult
 
 ---
 
-### 🆕 P1-14b: `_exit_trade_legacy`'de P1-14 Cross-Validation Eksik
+### ✅ P1-14b: `_exit_trade_legacy`'de P1-14 Cross-Validation Eksik — DÜZELTİLDİ (b0f2408)
 **Severity:** LOW
-**Status:** OPEN — temizlik borcu, legacy path devre dışı
-**Date:** 2026-07-25
-**File:** `src/bot.py:873-889` vs `src/trading/exit_lifecycle.py:150-188`
+**Status:** ✅ DÜZELTİLDİ — legacy path cross-validation eklendi
+**Date:** 2026-07-25 (keşif), 2026-07-26 (fix)
+**File:** `src/bot.py:907-916` (eski: 873-889)
 
 #### Problem
 
