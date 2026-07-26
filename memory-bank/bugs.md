@@ -27,7 +27,7 @@
 | **🆕 P3-4** | 🐛 | NEARUSDT SL çok dar (0.055%) | AÇIK |
 | **🆕 P1-13b** | 🐛 | P1-13 DD guard sonrası ölü kod (unreachable block) | AÇIK |
 | **🆕 P1-14b** | 🐛 | _exit_trade_legacy'de P1-14 cross-val eksik | AÇIK |
-| **🆕 P1-15** | 🔍 | SEIUSDT+ARBUSDT stale event loop — WS event latency kök neden (CSV precision değil) | DOĞRULANDI, KÖK NEDEN NET |
+| **🆕 P1-15** | 🔍 | SEIUSDT+ARBUSDT stale event loop — check_exit teorisi CSV kanıtıyla çürütüldü, WS latency/periodic_check_loop test ediliyor | ARAŞTIRILIYOR — repr() sonucu bekleniyor |
 
 ---
 
@@ -417,7 +417,7 @@ Eğer birisi `EXIT_LIFECYCLE_SERVICE_ENABLED=False` yaparsa (örn. rollback) P1-
 ## 🔍 P1-15: SEIUSDT+ARBUSDT Stale Event Loop — WS Event Latency Kök Nedeni
 
 **Severity:** MEDIUM
-**Status:** 🔍 DOĞRULANDI — kök neden net, CSV precision reddedildi
+**Status:** 🔍 ARAŞTIRILIYOR — check_exit teorisi CSV kanıtıyla çürütüldü (0.0447 < 0.044729), WS latency/periodic_check_loop teorisi test ediliyor, [P_DEBUG]/repr() sonucu bekleniyor
 **Date:** 2026-07-25 (keşif), 2026-07-26 (doğrulama)
 **File:** `src/trading/exit_lifecycle.py:225`, `src/bot.py:505-512`, `src/trading/trailing_manager.py:148-162`, `src/bot_infra.py:136-142`
 
