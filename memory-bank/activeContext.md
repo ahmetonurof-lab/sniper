@@ -80,6 +80,14 @@ Bugs.md güncellendi: D-2 Fark 1 ✅, P2-6/P2-7 🔧 (canlı doğrulama bekleniy
 - P1-15 **hâlâ açık** — kök neden Binance WS teslimat gecikmesi, client-side fix mümkün değil
 - Yeni aksiyon: STOP_MARKET reject (HTTP -2021) fill kanıtı olarak kullanılabilir
 
+## Son İşlem: P1-15 bugs.md Kök Neden Güncellemesi (2026-07-27 15:33)
+
+- bugs.md P1-15 bölümü tamamen yeniden yazıldı: kök neden Binance WS FILLED gecikmesi (87-353s)
+- Özet tablosu: 👁️→🐛, status "KÖK NEDEN DOĞRULANDI" olarak güncellendi
+- 3 mitigation önerisi eklendi: (-2021 sinyal, bekleme penceresi, GMXUSDT SL genişletme)
+- UNIUSDT 3s gürültü notu eklendi (TP path'i farklı kod yolundan geçiyor)
+- Commit: `d40caf7`, push edildi
+
 ## Aktif Görev: P1-8 post_entry_check %100 fail soruşturması
 
 - **Soru 1 cevaplandı:** 7 vaka P0-5 deploy'undan SONRA (23 Tem 14:32 → 24 Tem 14:45+)
