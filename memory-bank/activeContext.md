@@ -80,6 +80,15 @@ Bugs.md güncellendi: D-2 Fark 1 ✅, P2-6/P2-7 🔧 (canlı doğrulama bekleniy
 - P1-15 **hâlâ açık** — kök neden Binance WS teslimat gecikmesi, client-side fix mümkün değil
 - Yeni aksiyon: STOP_MARKET reject (HTTP -2021) fill kanıtı olarak kullanılabilir
 
+## Son İşlem: FVG Fibo Matched Pair Filtresi Eklendi (2026-07-27 17:20)
+
+`retrace_state.py`'ye fibonacci zone kontrolu eklendi (`a2eade1`):
+- Swing high/low 100 bar 15m'den hesaplaniyor
+- FVG midpoint'inin fibo seviyesi compute ediliyor (0.236/0.382/0.5/0.618/0.786)
+- Matched pair: bullish+0.236, bearish+0.786 (backtest PF 6.99 vs 1.75 mismatched)
+- Unmatched FVG adaylari reject ediliyor
+- Backtest arka planda calisiyor (bgp_fa3fcbf) — sonuclar bekleniyor
+
 ## Son İşlem: P1-15 Stale Event Mitigation Uygulandı (2026-07-27 15:50)
 
 3 mitigation aksiyonu uygulandı ve push edildi (`ed024c3`):
