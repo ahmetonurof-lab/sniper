@@ -80,14 +80,22 @@ Bugs.md güncellendi: D-2 Fark 1 ✅, P2-6/P2-7 🔧 (canlı doğrulama bekleniy
 - P1-15 **hâlâ açık** — kök neden Binance WS teslimat gecikmesi, client-side fix mümkün değil
 - Yeni aksiyon: STOP_MARKET reject (HTTP -2021) fill kanıtı olarak kullanılabilir
 
-## Son İşlem: FVG Fibo Matched Pair Filtresi Eklendi (2026-07-27 17:20)
+## Son İşlem: FVG Fibo Matched Pair Filtresi — Backtest Tamamlandı (2026-07-27 18:03)
 
 `retrace_state.py`'ye fibonacci zone kontrolu eklendi (`a2eade1`):
 - Swing high/low 100 bar 15m'den hesaplaniyor
 - FVG midpoint'inin fibo seviyesi compute ediliyor (0.236/0.382/0.5/0.618/0.786)
 - Matched pair: bullish+0.236, bearish+0.786 (backtest PF 6.99 vs 1.75 mismatched)
 - Unmatched FVG adaylari reject ediliyor
-- Backtest arka planda calisiyor (bgp_fa3fcbf) — sonuclar bekleniyor
+
+**Backtest Sonuclari (2026-07-27 18:03):**
+- Toplam trade: 103,048 → 29,982 (**-71% filtreleme**)
+- Net PnL: +3,666,917 → +1,845,884
+- **PnL/Trade: 35.6 → 61.6 (+73% iyilesme)**
+- Ortalama PF: ~3.4 → ~6.5 (+91% iyilesme)
+- Holdout validation: PASSED — Holdout PF 11.16 vs train PF 4.83 (ratio=2.31), WR 73.08% vs 64.83%
+- Sembol bazinda en buyuk iyilesme: GMXUSDT (PF 4.19→10.45), PYTHUSDT (4.65→10.91), ENAUSDT (3.96→8.77)
+- Sharpe oranlari evrensel olarak iyilesti (0.32-0.44 vs 0.25-0.35)
 
 ## Son İşlem: P1-15 Stale Event Mitigation Uygulandı (2026-07-27 15:50)
 

@@ -6,7 +6,8 @@
 |-------|-------|-------|
 | 2026-07-26 10:38 | D-2 Fark 1: exit_now guard kaldırıldı (P2-6/P2-7 kök neden fix) | `trailing_manager.py:evaluate_trail()` — new_sl >= current.close → exit_now guard'ı analyzer_v5 backtest ile uyumlu kaldırıldı. 2 regression test (long + short). 81/81 test geçti. |
 | 2026-07-26 15:05 | P0-1 FULL FIX: flag temizliği, legacy silme, idempotency guard, per‑trade lock | `bot.py`, `config.py`, `state_writer.py`, `exit_lifecycle.py`, `test_exit_lifecycle.py` güncellendi. `_exit_reason_log` (entry_bar_index+entry_price bazlı) + per‑trade asyncio.Lock. 3 yeni P0-1 test + 31/31 suite geçti. Commit: `440125c`. |
-| 2026-07-27 17:20 | FVG fibo matched pair filtresi eklendi | `retrace_state.py` — swing high/low'tan fibo level, matched pair (bullish+0.236, bearish+0.786) filtresi. Commit: `a2eade1`. Backtest arka planda calisiyor. |
+| 2026-07-27 17:20 | FVG fibo matched pair filtresi eklendi | `retrace_state.py` — swing high/low'tan fibo level, matched pair (bullish+0.236, bearish+0.786) filtresi. Commit: `a2eade1`. |
+| 2026-07-27 18:03 | Fibo filter backtest tamamlandi | Trade 103K→30K (-71%), PnL/trade 35.6→61.6 (+73%), ort PF ~3.4→~6.5 (+91%), holdout PASSED (PF ratio 2.31, WR 73%). |
 | 2026-07-27 15:50 | P1-15 stale event mitigation uygulandı | 3 aksiyon: -2021 sinyal (order_manager + exit_lifecycle), stale cooldown (30sn), GMXUSDT SL 0.15%→0.30%. Commit: `ed024c3`. 558 passed, 0 new regression. |
 | 2026-07-27 15:33 | P1-15 bugs.md kök neden güncellemesi | bugs.md P1-15 bölümü yeniden yazıldı: WS FILLED gecikmesi 87-353s, GMXUSDT orantısı etkilenmiş, 3 mitigation önerisi. Özet tablosu 🐛'a taşındı. Commit: `d40caf7`. |
 | 2026-07-26 15:22 | bugs.md temizliği: ✅ maddeler archive'e taşındı, P0-1/P1-14b detay güncellendi, output/server_bot.py silindi | `bugs.md`, `bugs_archive.md` güncellendi. Git: `e6ed18e`. |
