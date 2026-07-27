@@ -62,8 +62,8 @@
 
 | Soruşturma | Durum | Sonraki adım |
 |-----------|-------|-------------|
+| **P1-15 stale event kök neden** | ✅ Tamamlandı — Binance WS teslimat gecikmesi (87-353s). Reconnect korelasyonu yok. GMXUSDT orantızı etkilenmiş. Kronik sorun, artış yok. | bugs.md güncellenecek (baş mühendis) |
 | **P1-8 post_entry_check fail** | 🔍 Kök neden #1 (hızlı fill → false positive) tespit edildi | Diğer vakalarda `raw_orders_count` bekleniyor |
-| **P1-15 SEIUSDT stale event** | 🔍 check_exit teorisi CSV ile çürütüldü, repr() debug log aktif | Stale event geldiğinde P1-15_DEBUG ile high/sl doğrulanacak |
 | SNIPER_OUTPUT_DIR izolasyon | ✅ Backtest output/ klasörü production'dan ayrı |
 | update_trail_orders signature | ✅ `new_sl/tp/trail_count` param + paper mod güncellemesi + `apply_price_precision` içe taşındı |
 | Trailing partial success | ✅ `sl_ok or tp_ok` → `trailing_count` güncellenir, tek başarısızlıkta `False` dönme kaldırıldı |

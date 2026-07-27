@@ -57,6 +57,29 @@ Bugs.md güncellendi: D-2 Fark 1 ✅, P2-6/P2-7 🔧 (canlı doğrulama bekleniy
 - **Commit:** `440125c`, `6a0154b`, `e6ed18e`
 - **Git:** `bfd4ae7..e6ed18e main -> main`
 
+## Son İşlem: P1-15 Stale Event Kök Neden Analizi Tamamlandı (2026-07-27 15:00)
+
+### Bulgular
+- **14 stale event** bugün, 5 cluster — 13 exit'ten 5'i (%38.5) etkilendi
+- **Kök neden**: Binance STOP_MARKET fiziksel olarak dolduruyor ama WS FILLED event'i 87-353s (1.4-5.9dk) gecikmeli geliyor
+- **Reconnect korelasyonu YOK**: Log'da tek WS reconnect (03:25), stale event'ler saatlerce sonra oluşuyor
+- **GMXUSDT orantısız**: 14 stale'ten 10'u (%71.4) GMXUSDT. Max gecikme 306s vs diğer semboller max 86s
+- **Tarihsel uyumlu**: trades_history'de 290 trade, 99 WS_FALLBACK (%34.1). Bugün %38.5 — artış yok, kronik
+- **STOP_MARKET reject = en erken kanıt**: HTTP 400 -2021 "Order would immediately trigger" Binance fill zaman damgası. WS FILLED bundan 87-353s sonra geliyor
+
+### Latency Tablosu
+| Cluster | Sembol | SL Reject (Binance fill) | WS FILLED | Gecikme |
+|---------|--------|--------------------------|-----------|---------|
+| 1 | GMXUSDT | 05:54:15 | 06:00:08 | 353s (5.9dk) |
+| 2 | UNIUSDT | N/A (TP) | 07:48:04 | 3s |
+| 3 | GMXUSDT | 11:46:14 | 11:50:15 | 241s (4.0dk) |
+| 4 | ONDOUSDT | 13:00:08 | 13:01:35 | 87s (1.4dk) |
+| 5 | DOGEUSDT | 13:16:00 | 13:18:24 | 144s (2.4dk) |
+
+### Önerülen Durum
+- P1-15 **hâlâ açık** — kök neden Binance WS teslimat gecikmesi, client-side fix mümkün değil
+- Yeni aksiyon: STOP_MARKET reject (HTTP -2021) fill kanıtı olarak kullanılabilir
+
 ## Aktif Görev: P1-8 post_entry_check %100 fail soruşturması
 
 - **Soru 1 cevaplandı:** 7 vaka P0-5 deploy'undan SONRA (23 Tem 14:32 → 24 Tem 14:45+)
