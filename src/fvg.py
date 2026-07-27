@@ -76,9 +76,6 @@ def detect_fvgs(
         if not b_next.is_closed:
             continue
 
-        if b_next.high <= b_curr.high and b_next.low >= b_curr.low:
-            continue
-
         gap_bull = b_next.low - b_prev.high
         gap_bear = b_prev.low - b_next.high
 

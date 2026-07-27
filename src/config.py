@@ -572,7 +572,7 @@ CBDR_SWEEP_DEFAULT_TOLERANCE = 10.0
 
 FVG_BUFFER_MIN_FACTOR = 0.10
 
-FVG_WICK_RATIO_MAX = 0.75
+FVG_WICK_RATIO_MAX = 1.0
 
 
 # ── Binance API ────────────────────────────────────────────────
