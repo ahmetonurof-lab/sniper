@@ -379,9 +379,14 @@ olduğu için görünürlük arttı, sorunun kendisi değişmedi.
 
 ### Durum
 
-**HÂLÂ AÇIK** — kök neden Binance WS teslimat gecikmesi olduğu için saf
-client-side bir "fix" yok; yukarıdaki 3 mitigation önerisinden en azından
-1. maddenin (verify_protection -2021 sinyali) uygulanması önerilir. P1-14
+**MITIGATION UYGULANDI (2026-07-27, `ed024c3`):**
+1. ✅ `-2021` sinyal entegrasyonu — `order_manager.py` + `exit_lifecycle.py`
+2. ✅ Stale event cooldown (30sn) — `exit_lifecycle.py`
+3. ✅ GMXUSDT SL 0.15%→0.30% — `config.py` + `entry_manager.py`
+
+Kök neden Binance WS teslimat gecikmesi olduğu için saf
+client-side bir "fix" yok; mitigasyonlar stale event sayısını ve süresini
+azaltmayı hedefliyor. Canlı testte doğrulama bekleniyor. P1-14
 (stale event → exit gecikmesi, cross-val ile düzeltilmişti) ile karıştırılmamalı
 — P1-14 exit'in doğruluğunu garantiliyordu, P1-15 exit'in *gecikmesinin*
 kaynağını açıklıyor.

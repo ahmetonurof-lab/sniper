@@ -6,6 +6,7 @@
 |-------|-------|-------|
 | 2026-07-26 10:38 | D-2 Fark 1: exit_now guard kaldırıldı (P2-6/P2-7 kök neden fix) | `trailing_manager.py:evaluate_trail()` — new_sl >= current.close → exit_now guard'ı analyzer_v5 backtest ile uyumlu kaldırıldı. 2 regression test (long + short). 81/81 test geçti. |
 | 2026-07-26 15:05 | P0-1 FULL FIX: flag temizliği, legacy silme, idempotency guard, per‑trade lock | `bot.py`, `config.py`, `state_writer.py`, `exit_lifecycle.py`, `test_exit_lifecycle.py` güncellendi. `_exit_reason_log` (entry_bar_index+entry_price bazlı) + per‑trade asyncio.Lock. 3 yeni P0-1 test + 31/31 suite geçti. Commit: `440125c`. |
+| 2026-07-27 15:50 | P1-15 stale event mitigation uygulandı | 3 aksiyon: -2021 sinyal (order_manager + exit_lifecycle), stale cooldown (30sn), GMXUSDT SL 0.15%→0.30%. Commit: `ed024c3`. 558 passed, 0 new regression. |
 | 2026-07-27 15:33 | P1-15 bugs.md kök neden güncellemesi | bugs.md P1-15 bölümü yeniden yazıldı: WS FILLED gecikmesi 87-353s, GMXUSDT orantısı etkilenmiş, 3 mitigation önerisi. Özet tablosu 🐛'a taşındı. Commit: `d40caf7`. |
 | 2026-07-26 15:22 | bugs.md temizliği: ✅ maddeler archive'e taşındı, P0-1/P1-14b detay güncellendi, output/server_bot.py silindi | `bugs.md`, `bugs_archive.md` güncellendi. Git: `e6ed18e`. |
 | 2026-07-26 09:25 | P1-15 check_exit teorisi çürütüldü, repr() debug log aktif | CSV high=0.0447 < sl=0.044729 → check_exit tetiklenmemeli. WS handler + recovery_manager elendi. [P1-15_DEBUG] repr(high/sl) WARNING log eklendi, stale event bekleniyor. |
@@ -63,7 +64,7 @@
 
 | Soruşturma | Durum | Sonraki adım |
 |-----------|-------|-------------|
-| **P1-15 stale event kök neden** | ✅ Tamamlandı — Binance WS teslimat gecikmesi (87-353s). Reconnect korelasyonu yok. GMXUSDT orantızı etkilenmiş. Kronik sorun, artış yok. bugs.md güncellendi (`d40caf7`). | Sonraki adım: mitigation uygulaması (verify_protection -2021 sinyali) |
+| **P1-15 stale event kök neden** | ✅ Mitigation uygulandı — -2021 sinyal, stale cooldown, GMXUSDT SL genişletme. Commit: `ed024c3`. | Canlı testte stale event sayısında düşüş bekleniyor. |
 | **P1-8 post_entry_check fail** | 🔍 Kök neden #1 (hızlı fill → false positive) tespit edildi | Diğer vakalarda `raw_orders_count` bekleniyor |
 | SNIPER_OUTPUT_DIR izolasyon | ✅ Backtest output/ klasörü production'dan ayrı |
 | update_trail_orders signature | ✅ `new_sl/tp/trail_count` param + paper mod güncellemesi + `apply_price_precision` içe taşındı |

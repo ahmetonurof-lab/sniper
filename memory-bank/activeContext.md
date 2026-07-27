@@ -80,6 +80,18 @@ Bugs.md güncellendi: D-2 Fark 1 ✅, P2-6/P2-7 🔧 (canlı doğrulama bekleniy
 - P1-15 **hâlâ açık** — kök neden Binance WS teslimat gecikmesi, client-side fix mümkün değil
 - Yeni aksiyon: STOP_MARKET reject (HTTP -2021) fill kanıtı olarak kullanılabilir
 
+## Son İşlem: P1-15 Stale Event Mitigation Uygulandı (2026-07-27 15:50)
+
+3 mitigation aksiyonu uygulandı ve push edildi (`ed024c3`):
+
+1. **-2021 immediately trigger sinyali**: `order_manager.py` — STOP_MARKET reject'te `-2021` kodu `_immediately_trigger_rejects` dict'ine kaydediliyor. `exit_lifecycle.py` stale handler'da bu sinyal varsa pozisyon dolmuş kabul ediliyor, döngü kırılıyor.
+
+2. **Stale event cooldown**: `exit_lifecycle.py` — Aynı sembolde 30sn içinde tekrar stale tetiklenirse per-bar retry atlanıyor, WS fill bekleme moduna geçiliyor. `_stale_count` ve `_stale_cooldown` dict'leri `_commit_confirmed_exit`'te temizleniyor.
+
+3. **GMXUSDT SL mesafesi genişletme**: `config.py` — `MIN_SL_DISTANCE_PCT_MAP` eklendi. GMXUSDT default 0.15% → 0.30%. `entry_manager.py` — `calculate_sl_tp` ve `apply_min_sl_distance` `symbol` parametresi aldı.
+
+Test: 558 passed, 24 pre-existing (0 new regression).
+
 ## Son İşlem: P1-15 bugs.md Kök Neden Güncellemesi (2026-07-27 15:33)
 
 - bugs.md P1-15 bölümü tamamen yeniden yazıldı: kök neden Binance WS FILLED gecikmesi (87-353s)
