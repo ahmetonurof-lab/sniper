@@ -109,6 +109,7 @@ class EntryManager:
         trigger_fvg: "FVG | None",
         london_high: float,
         london_low: float,
+        symbol: str = "",
     ) -> tuple[float, float]:
         max_risk_dist = risk_pts * cfg.MAX_SL_DIST_MULT
         if side == "long":
@@ -180,15 +181,22 @@ class EntryManager:
                 tp = entry_price + risk_pts * 2 * tp_rr
 
         # P3-4: MIN_SL_DISTANCE_PCT taban guard — SL asla entry'ye çok yaklaşamaz
-        sl = EntryManager.apply_min_sl_distance(entry_price, sl, side)
+        sl = EntryManager.apply_min_sl_distance(entry_price, sl, side, symbol)
 
         return sl, tp
 
     # ── 3. Canlı emir yerleştirme ────────────────────────────────
 
     @staticmethod
-    def apply_min_sl_distance(entry_price: float, sl: float, side: str) -> float:
-        min_dist = entry_price * cfg.MIN_SL_DISTANCE_PCT
+    def apply_min_sl_distance(
+        entry_price: float, sl: float, side: str, symbol: str = ""
+    ) -> float:
+        min_pct = (
+            cfg.MIN_SL_DISTANCE_PCT_MAP.get(symbol, cfg.MIN_SL_DISTANCE_PCT)
+            if symbol
+            else cfg.MIN_SL_DISTANCE_PCT
+        )
+        min_dist = entry_price * min_pct
         if side == "long":
             min_sl_price = entry_price - min_dist
             return min(sl, min_sl_price)
@@ -412,6 +420,7 @@ class EntryManager:
                 trigger_fvg=trigger_fvg,
                 london_high=london_high,
                 london_low=london_low,
+                symbol=sym,
             )
             if (side == "short" and tp >= actual_price) or (
                 side == "long" and tp <= actual_price

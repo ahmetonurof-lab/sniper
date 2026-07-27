@@ -124,6 +124,12 @@ class ExitLifecycleService:
         self._exit_log: dict[str, dict[float, str]] = exit_log or {}
         # P0-1 per-trade lock: key = sym+entry_timestamp
         self._exit_locks: dict[str, asyncio.Lock] = exit_locks or {}
+        # P1-15: stale event cooldown — tekrarlı stale döngüsünü kırmak için
+        # {sym: timestamp} — son stale event'ten itibaren belirli süre
+        # içinde yeni stale tetiklenmezse pozisyon WS fill ile kapanmış
+        # kabul edilir (WAIT_COOLDOWN_SECS sonra WS fill beklemeye devam edilir)
+        self._stale_cooldown: dict[str, float] = {}
+        self._stale_count: dict[str, int] = {}
 
     # ── Ana orkestrasyon ────────────────────────────────────────
 
@@ -209,10 +215,61 @@ class ExitLifecycleService:
                             )
 
                 if position_open:
+                    # P1-15: -2021 immediately trigger — pozisyon zaten dolmus,
+                    # WS FILLED gecikmeli gelecek. Stale event döngüsünü kır.
+                    _had_it = getattr(
+                        self._order_manager, "had_immediately_trigger", None
+                    )
+                    if callable(_had_it) and _had_it(sym) is True:
+                        log.warning(
+                            "[EXIT] %s %s P1-15 -2021 reject tespit edildi — "
+                            "pozisyon zaten dolmus, stale event atlaniyor "
+                            "(WS FILLED bekleniyor)",
+                            sym,
+                            _exit_result,
+                        )
+                        trade["pending_exit_reason"] = None
+                        trade["pending_exit_price"] = None
+                        trade["pending_exit_qty"] = None
+                        trade["pending_exit_order_id"] = None
+                        trade["pending_exit_timestamp"] = None
+                        trade["result"] = None
+                        trade["status"] = STATUS_ACTIVE
+                        return False
+
+                    # P1-15: stale cooldown — tekrarlı stale döngüsü kontrolü
+                    _now = time.time()
+                    _last_stale = self._stale_cooldown.get(sym, 0)
+                    _stale_n = self._stale_count.get(sym, 0) + 1
+                    self._stale_count[sym] = _stale_n
+
+                    if _last_stale > 0 and (_now - _last_stale) < 30:
+                        # 30sn içinde tekrar stale — WS fill bekleniyor,
+                        # further processing gereksiz
+                        log.warning(
+                            "[EXIT] %s %s P1-15 stale cooldown (#%d) — "
+                            "son stale'den %ds gecti, WS fill bekleniyor",
+                            sym,
+                            _exit_result,
+                            _stale_n,
+                            int(_now - _last_stale),
+                        )
+                        trade["pending_exit_reason"] = None
+                        trade["pending_exit_price"] = None
+                        trade["pending_exit_qty"] = None
+                        trade["pending_exit_order_id"] = None
+                        trade["pending_exit_timestamp"] = None
+                        trade["result"] = None
+                        trade["status"] = STATUS_ACTIVE
+                        return False
+
+                    self._stale_cooldown[sym] = _now
+
                     log.warning(
-                        "[EXIT] %s %s stale event — pozisyon hala acik, exit iptal",
+                        "[EXIT] %s %s stale event #%d — pozisyon hala acik, exit iptal",
                         sym,
                         _exit_result,
+                        _stale_n,
                     )
                     try:
                         (
@@ -548,6 +605,12 @@ class ExitLifecycleService:
         self, sym: str, trade: Any, exit_timestamp: int
     ) -> bool:
         trade["status"] = STATUS_CLOSED
+        # P1-15: stale cooldown temizliği — pozisyon kapatildi, sayac sifirla
+        self._stale_cooldown.pop(sym, None)
+        self._stale_count.pop(sym, None)
+        _itr = getattr(self._order_manager, "_immediately_trigger_rejects", None)
+        if isinstance(_itr, dict):
+            _itr.pop(sym, None)
         trade = self._active_trades.pop(sym, None)
         if not trade:
             log.warning(

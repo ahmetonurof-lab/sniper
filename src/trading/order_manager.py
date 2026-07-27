@@ -67,6 +67,11 @@ class OrderManager:
         # WS CANCELED handler, exit_lifecycle REPAIR_REQUIRED) kilitsiz
         # çağrılabiliyordu — aynı sembole çift SL/TP emri riski vardı.
         self._repair_locks: dict[str, asyncio.Lock] = {}
+        # ── P1-15: -2021 (immediately trigger) reject takibi ──
+        # STOP_MARKET reject -2021 döndüğünde pozisyon zaten fiziksel olarak
+        # dolmuştur — WS FILLED gecikmeli gelecektir. Bu bilgi stale event
+        # döngüsünü kırmak için kullanılır.
+        self._immediately_trigger_rejects: dict[str, float] = {}
 
     # ── Trailing SL/TP güncelleme ─────────────────────────────
 
@@ -183,6 +188,15 @@ class OrderManager:
                     old_id=old_sl_id,
                     error_code=error_code,
                 )
+                # P1-15: -2021 immediately trigger — pozisyon zaten dolmus
+                if self._is_immediately_trigger_error(sl_resp):
+                    self._record_immediately_trigger(sym)
+                    log.warning(
+                        "[TRAIL] %s SL -2021 immediately trigger — "
+                        "pozisyon zaten dolmus, trailing atlaniyor",
+                        sym,
+                    )
+                    return _fail_and_reset_status()
                 if self._is_max_qty_error(sl_resp):
                     log.warning(
                         "[TRAIL] %s SL -4005 (max qty=%.4f), closePosition deneniyor...",
@@ -465,6 +479,36 @@ class OrderManager:
         """place_stop_order/place_tp_order dönüşü -4005 hatası içeriyor mu?"""
         return resp.get("_error_code") == "-4005"
 
+    @staticmethod
+    def _is_immediately_trigger_error(resp: dict) -> bool:
+        """place_stop_order dönüşü -2021 (immediately trigger) hatası içeriyor mu?
+
+        -2021 = STOP_MARKET emri fiyat zaten tetiklendiğinde reddedilir.
+        Bu, pozisyonun zaten fiziksel olarak dolduğunun kanıtıdır — WS FILLED
+        event'i gecikmeli gelecektir (P1-15: 87-353s).
+        """
+        return resp.get("_error_code") == "-2021"
+
+    def _record_immediately_trigger(self, sym: str) -> None:
+        """-2021 reject tespit edildiğinde zaman damgası kaydet."""
+        self._immediately_trigger_rejects[sym] = time.time()
+        log.warning(
+            "[ORDER] %s -2021 immediately trigger reject kaydedildi — "
+            "pozisyon zaten dolmus, WS FILLED bekleniyor",
+            sym,
+        )
+
+    def had_immediately_trigger(self, sym: str, within_seconds: float = 3600) -> bool:
+        """Son within_seconds içinde -2021 reject oldu mu?
+
+        Stale event döngüsünü kırmak için kullanılır (P1-15 mitigation).
+        Varsayılan 3600s (1 saat) — gözlenen max gecikme 353s.
+        """
+        ts = self._immediately_trigger_rejects.get(sym)
+        if ts is None:
+            return False
+        return (time.time() - ts) < within_seconds
+
     async def _try_place_sl_tp_with_close_position(
         self, sym: str, trade: dict, sl_price: float, tp_price: float
     ) -> tuple[str, str]:
@@ -692,6 +736,16 @@ class OrderManager:
                 )
                 log.debug("[ORDER] %s SL place_stop_order raw resp: %s", sym, sl_resp)
                 sl_id = extract_order_id(sl_resp)
+
+                # P1-15: -2021 (immediately trigger) — pozisyon zaten dolmus
+                if not sl_id and self._is_immediately_trigger_error(sl_resp):
+                    self._record_immediately_trigger(sym)
+                    log.warning(
+                        "[REPAIR] %s SL -2021 immediately trigger — "
+                        "pozisyon zaten dolmus, repair atlaniyor",
+                        sym,
+                    )
+                    return
 
                 if not sl_id and self._is_max_qty_error(sl_resp):
                     # ── -4005: MİKTAR KAYNAKLI HATA — closePosition dene ──
