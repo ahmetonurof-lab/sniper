@@ -25,10 +25,16 @@
 - `_last_trailing_bar`/`_last_clamp_bar` tracking + TRAILING_CLAMP report
 - `max_dd_usd`, `equity_curve` eklemeleri
 
+### Live trailing_manager.py Guard Push Edildi (294f7e8)
+- Guard local'de uncommitted kalmıştı — hiç push edilmemiş
+- Sunucuda `git pull => trailing_manager.py'ye 8 satır eklenir:
+  - `ref_price = chunk[-1].close`, `min_dist_pct`, `min_dist = ref_price * min_dist_pct`
+  - Long: `(ref_price - new_sl) >= min_dist`, Short: `(new_sl - ref_price) >= min_dist`
+
 ### Sıradaki (Chief Engineer planı):
-1. **28-coin backtest çalıştır** (worker ile) — bu commit'in PF'sini fibo baseline ile karşılaştır
-2. Guard'ın backtest'te yarattığı PF kaybı, live'da -2021 rejection oranına denk mi değerlendir
-3. Problemleri benchmark'a göre sırayla çöz
+1. Sunucuda `git pull` yap (sadece trailing_manager.py değişecek, diğer source'lar aynı)
+2. **28-coin backtest çalıştır** (worker ile)
+3. Guard'ın backtest'te yarattığı PF kaybı, live'da -2021 rejection oranına denk mi değerlendir
 
 ### Önceki Context:
 `memory-bank/bugs.md` ikiye bölündü:
