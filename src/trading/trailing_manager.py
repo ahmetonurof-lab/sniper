@@ -96,12 +96,6 @@ class TrailingManager:
         updated = False
         atr_buffer = atr_val * cfg.ATR_TRAIL_MULT
 
-        ref_price = chunk[-1].close if chunk else current_sl
-        min_dist_pct = getattr(cfg, "MIN_SL_DISTANCE_PCT_MAP", {}).get(
-            trade.get("symbol", ""), cfg.MIN_SL_DISTANCE_PCT
-        )
-        min_dist = ref_price * min_dist_pct
-
         for fvg in fvgs:
             if side == "long" and fvg.direction != "bullish":
                 continue
@@ -116,7 +110,6 @@ class TrailingManager:
                 if (
                     new_sl > current_sl
                     and (new_sl - current_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
-                    and (ref_price - new_sl) >= min_dist
                 ):
                     sl_diff = new_sl - current_sl
                     current_sl = new_sl
@@ -128,7 +121,6 @@ class TrailingManager:
                 if (
                     new_sl < current_sl
                     and (current_sl - new_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
-                    and (new_sl - ref_price) >= min_dist
                 ):
                     sl_diff = current_sl - new_sl
                     current_sl = new_sl
