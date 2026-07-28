@@ -4,6 +4,12 @@
 
 | Tarih | İşlem | Detay |
 |-------|-------|-------|
+| 2026-07-28 17:56 | exec_sim isolation — 3 tests, guard convicted | Test 3 (no guard, no pending, _commit_trade_exit kept): PF 4.61, +$42,347 — baseline dogrulandi. Test 1 (guard only): PF 0.71, -$5,724. Test 2 (pending only): PF 4.61, +$42,347 — dead code. **Sonuc: guard tek sorumlu** → analyzer_v5.py fibo baseline'a (cd3b053) revert edildi.
+| 2026-07-27 23:00 | exec_sim analyzer_v5 entegrasyonu — 2 bug fix + mimari bulgu | Bug #1: sa.append(t) eksik → trades active'dan düşüyordu. Bug #2: PROFIT_TRAIL misclassification → PTrail% 55→5'e düştü. Mimari bulgu: exec_sim SL exit'te değil TRAILING'de uygulanmali. |
+| 2026-07-27 22:00 | exec_sim backtest koşusu (buggy) | 26,395 trade, PnL -993,753, PF ~0.22. Bug #2'nin etkisi: PTrail% çöktü, strateji karlılığı yok edildi. |
+| 2026-07-27 20:00 | Canlı paper trade log analizi | trades_history: 298 trade, PnL -$346.50, WR %23. 99 WS_FALLBACK (-$142), 111 SL (-$294). OPUSDT qty=0.1 tespit edildi. |
+| 2026-07-27 19:00 | Canlı log incelemesi (paper_trade.log) | -2021 rejections SL TRAILING sırasında oluyor (GMXUSDT ağırlıklı). Stale event'ler WS gecikmesi kaynaklı. |
+| 2026-07-27 18:03 | Fibo filter backtest tamamlandı | 29,982 trade, PnL +1,845,884, PF ~6.5, holdout PASSED. |
 | 2026-07-26 10:38 | D-2 Fark 1: exit_now guard kaldırıldı (P2-6/P2-7 kök neden fix) | `trailing_manager.py:evaluate_trail()` — new_sl >= current.close → exit_now guard'ı analyzer_v5 backtest ile uyumlu kaldırıldı. 2 regression test (long + short). 81/81 test geçti. |
 | 2026-07-26 15:05 | P0-1 FULL FIX: flag temizliği, legacy silme, idempotency guard, per‑trade lock | `bot.py`, `config.py`, `state_writer.py`, `exit_lifecycle.py`, `test_exit_lifecycle.py` güncellendi. `_exit_reason_log` (entry_bar_index+entry_price bazlı) + per‑trade asyncio.Lock. 3 yeni P0-1 test + 31/31 suite geçti. Commit: `440125c`. |
 | 2026-07-27 17:20 | FVG fibo matched pair filtresi eklendi | `retrace_state.py` — swing high/low'tan fibo level, matched pair (bullish+0.236, bearish+0.786) filtresi. Commit: `a2eade1`. |
@@ -130,10 +136,13 @@
 
 | Görev | Öncelik | Açıklama |
 |-------|---------|----------|
+| **exec_sim kapsam düzeltmesi** | 🔴 Kritik | SL exit'te exec_sim'i muaf tut, sadece trailing operation'a uygula. Backtest artık gerçekçi karlılık gösterecek. |
+| **REST API fallback entegrasyonu** | 🔴 Kritik | WS 300ms'de gelmezse REST ile teyit. 99 WS_FALLBACK → ~$142 kaybın büyük kısmını kurtarır. |
 | Canlı test: _exit_trade() flow | 🟠 Yüksek | cancel_all + reduceOnly + verify loop |
 | Backtest trailing port WR/DD canlı karşılaştırması | 🟡 Orta | Live WR vs backtest WR farkı analiz edilecek |
 | CBDR_RISK_MATRIX canlı doğrulaması | 🟡 Orta | Bucket çarpanlarının gerçek PnL'e uyumu kontrol edilecek |
 | Session assignment canlı gözlem | 🟡 Orta | DEFAULT/REAL_CBDR/ASIA_RANGE geçişlerinde FVG bulunamama sorunu tekrarlarsa analiz |
+| OPUSDT minNotional qty sorunu | 🟡 Orta | qty=0.1 tespit edildi, minNotional limitinin altında kalabilir |
 | Mainnet canlı test | 🟢 Düşük | URL + API key değişikliği |
 | Performance benchmark | 🟢 Düşük | CPU/memory profil |
 | README güncelleme | 🟢 Düşük | Sadece ihtiyaç halinde |
@@ -160,6 +169,8 @@
 | ~~SOLUSDT FVG bar index restart bug~~ | ✅ `_resolve_fvg_bar_index()` fiyat bazlı arama öncelikli yapıldı. Restart sonrası bar indeksleri sıfırlandığında offset formülü (~81 FVG'yi ~77-78 barına işaret ediyordu). |
 | ~~console_reporter SyntaxError~~ | ✅ `display_fvg_status()` TRIGGER_READY bloğu indent fix — elif artık if'siz kalmıyor. |
 | ~~D-2 Fark 1: exit_now guard (P2-6/P2-7 kök neden)~~ | ✅ `trailing_manager.py:evaluate_trail()` — exit_now guard kaldırıldı. analyzer_v5 backtest uyumlu. 2 regression test. |
+| **exec_sim SL exit yanlış uygulama** | 🐛 Backtest'te SL exit'lerde `would_reject_immediately()` neredeyse tüm trade'leri reddediyor → PnL negatif. Çözüm: exec_sim'i sadece trailing operation'a uygula, SL exit muaf. |
+| **OPUSDT qty=0.1 minNotional** | 🔍 Canlı paper trade'de qty=0.1 tespit edildi, minNotional limitinin altında kalabilir → entry başarısız olabilir. |
 
 ## Test Sonuçları (Backtest — All Coin 2026 Q2)
 

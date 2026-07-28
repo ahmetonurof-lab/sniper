@@ -1,7 +1,27 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: Bug Registry Bölünmesi (2026-07-25 22:15)
+## Son İşlem: exec_sim Isolation — Fibo Baseline Revert (2026-07-28 17:56)
 
+**Kesin Kanıt**: exec_sim entegrasyonunda guard (ref_price/min_dist) tek başına PF'yi 4.61→0.71'e düşürdü. Diğer tüm değişiklikler (pending_exit block, _commit_trade_exit, _exec_rng, metadata) sıfır etkili — dead code veya pure refactor.
+
+### 3 İzolasyon Testi (SOLUSDT)
+| Test | Guard | pending_exit | _commit_trade_exit | PF | PnL |
+|------|-------|-------------|-------------------|-----|-----|
+| 3 (baseline) | YOK | YOK | VAR | **4.61** | **+$42,347** |
+| 2 | YOK | VAR | VAR | **4.61** | **+$42,347** |
+| 1 | VAR | YOK | VAR | **0.71** | **-$5,724** |
+
+### Karar: Backtest Fibo Baseline'a Döndürüldü
+- analyzer_v5.py → cd3b053 commit'ine revert (guard, pending_exit, _commit_trade_exit, _exec_rng, dead code TAMAMEN KALDIRILDI)
+- execution_sim.py kaldı ama kullanılmıyor
+- trailing_manager.py'deki guard LIVE için hala var — order_manager.py -2021 handler zaten çalışıyor
+
+### Sıradaki (Chief Engineer planı):
+1. 28-coin baseline validation run (worker ile)
+2. Problemleri benchmark'a göre sırayla çöz
+3. P1-15 stale event mitigation (live already deployed)
+
+### Önceki Context:
 `memory-bank/bugs.md` ikiye bölündü:
 - **bugs_archive.md** (436 satır): 19 sabit madde tam içerikle taşındı (P0-2, P0-3, P0-4, P0-5, P1-1, P1-2, P1-3, P1-5, P1-6, P1-8a, P1-9, P1-10, P1-11, P1-13, P1-14, P2-1, P2-4, P2-5 + P1-12 analiz + 25 Tem log analizi)
 - **bugs.md** (461 satır, 1017'den %55 küçültüldü): 17 aktif madde + arşiv izleri
