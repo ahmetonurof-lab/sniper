@@ -117,6 +117,91 @@ Test: 558 passed, 24 pre-existing (0 new regression).
 - UNIUSDT 3s gürültü notu eklendi (TP path'i farklı kod yolundan geçiyor)
 - Commit: `d40caf7`, push edildi
 
+## Son İşlem: would_reject_immediately() Backtest Trailing'den Tamamen Kaldırıldı (2026-07-28 04:45)
+
+### Kritik Bulgu: Çift Standard — Guard 0.15% vs WouldReject 0.30%
+
+**Bug 3 (04:30)**: `would_reject_immediately()` True döndüğünde SL hâlâ uygulanıyordu →else branch fix.
+**Bug 4 (04:45)**: Bug 3 fix'i bile yetmedi — canavar kök neden farklı:
+
+| Kontrol | Referans Fiyat | MIN_SL_DISTANCE |
+|---------|---------------|-----------------|
+| Guard (trailing_manager.py port) | `chunk[-1].close` (önceki bar) | `cfg.MIN_SL_DISTANCE_PCT = 0.0015` |
+| would_reject_immediately (execution_sim) | `cur.close` (mevcut bar) | `execution_sim.MIN_SL_DISTANCE_PCT = 0.0030` |
+
+**Sonuç**: Guard 0.15% eşikle geçiyor, would_reject 0.30% eşikle reddediyor. Fiyatın %0.15-0.30 arası SL'ler → guard'dan geçiyor ama reject oluyor → **tüm bu trailing güncellemeleri kaybediliyor**.
+
+**Canlı trailing_manager.py'de `would_reject_immediately()` YOK**: Guard tek mekanizma. Guard geçerse SL uygulanır. Binance reddederse order_manager yakalar → eski SL korunur.
+
+### Fix: would_reject_immediately() Backtest Trailing'den Tamamen Kaldırıldı
+
+```python
+# ÖNCEKİ (hatalı — çift kontrol, farklı eşikler):
+if upd:
+    if would_reject_immediately(sl_price=csl, current_price=cur.close, ...):
+        t["_trailing_rejects"] += 1
+    else:
+        t["sl"] = csl
+
+# SONRAKI (doğru — trailing_manager.py'nin birebir port'u):
+if upd:
+    t["_last_trailing_bar"] = sb
+    t["sl"] = csl
+    t["tp"] = ctp
+    t["trailing_count"] += ltc
+```
+
+- `would_reject_immediately` import'u temizlendi, `clamp_sl_distance` import'u temizlendi
+- Backtest trailing artık `trailing_manager.py`'nin birebir port'u
+- `_trailing_rejects` stat'ı artık her zaman 0 olacak
+- Commit: `8872bed`, push edildi
+
+### Backtest Kanıtları
+| Tarih | Config | PF | PnL | TRAILING_CLAMP |
+|-------|--------|-----|-----|----------------|
+| 27/07 18:03 | Fibo only (exec_sim YOK) | 4.24-10.91 | **+$1,845,884** | 0 |
+| 27/07 22:05 | exec_sim (guard yok) | 1.61-5.13 | +$129,411 | N/A |
+| 27/07 22:51 | exec_sim + reject | 0.18-0.27 | -$993,753 | N/A |
+| 28/07 03:25 | guard + reject (SL uygulanıyordu) | 0.24-0.44 | -$673,174 | 37,067 |
+| 28/07 04:40 | guard + reject (SL revert) | ~0.24-0.44 | -$673K benzeri | N/A |
+| 28/07 04:45 | **guard SADECE (would_reject kaldırıldı)** | **Bekleniyor** | **Bekleniyor** | **0 olmalı** |
+
+**Sonraki adım**: Full 28-coin backtest çalıştır — PF'nin baseline (2.75-4.65)'e yaklaşıp yaklaşmadığını kontrol et.
+
+## Son İşlem: exec_sim Entegrasyonu — 2 Bug Bulundu + Kritik Mimari Bulgular (2026-07-27 23:00)
+
+### exec_sim Modülü (baş mühendis tarafından oluşturuldu)
+- `backtest-sniper/src/execution_sim.py` — `sample_ws_latency()` + `would_reject_immediately()` + `would_reject_immediately()` + `_round_to_tick()` + `sample_ws_latency()` + `would_reject_immediately()` + `_round_to_tick()`. 37/37 test geçti.
+- Lognormal dağılım: non-GMX μ=ln(130), σ=0.40; GMX μ=ln(300), σ=0.40 (3x daha yavaş)
+
+### analyzer_v5.py Entegrasyonu — Bug #1: sa.append(t) eksik (DÜZELTİLDİ)
+- `analyzer_v5.py`'de `would_reject_immediately()` True döndüğünde trade `pending_exit=True` olup `continue` yapıyordu ama `sa.append(t)` eksikti
+- Sonuç: trade active listesinden düşüyor, bir sonraki bar'da kayboluyordu
+- Etki: 29,982 → 7,037 trade (-77%), PnL +1,845,884 → +129,411
+- **Fix**: Long ve short path'lerde `continue`'dan önce `sa.append(t)` eklendi
+
+### analyzer_v5.py Entegrasyonu — Bug #2: PROFIT_TRAIL misclassification (DÜZELTİLDİ)
+- Pending exit'e giren trade'lere `t["result"] = "LOSS"` atanıyordu, ama trailing_count kontrolü yapılmıyordu
+- Etki: PTrail% 55→5'e düştü, strateji karlılığı tamamen yok edildi (PF ~0.22, PnL -993,753)
+- **Fix**: Pending exit path'inde trailing_count + SL yön kontrolü eklendi (long: sl > entry_price, short: sl < entry_price)
+
+### Kritik Mimari Bulgu: exec_sim Yanlış Senaryoyu Simüle Ediyor
+- **Canlı veri** (events_2026-07-27.jsonl): -2021 rejections **SL TRAILING sırasında** oluyor (fiyat yakınlaştırılırken), SL EXIT sırasında değil
+- **Backtest**: `would_reject_immediately()` SL **tetiklendiğinde** (bar low/high SL'yi geçtiğinde) çalışıyor → neredeyse tüm SL exit'leri reddediliyor
+- **Sonuç**: Backtest过度 pessimistic — strateji canlıda karlı ama backtest'te negatif çıkıyor
+- **Çözüm**: exec_sim'i sadece SL trailing/update operasyonuna uygula, SL exit'i muaf tut
+
+### Canlı Paper Trade Analizi (trades_history.jsonl)
+- 298 trade, toplam PnL: -$346.50, WR: %23
+- SL: 111 trade, -$294.56 | TP: 24 trade, +$122.77
+- WS_FALLBACK: 99 trade, -$142.14 | TRAIL_CLOSE: 64 trade, -$32.57
+- OPUSDT'de qty=0.1 tespit edildi (minNotional sorunu olabilir)
+
+### Planlanan Aksiyonlar
+1. **exec_sim kapsam düzeltmesi**: Sadece SL trailing operation'a uygula (baş mühendis onayı bekleniyor)
+2. **REST API fallback**: WS 300ms'de gelmezse REST ile teyit → WS_FALLBACK kayıplarını azaltır
+3. **Lock/Pending**: Zaten çalışıyor, dokunulmayacak
+
 ## Aktif Görev: P1-8 post_entry_check %100 fail soruşturması
 
 - **Soru 1 cevaplandı:** 7 vaka P0-5 deploy'undan SONRA (23 Tem 14:32 → 24 Tem 14:45+)
