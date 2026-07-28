@@ -572,6 +572,11 @@ CBDR_SWEEP_DEFAULT_TOLERANCE = 10.0
 
 FVG_BUFFER_MIN_FACTOR = 0.10
 
+# ── Option C A/B SL formülü ──
+# False = FVG bottom/top bazlı (mevcut)
+# True  = sweep_level bazlı (yapısal)
+STRUCTURAL_SL_ENABLED = False
+
 FVG_WICK_RATIO_MAX = 1.0
 
 
