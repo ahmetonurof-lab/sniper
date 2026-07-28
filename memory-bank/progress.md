@@ -4,7 +4,7 @@
 
 | Tarih | İşlem | Detay |
 |-------|-------|-------|
-| 2026-07-28 17:56 | exec_sim isolation — 3 tests, guard convicted | Test 3 (no guard, no pending, _commit_trade_exit kept): PF 4.61, +$42,347 — baseline dogrulandi. Test 1 (guard only): PF 0.71, -$5,724. Test 2 (pending only): PF 4.61, +$42,347 — dead code. **Sonuc: guard tek sorumlu** → analyzer_v5.py fibo baseline'a (cd3b053) revert edildi.
+| 2026-07-28 18:20 | Final: guard restore + would_reject kaldır — 9a2c0bc | Guard korundu (live trailing_manager.py ile birebir aynı). would_reject_immediately KALDIRILDI (live'da hiç olmadı). _commit_trade_exit, pending_exit exec_sim artf. korundu. 28-coin backtest kararı size ait. Commit+push: 9a2c0bc.
 | 2026-07-27 23:00 | exec_sim analyzer_v5 entegrasyonu — 2 bug fix + mimari bulgu | Bug #1: sa.append(t) eksik → trades active'dan düşüyordu. Bug #2: PROFIT_TRAIL misclassification → PTrail% 55→5'e düştü. Mimari bulgu: exec_sim SL exit'te değil TRAILING'de uygulanmali. |
 | 2026-07-27 22:00 | exec_sim backtest koşusu (buggy) | 26,395 trade, PnL -993,753, PF ~0.22. Bug #2'nin etkisi: PTrail% çöktü, strateji karlılığı yok edildi. |
 | 2026-07-27 20:00 | Canlı paper trade log analizi | trades_history: 298 trade, PnL -$346.50, WR %23. 99 WS_FALLBACK (-$142), 111 SL (-$294). OPUSDT qty=0.1 tespit edildi. |

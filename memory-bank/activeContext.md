@@ -1,6 +1,6 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: exec_sim Isolation — Fibo Baseline Revert (2026-07-28 17:56)
+## Son İşlem: exec_sim guard restore — live trailing_manager.py ile birebir uyumlu (2026-07-28 18:20)
 
 **Kesin Kanıt**: exec_sim entegrasyonunda guard (ref_price/min_dist) tek başına PF'yi 4.61→0.71'e düşürdü. Diğer tüm değişiklikler (pending_exit block, _commit_trade_exit, _exec_rng, metadata) sıfır etkili — dead code veya pure refactor.
 
@@ -11,15 +11,24 @@
 | 2 | YOK | VAR | VAR | **4.61** | **+$42,347** |
 | 1 | VAR | YOK | VAR | **0.71** | **-$5,724** |
 
-### Karar: Backtest Fibo Baseline'a Döndürüldü
-- analyzer_v5.py → cd3b053 commit'ine revert (guard, pending_exit, _commit_trade_exit, _exec_rng, dead code TAMAMEN KALDIRILDI)
-- execution_sim.py kaldı ama kullanılmıyor
-- trailing_manager.py'deki guard LIVE için hala var — order_manager.py -2021 handler zaten çalışıyor
+### Nihai Karar: Guard LIVE ile Birebir Aynı Olacak — would_reject SADECE Kaldırıldı
+- `analyzer_v5.py` → **8872bed state** (= guard + exec_sim refactoring, would_reject YOK)
+- Guard korundu çünkü **live trailing_manager.py'de guard var** — backtest live'ın birebir aynısı olmalı
+- `would_reject_immediately()`: KALDIRILDI — live trailing_manager.py'de hiç olmadı
+- Guard'ın backtest PF'yi düşürmesi = **live'ın gerçekçi simülasyonu** (Binance -2021 rejection eşiği)
+- Commit: `9a2c0bc`, push edildi
+
+### Ayıklanan exec_sim Artifaktları (sıfır etkili, korundu):
+- `_commit_trade_exit` helper — pure refactor (test edildi, PF 4.61)
+- `pending_exit` block — dead code (hiçbir yerde `pending_exit=True` set edilmez, PF 4.61)
+- `_exec_rng`, `_estimate_tick_size` — exec_sim altyapısı (çağrılmıyor)
+- `_last_trailing_bar`/`_last_clamp_bar` tracking + TRAILING_CLAMP report
+- `max_dd_usd`, `equity_curve` eklemeleri
 
 ### Sıradaki (Chief Engineer planı):
-1. 28-coin baseline validation run (worker ile)
-2. Problemleri benchmark'a göre sırayla çöz
-3. P1-15 stale event mitigation (live already deployed)
+1. **28-coin backtest çalıştır** (worker ile) — bu commit'in PF'sini fibo baseline ile karşılaştır
+2. Guard'ın backtest'te yarattığı PF kaybı, live'da -2021 rejection oranına denk mi değerlendir
+3. Problemleri benchmark'a göre sırayla çöz
 
 ### Önceki Context:
 `memory-bank/bugs.md` ikiye bölündü:
