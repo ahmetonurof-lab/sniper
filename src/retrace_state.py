@@ -35,49 +35,6 @@ class HTFFVG:
         return f"FVG([{self.bottom:.2f}-{self.top:.2f}] dir={self.direction} bar={self.bar_index})"
 
 
-FIB_LEVELS = (0.236, 0.382, 0.5, 0.618, 0.786)
-FIB_TOLERANCE = 0.005  # ±0.5% — backtest ile aynı
-MATCHED_FIB = {  # discount (bullish) → 0.236, premium (bearish) → 0.786
-    "bullish": 0.236,
-    "bearish": 0.786,
-}
-
-
-def _compute_fibo_level(
-    fvg_midpoint: float, swing_high: float, swing_low: float
-) -> float | None:
-    """FVG midpoint'inin swing içindeki fibo seviyesini hesapla.
-
-    Returns: En yakın fibo level (0.236, 0.382, 0.5, 0.618, 0.786) veya None.
-    """
-    rng = swing_high - swing_low
-    if rng <= 0 or fvg_midpoint == 0:
-        return None
-    normalized = (fvg_midpoint - swing_low) / rng
-    best = None
-    best_dist = None
-    for lvl in FIB_LEVELS:
-        dist = abs(normalized - lvl)
-        if best_dist is None or dist < best_dist:
-            best_dist = dist
-            best = lvl
-    return best
-
-
-def _is_matched_fib(fvg_direction: str, fib_level: float | None) -> bool:
-    """FVG yönü ile fibo seviyesi eşleşiyor mu?
-
-    Matched: bullish+0.236, bearish+0.786 (backtest PF 6.99 vs 1.75).
-    fib_level=None ise pass-through (filtre uygulanmaz).
-    """
-    if fib_level is None:
-        return True
-    expected = MATCHED_FIB.get(fvg_direction)
-    if expected is None:
-        return True
-    return abs(fib_level - expected) < FIB_TOLERANCE
-
-
 def scan_htf_fvgs(
     bars_15m: list[Bar],
     lookback: int = 100,
@@ -212,41 +169,21 @@ class RetraceStateMachine:
             logger.info("[FVG-DEBUG] %s no FVG found in last 100 bars", self.direction)
             return  # sweep hala gecerli, bir sonraki bar'i bekle — RESET YOK
 
-        # P1-15/fibo: swing high/low hesapla (FVG adaylarının fibo seviyesi için)
-        _seg = bars_15m[-100:] if len(bars_15m) > 100 else bars_15m
-        swing_high = max(b.high for b in _seg) if _seg else 0
-        swing_low = min(b.low for b in _seg) if _seg else 0
-
         for fvg in reversed(htf_fvgs):
             # ── Debug: her FVG adayini logla ──
             fvg_first = max(0, fvg.bar_index - 1)
             fvg_third = fvg.bar_index + 1
-            fvg_mid = (fvg.top + fvg.bottom) / 2
-            fib_level = _compute_fibo_level(fvg_mid, swing_high, swing_low)
             _fvg_debug = (
                 f"[FVG-DEBUG] candidate |"
                 f" dir={fvg.direction} |"
                 f" bars=[{fvg_first},{fvg.bar_index},{fvg_third}] |"
                 f" FVG=[{fvg.bottom:.4f}-{fvg.top:.4f}] |"
-                f" fib={fib_level} |"
                 f" sweep_bar_idx={last.index} |"
                 f" sweep_dir={self.direction}"
             )
             if fvg.direction != self.direction:
                 logger.info("%s | reject=wrong_direction", _fvg_debug)
                 continue
-
-            # P1-15/fibo: matched pair filtresi (discount+0.236, premium+0.786)
-            if not _is_matched_fib(fvg.direction, fib_level):
-                expected = MATCHED_FIB.get(fvg.direction, "?")
-                logger.info(
-                    "%s | reject=unmatched_fib (fib=%s, expected=%s)",
-                    _fvg_debug,
-                    fib_level,
-                    expected,
-                )
-                continue
-
             if fvg.bar_index >= last.index:
                 logger.info(
                     "%s | reject=FVG_after_sweep (bar_idx=%d >= sweep=%d)",
