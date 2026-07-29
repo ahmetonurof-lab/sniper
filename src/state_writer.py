@@ -2,7 +2,6 @@ import json
 import os
 from datetime import UTC, datetime
 
-import config as cfg
 from models import (
     STATUS_EXIT_VERIFYING,
     STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
@@ -34,8 +33,8 @@ def write_state(
         "symbols": {},
         # Patch Set 6: operator visibility — hangi kod yollari aktif?
         "feature_flags": {
-            "protection_lifecycle_service": cfg.PROTECTION_LIFECYCLE_SERVICE_ENABLED,
-            "ws_event_normalization": cfg.WS_EVENT_NORMALIZATION_ENABLED,
+            "protection_lifecycle_service": True,
+            "ws_event_normalization": False,
         },
     }
     for sym in symbols:
