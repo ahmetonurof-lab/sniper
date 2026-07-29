@@ -15,6 +15,7 @@ import os
 import sys
 from collections import deque
 from datetime import UTC, datetime, timezone, timedelta
+from decimal import Decimal
 
 import config as cfg
 from bot_binance import BinanceRESTClient
@@ -64,7 +65,20 @@ from trading import (
     ExitLifecycleService,
     ProtectionLifecycleService,
 )
+from trading.trailing_manager import TrailingConfig, TrailLevel
 from websocket import BinanceWSHub
+
+
+class BotPriceReader:
+    def __init__(self, hub: BinanceWSHub) -> None:
+        self.hub = hub
+
+    async def get_last_price(self, symbol: str) -> Decimal:
+        bars = self.hub.get_bars(symbol, "1m")
+        if not bars:
+            return Decimal("0")
+        return Decimal(str(bars[-1].close))
+
 
 TR_TZ = timezone(timedelta(hours=3))
 
@@ -229,6 +243,17 @@ class PaperTrader:
             rest_client=self.rest,
             is_live=bool(cfg.BINANCE_API_KEY),
         )
+        self.trailing_manager = TrailingManager(
+            price_reader=BotPriceReader(self.hub),
+            protection_gateway=self.order_manager,
+            config=TrailingConfig(
+                default_tick_size=Decimal("0.10"),
+                epsilon_ticks=1,
+                pivot_strength=2,
+                sl_buffer_ticks=2,
+                reward_multiple_on_trail=Decimal("2.0"),
+            ),
+        )
         # Patch Set 3 (new_refactoring_plan1.md): Protection policy kararlari
         # ProtectionLifecycleService'te toplandi. PROTECTION_LIFECYCLE_SERVICE_ENABLED
         # False iken OrderManager/RecoveryManager eski inline logic'i korur.
@@ -288,6 +313,45 @@ class PaperTrader:
     def _pl(self, sym: str, key: str, msg: str, force: bool = False):
         """ConsoleReporter'a delegate et. Imza birebir aynı."""
         self.reporter.emit(sym, key, msg, force)
+
+    def _build_fvg_scoped_trail_extractor(self, sym: str):
+        def extractor(scoped_bars, trade):
+            entry_bar_index = int(trade["entry_bar_index"])
+            side = str(trade["side"]).lower()
+
+            # PaperTrader'da fvg_state yok, rsm'den veya hub'dan FVG listesi alilmali.
+            # RSM'deki trigger_fvg disindaki FVG'ler su an takip edilmiyor.
+            # Basitlik icin rsm'in trigger_fvg'sini kullan (veya ileride fvg_state eklendiginde genislet).
+            rsm = self.rsms.get(sym)
+            if not rsm:
+                return None
+
+            tf = rsm.trigger_fvg
+            if not tf:
+                return None
+
+            # Sadece entry sonrasi veya ayni bar index'li FVG'ler
+            if int(tf.real_index) < entry_bar_index:
+                return None
+
+            if side == "long":
+                if tf.direction != "bullish":
+                    return None
+                return TrailLevel(
+                    price=Decimal(str(tf.bottom)),
+                    source_bar_index=int(tf.real_index),
+                    reason="confirmed bullish FVG",
+                )
+
+            if tf.direction != "bearish":
+                return None
+            return TrailLevel(
+                price=Decimal(str(tf.top)),
+                source_bar_index=int(tf.real_index),
+                reason="confirmed bearish FVG",
+            )
+
+        return extractor
 
     def _session_label(self, hour: int) -> str:
         """Saati piyasa seansina cevir."""
@@ -458,47 +522,27 @@ class PaperTrader:
 
         # ── Trailing + Exit: yalnizca unrestricted durumda ──
         if trade.get("status") in UNRESTRICTED_STATUSES:
-            # ATR ve min FVG boyutu (1m'de ATR güncellenmez)
-            atr_val = self._atr_state.get(
+            # ATR (1m'de ATR güncellenmez) — orchestrasyon şu an ATR gerektirmiyor
+            _atr_val = self._atr_state.get(
                 sym, max(current.range, current.close * cfg.DEFAULT_ATR_FALLBACK_PCT)
-            )
-            min_fvg = max(
-                atr_val * cfg.FVG_SIZE_MAP.get(sym, cfg.FVG_MIN_SIZE_ATR_MULT), 1e-8
             )
 
             # ── FVG Trailing ──
             bars_15m = self.hub.get_bars(sym, "15m")
             if bars_15m:
-                trail_result = TrailingManager.evaluate_trail(
-                    bars_15m, trade, atr_val, min_fvg
+                trail_res = await self.trailing_manager.orchestrate_trail(
+                    trade, bars_15m
                 )
-                if trail_result.updated:
-                    await self.order_manager.update_trail_orders(
-                        sym,
-                        trade,
-                        trail_result.new_sl,
-                        trail_result.new_tp,
-                        trail_result.trail_count,
-                    )
-                elif trail_result.exit_now:
+                if trail_res.action == "updated":
                     log.info(
-                        "[TRAIL] %s trailing FVG kirildi -> aninda market close", sym
-                    )
-                    trade["status"] = STATUS_EXIT_REQUESTED
-                    trade["pending_exit_price"] = current.close
-                    trade["exit_bar"] = current.index
-                    trade["exit_timestamp"] = current.timestamp
-                    trade["result"] = "TRAIL_CLOSE"
-                    log_event(
-                        "exit_intent",
+                        "[TRAIL] %s koruma güncellendi: sl=%s tp=%s (reason: %s)",
                         sym,
-                        reason="fvg_invalidated",
-                        side=trade.get("side", ""),
-                        exit_price=current.close,
-                        trailing_count=trade.get("trailing_count", 0),
+                        trade.get("sl"),
+                        trade.get("tp"),
+                        trail_res.candidate.reason if trail_res.candidate else "?",
                     )
-                    await self._exit_trade(sym, trade, current.timestamp)
-                    return
+                # Not: orchestrate_trail exchange rejection durumunda action="skip" doner,
+                # invalidation durumunda (immediate trigger) local flag set eder.
 
             # ── Exit kontrolü ──
             log.warning(
@@ -508,7 +552,7 @@ class PaperTrader:
                 trade.get("sl"),
                 current.timestamp,
             )
-            exit_decision = TrailingManager.check_exit(current, trade)
+            exit_decision = self.trailing_manager.check_exit(current, trade)
             if exit_decision.triggered:
                 trade["status"] = STATUS_EXIT_REQUESTED
                 trade["pending_exit_price"] = exit_decision.exit_price
@@ -808,6 +852,13 @@ class PaperTrader:
         # olursa bu window kapatılmalı (PendingLock atomic blok genişletilmeli).
         # ── 3. BAŞARILI KAYIT (PENDING ÜZERİNE YAZ) ──
 
+        tick_size = 0.10
+        if cfg.BINANCE_API_KEY:
+            try:
+                tick_size = await self.rest.get_tick_size(sym)
+            except Exception:
+                pass
+
         self.active_trades[sym] = ActiveTrade(
             symbol=sym,
             side=side,
@@ -820,7 +871,9 @@ class PaperTrader:
             initial_sl=sl,
             initial_tp=tp,
             risk_pts=risk_pts,
-            trailing_count=0,
+            tick_size=tick_size,
+            trail_count=0,
+            trail_level_extractor=self._build_fvg_scoped_trail_extractor(sym),
             trigger_fvg=fvg,
             fvg_top=getattr(fvg, "top", None) if fvg else None,
             fvg_bottom=getattr(fvg, "bottom", None) if fvg else None,

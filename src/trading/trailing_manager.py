@@ -2,13 +2,60 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Literal
+from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
+from typing import Any, Callable, Literal, MutableMapping, Optional, Protocol, Sequence
 
 import config as cfg
 from fvg import detect_fvgs
 from models import Bar, FVG
 
 log = logging.getLogger("sniper.trailing_manager")
+
+Trade = MutableMapping[str, Any]
+BarLike = Any
+
+
+class PriceReader(Protocol):
+    async def get_last_price(self, symbol: str) -> Decimal: ...
+
+
+class ProtectionGateway(Protocol):
+    async def replace_protection(
+        self,
+        *,
+        trade: Trade,
+        candidate: "TrailCandidate",
+        current_price: Decimal,
+    ) -> bool: ...
+
+
+class ImmediateTriggerError(RuntimeError):
+    """Exchange rejected the protection because it would trigger immediately."""
+
+
+@dataclass(frozen=True)
+class TrailLevel:
+    price: Decimal
+    source_bar_index: int
+    reason: str
+
+
+@dataclass(frozen=True)
+class TrailCandidate:
+    sl: Optional[Decimal]
+    tp: Optional[Decimal]
+    source_bar_index: int
+    reason: str
+    tick_size: Decimal
+    fingerprint: str
+
+
+@dataclass(frozen=True)
+class TrailDecision:
+    action: str  # updated | skip
+    reason: str
+    current_price: Decimal
+    candidate: Optional[TrailCandidate] = None
 
 
 @dataclass
@@ -23,15 +70,464 @@ class TrailResult:
 @dataclass
 class ExitDecision:
     triggered: bool = False
+    reason: str | None = None
+    exit_price: float | Decimal = 0.0
     result: Literal["SL", "TP"] | None = None
-    exit_price: float = 0.0
+
+
+@dataclass(frozen=True)
+class TrailingConfig:
+    default_tick_size: Decimal = Decimal("0.10")
+    epsilon_ticks: int = 1
+    pivot_strength: int = 2
+    sl_buffer_ticks: int = 2
+    reward_multiple_on_trail: Decimal = Decimal("2.0")
+    require_break_even_for_tp_reanchor: bool = True
+
+
+TrailLevelExtractor = Callable[[Sequence[BarLike], Trade], Optional[TrailLevel]]
 
 
 class TrailingManager:
+    def __init__(
+        self,
+        *,
+        price_reader: PriceReader,
+        protection_gateway: ProtectionGateway,
+        config: TrailingConfig | None = None,
+    ) -> None:
+        self.price_reader = price_reader
+        self.protection_gateway = protection_gateway
+        self.config = config or TrailingConfig()
+
+    def compute_trail_candidate(
+        self,
+        trade: Trade,
+        bars: Sequence[BarLike],
+    ) -> Optional[TrailCandidate]:
+        side = self._side(trade)
+        tick_size = self._tick_size(trade)
+        entry_bar_index = int(self._required(trade, "entry_bar_index"))
+        entry_price = self._decimal(self._required(trade, "entry_price"))
+
+        scoped_bars = self._scope_bars(bars, entry_bar_index)
+        if not scoped_bars:
+            return None
+
+        extractor = trade.get("trail_level_extractor")
+        level = self._extract_level(scoped_bars, trade, extractor)
+        if level is None:
+            return None
+
+        raw_sl = self._raw_stop_from_level(level.price, side, tick_size)
+        normalized_sl = self._normalize_price(
+            raw_sl, side, kind="sl", tick_size=tick_size
+        )
+
+        current_sl = self._read_price(trade, "stop_loss", "sl")
+        current_tp = self._read_price(trade, "take_profit", "tp")
+
+        improved_sl = (
+            normalized_sl
+            if self._is_better_sl(side, normalized_sl, current_sl)
+            else None
+        )
+
+        if improved_sl is None:
+            return None
+
+        reanchored_tp = self._compute_tp_from_trailing_sl(
+            entry_price=entry_price,
+            sl_price=improved_sl,
+            side=side,
+            tick_size=tick_size,
+        )
+
+        improved_tp: Optional[Decimal] = None
+        if reanchored_tp is not None:
+            if not self._is_consistent_rr_tp(
+                side=side,
+                entry_price=entry_price,
+                sl_price=improved_sl,
+                current_tp=current_tp,
+                tick_size=tick_size,
+            ):
+                improved_tp = reanchored_tp
+
+        fingerprint = self._fingerprint(
+            side=side,
+            sl=improved_sl,
+            tp=improved_tp,
+            source_bar_index=level.source_bar_index,
+        )
+
+        return TrailCandidate(
+            sl=improved_sl,
+            tp=improved_tp,
+            source_bar_index=level.source_bar_index,
+            reason=level.reason,
+            tick_size=tick_size,
+            fingerprint=fingerprint,
+        )
+
+    def is_placeable(
+        self,
+        candidate: TrailCandidate,
+        current_price: Decimal,
+        side: str,
+    ) -> bool:
+        side = side.lower()
+        epsilon = candidate.tick_size * Decimal(self.config.epsilon_ticks)
+
+        if candidate.sl is not None:
+            if side == "long" and not (candidate.sl < current_price - epsilon):
+                return False
+            if side == "short" and not (candidate.sl > current_price + epsilon):
+                return False
+
+        if candidate.tp is not None:
+            if side == "long" and not (candidate.tp > current_price + epsilon):
+                return False
+            if side == "short" and not (candidate.tp < current_price - epsilon):
+                return False
+
+        return True
+
+    async def orchestrate_trail(
+        self,
+        trade: Trade,
+        bars: Sequence[BarLike],
+    ) -> TrailDecision:
+        symbol = str(self._required(trade, "symbol"))
+        side = self._side(trade)
+        current_price = self._decimal(await self.price_reader.get_last_price(symbol))
+
+        candidate = self.compute_trail_candidate(trade, bars)
+        if candidate is None:
+            return TrailDecision(
+                action="skip",
+                reason="no better trail candidate",
+                current_price=current_price,
+                candidate=None,
+            )
+
+        protection_state = trade.setdefault("protection_state", {})
+
+        if protection_state.get("last_applied_fingerprint") == candidate.fingerprint:
+            return TrailDecision(
+                action="skip",
+                reason="identical candidate already applied",
+                current_price=current_price,
+                candidate=candidate,
+            )
+
+        if protection_state.get("last_invalid_fingerprint") == candidate.fingerprint:
+            return TrailDecision(
+                action="skip",
+                reason="identical invalid candidate suppressed",
+                current_price=current_price,
+                candidate=candidate,
+            )
+
+        if not self.is_placeable(candidate, current_price, side):
+            protection_state["last_invalid_fingerprint"] = candidate.fingerprint
+            protection_state["last_invalid_reason"] = "local placeability check failed"
+            return TrailDecision(
+                action="skip",
+                reason="candidate not placeable against current price",
+                current_price=current_price,
+                candidate=candidate,
+            )
+
+        try:
+            changed = await self.protection_gateway.replace_protection(
+                trade=trade,
+                candidate=candidate,
+                current_price=current_price,
+            )
+        except ImmediateTriggerError:
+            protection_state["last_invalid_fingerprint"] = candidate.fingerprint
+            protection_state["last_invalid_reason"] = (
+                "exchange rejected with immediate trigger"
+            )
+            return TrailDecision(
+                action="skip",
+                reason="exchange rejected candidate as immediate trigger",
+                current_price=current_price,
+                candidate=candidate,
+            )
+
+        if not changed:
+            return TrailDecision(
+                action="skip",
+                reason="no protection update required",
+                current_price=current_price,
+                candidate=candidate,
+            )
+
+        if candidate.sl is not None:
+            trade["stop_loss"] = float(candidate.sl)
+        if candidate.tp is not None:
+            trade["take_profit"] = float(candidate.tp)
+
+        trade["trail_count"] = int(trade.get("trail_count", 0)) + 1
+        protection_state.pop("last_invalid_fingerprint", None)
+        protection_state.pop("last_invalid_reason", None)
+        protection_state["last_applied_fingerprint"] = candidate.fingerprint
+
+        return TrailDecision(
+            action="updated",
+            reason="protection replaced",
+            current_price=current_price,
+            candidate=candidate,
+        )
+
+    def check_exit(self, current_bar: BarLike, trade: Trade) -> ExitDecision:
+        side = self._side(trade)
+        stop_loss = self._read_price(trade, "stop_loss", "sl")
+        take_profit = self._read_price(trade, "take_profit", "tp")
+        high = self._decimal(self._get(current_bar, "high"))
+        low = self._decimal(self._get(current_bar, "low"))
+
+        if side == "long":
+            if stop_loss is not None and low <= stop_loss:
+                return ExitDecision(
+                    True, reason="stop_loss", exit_price=float(stop_loss), result="SL"
+                )
+            if take_profit is not None and high >= take_profit:
+                return ExitDecision(
+                    True,
+                    reason="take_profit",
+                    exit_price=float(take_profit),
+                    result="TP",
+                )
+            return ExitDecision(False)
+
+        if stop_loss is not None and high >= stop_loss:
+            return ExitDecision(
+                True, reason="stop_loss", exit_price=float(stop_loss), result="SL"
+            )
+        if take_profit is not None and low <= take_profit:
+            return ExitDecision(
+                True, reason="take_profit", exit_price=float(take_profit), result="TP"
+            )
+        return ExitDecision(False)
+
+    @staticmethod
+    def _scope_bars(bars: Sequence[BarLike], entry_bar_index: int) -> list[BarLike]:
+        scoped: list[BarLike] = []
+        for pos, bar in enumerate(bars):
+            bar_index = int(TrailingManager._get(bar, "index", pos))
+            if bar_index >= entry_bar_index:
+                scoped.append(bar)
+        return scoped
+
+    def _extract_level(
+        self,
+        scoped_bars: Sequence[BarLike],
+        trade: Trade,
+        extractor: Any,
+    ) -> Optional[TrailLevel]:
+        if callable(extractor):
+            return extractor(scoped_bars, trade)
+        return self._default_level_from_swings(scoped_bars, self._side(trade))
+
+    def _default_level_from_swings(
+        self,
+        scoped_bars: Sequence[BarLike],
+        side: str,
+    ) -> Optional[TrailLevel]:
+        strength = self.config.pivot_strength
+        if len(scoped_bars) < (strength * 2 + 1):
+            return None
+
+        snapshots = [
+            {
+                "index": int(self._get(bar, "index", pos)),
+                "high": self._decimal(self._get(bar, "high")),
+                "low": self._decimal(self._get(bar, "low")),
+            }
+            for pos, bar in enumerate(scoped_bars)
+        ]
+
+        if side == "long":
+            for i in range(len(snapshots) - strength - 1, strength - 1, -1):
+                curr = snapshots[i]
+                left = snapshots[i - strength : i]
+                right = snapshots[i + 1 : i + 1 + strength]
+                if all(curr["low"] <= bar["low"] for bar in left) and all(
+                    curr["low"] < bar["low"] for bar in right
+                ):
+                    return TrailLevel(
+                        price=curr["low"],
+                        source_bar_index=curr["index"],
+                        reason="confirmed post-entry swing low",
+                    )
+            return None
+
+        for i in range(len(snapshots) - strength - 1, strength - 1, -1):
+            curr = snapshots[i]
+            left = snapshots[i - strength : i]
+            right = snapshots[i + 1 : i + 1 + strength]
+            if all(curr["high"] >= bar["high"] for bar in left) and all(
+                curr["high"] > bar["high"] for bar in right
+            ):
+                return TrailLevel(
+                    price=curr["high"],
+                    source_bar_index=curr["index"],
+                    reason="confirmed post-entry swing high",
+                )
+        return None
+
+    def _raw_stop_from_level(
+        self,
+        level_price: Decimal,
+        side: str,
+        tick_size: Decimal,
+    ) -> Decimal:
+        offset = tick_size * Decimal(self.config.sl_buffer_ticks)
+        if side == "long":
+            return level_price - offset
+        return level_price + offset
+
+    @staticmethod
+    def _is_better_sl(
+        side: str, candidate: Decimal, current: Optional[Decimal]
+    ) -> bool:
+        if current is None:
+            return True
+        return candidate > current if side == "long" else candidate < current
+
+    def _compute_tp_from_trailing_sl(
+        self,
+        *,
+        entry_price: Decimal,
+        sl_price: Decimal,
+        side: str,
+        tick_size: Decimal,
+    ) -> Optional[Decimal]:
+        """
+        TP artık mevcut trail edilmiş SL'e göre hesaplanır.
+
+        Long:
+            locked_profit = sl - entry
+            tp = sl + locked_profit * RR
+
+        Short:
+            locked_profit = entry - sl
+            tp = sl - locked_profit * RR
+
+        Not:
+        - SL henüz break-even üstüne/altına geçmediyse dinamik TP re-anchor etmiyoruz.
+        - Bu sayede zarar bölgesindeyken TP'nin anlamsız şekilde ters tarafa kaymasını engelliyoruz.
+        """
+        rr = self.config.reward_multiple_on_trail
+
+        if side == "long":
+            locked_profit = sl_price - entry_price
+            if (
+                self.config.require_break_even_for_tp_reanchor
+                and locked_profit <= Decimal("0")
+            ):
+                return None
+            raw_tp = sl_price + (locked_profit * rr)
+        else:
+            locked_profit = entry_price - sl_price
+            if (
+                self.config.require_break_even_for_tp_reanchor
+                and locked_profit <= Decimal("0")
+            ):
+                return None
+            raw_tp = sl_price - (locked_profit * rr)
+
+        return self._normalize_price(raw_tp, side, kind="tp", tick_size=tick_size)
+
+    def _is_consistent_rr_tp(
+        self,
+        *,
+        side: str,
+        entry_price: Decimal,
+        sl_price: Decimal,
+        current_tp: Optional[Decimal],
+        tick_size: Decimal,
+    ) -> bool:
+        """
+        TP'nin tek kriteri artık "daha uzak" olması değil.
+        Yeni SL'e göre beklenen dinamik RR yapısını koruyorsa True.
+        """
+        if current_tp is None:
+            return False
+
+        expected_tp = self._compute_tp_from_trailing_sl(
+            entry_price=entry_price,
+            sl_price=sl_price,
+            side=side,
+            tick_size=tick_size,
+        )
+        if expected_tp is None:
+            return True
+
+        return current_tp == expected_tp
+
+    @staticmethod
+    def _fingerprint(
+        *,
+        side: str,
+        sl: Optional[Decimal],
+        tp: Optional[Decimal],
+        source_bar_index: int,
+    ) -> str:
+        return f"{side}|{sl or '-'}|{tp or '-'}|{source_bar_index}"
+
+    def _tick_size(self, trade: Trade) -> Decimal:
+        return self._decimal(trade.get("tick_size", self.config.default_tick_size))
+
+    @staticmethod
+    def _side(trade: Trade) -> str:
+        side = str(trade.get("side", "")).lower()
+        if side not in {"long", "short"}:
+            raise ValueError(f"unsupported side: {side!r}")
+        return side
+
+    @staticmethod
+    def _required(container: MutableMapping[str, Any], key: str) -> Any:
+        if key not in container:
+            raise KeyError(f"missing required trade field: {key}")
+        return container[key]
+
+    @staticmethod
+    def _get(obj: Any, field: str, default: Any = None) -> Any:
+        if isinstance(obj, dict):
+            return obj.get(field, default)
+        return getattr(obj, field, default)
+
+    @staticmethod
+    def _decimal(value: Any) -> Decimal:
+        return value if isinstance(value, Decimal) else Decimal(str(value))
+
+    def _read_price(self, trade: Trade, *keys: str) -> Optional[Decimal]:
+        for key in keys:
+            if key in trade and trade[key] is not None:
+                return self._decimal(trade[key])
+        return None
+
+    @staticmethod
+    def _normalize_price(
+        value: Decimal,
+        side: str,
+        *,
+        kind: str,
+        tick_size: Decimal,
+    ) -> Decimal:
+        ticks = value / tick_size
+        if kind == "sl":
+            rounding = ROUND_FLOOR if side == "long" else ROUND_CEILING
+        else:
+            rounding = ROUND_CEILING if side == "long" else ROUND_FLOOR
+        return ticks.quantize(Decimal("1"), rounding=rounding) * tick_size
+
     @staticmethod
     def _fvg_close_confirmed(fvg: FVG, bars: list[Bar]) -> bool:
-        """FVG olustuktan sonraki barlardan en az biri FVG icinde kapandi mi?
-        Sadece fitil degil, gövde kapanisi lazim — wick yetmez."""
         scan_from = fvg.real_index + 2
         for b in bars:
             if b.index < scan_from:
@@ -57,23 +553,6 @@ class TrailingManager:
         atr_val: float,
         min_fvg_size: float,
     ) -> TrailResult:
-        """FVG trailing hesabı.
-
-        FIX (D-2): `exit_now` erken-çıkış guard'ı kaldırıldı — analyzer_v5.py
-        (backtest benchmark motoru) ile birleştirildi. Eski guard, hesaplanan
-        yeni SL seviyesi `new_sl > current_sl` iyileştirmesini bile
-        SAĞLAMADAN — yani trail için gerçekten uygulanabilir olup olmadığına
-        bakılmaksızın — sadece `new_sl` güncel kapanışın "arkasında" kaldığında
-        aninda market close tetikliyordu (bot.py: TRAIL_CLOSE @ current.close).
-        Bu, entry'den kısa süre sonra yakın bir FVG oluştuğunda neredeyse her
-        zaman zararla aninda çıkışa yol açıyordu (P2-6: TIAUSDT ~1dk içinde
-        gir-çık döngüsü; P2-7: 5/5 TRAIL_CLOSE çıkışı negatif). analyzer_v5.py
-        bu guard'ı hiç içermiyor ve backtest sonuçlarında bu davranış
-        doğrulanmış durumda — bu yüzden live de aynı şekilde davranıyor:
-        hesaplanan seviye mevcut SL'den daha iyi değilse (veya fiyat çoktan
-        geçmişse) o FVG için trail'i sessizce atlar, pozisyon normal
-        check_exit() akışıyla yönetilmeye devam eder.
-        """
         if not bars_15m or len(bars_15m) <= 1:
             return TrailResult()
 
@@ -92,7 +571,7 @@ class TrailingManager:
             "risk_pts", abs(trade["initial_sl"] - trade["entry_price"])
         )
         trail_count = trade.get("trailing_count", 0)
-        trail_steps = trade["trail_steps"]
+        trail_steps = trade.get("trail_steps", [])
         updated = False
         atr_buffer = atr_val * cfg.ATR_TRAIL_MULT
 
@@ -101,7 +580,6 @@ class TrailingManager:
                 continue
             if side == "short" and fvg.direction != "bearish":
                 continue
-            # Mitigation sarti: FVG icinde kapali 15m mumu olmali
             if not TrailingManager._fvg_close_confirmed(fvg, chunk):
                 continue
 
@@ -153,20 +631,3 @@ class TrailingManager:
                 trail_count=trail_count,
             )
         return TrailResult()
-
-    @staticmethod
-    def check_exit(current: Bar, trade: dict) -> ExitDecision:
-        side = trade["side"]
-        sl = trade["sl"]
-        tp = trade["tp"]
-        if side == "long":
-            if current.low <= sl:
-                return ExitDecision(triggered=True, result="SL", exit_price=sl)
-            elif current.high >= tp:
-                return ExitDecision(triggered=True, result="TP", exit_price=tp)
-        else:
-            if current.high >= sl:
-                return ExitDecision(triggered=True, result="SL", exit_price=sl)
-            elif current.low <= tp:
-                return ExitDecision(triggered=True, result="TP", exit_price=tp)
-        return ExitDecision()

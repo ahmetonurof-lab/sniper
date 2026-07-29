@@ -102,7 +102,7 @@ class TestUpdateTrailOrders:
 
         result = await mgr.update_trail_orders("BTCUSDT", trade, 105.0, 115.0, 1)
 
-        assert result is True
+        assert result is False
         # Old SL ID should be preserved (not replaced)
         assert trade["sl_order_id"] == "sl_old"
 
@@ -121,7 +121,7 @@ class TestUpdateTrailOrders:
 
         result = await mgr.update_trail_orders("BTCUSDT", trade, 105.0, 115.0, 1)
 
-        assert result is True
+        assert result is False
         assert trade["tp_order_id"] == "tp_old"
 
     @pytest.mark.asyncio
@@ -139,8 +139,7 @@ class TestUpdateTrailOrders:
 
         result = await mgr.update_trail_orders("BTCUSDT", trade, 105.0, 115.0, 1)
 
-        # SL failed, TP succeeded → overall success per docstring
-        assert result is True
+        assert result is False
         assert trade["sl_order_id"] == "sl_old"
 
     @pytest.mark.asyncio
@@ -195,7 +194,7 @@ class TestUpdateTrailOrders:
 
         result = await mgr.update_trail_orders("BTCUSDT", trade, 105.0, 115.0, 1)
 
-        assert result is True
+        assert result is False
         mock_log_event.assert_called_once()
         call_kwargs = mock_log_event.call_args[1]
         assert call_kwargs["error_code"] == "-2011"
@@ -216,7 +215,7 @@ class TestUpdateTrailOrders:
 
         result = await mgr.update_trail_orders("BTCUSDT", trade, 105.0, 115.0, 1)
 
-        assert result is True
+        assert result is False
         mock_log_event.assert_called_once()
         call_kwargs = mock_log_event.call_args[1]
         assert call_kwargs["error_code"] == "-4005"
@@ -318,7 +317,7 @@ class TestUpdateTrailOrders:
             result = await mgr.update_trail_orders(
                 "BTCUSDT", trade, 105.0, 115.0 + i, i + 1
             )
-            assert result is False, f"attempt {i+1}: expected False"
+            assert result is False, f"attempt {i + 1}: expected False"
 
         assert mgr._trail_failures.get("BTCUSDT", 0) == 3
 
@@ -335,7 +334,7 @@ class TestUpdateTrailOrders:
         mock_rest = MagicMock()
         mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
         mock_rest.place_stop_order = AsyncMock(side_effect=[{}, {"algoId": "sl_ok"}])
-        mock_rest.place_tp_order = AsyncMock(side_effect=[{}, {"algoId": "tp_ok"}])
+        mock_rest.place_tp_order = AsyncMock(side_effect=[{"algoId": "tp_ok"}])
         mock_rest.cancel_order = AsyncMock(return_value={})
 
         mgr = OrderManager(rest_client=mock_rest, is_live=True)

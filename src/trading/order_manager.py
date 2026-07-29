@@ -17,7 +17,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import TYPE_CHECKING
+from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
+from typing import TYPE_CHECKING, Any, MutableMapping
 
 import config as cfg
 from bot_infra import extract_order_id
@@ -27,6 +28,7 @@ from models import (
     STATUS_TRAIL_REPLACING,
     UNRESTRICTED_STATUSES,
 )
+from trading.trailing_manager import ImmediateTriggerError, TrailCandidate
 
 if TYPE_CHECKING:
     from trading.protection_lifecycle import (
@@ -35,6 +37,8 @@ if TYPE_CHECKING:
     )
 
 log = logging.getLogger("sniper.order_manager")
+
+Trade = MutableMapping[str, Any]
 
 
 class OrderManager:
@@ -1056,7 +1060,7 @@ class OrderManager:
                         mkt_side,
                         trade["qty"],
                         reduce_only=True,
-                        client_order_id=f"exit-{sym.lower()}-{int(time.time()*1000)}",
+                        client_order_id=f"exit-{sym.lower()}-{int(time.time() * 1000)}",
                     )
                 except Exception as e:
                     log.warning("[CLOSE] %s acil kapanis emri hatasi: %s", sym, e)
@@ -1073,3 +1077,136 @@ class OrderManager:
             await self.cancel_all_open_orders(sym)
         except Exception as e:
             log.warning("[CLEANUP] %s cancel_all_open_orders hatasi: %s", sym, e)
+
+    async def replace_protection(
+        self,
+        *,
+        trade: Trade,
+        candidate: TrailCandidate,
+        current_price: Decimal,
+    ) -> bool:
+        protection_orders = trade.setdefault("protection_orders", {})
+        changed = False
+
+        if candidate.sl is not None:
+            changed |= await self._replace_one(
+                trade=trade,
+                protection_orders=protection_orders,
+                kind="sl",
+                trigger_price=candidate.sl,
+                tick_size=candidate.tick_size,
+            )
+
+        if candidate.tp is not None:
+            changed |= await self._replace_one(
+                trade=trade,
+                protection_orders=protection_orders,
+                kind="tp",
+                trigger_price=candidate.tp,
+                tick_size=candidate.tick_size,
+            )
+
+        return changed
+
+    async def _replace_one(
+        self,
+        *,
+        trade: Trade,
+        protection_orders: dict,
+        kind: str,
+        trigger_price: Decimal,
+        tick_size: Decimal,
+    ) -> bool:
+        symbol = str(trade["symbol"])
+        side = str(trade["side"]).lower()
+        quantity = self._quantity(trade)
+        normalized = self._normalize_trigger_price(trigger_price, side, kind, tick_size)
+
+        existing = protection_orders.get(kind)
+        existing_stop = None
+        if existing and existing.get("stop_price") is not None:
+            existing_stop = Decimal(str(existing["stop_price"]))
+        if existing_stop == normalized:
+            return False
+
+        if existing and existing.get("order_id"):
+            await self._rest.cancel_order(existing["order_id"], symbol)
+
+        exit_side = "SELL" if side == "long" else "BUY"
+
+        try:
+            if kind == "sl":
+                resp = await self._rest.place_stop_order(
+                    symbol,
+                    exit_side,
+                    float(quantity),
+                    float(normalized),
+                    client_id=f"{kind}_{symbol}_{int(time.time())}",
+                )
+            else:
+                resp = await self._rest.place_tp_order(
+                    symbol,
+                    exit_side,
+                    float(quantity),
+                    float(normalized),
+                    client_id=f"{kind}_{symbol}_{int(time.time())}",
+                )
+        except Exception as exc:
+            if self._is_immediate_trigger(exc):
+                raise ImmediateTriggerError(str(exc)) from exc
+            raise
+
+        if not resp:
+            return False
+
+        error_code = resp.get("_error_code", "")
+        if error_code == "-2021":
+            raise ImmediateTriggerError(f"Immediate trigger: {error_code}")
+
+        order_id = extract_order_id(resp)
+        if not order_id:
+            return False
+
+        protection_orders[kind] = {
+            "order_id": str(order_id),
+            "stop_price": float(normalized),
+            "type": "STOP_MARKET" if kind == "sl" else "TAKE_PROFIT_MARKET",
+        }
+
+        if kind == "sl":
+            trade["stop_loss"] = float(normalized)
+        else:
+            trade["take_profit"] = float(normalized)
+
+        return True
+
+    @staticmethod
+    def _normalize_trigger_price(
+        value: Decimal,
+        side: str,
+        kind: str,
+        tick_size: Decimal,
+    ) -> Decimal:
+        ticks = value / tick_size
+        if kind == "sl":
+            rounding = ROUND_FLOOR if side == "long" else ROUND_CEILING
+        else:
+            rounding = ROUND_CEILING if side == "long" else ROUND_FLOOR
+        return ticks.quantize(Decimal("1"), rounding=rounding) * tick_size
+
+    @staticmethod
+    def _quantity(trade: Trade) -> Decimal:
+        for key in ("quantity", "qty", "position_qty"):
+            if key in trade and trade[key] is not None:
+                return Decimal(str(trade[key]))
+        raise KeyError("trade quantity is required for protective orders")
+
+    @staticmethod
+    def _fmt_decimal(value: Decimal) -> str:
+        return format(value.normalize(), "f")
+
+    @staticmethod
+    def _is_immediate_trigger(exc: Exception) -> bool:
+        code = getattr(exc, "code", None)
+        message = str(exc).lower()
+        return code == -2021 or "immediately trigger" in message

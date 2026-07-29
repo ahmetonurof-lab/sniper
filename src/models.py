@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Final, Generic, Literal, TypeVar
+from typing import Any, Final, Generic, Literal, TypeVar
 
 logger = logging.getLogger("sniper.models")
 
@@ -308,40 +307,25 @@ class AnalysisResult:
         )
 
 
-# ── Trade lifecycle status sabitleri (Sprint C — explicit state machine) ──
+STATUS_ACTIVE = "ACTIVE"
+STATUS_PENDING = "PENDING"
+STATUS_TRAIL_REPLACING = "TRAIL_REPLACING"
+STATUS_EXIT_REQUESTED = "EXIT_REQUESTED"
+STATUS_EXIT_SUBMITTED = "EXIT_SUBMITTED"
+STATUS_EXIT_VERIFYING = "EXIT_VERIFYING"
+STATUS_REPAIR_REQUIRED = "REPAIR_REQUIRED"
+STATUS_CLOSED = "CLOSED"
+STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED = "BROKEN_MANUAL_INTERVENTION_REQUIRED"
+UNRESTRICTED_STATUSES = frozenset({STATUS_ACTIVE, ""})
 
-STATUS_ACTIVE: Final[str] = "ACTIVE"
-STATUS_PENDING: Final[str] = "PENDING"
-STATUS_TRAIL_REPLACING: Final[str] = "TRAIL_REPLACING"
-STATUS_EXIT_REQUESTED: Final[str] = "EXIT_REQUESTED"
-STATUS_EXIT_SUBMITTED: Final[str] = "EXIT_SUBMITTED"
-STATUS_EXIT_VERIFYING: Final[str] = "EXIT_VERIFYING"
-STATUS_REPAIR_REQUIRED: Final[str] = "REPAIR_REQUIRED"
-STATUS_CLOSED: Final[str] = "CLOSED"
-STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED: Final[str] = (
-    "BROKEN_MANUAL_INTERVENTION_REQUIRED"
-)
-
-UNRESTRICTED_STATUSES: Final[frozenset[str]] = frozenset({STATUS_ACTIVE, ""})
-
-# ── Incident Types (A13) ──────────────────────────────────────────
-INCIDENT_POSITION_OPEN_BUT_STATE_MISSING: Final[str] = "POSITION_OPEN_BUT_STATE_MISSING"
-INCIDENT_EXIT_UNCONFIRMED: Final[str] = "EXIT_UNCONFIRMED"
-INCIDENT_PROTECTION_BROKEN: Final[str] = "PROTECTION_BROKEN"
-INCIDENT_WS_UNMATCHED_REDUCE_ONLY: Final[str] = "WS_UNMATCHED_REDUCE_ONLY"
-INCIDENT_ORPHAN_CANCEL_DURING_TRANSITION: Final[str] = "ORPHAN_CANCEL_DURING_TRANSITION"
+INCIDENT_POSITION_OPEN_BUT_STATE_MISSING = "POSITION_OPEN_BUT_STATE_MISSING"
+INCIDENT_EXIT_UNCONFIRMED = "EXIT_UNCONFIRMED"
+INCIDENT_PROTECTION_BROKEN = "PROTECTION_BROKEN"
+INCIDENT_WS_UNMATCHED_REDUCE_ONLY = "WS_UNMATCHED_REDUCE_ONLY"
+INCIDENT_ORPHAN_CANCEL_DURING_TRANSITION = "ORPHAN_CANCEL_DURING_TRANSITION"
 
 
-# ── Patch Set 1: yeni state taşıyıcıları (ActiveTrade'e HENÜZ bağlı değil) ──
-# Bu sınıflar şimdilik bağımsızdır ve hiçbir yerde import edilip kullanılmaz.
-# ActiveTrade'e "confirmed"/"runtime" olarak bağlanması Patch 2/3'te
-# exit_lifecycle.py ve protection_lifecycle.py gerçek mantığı taşırken
-# yapılacak. Bu patch'te ActiveTrade'e DOKUNULMAZ.
-
-
-class TradeStatus(str, Enum):
-    """Mevcut STATUS_* sabitleriyle birebir eşleşir + yeni CLOSED değeri."""
-
+class TradeStatus(str):
     ACTIVE = "ACTIVE"
     PENDING = "PENDING"
     TRAIL_REPLACING = "TRAIL_REPLACING"
@@ -353,7 +337,7 @@ class TradeStatus(str, Enum):
     BROKEN_MANUAL_INTERVENTION_REQUIRED = "BROKEN_MANUAL_INTERVENTION_REQUIRED"
 
 
-class ProtectionSlot(str, Enum):
+class ProtectionSlot(str):
     CURRENT = "CURRENT"
     PENDING = "PENDING"
     PREVIOUS = "PREVIOUS"
@@ -369,9 +353,6 @@ class ProtectionRef:
 
 @dataclass
 class ProtectionState:
-    """Bugünkü sl_order_id / tp_order_id / *_prev / *_history alanlarının
-    hedef (henüz bağlanmamış) karşılığı."""
-
     sl_current: ProtectionRef | None = None
     sl_pending: ProtectionRef | None = None
     sl_previous: ProtectionRef | None = None
@@ -388,95 +369,9 @@ class ProtectionState:
     def tp_present(self) -> bool:
         return self.tp_current is not None
 
-    def known_ids(self) -> set[str]:
-        """user_data_handler.py'daki mevcut oid-eşleştirme kontrolüyle
-        (current + prev + history, SL+TP) birebir aynı küme."""
-        refs = (
-            self.sl_current,
-            self.sl_pending,
-            self.sl_previous,
-            self.tp_current,
-            self.tp_pending,
-            self.tp_previous,
-        )
-        ids = {r.order_id for r in refs if r is not None}
-        ids.update(r.order_id for r in self.history)
-        return ids
-
-    def _get_ref(self, kind: str, slot: str) -> ProtectionRef | None:
-        """Kind (SL/TP) ve slot (CURRENT/PENDING/PREVIOUS) ile ref bul."""
-        key = f"{kind.lower()}_{slot.lower()}"
-        mapping = {
-            "sl_current": self.sl_current,
-            "sl_pending": self.sl_pending,
-            "sl_previous": self.sl_previous,
-            "tp_current": self.tp_current,
-            "tp_pending": self.tp_pending,
-            "tp_previous": self.tp_previous,
-        }
-        return mapping.get(key)
-
-    def _set_ref(self, kind: str, slot: str, order_id: str) -> None:
-        """Kind ve slot ile ref oluştur/güncelle."""
-        ref = (
-            ProtectionRef(order_id=order_id, kind=kind, slot=ProtectionSlot(slot))
-            if order_id
-            else None
-        )
-        key = f"{kind.lower()}_{slot.lower()}"
-        if key == "sl_current":
-            self.sl_current = ref
-        elif key == "sl_pending":
-            self.sl_pending = ref
-        elif key == "sl_previous":
-            self.sl_previous = ref
-        elif key == "tp_current":
-            self.tp_current = ref
-        elif key == "tp_pending":
-            self.tp_pending = ref
-        elif key == "tp_previous":
-            self.tp_previous = ref
-
-    # ── Lifecycle status (Sprint D1) ───────────────────────
-
-    @staticmethod
-    def _compute_status(
-        ref_current: ProtectionRef | None,
-        ref_pending: ProtectionRef | None,
-        price: float,
-    ) -> str:
-        if not price:
-            return "NOT_REQUIRED"
-        if ref_current is not None:
-            return "ACTIVE_CONFIRMED"
-        if ref_pending is not None:
-            return "PENDING_CREATE"
-        return "EXPECTED"
-
-    def sl_status(self, sl_price: float) -> str:
-        return self._compute_status(self.sl_current, self.sl_pending, sl_price)
-
-    def tp_status(self, tp_price: float) -> str:
-        return self._compute_status(self.tp_current, self.tp_pending, tp_price)
-
-    @property
-    def health(self) -> str:
-        healthy = sum(1 for r in (self.sl_current, self.tp_current) if r is not None)
-        total = 2
-        if healthy == total:
-            return "HEALTHY"
-        if healthy == 0:
-            return "BROKEN"
-        return "DEGRADED"
-
 
 @dataclass
 class PendingExitContext:
-    """Bugünkü pending_exit_reason / price / qty / order_id / timestamp
-    alanlarının hedef karşılığı. Patch 2'de exit_lifecycle.py'nin
-    REQUEST_SENT/ACKNOWLEDGED/VERIFYING adımlarını ayrıca takip etmesi
-    gerekirse buraya alan eklenecek — o karar bu patch'in kapsamı dışında."""
-
     reason: str | None = None
     price: float | None = None
     qty: float | None = None
@@ -486,10 +381,6 @@ class PendingExitContext:
 
 @dataclass
 class TradeConfirmedState:
-    """Entry/exit'in exchange tarafından doğrulanmış hali.
-    sl/tp/trailing seviyelerinin confirmed'e mi runtime'a mı ait olduğu
-    henüz karara bağlanmadı (bkz. aşağıdaki 'Açık kalan noktalar')."""
-
     symbol: str
     side: Literal["long", "short"]
     entry_price: float
@@ -500,7 +391,7 @@ class TradeConfirmedState:
     exit_quote_qty: float | None = None
     exit_order_id: str = ""
     exit_timestamp_ms: int | None = None
-    result: str | None = None  # "SL" | "TP" | "WS_FALLBACK" | ...
+    result: str | None = None
 
 
 @dataclass
@@ -509,15 +400,11 @@ class TradeRuntimeState:
     frozen: bool = False
     pending_exit: PendingExitContext | None = None
     protection: ProtectionState = field(default_factory=ProtectionState)
-    pending_events: list["NormalizedOrderEvent"] = field(default_factory=list)
+    pending_events: list[Any] = field(default_factory=list)
 
 
 @dataclass
 class NormalizedOrderEvent:
-    """on_order_update()'in bugün doğrudan okuduğu ham Binance alanlarının
-    normalize edilmiş hedef karşılığı. Bu patch sadece şekli tanımlar;
-    gerçek normalize_order_event() fonksiyonu Patch 4'te yazılacak."""
-
     symbol: str
     order_id: str
     client_order_id: str
@@ -545,9 +432,6 @@ class ActiveTrade:
     """Canlı trade durumu. Hem attribute hem dict erişimini destekler.
 
     Geriye dönük uyumlu: trade["side"] ve trade.side aynı değeri verir.
-
-    Sprint B: runtime alanı TradeRuntimeState'e bağlandı. status,
-    frozen, pending_events dict erişiminde runtime üzerinden yönlendirilir.
     """
 
     symbol: str = ""
@@ -556,6 +440,25 @@ class ActiveTrade:
     entry_bar_index: int = 0
     sl: float = 0.0
     tp: float = 0.0
+
+    # TrailingManager compatibility aliases
+    @property
+    def stop_loss(self) -> float:
+        return self.sl
+
+    @stop_loss.setter
+    def stop_loss(self, val: float):
+        self.sl = val
+
+    @property
+    def take_profit(self) -> float:
+        return self.tp
+
+    @take_profit.setter
+    def take_profit(self, val: float):
+        self.tp = val
+
+    # End aliases
     qty: float = 0.0
     initial_sl: float = 0.0
     initial_tp: float = 0.0
@@ -581,6 +484,13 @@ class ActiveTrade:
     cbdr_low: float | None = None
     upnl: float | None = None
     status: str = ""
+    # Trailing fields
+    tick_size: float = 0.10
+    trail_count: int = 0
+    protection_state: dict[str, Any] = field(default_factory=dict)
+    protection_orders: dict[str, Any] = field(default_factory=dict)
+    trail_level_extractor: Any = None
+    # End
     entry_order_id: str = ""
     entry_requested_qty: float = 0.0
     entry_price_estimate: float = 0.0
@@ -590,135 +500,20 @@ class ActiveTrade:
     exit_actual_qty: float = 0.0
     exit_actual_price: float = 0.0
     exit_quote_qty: float = 0.0
-    pending_exit_reason: str | None = None
-    pending_exit_price: float | None = None
-    pending_exit_qty: float | None = None
-    pending_exit_order_id: str | None = None
-    pending_exit_timestamp: int | None = None
-
-    # Sprint B: confirmed/runtime ayrımı
-    runtime: TradeRuntimeState = field(default_factory=TradeRuntimeState)
-
-    _RUNTIME_KEYS: frozenset[str] = field(
-        default=frozenset({"status", "frozen", "pending_events"}),
-        repr=False,
-        init=False,
-        compare=False,
-    )
-
-    def __post_init__(self):
-        # Sprint B: flat alanları runtime ile senkronize et
-        if self.status:
-            self.runtime.status = TradeStatus(self.status)
-            self.runtime.frozen = self.status not in ("ACTIVE", "")
-        for key in self._PROTECTION_MAP:
-            val = getattr(self, key, "")
-            if val:
-                self._protection_set(key, val)
-        sl_hist = getattr(self, "sl_order_id_history", None)
-        if sl_hist:
-            self._protection_history_set("SL", sl_hist)
-        tp_hist = getattr(self, "tp_order_id_history", None)
-        if tp_hist:
-            self._protection_history_set("TP", tp_hist)
 
     # ── Dict uyumluluğu ───────────────────────────────────────
 
-    _PROTECTION_MAP: dict = field(
-        default_factory=lambda: {
-            "sl_order_id": ("sl", "CURRENT"),
-            "tp_order_id": ("tp", "CURRENT"),
-            "sl_order_id_prev": ("sl", "PREVIOUS"),
-            "tp_order_id_prev": ("tp", "PREVIOUS"),
-            "pending_sl_order_id": ("sl", "PENDING"),
-            "pending_tp_order_id": ("tp", "PENDING"),
-        },
-        repr=False,
-        init=False,
-        compare=False,
-    )
-
-    def _protection_get(self, key: str) -> str:
-        """runtime.protection'dan order_id oku (flat string olarak)."""
-        info = self._PROTECTION_MAP[key]
-        ref = self.runtime.protection._get_ref(info[0], info[1])
-        return ref.order_id if ref else ""
-
-    def _protection_set(self, key: str, value: str) -> None:
-        """runtime.protection'a order_id yaz."""
-        info = self._PROTECTION_MAP[key]
-        self.runtime.protection._set_ref(info[0], info[1], value)
-
-    def _protection_history_get(self, kind: str) -> list[str]:
-        return [r.order_id for r in self.runtime.protection.history if r.kind == kind]
-
-    def _protection_history_set(self, kind: str, ids: list[str]) -> None:
-        existing = [r for r in self.runtime.protection.history if r.kind != kind]
-        new_refs = [
-            ProtectionRef(order_id=oid, kind=kind, slot=ProtectionSlot.PREVIOUS)
-            for oid in ids
-        ]
-        self.runtime.protection.history = existing + new_refs
-
     def __getitem__(self, key: str):
-        if key == "status":
-            return self.runtime.status.value
-        if key == "frozen":
-            return self.runtime.frozen
-        if key == "pending_events":
-            return self.runtime.pending_events
-        if key in self._PROTECTION_MAP:
-            return self._protection_get(key)
-        if key == "sl_order_id_history":
-            return self._protection_history_get("SL")
-        if key == "tp_order_id_history":
-            return self._protection_history_get("TP")
         try:
             return getattr(self, key)
         except AttributeError:
             raise KeyError(key)
 
     def __setitem__(self, key: str, value) -> None:
-        if key == "status":
-            self.runtime.status = TradeStatus(value)
-            self.runtime.frozen = value not in ("ACTIVE", "")
-        if key == "frozen":
-            self.runtime.frozen = bool(value)
-        if key in self._PROTECTION_MAP:
-            self._protection_set(key, str(value) if value else "")
-        if key == "sl_order_id_history":
-            if isinstance(value, list):
-                self._protection_history_set("SL", [str(x) for x in value])
-        if key == "tp_order_id_history":
-            if isinstance(value, list):
-                self._protection_history_set("TP", [str(x) for x in value])
         setattr(self, key, value)
 
     def get(self, key: str, default=None):
-        if key == "status":
-            return self.runtime.status.value
-        if key == "frozen":
-            return self.runtime.frozen
-        if key == "pending_events":
-            return self.runtime.pending_events
-        if key in self._PROTECTION_MAP:
-            return self._protection_get(key)
-        if key == "sl_order_id_history":
-            return self._protection_history_get("SL")
-        if key == "tp_order_id_history":
-            return self._protection_history_get("TP")
         return getattr(self, key, default)
-
-    def setdefault(self, key: str, default=None):
-        """Dict-uyumlu setdefault: attribute yoksa veya None ise default ata."""
-        try:
-            val = getattr(self, key)
-        except AttributeError:
-            val = None
-        if val is None:
-            setattr(self, key, default)
-            return default
-        return val
 
     def __contains__(self, key: str) -> bool:
         return hasattr(self, key)

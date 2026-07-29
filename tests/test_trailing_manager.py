@@ -3,14 +3,19 @@ test_trailing_manager.py — TrailingManager: FVG trail + exit check unit tests.
 Pure logic — no mocking needed except for config constants.
 """
 
+from decimal import Decimal
+
 import pytest
 from unittest.mock import patch
 
 from models import Bar
 from trading.trailing_manager import (
+    ImmediateTriggerError,
+    TrailLevel,
     TrailResult,
     ExitDecision,
     TrailingManager,
+    TrailingConfig,
 )
 
 
@@ -124,6 +129,8 @@ class TestEvaluateTrail:
         """Long trade: new SL = fvg.bottom - buffer > current SL → trail."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.2
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
+        mock_cfg.MIN_SL_DISTANCE_PCT_MAP = {}
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
 
         # 5 bars → chunk has 4 (indices 0-3) → FVG at bar1, confirmed by bar3 close in range
@@ -193,6 +200,8 @@ class TestEvaluateTrail:
         """Filled/invalidated FVGs are skipped."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
+        mock_cfg.MIN_SL_DISTANCE_PCT_MAP = {}
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
 
         # evaluate_trail only calls detect_fvgs, not update_fvg_states → filled is always False
@@ -259,8 +268,51 @@ class TestEvaluateTrail:
         with patch("trading.trailing_manager.cfg") as mock_cfg:
             mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
             mock_cfg.ATR_TRAIL_MULT = 0.25
+            mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
+            mock_cfg.MIN_SL_DISTANCE_PCT_MAP = {}
             result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
         assert result.trail_count == 3
+
+    @patch("trading.trailing_manager.cfg")
+    def test_long_fvg_too_close_skips_trail(self, mock_cfg):
+        """Long: FVG.bottom is very close to current price → trail skipped."""
+        mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
+        mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.MIN_SL_DISTANCE_PCT = 0.0030
+        mock_cfg.MIN_SL_DISTANCE_PCT_MAP = {}
+        trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
+
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 103, 105, 102, 104),
+            _bar(2, 106, 110, 105, 108),
+            _bar(3, 102.93, 106, 102, 103),
+            _bar(4, 100, 101, 99, 100.0),
+        ]
+        result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
+        assert result.updated is True
+        assert result.new_sl == pytest.approx(102.925)
+
+    @patch("trading.trailing_manager.cfg")
+    def test_short_fvg_too_close_skips_trail(self, mock_cfg):
+        """Short: FVG.top is very close to current price → trail skipped."""
+        mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
+        mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.MIN_SL_DISTANCE_PCT = 0.0030
+        mock_cfg.MIN_SL_DISTANCE_PCT_MAP = {}
+        trade = _trade(side="short", entry_price=100.0, sl=103.0, tp=94.0, risk_pts=3.0)
+
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 99, 101, 97, 98),
+            _bar(2, 96, 98, 93, 95),
+            _bar(3, 97.07, 100, 96.5, 98.5),  # close in [98,99] → confirms bearish FVG
+            _bar(4, 100, 101, 99, 100.0),
+        ]
+        result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
+        assert result.updated is True
+        assert result.new_sl == pytest.approx(99.075)
+        assert result.new_tp == pytest.approx(94.0 - (103.0 - 99.075))
 
     def test_chunk_lookback_capped_at_50(self):
         """lookback is min(50, len(chunk))."""
@@ -286,6 +338,8 @@ class TestEvaluateTrail:
         """
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.2
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
+        mock_cfg.MIN_SL_DISTANCE_PCT_MAP = {}
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
 
         bars = [
@@ -463,6 +517,8 @@ class TestTrailAndExitSequence:
         """Trail SL up, then next bar hits the new SL."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
+        mock_cfg.MIN_SL_DISTANCE_PCT_MAP = {}
 
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
 
@@ -495,6 +551,8 @@ class TestTrailAndExitSequence:
         """Trail SL up, then price shoots to new TP."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
+        mock_cfg.MIN_SL_DISTANCE_PCT_MAP = {}
 
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
 
@@ -538,3 +596,110 @@ class TestTrailAndExitSequence:
         exit_check = TrailingManager.check_exit(current, trade)
         assert exit_check.triggered is True
         assert exit_check.result == "SL"
+
+
+# ═══════════════════════════════════════════════════════════════════
+# TP re-anchor from trailing SL (compute_trail_candidate)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class FakePriceReader:
+    def __init__(self, price: str) -> None:
+        self.price = Decimal(price)
+
+    async def get_last_price(self, symbol: str) -> Decimal:
+        return self.price
+
+
+class FakeGateway:
+    def __init__(self, *, raise_immediate_trigger: bool = False) -> None:
+        self.raise_immediate_trigger = raise_immediate_trigger
+        self.calls = 0
+        self.fingerprints = []
+
+    async def replace_protection(self, *, trade, candidate, current_price):
+        self.calls += 1
+        self.fingerprints.append(candidate.fingerprint)
+        if self.raise_immediate_trigger:
+            raise ImmediateTriggerError("Order would immediately trigger")
+        return True
+
+
+def test_tp_is_reanchored_from_new_trailing_sl_not_from_entry_rule():
+    def extractor(scoped_bars, trade):
+        return TrailLevel(
+            price=Decimal("106.0"),
+            source_bar_index=scoped_bars[-1]["index"],
+            reason="post-entry swing low",
+        )
+
+    bars = [
+        {"index": 30, "high": 108, "low": 103, "close": 107},
+        {"index": 31, "high": 109, "low": 104, "close": 108},
+        {"index": 32, "high": 110, "low": 105, "close": 109},
+    ]
+    trade = {
+        "symbol": "BTCUSDT",
+        "side": "long",
+        "entry_price": 100.0,
+        "entry_bar_index": 30,
+        "stop_loss": 95.0,
+        "take_profit": 120.0,
+        "tick_size": 0.5,
+        "trail_level_extractor": extractor,
+    }
+
+    manager = TrailingManager(
+        price_reader=FakePriceReader("109.0"),
+        protection_gateway=FakeGateway(),
+        config=TrailingConfig(
+            sl_buffer_ticks=0, reward_multiple_on_trail=Decimal("2.0")
+        ),
+    )
+
+    candidate = manager.compute_trail_candidate(trade, bars)
+
+    assert candidate is not None
+    assert candidate.sl == Decimal("106.0")
+    # Yeni kural: tp = sl + (sl - entry) * RR = 106 + (6 * 2) = 118
+    assert candidate.tp == Decimal("118.0")
+
+
+def test_tp_update_depends_on_rr_consistency_not_on_being_farther_away():
+    def extractor(scoped_bars, trade):
+        return TrailLevel(
+            price=Decimal("106.0"),
+            source_bar_index=scoped_bars[-1]["index"],
+            reason="post-entry swing low",
+        )
+
+    bars = [
+        {"index": 40, "high": 108, "low": 103, "close": 107},
+        {"index": 41, "high": 109, "low": 104, "close": 108},
+        {"index": 42, "high": 110, "low": 105, "close": 109},
+    ]
+    trade = {
+        "symbol": "BTCUSDT",
+        "side": "long",
+        "entry_price": 100.0,
+        "entry_bar_index": 40,
+        "stop_loss": 95.0,
+        "take_profit": 130.0,  # daha uzak ama yeni SL'e göre tutarsız
+        "tick_size": 0.5,
+        "trail_level_extractor": extractor,
+    }
+
+    manager = TrailingManager(
+        price_reader=FakePriceReader("109.0"),
+        protection_gateway=FakeGateway(),
+        config=TrailingConfig(
+            sl_buffer_ticks=0, reward_multiple_on_trail=Decimal("2.0")
+        ),
+    )
+
+    candidate = manager.compute_trail_candidate(trade, bars)
+
+    assert candidate is not None
+    # Eski mantıkta 130 > 118 diye tp update edilmeyebilirdi.
+    # Yeni mantıkta önemli olan büyüklük değil, RR tutarlılığı.
+    assert candidate.tp == Decimal("118.0")
