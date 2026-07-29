@@ -182,8 +182,6 @@ RISK_PER_TRADE = cfg.RISK_PER_TRADE
 # EXIT_LIFECYCLE_SERVICE_ENABLED kaldirildi (P0-1): tum exit'ler
 # ExitLifecycleService.execute() uzerinden gider. Eski flag ve legacy
 # _exit_trade_legacy silindi.
-# Patch Set 3 (new_refactoring_plan1.md) rollout flag.
-PROTECTION_LIFECYCLE_SERVICE_ENABLED = cfg.PROTECTION_LIFECYCLE_SERVICE_ENABLED
 
 
 class PaperTrader:
@@ -255,12 +253,9 @@ class PaperTrader:
             ),
         )
         # Patch Set 3 (new_refactoring_plan1.md): Protection policy kararlari
-        # ProtectionLifecycleService'te toplandi. PROTECTION_LIFECYCLE_SERVICE_ENABLED
-        # False iken OrderManager/RecoveryManager eski inline logic'i korur.
-        self.protection_service = None
-        if PROTECTION_LIFECYCLE_SERVICE_ENABLED:
-            self.protection_service = ProtectionLifecycleService()
-            self.order_manager._protection = self.protection_service
+        # ProtectionLifecycleService her zaman aktif.
+        self.protection_service = ProtectionLifecycleService()
+        self.order_manager._protection = self.protection_service
         # P0-1: ExitLifecycleService tum exit'leri yonetir. Legacy kaldirildi.
         self.exit_service = ExitLifecycleService(
             rest_client=self.rest,
