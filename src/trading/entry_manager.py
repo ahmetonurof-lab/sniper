@@ -191,12 +191,7 @@ class EntryManager:
     def apply_min_sl_distance(
         entry_price: float, sl: float, side: str, symbol: str = ""
     ) -> float:
-        min_pct = (
-            cfg.MIN_SL_DISTANCE_PCT_MAP.get(symbol, cfg.MIN_SL_DISTANCE_PCT)
-            if symbol
-            else cfg.MIN_SL_DISTANCE_PCT
-        )
-        min_dist = entry_price * min_pct
+        min_dist = entry_price * cfg.MIN_SL_DISTANCE_PCT
         if side == "long":
             min_sl_price = entry_price - min_dist
             return min(sl, min_sl_price)

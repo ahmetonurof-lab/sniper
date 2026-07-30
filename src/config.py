@@ -569,13 +569,6 @@ FVG_BUFFER_MIN_FACTOR = 0.10
 # (2 x %0.05) + tipik slippage (%0.05) baz alınmıştır = %0.15.
 # ATR bazlı SL hesaplamasını BOZMAZ, sadece taban garanti altına alır.
 MIN_SL_DISTANCE_PCT = 0.0015
-# P1-15: Sembol bazlı MIN_SL_DISTANCE override — düşük likiditeli
-# sembollerde SL çok dar kalınca her small tick'te tetiklenip
-# stale event döngüsüne yol açıyor (GMXUSDT orantısız etkileniyor).
-# Bu map'te olmayan semboller default MIN_SL_DISTANCE_PCT kullanır.
-MIN_SL_DISTANCE_PCT_MAP: dict[str, float] = {
-    "GMXUSDT": 0.0030,  # %0.30 — düşük likidite + WS gecikmesi
-}
 
 # Restart recovery sirasinda gercek ATR yoksa (bot yeni acildi, henuz bar
 # birikmedi) kullanilan ACIL DURUM SL/TP mesafesi. DEFAULT_ATR_FALLBACK_PCT
