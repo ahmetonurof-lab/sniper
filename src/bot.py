@@ -605,8 +605,6 @@ class PaperTrader:
             fvg_buf=fvg_buf,
             tp_rr=tp_rr,
             trigger_fvg=rsm.trigger_fvg,
-            london_high=ss.london_high,
-            london_low=ss.london_low,
         )
 
         # ── 1. SENKRON VALİDASYONLAR (PENDING KİLİDİNDEN ÖNCE) → EntryManager ──
@@ -702,8 +700,6 @@ class PaperTrader:
                     fvg_buf=fvg_buf,
                     tp_rr=tp_rr,
                     trigger_fvg=fvg,
-                    london_high=ss.london_high,
-                    london_low=ss.london_low,
                 )
                 if not exec_result.success:
                     self._pl(sym, "order_err", f"\u274c ORDER: {exec_result.error}")
@@ -811,8 +807,6 @@ class PaperTrader:
                     fvg_buf=fvg_buf,
                     tp_rr=tp_rr,
                     trigger_fvg=fvg,
-                    london_high=ss.london_high,
-                    london_low=ss.london_low,
                 )
                 if paper_result.entry_log_msg:
                     self._pl(sym, "entry", paper_result.entry_log_msg)

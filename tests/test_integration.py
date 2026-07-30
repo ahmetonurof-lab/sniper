@@ -167,8 +167,6 @@ class TestTriggerEntry:
             fvg_buf=0.50,
             tp_rr=2.0,
             trigger_fvg=fvg,
-            london_high=115.0,
-            london_low=105.0,
         )
         # buffer = max(0.2, max(0.5, min(0.5, 2.5))) = 0.5
         # SL = 103.0 - 0.5 = 102.5, rd = |102.5 - 110| = 7.5
@@ -186,8 +184,6 @@ class TestTriggerEntry:
             fvg_buf=0.50,
             tp_rr=2.0,
             trigger_fvg=fvg,
-            london_high=110.0,
-            london_low=95.0,
         )
         # buffer = max(0.1, max(0.5, min(0.25, 2.5))) = 0.5
         # SL = 109.0 + 0.5 = 109.5, rd = |109.5 - 100| = 9.5
@@ -204,8 +200,6 @@ class TestTriggerEntry:
             fvg_buf=0.50,
             tp_rr=2.0,
             trigger_fvg=None,
-            london_high=110.0,
-            london_low=95.0,
         )
         # SL = 100 - 5*2 = 90, rd = |90 - 100| = 10
         # TP = 100 + 10*2 = 120
@@ -460,8 +454,6 @@ class TestDryStrategyFlow:
                 fvg_buf=0.50,
                 tp_rr=2.0,
                 trigger_fvg=rsm.trigger_fvg,
-                london_high=120.0,
-                london_low=100.0,
             )
             assert sl < 117.0  # SL entry altinda
             assert tp > 117.0  # TP entry ustunde
@@ -532,8 +524,6 @@ class TestDryStrategyFlow:
                 fvg_buf=0.50,
                 tp_rr=2.0,
                 trigger_fvg=rsm.trigger_fvg,
-                london_high=110.0,
-                london_low=90.0,
             )
             assert sl > 95.0  # SL entry ustunde (short)
             assert tp < 95.0  # TP entry altinda (short)

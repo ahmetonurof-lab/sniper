@@ -466,8 +466,6 @@ class TestDryFlowExtended:
                 fvg_buf=0.50,
                 tp_rr=2.0,
                 trigger_fvg=rsm.trigger_fvg,
-                london_high=120.0,
-                london_low=100.0,
             )
             assert sl < 117.0
             assert tp > 117.0
@@ -540,8 +538,6 @@ class TestDryFlowExtended:
                 fvg_buf=0.50,
                 tp_rr=2.0,
                 trigger_fvg=rsm.trigger_fvg,
-                london_high=110.0,
-                london_low=90.0,
             )
             assert sl > 95.0
             assert tp < 95.0

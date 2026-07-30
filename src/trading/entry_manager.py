@@ -11,11 +11,12 @@ Kırmızı çizgiler:
 - _pl() formatına dokunulmaz (PaperTrader'da kalır)
 - Import yolları kırılmayacak
 
-Düzeltme (v2):
-- minNotional hatası artık trade'i iptal etmiyor.
-  qty < minNotional ise, minimum geçerli qty'ye yükseltilir,
-  sonra buying power tavanıyla kontrol edilir.
-  Tavan da yetersizse o zaman iptal edilir ve sebebi loglanır.
+SL Live Uyumluluğu (2026-07-30):
+- calculate_sl_tp: max_risk_dist override kaldırıldı, apply_min_sl_distance TP'den ÖNCE
+- Decimal tick rounding (direction-aware floor/ceil)
+- Actual fill fiyatıyla yeniden hesaplama + epsilon yön kontrolü
+- -2021 emergency flow: retry yok, emergency close, CRITICAL alert
+- protected state yalnızca SL response doğrulandıktan sonra
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ import logging
 import math
 import time
 from dataclasses import dataclass
+from decimal import Decimal, ROUND_FLOOR, ROUND_CEILING
 from typing import TYPE_CHECKING
 
 import config as cfg
@@ -34,6 +36,10 @@ if TYPE_CHECKING:
     from models import FVG
 
 log = logging.getLogger("sniper.entry_manager")
+
+
+class InvalidProtectionLevel(Exception):
+    """SL/TP hesaplaması geçersiz yön veya mesafe üretti."""
 
 
 @dataclass
@@ -46,11 +52,6 @@ class EntryExecutionResult:
     tp_order_id: str = ""
     error: str = ""
     entry_log_msg: str = ""
-    actual_qty: float = 0.0
-    actual_price: float = 0.0
-    quote_qty: float = 0.0
-    order_id: str = ""
-    entry_price: float = 0.0
     actual_qty: float = 0.0
     actual_price: float = 0.0
     quote_qty: float = 0.0
@@ -97,7 +98,56 @@ class EntryManager:
                 qty = max_qty
         return qty
 
-    # ── 2.5 SL/TP hesaplama ──────────────────────────────────────
+    # ── 2.5 SL/TP hesaplama — backtest parity ────────────────────
+
+    @staticmethod
+    def _fvg_height_valid(fvg: "FVG") -> bool:
+        """FVG validity: height>0, no NaN/inf."""
+        if fvg is None:
+            return False
+        h = fvg.top - fvg.bottom
+        if h <= 0:
+            return False
+        if math.isnan(h) or math.isinf(h):
+            return False
+        return True
+
+    @staticmethod
+    def _assert_valid_protection_direction(
+        side: str, entry_price: float, sl: float, tp: float
+    ):
+        if side == "long":
+            if not (sl < entry_price and tp > entry_price):
+                raise InvalidProtectionLevel(
+                    f"long SL={sl} < entry={entry_price} < TP={tp} ihlali"
+                )
+        else:
+            if not (sl > entry_price and tp < entry_price):
+                raise InvalidProtectionLevel(
+                    f"short SL={sl} > entry={entry_price} > TP={tp} ihlali"
+                )
+
+    @staticmethod
+    def floor_to_tick(price: float, tick_size: Decimal) -> float:
+        d = Decimal(str(price))
+        return float(d.quantize(tick_size, rounding=ROUND_FLOOR))
+
+    @staticmethod
+    def ceil_to_tick(price: float, tick_size: Decimal) -> float:
+        d = Decimal(str(price))
+        return float(d.quantize(tick_size, rounding=ROUND_CEILING))
+
+    @staticmethod
+    def round_sl_tp(
+        side: str, sl: float, tp: float, tick_size: Decimal
+    ) -> tuple[float, float]:
+        if side == "long":
+            rsl = EntryManager.floor_to_tick(sl, tick_size)
+            rtp = EntryManager.ceil_to_tick(tp, tick_size)
+        else:
+            rsl = EntryManager.ceil_to_tick(sl, tick_size)
+            rtp = EntryManager.floor_to_tick(tp, tick_size)
+        return rsl, rtp
 
     @staticmethod
     def calculate_sl_tp(
@@ -107,74 +157,58 @@ class EntryManager:
         fvg_buf: float,
         tp_rr: float,
         trigger_fvg: "FVG | None",
-        london_high: float,
-        london_low: float,
     ) -> tuple[float, float]:
+        """
+        Backtest-parity SL/TP hesaplama (analyzer_v5 ile birebir).
+
+        Sıra:
+          1. FVG tabanlı veya fallback SL
+          2. apply_min_sl_distance (MIN_SL_DISTANCE_PCT)
+          3. risk_dist = abs(sl - entry_price)
+          4. TP = entry ± risk_dist × tp_rr
+          5. Yön kontrolü (InvalidProtectionLevel)
+        """
+        if risk_pts <= 0:
+            raise InvalidProtectionLevel(f"risk_pts={risk_pts} <= 0")
+
         if side == "long":
-            if trigger_fvg:
-                fvg_height = trigger_fvg.top - trigger_fvg.bottom
-                if fvg_height <= 0:
-                    sl = entry_price - risk_pts * 2
-                    log.warning(
-                        "[SL_CALC] %s long FVG height=0 — fallback SL",
-                        side,
-                    )
-                else:
-                    adaptive_buf = max(
-                        fvg_height * cfg.FVG_BUFFER_MIN_FACTOR,
-                        max(risk_pts * 0.1, min(fvg_height * 0.25, risk_pts * fvg_buf)),
-                    )
-                    sl = trigger_fvg.bottom - adaptive_buf
+            if EntryManager._fvg_height_valid(trigger_fvg):
+                fh = trigger_fvg.top - trigger_fvg.bottom
+                adaptive_buf = max(
+                    fh * cfg.FVG_BUFFER_MIN_FACTOR,
+                    max(risk_pts * 0.1, min(fh * 0.25, risk_pts * fvg_buf)),
+                )
+                raw_sl = trigger_fvg.bottom - adaptive_buf
             else:
-                sl = entry_price - risk_pts * 2
-            risk_dist = abs(sl - entry_price)
+                raw_sl = entry_price - risk_pts * 2
+
+            sl = EntryManager.apply_min_sl_distance(entry_price, raw_sl, side)
+            risk_dist = entry_price - sl
             if risk_dist <= 0:
-                sl = entry_price - risk_pts * 2
-                risk_dist = abs(sl - entry_price)
+                raise InvalidProtectionLevel(
+                    f"long risk_dist={risk_dist} <= 0 (entry={entry_price} sl={sl})"
+                )
             tp = entry_price + risk_dist * tp_rr
         else:
-            if trigger_fvg:
-                fvg_height = trigger_fvg.top - trigger_fvg.bottom
-                if fvg_height <= 0:
-                    sl = entry_price + risk_pts * 2
-                    log.warning(
-                        "[SL_CALC] %s short FVG height=0 — fallback SL",
-                        side,
-                    )
-                else:
-                    adaptive_buf = max(
-                        fvg_height * cfg.FVG_BUFFER_MIN_FACTOR,
-                        max(risk_pts * 0.1, min(fvg_height * 0.25, risk_pts * fvg_buf)),
-                    )
-                    sl = trigger_fvg.top + adaptive_buf
+            if EntryManager._fvg_height_valid(trigger_fvg):
+                fh = trigger_fvg.top - trigger_fvg.bottom
+                adaptive_buf = max(
+                    fh * cfg.FVG_BUFFER_MIN_FACTOR,
+                    max(risk_pts * 0.1, min(fh * 0.25, risk_pts * fvg_buf)),
+                )
+                raw_sl = trigger_fvg.top + adaptive_buf
             else:
-                sl = entry_price + risk_pts * 2
-            risk_dist = abs(sl - entry_price)
+                raw_sl = entry_price + risk_pts * 2
+
+            sl = EntryManager.apply_min_sl_distance(entry_price, raw_sl, side)
+            risk_dist = sl - entry_price
             if risk_dist <= 0:
-                sl = entry_price + risk_pts * 2
-                risk_dist = abs(sl - entry_price)
+                raise InvalidProtectionLevel(
+                    f"short risk_dist={risk_dist} <= 0 (entry={entry_price} sl={sl})"
+                )
             tp = entry_price - risk_dist * tp_rr
 
-        # ── P1-3 FIX: safety-net guard — TP yon hatasi varsa fallback ──
-        if (side == "short" and tp >= entry_price) or (
-            side == "long" and tp <= entry_price
-        ):
-            log.critical(
-                "[SL_CALC_GUARD] %s TP yon hatasi: entry=%.6f tp=%.6f — raw risk_pts fallback",
-                side,
-                entry_price,
-                tp,
-            )
-            if side == "short":
-                sl = entry_price + risk_pts * 2
-                tp = entry_price - risk_pts * 2 * tp_rr
-            else:
-                sl = entry_price - risk_pts * 2
-                tp = entry_price + risk_pts * 2 * tp_rr
-
-        # P3-4: MIN_SL_DISTANCE_PCT taban guard — SL asla entry'ye çok yaklaşamaz
-        sl = EntryManager.apply_min_sl_distance(entry_price, sl, side)
-
+        EntryManager._assert_valid_protection_direction(side, entry_price, sl, tp)
         return sl, tp
 
     # ── 3. Canlı emir yerleştirme ────────────────────────────────
@@ -216,6 +250,53 @@ class EntryManager:
             quote_qty = avg_price * executed_qty
         return (executed_qty, avg_price, quote_qty)
 
+    @staticmethod
+    def validate_protection_with_actual_fill(
+        side: str,
+        actual_fill: float,
+        sl: float,
+        tp: float,
+        tick_size: Decimal,
+        epsilon_ticks: int = 2,
+    ) -> tuple[bool, str]:
+        epsilon = float(tick_size) * epsilon_ticks
+        if side == "long":
+            if not (sl < actual_fill - epsilon):
+                return False, f"SL={sl} >= actual_fill={actual_fill} - eps={epsilon}"
+            if not (tp > actual_fill + epsilon):
+                return False, f"TP={tp} <= actual_fill={actual_fill} + eps={epsilon}"
+        else:
+            if not (sl > actual_fill + epsilon):
+                return False, f"SL={sl} <= actual_fill={actual_fill} + eps={epsilon}"
+            if not (tp < actual_fill - epsilon):
+                return False, f"TP={tp} >= actual_fill={actual_fill} - eps={epsilon}"
+        return True, ""
+
+    async def _emergency_close(
+        self, sym: str, side: str, qty: float, reason: str
+    ) -> EntryExecutionResult:
+        opp_side = "SELL" if side.upper() == "BUY" else "BUY"
+        log.critical("[EMERGENCY] %s %s — acil kapatma baslatiliyor", sym, reason)
+        try:
+            await self._rest.place_market_order(
+                sym,
+                opp_side,
+                qty,
+                reduce_only=True,
+                client_order_id=f"emergency-{sym.lower()}-{int(time.time()*1000)}",
+            )
+            log.critical("[EMERGENCY] %s acil kapatma gonderildi", sym)
+        except Exception as e:
+            log.critical("[EMERGENCY] %s acil kapatma BASARISIZ: %s", sym, e)
+            return EntryExecutionResult(
+                success=False,
+                error=f"EMERGENCY CLOSE BASARISIZ — {e}",
+            )
+        return EntryExecutionResult(
+            success=False,
+            error=f"EMERGENCY CLOSE — {reason}",
+        )
+
     async def execute_live_entry(
         self,
         sym: str,
@@ -230,20 +311,7 @@ class EntryManager:
         fvg_buf: float = 0.0,
         tp_rr: float = 2.0,
         trigger_fvg: "FVG | None" = None,
-        london_high: float = 0.0,
-        london_low: float = 0.0,
     ) -> EntryExecutionResult:
-        """
-        Binance üzerinde market + SL + TP emirlerini yerleştir.
-
-        Değişiklik: minNotional altında kalınırsa trade iptal edilmez,
-        qty minimum geçerli değere yükseltilir (bump). Buying power
-        tavanını aşıyorsa o zaman iptal edilir.
-
-        Args:
-            balance: Hesap bakiyesi — minNotional bump sonrası tavan kontrolü için.
-            leverage: Kaldıraç — buying power tavanı için.
-        """
         if not self._is_live:
             return EntryExecutionResult(
                 success=True,
@@ -259,7 +327,6 @@ class EntryManager:
         mkt_side = "BUY" if side == "long" else "SELL"
         sl_side = "SELL" if side == "long" else "BUY"
 
-        # ── Miktar precision ──────────────────────────────────────
         rounded_qty = await self._rest.apply_amount_precision(sym, qty)
         valid_qty = await self._rest.validate_min_amount(sym, rounded_qty)
         if valid_qty <= 0:
@@ -267,7 +334,6 @@ class EntryManager:
                 success=False, error=f"qty={qty:.6f} minQty altinda"
             )
 
-        # ── MIN_NOTIONAL kontrolü + otomatik bump ─────────────────
         est_price = entry_price or await self._rest.estimate_market_price(sym)
         valid_qty = await self._bump_to_min_notional(
             sym, valid_qty, est_price, balance, leverage
@@ -281,11 +347,6 @@ class EntryManager:
                 ),
             )
 
-        # ── FIX (P1-6): LOT_SIZE.maxQty clamp — SL/TP algo emirleri bu
-        # filtreye tabi, MARKET emri değil. Pozisyon max_qty'yi asarsa
-        # entry gecer ama SL/TP -4005 ile sonsuza kadar reddedilir.
-        # Once burada clamp'leyerek pozisyonun kendisini SL/TP'nin
-        # koruyabilecegi buyuklukte tut.
         max_qty = await self._rest.get_max_qty(sym)
         if max_qty > 0 and valid_qty > max_qty:
             log.warning(
@@ -306,7 +367,6 @@ class EntryManager:
                     ),
                 )
 
-        # ── Market entry ──────────────────────────────────────────
         mkt_resp = await self._rest.place_market_order(
             sym,
             mkt_side,
@@ -316,7 +376,6 @@ class EntryManager:
         actual_qty, actual_price, quote_qty = self.parse_market_fill(mkt_resp)
         mkt_id = extract_order_id(mkt_resp)
 
-        # Fill varsa ama orderId eksikse — Binance'te pozisyon acilmis olabilir
         if not mkt_id and actual_qty > 0 and actual_price > 0:
             try:
                 positions = await self._rest.get_positions()
@@ -324,24 +383,11 @@ class EntryManager:
                     if p["symbol"] == sym:
                         pos_amt = abs(float(p.get("positionAmt", 0)))
                         if pos_amt > 0:
-                            opp_side = "SELL" if mkt_side == "BUY" else "BUY"
-                            await self._rest.place_market_order(
+                            return await self._emergency_close(
                                 sym,
-                                opp_side,
+                                mkt_side,
                                 pos_amt,
-                                reduce_only=True,
-                                client_order_id=f"reconcile-{sym.lower()}-{int(time.time()*1000)}",
-                            )
-                            log.critical(
-                                "[MARKET-RECONCILE] %s pos=%.4f acik, orderId yok — "
-                                "acil kapatma gonderildi",
-                                sym,
-                                pos_amt,
-                            )
-                            return EntryExecutionResult(
-                                success=False,
-                                error=f"MARKET orderId bulunamadi — "
-                                f"pos={pos_amt:.4f} acik kapatildi",
+                                "MARKET orderId yok ama pozisyon acik — reconcile",
                             )
             except Exception as e:
                 log.critical("[MARKET-RECONCILE] %s pos sorgu hatasi: %s", sym, e)
@@ -350,7 +396,6 @@ class EntryManager:
                 )
 
         if not mkt_id or actual_qty <= 0 or actual_price <= 0:
-            # Market orderId var ama REST henuz fill donmemis olabilir (status=NEW)
             if mkt_id and actual_qty <= 0:
                 log.info("[MARKET] %s orderId=%s fill bekleniyor...", sym, mkt_id)
                 await asyncio.sleep(1.5)
@@ -394,43 +439,50 @@ class EntryManager:
             quote_qty,
         )
 
-        # ── P1-3 FIX: SL/TP'yi actual fill price ile yeniden hesapla ──
+        # ── SL/TP'yi actual fill price ile yeniden hesapla ──
+        order_qty = actual_qty if actual_qty > 0 else valid_qty
+        protected = False
         if actual_price > 0 and risk_pts > 0:
-            sl, tp = EntryManager.calculate_sl_tp(
-                side=side,
-                entry_price=actual_price,
-                risk_pts=risk_pts,
-                fvg_buf=fvg_buf,
-                tp_rr=tp_rr,
-                trigger_fvg=trigger_fvg,
-                london_high=london_high,
-                london_low=london_low,
-            )
-            if (side == "short" and tp >= actual_price) or (
-                side == "long" and tp <= actual_price
-            ):
+            try:
+                sl, tp = EntryManager.calculate_sl_tp(
+                    side=side,
+                    entry_price=actual_price,
+                    risk_pts=risk_pts,
+                    fvg_buf=fvg_buf,
+                    tp_rr=tp_rr,
+                    trigger_fvg=trigger_fvg,
+                )
+            except InvalidProtectionLevel as e:
                 log.critical(
-                    "[SL_TP_RECALC] %s gecersiz TP yonu — side=%s entry=%.6f tp=%.6f — acil kapatma",
+                    "[SL_TP_CALC] %s gecersiz SL/TP: %s — acil kapatma",
                     sym,
-                    side,
+                    e,
+                )
+                return await self._emergency_close(
+                    sym, mkt_side, order_qty, f"SL/TP CALC FAIL — {e}"
+                )
+
+            # ── Tick rounding (Decimal, direction-aware) ──
+            tick_size = await self._rest.get_tick_size(sym)
+            tick_dec = Decimal(str(tick_size))
+            rsl, rtp = EntryManager.round_sl_tp(side, sl, tp, tick_dec)
+            sl, tp = rsl, rtp
+
+            # ── Yön kontrolü (actual fill fiyatiyla) ──
+            valid_dir, dir_msg = EntryManager.validate_protection_with_actual_fill(
+                side, actual_price, sl, tp, tick_dec, epsilon_ticks=2
+            )
+            if not valid_dir:
+                log.critical(
+                    "[SL_TP_VALIDATION] %s actual_fill=%.6f dogrulama BASARISIZ: %s — acil kapatma",
+                    sym,
                     actual_price,
-                    tp,
+                    dir_msg,
                 )
-                opp_side = "SELL" if mkt_side == "BUY" else "BUY"
-                try:
-                    await self._rest.place_market_order(
-                        sym,
-                        opp_side,
-                        actual_qty,
-                        reduce_only=True,
-                        client_order_id=f"recalc-fail-{sym.lower()}-{int(time.time()*1000)}",
-                    )
-                except Exception as e:
-                    log.critical("[SL_TP_RECALC] %s acil kapatma basarisiz: %s", sym, e)
-                return EntryExecutionResult(
-                    success=False,
-                    error="SL_TP_RECALC: gecersiz TP yonu — pozisyon acil kapatildi",
+                return await self._emergency_close(
+                    sym, mkt_side, order_qty, f"SL/TP direction fail — {dir_msg}"
                 )
+
             log.info(
                 "[SL_TP_RECALC] %s sl/tp actual_price=%.6f ile yeniden hesaplandi: sl=%.6f tp=%.6f",
                 sym,
@@ -439,35 +491,28 @@ class EntryManager:
                 tp,
             )
 
-        # ── SL ve TP emirleri (actual_qty ile) ────────────────────
-        order_qty = actual_qty if actual_qty > 0 else valid_qty
+        # ── SL emri (actual_qty ile) ────────────────────
         rounded_sl = await self._rest.apply_price_precision(sym, sl)
         sl_resp = await self._rest.place_stop_order(sym, sl_side, order_qty, rounded_sl)
         log.debug("[ORDER] %s SL place_stop_order raw resp: %s", sym, sl_resp)
+
+        # -2021 veya herhangi bir hata: retry YOK, emergency close
+        err_code = sl_resp.get("code", 0) if isinstance(sl_resp, dict) else 0
         sl_id = extract_order_id(sl_resp)
-        if not sl_id:
+
+        if not sl_id or err_code == -2021:
             log.critical(
-                "[ORDER] %s SL BASARISIZ! Acil pozisyon kapatiliyor. resp=%s",
+                "[ORDER] %s SL BASARISIZ code=%s! Acil kapatma. resp=%s",
                 sym,
+                err_code,
                 sl_resp,
             )
-            opp_side = "SELL" if mkt_side == "BUY" else "BUY"
-            try:
-                await self._rest.place_market_order(
-                    sym,
-                    opp_side,
-                    order_qty,
-                    client_order_id=f"sl-fail-{sym.lower()}-{int(time.time()*1000)}",
-                )
-            except Exception as e:
-                log.critical(
-                    "[ORDER] %s acil pozisyon kapatma emri basarisiz: %s", sym, e
-                )
-            return EntryExecutionResult(
-                success=False, error="SL BASARISIZ — acil pozisyon kapatildi"
+            return await self._emergency_close(
+                sym, mkt_side, order_qty, f"SL FAIL code={err_code}"
             )
 
-        log.info("[ORDER] %s SL OK at line=%s", sym, sl_id)
+        protected = True
+        log.info("[ORDER] %s SL OK id=%s (protected=%s)", sym, sl_id, protected)
 
         # ── TP emri ───────────────────────────────────────────────
         rounded_tp = await self._rest.apply_price_precision(sym, tp)
