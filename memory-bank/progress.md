@@ -4,7 +4,8 @@
 
 | Tarih | İşlem | Detay |
 |-------|-------|-------|
-| 2026-07-28 18:47 | Live trailing_manager guard push — 294f7e8 | Guard local'de uncommitted'ti. Push edildi: ref_price/min_dist check. Sunucuda git pull => trailing_manager'ye 8 satır gelir. Backtest(9a2c0bc) ile live(294f7e8) parity sağlandı.
+| 2026-07-30 14:24 | calculate_sl_tp dead code temizliği + max_risk_dist override kaldırıldı | `max_risk_dist = risk_pts * cfg.MAX_SL_DIST_MULT` + 2 override bloğu silindi (GMXUSDT FVG-anchor SL ezmesi). `symbol` parametresi ölüydü (MIN_SL_DISTANCE_PCT_MAP commit 5c8e4f4'te zaten silinmiş). `apply_min_sl_distance()`'dan `symbol` kaldırıldı. `bot.py` + `entry_manager.py` çağrıları temizlendi. |
+| 2026-07-28 18:47 | Live trailing_manager guard push — 294f7e8 | Guard local'de uncommitted'ti. Push edildi: ref_price/min_dist check. Sunucuda git pull => trailing_manager'ye 8 satır gelir. Backtest(9a2c0bc) ile live(294f7e8) parity sağlandı. |
 | 2026-07-27 23:00 | exec_sim analyzer_v5 entegrasyonu — 2 bug fix + mimari bulgu | Bug #1: sa.append(t) eksik → trades active'dan düşüyordu. Bug #2: PROFIT_TRAIL misclassification → PTrail% 55→5'e düştü. Mimari bulgu: exec_sim SL exit'te değil TRAILING'de uygulanmali. |
 | 2026-07-27 22:00 | exec_sim backtest koşusu (buggy) | 26,395 trade, PnL -993,753, PF ~0.22. Bug #2'nin etkisi: PTrail% çöktü, strateji karlılığı yok edildi. |
 | 2026-07-27 20:00 | Canlı paper trade log analizi | trades_history: 298 trade, PnL -$346.50, WR %23. 99 WS_FALLBACK (-$142), 111 SL (-$294). OPUSDT qty=0.1 tespit edildi. |

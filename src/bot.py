@@ -607,7 +607,6 @@ class PaperTrader:
             trigger_fvg=rsm.trigger_fvg,
             london_high=ss.london_high,
             london_low=ss.london_low,
-            symbol=sym,
         )
 
         # ── 1. SENKRON VALİDASYONLAR (PENDING KİLİDİNDEN ÖNCE) → EntryManager ──

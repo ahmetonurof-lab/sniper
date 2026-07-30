@@ -577,7 +577,7 @@ MIN_SL_DISTANCE_PCT = 0.0015
 # korumasiz kalir. Bu yuzden ayri, gercekci bir yuzde kullaniyoruz.
 RECOVERY_SL_FALLBACK_PCT = 0.02
 
-FVG_WICK_RATIO_MAX = 0.75
+FVG_WICK_RATIO_MAX = 0.75  # 0,75 > 1.0
 
 
 # ── Binance API ────────────────────────────────────────────────

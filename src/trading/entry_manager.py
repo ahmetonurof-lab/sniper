@@ -109,9 +109,7 @@ class EntryManager:
         trigger_fvg: "FVG | None",
         london_high: float,
         london_low: float,
-        symbol: str = "",
     ) -> tuple[float, float]:
-        max_risk_dist = risk_pts * cfg.MAX_SL_DIST_MULT
         if side == "long":
             if trigger_fvg:
                 fvg_height = trigger_fvg.top - trigger_fvg.bottom
@@ -130,9 +128,6 @@ class EntryManager:
             else:
                 sl = entry_price - risk_pts * 2
             risk_dist = abs(sl - entry_price)
-            if trigger_fvg and risk_dist > max_risk_dist:
-                sl = entry_price - risk_pts * 2
-                risk_dist = abs(sl - entry_price)
             if risk_dist <= 0:
                 sl = entry_price - risk_pts * 2
                 risk_dist = abs(sl - entry_price)
@@ -155,9 +150,6 @@ class EntryManager:
             else:
                 sl = entry_price + risk_pts * 2
             risk_dist = abs(sl - entry_price)
-            if trigger_fvg and risk_dist > max_risk_dist:
-                sl = entry_price + risk_pts * 2
-                risk_dist = abs(sl - entry_price)
             if risk_dist <= 0:
                 sl = entry_price + risk_pts * 2
                 risk_dist = abs(sl - entry_price)
@@ -181,16 +173,14 @@ class EntryManager:
                 tp = entry_price + risk_pts * 2 * tp_rr
 
         # P3-4: MIN_SL_DISTANCE_PCT taban guard — SL asla entry'ye çok yaklaşamaz
-        sl = EntryManager.apply_min_sl_distance(entry_price, sl, side, symbol)
+        sl = EntryManager.apply_min_sl_distance(entry_price, sl, side)
 
         return sl, tp
 
     # ── 3. Canlı emir yerleştirme ────────────────────────────────
 
     @staticmethod
-    def apply_min_sl_distance(
-        entry_price: float, sl: float, side: str, symbol: str = ""
-    ) -> float:
+    def apply_min_sl_distance(entry_price: float, sl: float, side: str) -> float:
         min_dist = entry_price * cfg.MIN_SL_DISTANCE_PCT
         if side == "long":
             min_sl_price = entry_price - min_dist
@@ -415,7 +405,6 @@ class EntryManager:
                 trigger_fvg=trigger_fvg,
                 london_high=london_high,
                 london_low=london_low,
-                symbol=sym,
             )
             if (side == "short" and tp >= actual_price) or (
                 side == "long" and tp <= actual_price

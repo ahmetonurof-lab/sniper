@@ -1,6 +1,19 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: exec_sim guard restore — live trailing_manager.py ile birebir uyumlu (2026-07-28 18:20)
+## Son İşlem: calculate_sl_tp dead code temizliği + max_risk_dist override kaldırıldı (2026-07-30 14:24)
+
+`calculate_sl_tp()` artık `analyzer_v5.py` backtest SL formülü ile birebir aynı:
+- `max_risk_dist = risk_pts * cfg.MAX_SL_DIST_MULT` + 2 override bloğu KALDIRILDI — GMXUSDT gibi geniş FVG'li coinlerde FVG-anchor SL'yi eziyordu.
+- `symbol` parametri (MIN_SL_DISTANCE_PCT_MAP için eklenmişti) artık ölü — commit `5c8e4f4`'te map zaten silinmişti.
+- `apply_min_sl_distance()`'dan `symbol` parametresi kaldırıldı.
+- `bot.py` + `entry_manager.py`'deki `symbol=sym` çağrıları temizlendi.
+
+**Değişiklikler:**
+- `src/trading/entry_manager.py`: `calculate_sl_tp()` imzasından `symbol`, `max_risk_dist` satırı, 2 override bloğu silindi. `apply_min_sl_distance()` imzasından `symbol` parametresi kaldırıldı.
+- `src/bot.py`: `calculate_sl_tp(..., symbol=sym)` → `calculate_sl_tp(...)`
+- Testler: 9 pre-existing failure (london_high/low TP beklentisi, test_entry_manager/test_trailing_manager/test_models vb.) — değişiklikle yeni failure yok.
+
+### Önceki Context:
 
 **Kesin Kanıt**: exec_sim entegrasyonunda guard (ref_price/min_dist) tek başına PF'yi 4.61→0.71'e düşürdü. Diğer tüm değişiklikler (pending_exit block, _commit_trade_exit, _exec_rng, metadata) sıfır etkili — dead code veya pure refactor.
 
