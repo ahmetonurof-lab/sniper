@@ -702,3 +702,156 @@ def test_tp_shifts_by_same_delta_as_sl():
     assert candidate is not None
     # sl_shift = 106 - 95 = 11, tp = 130 + 11 = 141
     assert candidate.tp == Decimal("141.0")
+
+
+def test_short_tp_shifts_by_same_delta_as_sl():
+    def extractor(scoped_bars, trade):
+        return TrailLevel(
+            price=Decimal("90.0"),
+            source_bar_index=scoped_bars[-1]["index"],
+            reason="post-entry swing high",
+        )
+
+    bars = [
+        {"index": 30, "high": 108, "low": 103, "close": 107},
+        {"index": 31, "high": 109, "low": 104, "close": 108},
+        {"index": 32, "high": 110, "low": 105, "close": 109},
+    ]
+    trade = {
+        "symbol": "BTCUSDT",
+        "side": "short",
+        "entry_price": 100.0,
+        "entry_bar_index": 30,
+        "stop_loss": 105.0,
+        "take_profit": 85.0,
+        "tick_size": 0.5,
+        "trail_level_extractor": extractor,
+    }
+
+    manager = TrailingManager(
+        price_reader=FakePriceReader("95.0"),
+        protection_gateway=FakeGateway(),
+        config=TrailingConfig(sl_buffer_ticks=0),
+    )
+
+    candidate = manager.compute_trail_candidate(trade, bars)
+
+    assert candidate is not None
+    assert candidate.sl == Decimal("90.0")
+    # short: improved_sl=90 < current_sl=105 → sl_shift=-15
+    # tp = 85 + (-15) = 70
+    assert candidate.tp == Decimal("70.0")
+
+
+def test_no_tp_update_when_current_tp_is_none():
+    def extractor(scoped_bars, trade):
+        return TrailLevel(
+            price=Decimal("106.0"),
+            source_bar_index=scoped_bars[-1]["index"],
+            reason="post-entry swing low",
+        )
+
+    bars = [
+        {"index": 30, "high": 108, "low": 103, "close": 107},
+        {"index": 31, "high": 109, "low": 104, "close": 108},
+        {"index": 32, "high": 110, "low": 105, "close": 109},
+    ]
+    trade = {
+        "symbol": "BTCUSDT",
+        "side": "long",
+        "entry_price": 100.0,
+        "entry_bar_index": 30,
+        "stop_loss": 95.0,
+        "take_profit": None,
+        "tick_size": 0.5,
+        "trail_level_extractor": extractor,
+    }
+
+    manager = TrailingManager(
+        price_reader=FakePriceReader("109.0"),
+        protection_gateway=FakeGateway(),
+        config=TrailingConfig(sl_buffer_ticks=0),
+    )
+
+    candidate = manager.compute_trail_candidate(trade, bars)
+
+    assert candidate is not None
+    assert candidate.sl == Decimal("106.0")
+    assert candidate.tp is None
+
+
+def test_no_tp_update_when_current_sl_is_none():
+    def extractor(scoped_bars, trade):
+        return TrailLevel(
+            price=Decimal("106.0"),
+            source_bar_index=scoped_bars[-1]["index"],
+            reason="post-entry swing low",
+        )
+
+    bars = [
+        {"index": 30, "high": 108, "low": 103, "close": 107},
+        {"index": 31, "high": 109, "low": 104, "close": 108},
+        {"index": 32, "high": 110, "low": 105, "close": 109},
+    ]
+    trade = {
+        "symbol": "BTCUSDT",
+        "side": "long",
+        "entry_price": 100.0,
+        "entry_bar_index": 30,
+        "stop_loss": None,
+        "take_profit": 120.0,
+        "tick_size": 0.5,
+        "trail_level_extractor": extractor,
+    }
+
+    manager = TrailingManager(
+        price_reader=FakePriceReader("109.0"),
+        protection_gateway=FakeGateway(),
+        config=TrailingConfig(sl_buffer_ticks=0),
+    )
+
+    candidate = manager.compute_trail_candidate(trade, bars)
+
+    assert candidate is not None
+    assert candidate.sl == Decimal("106.0")
+    assert candidate.tp is None
+
+
+def test_tp_rounds_to_tick_on_delta_shift():
+    def extractor(scoped_bars, trade):
+        return TrailLevel(
+            price=Decimal("106.3"),
+            source_bar_index=scoped_bars[-1]["index"],
+            reason="post-entry swing low",
+        )
+
+    bars = [
+        {"index": 30, "high": 108, "low": 103, "close": 107},
+        {"index": 31, "high": 109, "low": 104, "close": 108},
+        {"index": 32, "high": 110, "low": 105, "close": 109},
+    ]
+    trade = {
+        "symbol": "BTCUSDT",
+        "side": "long",
+        "entry_price": 100.0,
+        "entry_bar_index": 30,
+        "stop_loss": 95.0,
+        "take_profit": 120.0,
+        "tick_size": 0.5,
+        "trail_level_extractor": extractor,
+    }
+
+    manager = TrailingManager(
+        price_reader=FakePriceReader("109.0"),
+        protection_gateway=FakeGateway(),
+        config=TrailingConfig(sl_buffer_ticks=0),
+    )
+
+    candidate = manager.compute_trail_candidate(trade, bars)
+
+    assert candidate is not None
+    # raw_sl = 106.3, normalized to tick 0.5 for long SL = floor = 106.0
+    assert candidate.sl == Decimal("106.0")
+    # sl_shift = 106.0 - 95.0 = 11.0
+    # raw_tp = 120.0 + 11.0 = 131.0 → normalized to tick 0.5 for long TP = ceil = 131.0
+    assert candidate.tp == Decimal("131.0")
