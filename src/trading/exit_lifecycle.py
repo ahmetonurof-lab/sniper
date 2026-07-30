@@ -46,6 +46,7 @@ from typing import Any, Callable
 
 import config as cfg
 from event_log import log_event
+from paper_trade_logger import EventType as PtEventType, log_event as pt_log
 from models import (
     INCIDENT_EXIT_UNCONFIRMED,
     INCIDENT_PROTECTION_BROKEN,
@@ -744,5 +745,34 @@ class ExitLifecycleService:
         # P0-1 idempotency log: entry_bar_index+entry_price bazlı
         _trade_id = f"{trade.get('entry_bar_index', -1)}_{trade.get('entry_price', 0)}"
         self._exit_log.setdefault(sym, {})[_trade_id] = trade.get("result", "")
+
+        pt_log(
+            PtEventType.TRADE_CLOSED,
+            sym,
+            trade.get("side", ""),
+            trade_id=f"{sym}-{trade.get('entry_bar_index', '?')}",
+            entry={
+                "signal_price": trade.get("entry_price_estimate", 0)
+                or trade.get("entry_price", 0),
+                "actual_fill_price": trade.get("entry_actual_price", 0)
+                or trade.get("entry_price", 0),
+                "requested_qty": trade.get("entry_requested_qty", 0)
+                or trade.get("qty", 0),
+                "actual_qty": trade.get("entry_actual_qty", 0) or trade.get("qty", 0),
+            },
+            protection={
+                "final_sl": trade.get("sl"),
+                "final_tp": trade.get("tp"),
+            },
+            result=trade.get("result", ""),
+            reason="trade_closed",
+            extra_data={
+                "pnl": round(pnl, 2),
+                "exit_price": trade.get("exit_price", 0),
+                "trail_count": trade.get("trail_count", 0)
+                or trade.get("trailing_count", 0),
+                "exit_timestamp": exit_timestamp,
+            },
+        )
 
         return True

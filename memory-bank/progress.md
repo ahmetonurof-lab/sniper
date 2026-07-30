@@ -4,6 +4,8 @@
 
 | Tarih | İşlem | Detay |
 |-------|-------|-------|
+| 2026-07-30 16:21 | paper_trade_logger — append-only JSONL paper trade logger | `src/paper_trade_logger.py` (+135 satır). `EventType` enum (15 tip), `configure()`, `log_event()` schema v1. Bloklar: entry, protection, fvg, validation, error, result, reason, latency_ms, call_count, protected_state. 4 modüle entegre: bot.py, entry_manager.py, exit_lifecycle.py, trailing_manager.py. Mevcut events.json/trades_history.jsonl değişmedi. |
+| 2026-07-30 15:50 | Binance rejection failure simulator for execute_live_entry | `tests/failure_simulator.py` + `tests/test_initial_protection_failures.py` eklendi. Deterministic FakeExchange ile SL -2021, SL generic exception, partial fill, emergency close failure, direction validation, protected-state, no-TP-after-SL-fail senaryoları. 15 yeni test, 84/84 entry_manager suite geçiyor. Commit: `8c5b7f0`. |
 | 2026-07-30 14:24 | calculate_sl_tp dead code temizliği + max_risk_dist override kaldırıldı | `max_risk_dist = risk_pts * cfg.MAX_SL_DIST_MULT` + 2 override bloğu silindi (GMXUSDT FVG-anchor SL ezmesi). `symbol` parametresi ölüydü (MIN_SL_DISTANCE_PCT_MAP commit 5c8e4f4'te zaten silinmiş). `apply_min_sl_distance()`'dan `symbol` kaldırıldı. `bot.py` + `entry_manager.py` çağrıları temizlendi. |
 | 2026-07-28 18:47 | Live trailing_manager guard push — 294f7e8 | Guard local'de uncommitted'ti. Push edildi: ref_price/min_dist check. Sunucuda git pull => trailing_manager'ye 8 satır gelir. Backtest(9a2c0bc) ile live(294f7e8) parity sağlandı. |
 | 2026-07-27 23:00 | exec_sim analyzer_v5 entegrasyonu — 2 bug fix + mimari bulgu | Bug #1: sa.append(t) eksik → trades active'dan düşüyordu. Bug #2: PROFIT_TRAIL misclassification → PTrail% 55→5'e düştü. Mimari bulgu: exec_sim SL exit'te değil TRAILING'de uygulanmali. |
@@ -53,6 +55,7 @@
 | ConsoleReporter (TR time, dedup) | ✅ Şeffaf console çıktısı |
 | Pre-commit hooks | ✅ ruff (linter + formatter), vulture |
 | event_log (yapısal JSONL log) | ✅ `src/event_log.py` — `log_event()` + `cleanup_old_event_logs()` |
+| paper_trade_logger (append-only JSONL) | ✅ `src/paper_trade_logger.py` — `EventType` enum, `configure()`, `log_event()` schema v1, 4 modüle entegre |
 | RiskManager (dinamik risk + devre kesici) | ✅ `src/risk_manager.py`, filelock thread-safe, 1.5x EL çarpanı |
 | Real CBDR threshold analysis (3 session) | ✅ Parquet tabanlı, `detect_phase()` ile kodun gerçek faz sınırları |
 | Erken London avantajı doğrulama | ✅ 13/13 coin, tutarlılık %100, EL PF=4.35 vs non-EL PF=2.52 |
@@ -64,6 +67,7 @@
 | BE chart bar index fix | ✅ evaluate_break_even 15m bar index kullanıyor |
 | Sweep level ActiveTrade | ✅ `sweep_level` field + `_try_entry()` beslemesi |
 | on_sweep_confirmed rewrite | ✅ sweep invalidation gate + no reset on no-FVG + no unconditional reset |
+| Binance rejection failure simulator (FakeExchange + 15 test) | ✅ `tests/failure_simulator.py`, `tests/test_initial_protection_failures.py` — SL -2021, exception, partial fill, close fail, direction validation, protected state. 84/84 entry_manager test. |
 | P1-8 debug log canlıya deploy | ✅ `log.warning` level, TIAUSDT vakasında ilk sonuç alındı |
 | `_fmt_price()` dinamik fiyat formatlama | ✅ `bot_infra.py` — küçük fiyatlı coinlerde SL/TP artık ayırt edilebiliyor |
 | OHLC export path sabitleme | ✅ `bot_infra.py` — `export_ohlc_1m`/`export_ohlc_15m` artık `_OUTPUT_DIR` (script dizinine göre) kullanıyor, çalışma dizinine bağlı relative path sorunu düzeltildi |

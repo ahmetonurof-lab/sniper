@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING
 
 import config as cfg
 from bot_infra import extract_order_id, _fmt_price
+from paper_trade_logger import EventType, log_event as pt_log
 
 if TYPE_CHECKING:
     from models import FVG
@@ -276,7 +277,15 @@ class EntryManager:
         self, sym: str, side: str, qty: float, reason: str
     ) -> EntryExecutionResult:
         opp_side = "SELL" if side.upper() == "BUY" else "BUY"
+        side_label = "long" if side.upper() == "BUY" else "short"
         log.critical("[EMERGENCY] %s %s — acil kapatma baslatiliyor", sym, reason)
+        pt_log(
+            EventType.EMERGENCY_CLOSE_STARTED,
+            sym,
+            side_label,
+            error={"code": 0, "message": reason, "retry_count": 0},
+            reason=reason,
+        )
         try:
             await self._rest.place_market_order(
                 sym,
@@ -286,8 +295,22 @@ class EntryManager:
                 client_order_id=f"emergency-{sym.lower()}-{int(time.time()*1000)}",
             )
             log.critical("[EMERGENCY] %s acil kapatma gonderildi", sym)
+            pt_log(
+                EventType.EMERGENCY_CLOSE_COMPLETED,
+                sym,
+                side_label,
+                result="completed",
+                reason="emergency_close_sent",
+            )
         except Exception as e:
             log.critical("[EMERGENCY] %s acil kapatma BASARISIZ: %s", sym, e)
+            pt_log(
+                EventType.EMERGENCY_CLOSE_FAILED,
+                sym,
+                side_label,
+                error={"code": -1, "message": str(e)[:200], "retry_count": 0},
+                reason="emergency_close_failed",
+            )
             return EntryExecutionResult(
                 success=False,
                 error=f"EMERGENCY CLOSE BASARISIZ — {e}",
@@ -311,6 +334,7 @@ class EntryManager:
         fvg_buf: float = 0.0,
         tp_rr: float = 2.0,
         trigger_fvg: "FVG | None" = None,
+        trade_id: str = "",
     ) -> EntryExecutionResult:
         if not self._is_live:
             return EntryExecutionResult(
@@ -439,6 +463,21 @@ class EntryManager:
             quote_qty,
         )
 
+        pt_log(
+            EventType.ENTRY_FILLED,
+            sym,
+            side,
+            trade_id=trade_id,
+            entry={
+                "signal_price": entry_price or 0.0,
+                "actual_fill_price": actual_price,
+                "requested_qty": valid_qty,
+                "actual_qty": actual_qty,
+            },
+            result="accepted",
+            reason="market_fill_ok",
+        )
+
         # ── SL/TP'yi actual fill price ile yeniden hesapla ──
         order_qty = actual_qty if actual_qty > 0 else valid_qty
         protected = False
@@ -465,8 +504,13 @@ class EntryManager:
             # ── Tick rounding (Decimal, direction-aware) ──
             tick_size = await self._rest.get_tick_size(sym)
             tick_dec = Decimal(str(tick_size))
+            raw_sl, raw_tp = sl, tp
             rsl, rtp = EntryManager.round_sl_tp(side, sl, tp, tick_dec)
             sl, tp = rsl, rtp
+            eps = float(tick_dec) * 2
+            rounding_label = (
+                "long_sl_floor_tp_ceil" if side == "long" else "short_sl_ceil_tp_floor"
+            )
 
             # ── Yön kontrolü (actual fill fiyatiyla) ──
             valid_dir, dir_msg = EntryManager.validate_protection_with_actual_fill(
@@ -482,6 +526,86 @@ class EntryManager:
                 return await self._emergency_close(
                     sym, mkt_side, order_qty, f"SL/TP direction fail — {dir_msg}"
                 )
+
+            risk_dist = abs(sl - actual_price)
+            fvg_present = trigger_fvg is not None and EntryManager._fvg_height_valid(
+                trigger_fvg
+            )
+            fvg_data = None
+            if fvg_present and trigger_fvg:
+                fvg_data = {
+                    "present": True,
+                    "top": trigger_fvg.top,
+                    "bottom": trigger_fvg.bottom,
+                    "height": trigger_fvg.top - trigger_fvg.bottom,
+                    "bar_index": trigger_fvg.bar_index,
+                    "buffer": 0.0,
+                    "fallback_used": False,
+                    "max_risk_cap_used": False,
+                }
+
+            pt_log(
+                EventType.INITIAL_SL_CALCULATED,
+                sym,
+                side,
+                trade_id=trade_id,
+                protection={
+                    "raw_sl": round(raw_sl, 8),
+                    "raw_tp": round(raw_tp, 8),
+                    "normalized_sl": sl,
+                    "normalized_tp": tp,
+                    "final_sl": sl,
+                    "final_tp": tp,
+                    "risk_distance": round(risk_dist, 8),
+                    "tp_rr": tp_rr,
+                    "tick_size": tick_size,
+                    "epsilon": eps,
+                    "rounding": rounding_label,
+                    "sl_order_id": None,
+                    "tp_order_id": None,
+                },
+                fvg=fvg_data,
+                result="accepted",
+                reason="protection_ready",
+            )
+
+            pt_log(
+                EventType.PROTECTION_NORMALIZED,
+                sym,
+                side,
+                trade_id=trade_id,
+                protection={
+                    "raw_sl": round(raw_sl, 8),
+                    "raw_tp": round(raw_tp, 8),
+                    "normalized_sl": sl,
+                    "normalized_tp": tp,
+                    "tick_size": tick_size,
+                    "epsilon": eps,
+                    "rounding": rounding_label,
+                },
+                result="accepted",
+                reason="tick_rounding_ok",
+            )
+
+            pt_log(
+                EventType.PROTECTION_VALIDATED,
+                sym,
+                side,
+                trade_id=trade_id,
+                validation={
+                    "sl_direction_valid": True,
+                    "tp_direction_valid": True,
+                    "tick_valid": True,
+                    "actual_qty_used": True,
+                    "placeable": True,
+                },
+                entry={
+                    "signal_price": entry_price or 0.0,
+                    "actual_fill_price": actual_price,
+                },
+                result="accepted",
+                reason="direction_validation_ok",
+            )
 
             log.info(
                 "[SL_TP_RECALC] %s sl/tp actual_price=%.6f ile yeniden hesaplandi: sl=%.6f tp=%.6f",
@@ -507,11 +631,38 @@ class EntryManager:
                 err_code,
                 sl_resp,
             )
+            pt_log(
+                EventType.SL_REJECTED,
+                sym,
+                side,
+                trade_id=trade_id,
+                error={
+                    "code": err_code,
+                    "message": str(sl_resp.get("msg", "")),
+                    "retry_count": 0,
+                },
+                protected_state_before=False,
+                reason=f"SL code={err_code}",
+            )
             return await self._emergency_close(
                 sym, mkt_side, order_qty, f"SL FAIL code={err_code}"
             )
 
         protected = True
+        pt_log(
+            EventType.SL_PLACED,
+            sym,
+            side,
+            trade_id=trade_id,
+            protection={
+                "sl_order_id": sl_id,
+                "final_sl": sl,
+            },
+            protected_state_before=False,
+            protected_state_after=True,
+            result="accepted",
+            reason="sl_placed_ok",
+        )
         log.info("[ORDER] %s SL OK id=%s (protected=%s)", sym, sl_id, protected)
 
         # ── TP emri ───────────────────────────────────────────────
@@ -520,8 +671,36 @@ class EntryManager:
         log.debug("[ORDER] %s TP place_tp_order raw resp: %s", sym, tp_resp)
         tp_id = extract_order_id(tp_resp)
         if tp_id:
+            pt_log(
+                EventType.TP_PLACED,
+                sym,
+                side,
+                trade_id=trade_id,
+                protection={
+                    "tp_order_id": tp_id,
+                    "final_tp": tp,
+                },
+                protected_state_before=True,
+                protected_state_after=True,
+                result="accepted",
+                reason="tp_placed_ok",
+            )
             log.info("[ORDER] %s TP OK algoId=%s", sym, tp_id)
         else:
+            pt_log(
+                EventType.TP_REJECTED,
+                sym,
+                side,
+                trade_id=trade_id,
+                error={
+                    "code": -1,
+                    "message": str(tp_resp),
+                    "retry_count": 0,
+                },
+                protected_state_before=True,
+                protected_state_after=True,
+                reason="tp_placement_failed",
+            )
             log.warning("[ORDER] %s TP BASARISIZ! resp=%s", sym, tp_resp)
 
         return EntryExecutionResult(

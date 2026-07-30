@@ -8,6 +8,7 @@ from typing import Any, Callable, Literal, MutableMapping, Optional, Protocol, S
 import config as cfg
 from fvg import detect_fvgs
 from models import Bar, FVG
+from paper_trade_logger import EventType, log_event as pt_log
 
 log = logging.getLogger("sniper.trailing_manager")
 
@@ -201,9 +202,17 @@ class TrailingManager:
         symbol = str(self._required(trade, "symbol"))
         side = self._side(trade)
         current_price = self._decimal(await self.price_reader.get_last_price(symbol))
+        trade_id = f"{symbol}-{trade.get('entry_bar_index', '?')}"
 
         candidate = self.compute_trail_candidate(trade, bars)
         if candidate is None:
+            pt_log(
+                EventType.TRAIL_SKIPPED,
+                symbol,
+                side,
+                trade_id=trade_id,
+                reason="no_better_trail_candidate",
+            )
             return TrailDecision(
                 action="skip",
                 reason="no better trail candidate",
@@ -214,6 +223,13 @@ class TrailingManager:
         protection_state = trade.setdefault("protection_state", {})
 
         if protection_state.get("last_applied_fingerprint") == candidate.fingerprint:
+            pt_log(
+                EventType.TRAIL_SKIPPED,
+                symbol,
+                side,
+                trade_id=trade_id,
+                reason="identical_candidate_already_applied",
+            )
             return TrailDecision(
                 action="skip",
                 reason="identical candidate already applied",
@@ -222,6 +238,13 @@ class TrailingManager:
             )
 
         if protection_state.get("last_invalid_fingerprint") == candidate.fingerprint:
+            pt_log(
+                EventType.TRAIL_SKIPPED,
+                symbol,
+                side,
+                trade_id=trade_id,
+                reason="identical_invalid_candidate_suppressed",
+            )
             return TrailDecision(
                 action="skip",
                 reason="identical invalid candidate suppressed",
@@ -232,6 +255,13 @@ class TrailingManager:
         if not self.is_placeable(candidate, current_price, side):
             protection_state["last_invalid_fingerprint"] = candidate.fingerprint
             protection_state["last_invalid_reason"] = "local placeability check failed"
+            pt_log(
+                EventType.TRAIL_SKIPPED,
+                symbol,
+                side,
+                trade_id=trade_id,
+                reason="candidate_not_placeable",
+            )
             return TrailDecision(
                 action="skip",
                 reason="candidate not placeable against current price",
@@ -250,6 +280,13 @@ class TrailingManager:
             protection_state["last_invalid_reason"] = (
                 "exchange rejected with immediate trigger"
             )
+            pt_log(
+                EventType.TRAIL_SKIPPED,
+                symbol,
+                side,
+                trade_id=trade_id,
+                reason="exchange_rejected_immediate_trigger",
+            )
             return TrailDecision(
                 action="skip",
                 reason="exchange rejected candidate as immediate trigger",
@@ -258,6 +295,13 @@ class TrailingManager:
             )
 
         if not changed:
+            pt_log(
+                EventType.TRAIL_SKIPPED,
+                symbol,
+                side,
+                trade_id=trade_id,
+                reason="no_protection_update_required",
+            )
             return TrailDecision(
                 action="skip",
                 reason="no protection update required",
@@ -274,6 +318,21 @@ class TrailingManager:
         protection_state.pop("last_invalid_fingerprint", None)
         protection_state.pop("last_invalid_reason", None)
         protection_state["last_applied_fingerprint"] = candidate.fingerprint
+
+        pt_log(
+            EventType.TRAIL_CANDIDATE,
+            symbol,
+            side,
+            trade_id=trade_id,
+            protection={
+                "final_sl": float(candidate.sl) if candidate.sl else None,
+                "final_tp": float(candidate.tp) if candidate.tp else None,
+                "risk_distance": None,
+                "tick_size": float(candidate.tick_size),
+            },
+            result="updated",
+            reason=candidate.reason,
+        )
 
         return TrailDecision(
             action="updated",

@@ -1,6 +1,51 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: calculate_sl_tp dead code temizliği + max_risk_dist override kaldırıldı (2026-07-30 14:24)
+## Son İşlem: paper_trade_logger — Append-only JSONL for paper trade lifecycle (2026-07-30 16:21)
+
+`src/paper_trade_logger.py` oluşturuldu ve 4 modüle entegre edildi.
+
+**paper_trade_logger.py:**
+- `EventType` enum: 15 event type (entry_filled → trade_closed)
+- `configure(log_path, run_id)` — bot.py `PaperTrader.__init__`'de çağrılır
+- `log_event()` — append-only JSONL, schema v1
+- Bloklar: `entry`, `protection`, `fvg`, `validation`, `error`, `result`, `reason`, `latency_ms`, `call_count`, `protected_state_before/after`
+- Secret/traceback yazılmaz; error= `{code, message, retry_count}`
+
+**Entegrasyon:**
+- `src/bot.py:57` — import + `pt_configure()` (line 228) + PaperTrader._try_entry()'de `INITIAL_SL_CALCULATED` event
+- `src/trading/entry_manager.py:34` — `ENTRY_FILLED`, `INITIAL_SL_CALCULATED`, `PROTECTION_NORMALIZED`, `PROTECTION_VALIDATED`, `SL_PLACED`, `TP_PLACED`, `SL_REJECTED`, `TP_REJECTED`, `EMERGENCY_CLOSE_STARTED`, `EMERGENCY_CLOSE_COMPLETED`, `EMERGENCY_CLOSE_FAILED`
+- `src/trading/exit_lifecycle.py:49` — `TRADE_CLOSED`, `TRAIL_CANDIDATE`, `TRAIL_SKIPPED`
+- `src/trading/trailing_manager.py:11` — `TRAIL_CANDIDATE`, `TRAIL_SKIPPED`
+
+**Commit edilmedi — uncommitted duruyor.**
+
+## Önceki İşlem: Binance rejection failure simulator for execute_live_entry (2026-07-30 15:50)
+
+`tests/failure_simulator.py` + `tests/test_initial_protection_failures.py` eklendi.
+
+**Simülatör (`failure_simulator.py`):**
+- `FakeExchange` — REST adapter contract'ını birebir replike eden deterministic test double
+- `FailureMode` enum: NONE, SL_2021, SL_GENERIC, TP_2021, MARKET_TIMEOUT, PARTIAL_FILL, CLOSE_FAIL, CANCEL_FAIL
+- `BinanceReject` exception class
+- `Expected` enum + `Scenario` dataclass + `SCENARIOS` tuple (5 senaryo)
+- Yeni API uydurulmadı — sadece mevcut method imzaları (`place_market_order`, `place_stop_order`, `place_tp_order`, `apply_amount_precision` vb.)
+- `get_positions()` eklendi (FakeExchange'te eksikti)
+
+**Testler (`test_initial_protection_failures.py`):** 15 test, tümü geçiyor:
+- SL -2021 long/short: 1 SL call, emergency close, protected=false, no TP call
+- SL generic exception: exception propagates, protected=false
+- Partial fill: actual_qty=0.37 used for SL (not requested 1.0)
+- Emergency close failure: SL -2021 → close raises (reduce_only=True) → error visible
+- Direction validation: long SL too close / short TP too close → emergency close, no SL call
+- Protected state only after SL response confirmed
+- Parametric scenario runner (5 scenarios × parameterized)
+- Invariant: protected=True requires at least one SL call
+
+**Baseline check:** 0 regresyon vs 1cec670 (önceki commit), +15 passing, 74 pre-existing failures unchanged.
+
+**Commit:** `8c5b7f0`, push edildi.
+
+## Önceki İşlem: calculate_sl_tp dead code temizliği + max_risk_dist override kaldırıldı (2026-07-30 14:24)
 
 `calculate_sl_tp()` artık `analyzer_v5.py` backtest SL formülü ile birebir aynı:
 - `max_risk_dist = risk_pts * cfg.MAX_SL_DIST_MULT` + 2 override bloğu KALDIRILDI — GMXUSDT gibi geniş FVG'li coinlerde FVG-anchor SL'yi eziyordu.

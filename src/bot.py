@@ -54,6 +54,11 @@ from state_manager import (
 )
 from state_writer import write_state
 from event_log import cleanup_old_event_logs, log_event
+from paper_trade_logger import (
+    configure as pt_configure,
+    EventType as PtEventType,
+    log_event as pt_log,
+)
 from trading import (
     SignalEngine,
     EntryManager,
@@ -223,6 +228,11 @@ class PaperTrader:
         self._exit_reason_log: dict[str, dict[float, str]] = {}
         # P0-1 per-trade lock: key = sym + entry_timestamp
         self._exit_locks: dict[str, asyncio.Lock] = {}
+
+        pt_configure(
+            log_path=os.path.join(_OUTPUT_DIR, "paper_trade.log"),
+            run_id=f"paper-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}",
+        )
 
         api_key = cfg.BINANCE_API_KEY or ""
         api_secret = cfg.BINANCE_API_SECRET or ""
@@ -607,6 +617,52 @@ class PaperTrader:
             trigger_fvg=rsm.trigger_fvg,
         )
 
+        trade_id = f"{sym}-{current.index}"
+
+        fvg_data = None
+        if fvg:
+            fvg_data = {
+                "present": True,
+                "top": fvg.top,
+                "bottom": fvg.bottom,
+                "height": fvg.top - fvg.bottom,
+                "bar_index": fvg.bar_index,
+                "buffer": 0.0,
+                "fallback_used": False,
+                "max_risk_cap_used": False,
+            }
+
+        pt_log(
+            PtEventType.INITIAL_SL_CALCULATED,
+            sym,
+            side,
+            trade_id=trade_id,
+            entry={
+                "signal_price": entry_price,
+                "actual_fill_price": None,
+                "requested_qty": 0.0,
+                "actual_qty": None,
+            },
+            protection={
+                "raw_sl": sl,
+                "raw_tp": tp,
+                "normalized_sl": None,
+                "normalized_tp": None,
+                "final_sl": sl,
+                "final_tp": tp,
+                "risk_distance": round(abs(sl - entry_price), 8),
+                "tp_rr": tp_rr,
+                "tick_size": None,
+                "epsilon": None,
+                "rounding": None,
+                "sl_order_id": None,
+                "tp_order_id": None,
+            },
+            fvg=fvg_data,
+            result="calculated",
+            reason="initial_sl_tp_ready",
+        )
+
         # ── 1. SENKRON VALİDASYONLAR (PENDING KİLİDİNDEN ÖNCE) → EntryManager ──
         risk_dist = abs(sl - entry_price)
         valid, err_msg = EntryManager.validate_risk(risk_dist, atr_val)
@@ -700,6 +756,7 @@ class PaperTrader:
                     fvg_buf=fvg_buf,
                     tp_rr=tp_rr,
                     trigger_fvg=fvg,
+                    trade_id=trade_id,
                 )
                 if not exec_result.success:
                     self._pl(sym, "order_err", f"\u274c ORDER: {exec_result.error}")
@@ -807,6 +864,7 @@ class PaperTrader:
                     fvg_buf=fvg_buf,
                     tp_rr=tp_rr,
                     trigger_fvg=fvg,
+                    trade_id=trade_id,
                 )
                 if paper_result.entry_log_msg:
                     self._pl(sym, "entry", paper_result.entry_log_msg)
