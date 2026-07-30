@@ -490,6 +490,7 @@ class ActiveTrade:
     protection_state: dict[str, Any] = field(default_factory=dict)
     protection_orders: dict[str, Any] = field(default_factory=dict)
     trail_level_extractor: Any = None
+    runtime: TradeRuntimeState = field(default_factory=TradeRuntimeState)
     # End
     entry_order_id: str = ""
     entry_requested_qty: float = 0.0
