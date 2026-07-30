@@ -369,6 +369,32 @@ class ProtectionState:
     def tp_present(self) -> bool:
         return self.tp_current is not None
 
+    def sl_status(self, current_sl: float) -> str:
+        if self.sl_current is None:
+            return "MISSING"
+        if self.sl_pending is not None:
+            return "REPLACING"
+        if self.sl_current.order_id:
+            return "PLACED"
+        return "UNKNOWN"
+
+    def tp_status(self, current_tp: float) -> str:
+        if self.tp_current is None:
+            return "MISSING"
+        if self.tp_pending is not None:
+            return "REPLACING"
+        if self.tp_current.order_id:
+            return "PLACED"
+        return "UNKNOWN"
+
+    @property
+    def health(self) -> str:
+        if self.sl_current is None or self.tp_current is None:
+            return "BROKEN"
+        if self.sl_pending is not None or self.tp_pending is not None:
+            return "TRANSITIONING"
+        return "OK"
+
 
 @dataclass
 class PendingExitContext:
