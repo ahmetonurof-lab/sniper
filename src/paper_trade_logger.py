@@ -27,6 +27,7 @@ _LOG = logging.getLogger("sniper.paper_trade_logger")
 class EventType(str, Enum):
     ENTRY_FILLED = "entry_filled"
     INITIAL_SL_CALCULATED = "initial_sl_calculated"
+    ENTRY_QTY_READY = "entry_qty_ready"
     PROTECTION_NORMALIZED = "protection_normalized"
     PROTECTION_VALIDATED = "protection_validated"
     SL_PLACED = "sl_placed"

@@ -639,7 +639,7 @@ class PaperTrader:
             entry={
                 "signal_price": entry_price,
                 "actual_fill_price": None,
-                "requested_qty": 0.0,
+                "requested_qty": None,
                 "actual_qty": None,
             },
             protection={
@@ -735,6 +735,21 @@ class PaperTrader:
                 final_risk_mult,
                 qty,
             )
+
+        pt_log(
+            PtEventType.ENTRY_QTY_READY,
+            sym,
+            side,
+            trade_id=trade_id,
+            entry={
+                "signal_price": entry_price,
+                "requested_qty": qty,
+                "risk_distance": round(risk_dist, 8),
+                "final_risk_mult": final_risk_mult,
+            },
+            result="accepted",
+            reason="entry_qty_ready",
+        )
 
         with PendingLock(self.active_trades, sym, logger=log) as lock:
             entry_price_original = entry_price
