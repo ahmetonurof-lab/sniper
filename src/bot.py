@@ -259,7 +259,6 @@ class PaperTrader:
                 epsilon_ticks=1,
                 pivot_strength=2,
                 sl_buffer_ticks=2,
-                reward_multiple_on_trail=Decimal("2.0"),
             ),
         )
         # Patch Set 3 (new_refactoring_plan1.md): Protection policy kararlari

@@ -653,7 +653,7 @@ def test_tp_is_reanchored_from_new_trailing_sl_not_from_entry_rule():
         price_reader=FakePriceReader("109.0"),
         protection_gateway=FakeGateway(),
         config=TrailingConfig(
-            sl_buffer_ticks=0, reward_multiple_on_trail=Decimal("2.0")
+            sl_buffer_ticks=0,
         ),
     )
 
@@ -661,11 +661,11 @@ def test_tp_is_reanchored_from_new_trailing_sl_not_from_entry_rule():
 
     assert candidate is not None
     assert candidate.sl == Decimal("106.0")
-    # Yeni kural: tp = sl + (sl - entry) * RR = 106 + (6 * 2) = 118
-    assert candidate.tp == Decimal("118.0")
+    # tp = old_tp + (new_sl - old_sl) = 120 + (106 - 95) = 131
+    assert candidate.tp == Decimal("131.0")
 
 
-def test_tp_update_depends_on_rr_consistency_not_on_being_farther_away():
+def test_tp_shifts_by_same_delta_as_sl():
     def extractor(scoped_bars, trade):
         return TrailLevel(
             price=Decimal("106.0"),
@@ -684,7 +684,7 @@ def test_tp_update_depends_on_rr_consistency_not_on_being_farther_away():
         "entry_price": 100.0,
         "entry_bar_index": 40,
         "stop_loss": 95.0,
-        "take_profit": 130.0,  # daha uzak ama yeni SL'e göre tutarsız
+        "take_profit": 130.0,
         "tick_size": 0.5,
         "trail_level_extractor": extractor,
     }
@@ -693,13 +693,12 @@ def test_tp_update_depends_on_rr_consistency_not_on_being_farther_away():
         price_reader=FakePriceReader("109.0"),
         protection_gateway=FakeGateway(),
         config=TrailingConfig(
-            sl_buffer_ticks=0, reward_multiple_on_trail=Decimal("2.0")
+            sl_buffer_ticks=0,
         ),
     )
 
     candidate = manager.compute_trail_candidate(trade, bars)
 
     assert candidate is not None
-    # Eski mantıkta 130 > 118 diye tp update edilmeyebilirdi.
-    # Yeni mantıkta önemli olan büyüklük değil, RR tutarlılığı.
-    assert candidate.tp == Decimal("118.0")
+    # sl_shift = 106 - 95 = 11, tp = 130 + 11 = 141
+    assert candidate.tp == Decimal("141.0")

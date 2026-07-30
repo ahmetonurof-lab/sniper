@@ -82,8 +82,6 @@ class TrailingConfig:
     epsilon_ticks: int = 1
     pivot_strength: int = 2
     sl_buffer_ticks: int = 2
-    reward_multiple_on_trail: Decimal = Decimal("2.0")
-    require_break_even_for_tp_reanchor: bool = True
 
 
 TrailLevelExtractor = Callable[[Sequence[BarLike], Trade], Optional[TrailLevel]]
@@ -109,7 +107,6 @@ class TrailingManager:
         side = self._side(trade)
         tick_size = self._tick_size(trade)
         entry_bar_index = int(self._required(trade, "entry_bar_index"))
-        entry_price = self._decimal(self._required(trade, "entry_price"))
 
         scoped_bars = self._scope_bars(bars, entry_bar_index)
         if not scoped_bars:
@@ -137,23 +134,13 @@ class TrailingManager:
         if improved_sl is None:
             return None
 
-        reanchored_tp = self._compute_tp_from_trailing_sl(
-            entry_price=entry_price,
-            sl_price=improved_sl,
-            side=side,
-            tick_size=tick_size,
-        )
-
         improved_tp: Optional[Decimal] = None
-        if reanchored_tp is not None:
-            if not self._is_consistent_rr_tp(
-                side=side,
-                entry_price=entry_price,
-                sl_price=improved_sl,
-                current_tp=current_tp,
-                tick_size=tick_size,
-            ):
-                improved_tp = reanchored_tp
+        if current_sl is not None and current_tp is not None:
+            sl_shift = improved_sl - current_sl
+            new_tp_raw = current_tp + sl_shift
+            improved_tp = self._normalize_price(
+                new_tp_raw, side, kind="tp", tick_size=tick_size
+            )
 
         fingerprint = self._fingerprint(
             side=side,
@@ -456,77 +443,6 @@ class TrailingManager:
         if current is None:
             return True
         return candidate > current if side == "long" else candidate < current
-
-    def _compute_tp_from_trailing_sl(
-        self,
-        *,
-        entry_price: Decimal,
-        sl_price: Decimal,
-        side: str,
-        tick_size: Decimal,
-    ) -> Optional[Decimal]:
-        """
-        TP artık mevcut trail edilmiş SL'e göre hesaplanır.
-
-        Long:
-            locked_profit = sl - entry
-            tp = sl + locked_profit * RR
-
-        Short:
-            locked_profit = entry - sl
-            tp = sl - locked_profit * RR
-
-        Not:
-        - SL henüz break-even üstüne/altına geçmediyse dinamik TP re-anchor etmiyoruz.
-        - Bu sayede zarar bölgesindeyken TP'nin anlamsız şekilde ters tarafa kaymasını engelliyoruz.
-        """
-        rr = self.config.reward_multiple_on_trail
-
-        if side == "long":
-            locked_profit = sl_price - entry_price
-            if (
-                self.config.require_break_even_for_tp_reanchor
-                and locked_profit <= Decimal("0")
-            ):
-                return None
-            raw_tp = sl_price + (locked_profit * rr)
-        else:
-            locked_profit = entry_price - sl_price
-            if (
-                self.config.require_break_even_for_tp_reanchor
-                and locked_profit <= Decimal("0")
-            ):
-                return None
-            raw_tp = sl_price - (locked_profit * rr)
-
-        return self._normalize_price(raw_tp, side, kind="tp", tick_size=tick_size)
-
-    def _is_consistent_rr_tp(
-        self,
-        *,
-        side: str,
-        entry_price: Decimal,
-        sl_price: Decimal,
-        current_tp: Optional[Decimal],
-        tick_size: Decimal,
-    ) -> bool:
-        """
-        TP'nin tek kriteri artık "daha uzak" olması değil.
-        Yeni SL'e göre beklenen dinamik RR yapısını koruyorsa True.
-        """
-        if current_tp is None:
-            return False
-
-        expected_tp = self._compute_tp_from_trailing_sl(
-            entry_price=entry_price,
-            sl_price=sl_price,
-            side=side,
-            tick_size=tick_size,
-        )
-        if expected_tp is None:
-            return True
-
-        return current_tp == expected_tp
 
     @staticmethod
     def _fingerprint(
