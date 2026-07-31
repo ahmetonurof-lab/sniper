@@ -1,6 +1,19 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: paper_trade_logger — Append-only JSONL for paper trade lifecycle (2026-07-30 16:21)
+## Son İşlem: Canlı/backtest giriş parity tamamlandı — 9 sembol core-diff=0 (2026-07-31)
+
+İki düzeltme ile canlı `bot.py` + `signal_engine.py` state transition akışı backtest `analyzer_v5.py` ile birebir hizalandı:
+
+1. **`bot.py:441-459`** — yeni CBDR gününe taşınan TRIGGER_READY state'i kilitsizken `bias_reject` mantığıyla resetlenir (`analyzer_v5.py:276-284` aynı).
+2. **`signal_engine.py:126-137`** — session filtresi sembole özel `cbdr_start/end` penceresini kullanır (detect_phase default 22-2 SOL 19-1'de saat 01 farkını kapatır).
+
+Benchmark: 9 aktif sembol, 87.600 bar, core-diff=0, TRIGGER ve sweep-lock backtest/live birebir.
+CI testi: `tests/parity/test_parity_regression.py` (9 test, 379s, SHA256 fixture checksum sabitli).
+Commit: sniper `a47b8ae`; spec `output/reports/parity_regression.md`.
+
+(Önceki işlemler aşağıda.)
+
+## Son İşlem (önceki): paper_trade_logger — Append-only JSONL for paper trade lifecycle (2026-07-30 16:21)
 
 `src/paper_trade_logger.py` oluşturuldu ve 4 modüle entegre edildi.
 
