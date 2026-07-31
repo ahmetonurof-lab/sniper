@@ -169,9 +169,10 @@ def fvg_is_alive(
     formation_index: int,
     bars: list[Bar],
 ) -> bool:
-    """FVG canli mi? Zaman bazli expiry (GLOBAL_FVG_EXPIRY_BARS=45) kalkti —
-    backtest get_fvg_status ile ayni semantik: gap dokunulmamis ve invalid
-    olmamis (far-side close gormemis) ise FVG yasi sinirsiz.
+    """FVG canli mi? Backtest get_fvg_status ile ayni semantik: yalnizca
+    far-side close (bullish: close < bottom, bearish: close > top) FVG'yi
+    INVALIDATED yapar. Gap icindeki kapanis (ACTIVE_ENTRY_ZONE) entry
+    sinyalidir — invalid DEGILDIR, FVG yasi sinirsiz.
 
     Scan araligi: formation_index + 2 .. verilen bar listesinin sonu
     (trigger bari haric tutmak icin caller listeyi current bari disarda
@@ -181,10 +182,10 @@ def fvg_is_alive(
         if not b.is_closed or b.index < scan_from:
             continue
         if direction == "bullish":
-            if b.close < bottom or bottom <= b.close <= top:
+            if b.close < bottom:
                 return False
         else:
-            if b.close > top or bottom <= b.close <= top:
+            if b.close > top:
                 return False
     return True
 

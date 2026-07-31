@@ -78,7 +78,7 @@ class SignalEngine:
             self.rsm.on_sweep(
                 direction=ss.sweep_direction or "bullish",
                 level=ss.sweep_level or 0.0,
-                bar_index=current.index,
+                bar_index=None,
             )
 
         if self.rsm.state_name == "SWEEP_DETECTED":
