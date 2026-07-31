@@ -41,11 +41,11 @@ from models import (
 from retrace_state import RetraceStateMachine
 from session import SessionState
 from risk_manager import RiskManager
+from fvg import fvg_is_alive
 from session_router import (
     should_trade,
     get_cbdr_multiplier,
     get_session_hours,
-    is_fvg_valid,
 )
 from state_manager import (
     mark_trade_opened,
@@ -446,12 +446,13 @@ class PaperTrader:
         if result.decision == "TRIGGER":
             tf = rsm.trigger_fvg
             if tf is not None:
-                if not is_fvg_valid(tf.bar_index, current.index):
+                if not fvg_is_alive(
+                    tf.direction, tf.top, tf.bottom, tf.bar_index, bars_15m[:-1]
+                ):
                     log.info(
-                        "[FVG-FILTER] %s FVG %d bar once olusmus, expiry=%d (iptal)",
+                        "[FVG-FILTER] %s FVG bar=%d dokunulmus veya invalid — canli degil (iptal)",
                         sym,
-                        current.index - tf.bar_index,
-                        cfg.GLOBAL_FVG_EXPIRY_BARS,
+                        tf.bar_index,
                     )
                     rsm.reset()
                     return

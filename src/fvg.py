@@ -162,6 +162,33 @@ def update_fvg_states(
             object.__setattr__(fvg, "_next_check_abs", last_abs)
 
 
+def fvg_is_alive(
+    direction: Literal["bullish", "bearish"],
+    top: float,
+    bottom: float,
+    formation_index: int,
+    bars: list[Bar],
+) -> bool:
+    """FVG canli mi? Zaman bazli expiry (GLOBAL_FVG_EXPIRY_BARS=45) kalkti —
+    backtest get_fvg_status ile ayni semantik: gap dokunulmamis ve invalid
+    olmamis (far-side close gormemis) ise FVG yasi sinirsiz.
+
+    Scan araligi: formation_index + 2 .. verilen bar listesinin sonu
+    (trigger bari haric tutmak icin caller listeyi current bari disarda
+    birakarak gecirmeli)."""
+    scan_from = formation_index + 2
+    for b in bars:
+        if not b.is_closed or b.index < scan_from:
+            continue
+        if direction == "bullish":
+            if b.close < bottom or bottom <= b.close <= top:
+                return False
+        else:
+            if b.close > top or bottom <= b.close <= top:
+                return False
+    return True
+
+
 def find_latest_unfilled_fvg(
     fvgs: list[FVG],
     direction: Literal["bullish", "bearish"],

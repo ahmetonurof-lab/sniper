@@ -534,11 +534,6 @@ EARLY_LONDON_RISK_MULT = 1.5  # 02-08 UTC risk carpani (Altin Oran)
 MIN_REL_FVG_THRESHOLD = 0.40
 
 
-# ── FVG zaman asimi (expiry) ───────────────────────────────────
-
-GLOBAL_FVG_EXPIRY_BARS = 45
-
-
 # ── Magic Numbers (Faz 1.2) ────────────────────────────────────
 
 TRAIL_MIN_MOVE_MULT = 0.2

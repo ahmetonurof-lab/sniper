@@ -14,15 +14,6 @@ import config as cfg
 logger = logging.getLogger("sniper.session_router")
 
 
-def is_fvg_valid(formation_bar_index: int, current_bar_index: int) -> bool:
-    """FVG'nin zaman asimina ugrayip ugramadigini kontrol eder.
-    DNA analizine gore 45 bar gecmisse FVG 'olu', magnet etkisi bitmis."""
-    bars_passed = current_bar_index - formation_bar_index
-    if bars_passed > cfg.GLOBAL_FVG_EXPIRY_BARS:
-        return False
-    return True
-
-
 def get_cbdr_multiplier(symbol: str, cbdr_pct: float) -> float:
     profile = cfg.CBDR_RISK_MATRIX.get(symbol)
     if not profile:
