@@ -15,11 +15,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Literal
 
 from models import Bar
 from retrace_state import RetraceStateMachine, HTFFVG
-from session import DailyBias, SessionPhase, SessionState, detect_phase_from_timestamp
+from session import DailyBias, SessionState
 
 log = logging.getLogger("sniper.signal_engine")
 
@@ -74,7 +75,7 @@ class SignalEngine:
         atr_val: ATR-bazlı dinamik FVG eşiği için on_sweep_confirmed'e iletilir.
         symbol: coin bazli FVG_SIZE_MAP lookup icin.
         """
-        if self.rsm.state_name == "IDLE":
+        if self.rsm.state_name == "IDLE" and ss.sweep_confirmed:
             self.rsm.on_sweep(
                 direction=ss.sweep_direction or "bullish",
                 level=ss.sweep_level or 0.0,
@@ -122,10 +123,18 @@ class SignalEngine:
             self.rsm.reset()
             return EvalResult(decision="SKIP", reason="bias_neutral")
 
-        # Session filter (analyzer.py: NEWYORK + LONDON)
-        phase = detect_phase_from_timestamp(current.timestamp)
-        if phase not in (SessionPhase.NEWYORK, SessionPhase.LONDON):
-            log.info("[SKIP] trigger — session %s, atlandi (rsm reset)", phase)
+        # Session filter — analyzer_v5.py:302-303 ile birebir:
+        # CBDR penceresi ICINDE ise SKIP, disinda her saat TRIGGER'a acik.
+        # detect_phase yerine sembole ozel cbdr_start/end penceresi kullanilir;
+        # SOL (19-1) gibi pencerelerde saat 01 backtest'te serbesttir, detect_phase
+        # ise onu CLOSED sayip SKIP yapar — bu fark canliyi backtest'ten saptirir.
+        h = datetime.fromtimestamp(current.timestamp / 1000, tz=timezone.utc).hour
+        sh, eh = ss.cbdr_start, ss.cbdr_end
+        in_cbdr = (h >= sh or h < eh) if sh > eh else (sh <= h < eh)
+        if in_cbdr:
+            log.info(
+                "[SKIP] trigger — CBDR penceresinde (h=%d), atlandi (rsm reset)", h
+            )
             self.rsm.reset()
             return EvalResult(decision="SKIP", reason="session_filter")
 

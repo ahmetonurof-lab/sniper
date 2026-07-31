@@ -39,7 +39,7 @@ from models import (
     UNRESTRICTED_STATUSES,
 )
 from retrace_state import RetraceStateMachine
-from session import SessionState
+from session import DailyBias, SessionState
 from risk_manager import RiskManager
 from fvg import fvg_is_alive
 from session_router import (
@@ -416,20 +416,18 @@ class PaperTrader:
         # ── Session/CBDR status display → ConsoleReporter (Faz 6.2) ──
         self.reporter.display_session_status(sym, session, hour, dt.minute, ss)
 
-        if not ss.cbdr_locked:
-            log.info("[SKIP] %s CBDR henuz kilitlenmedi — sinyal taranmadi", sym)
-            return
-
         # ── Sweep status display → ConsoleReporter (Faz 6.2) ──
-        sweep_status = self.reporter.display_sweep_status(sym, ss, hour, dt.minute)
-        if sweep_status in ("dead", "waiting"):
-            return
-        # "detected": devam
+        # Not: display_sweep_status artik entry kapisi degil; sadece durum gosterimi.
+        # Yeni on_sweep() yalnizca SignalEngine.progress_rsm icinde ss.sweep_confirmed
+        # kosulu ile baslatilir (backtest analyzer_v5.py:266 ile aynı). Mevcut
+        # SWEEP_DETECTED state'i ise her 15m barinda on_sweep_confirmed ile
+        # invalidation kontrolunden gecer (analyzer_v5.py:273-274 ile aynı).
+        self.reporter.display_sweep_status(sym, ss, hour, dt.minute)
 
         rsm = self.rsms[sym]
         engine = self.signal_engines[sym]
 
-        # ── Blok 8: RSM state progression → SignalEngine ──
+        # ── Blok 8: RSM state progression → SignalEngine (her bar) ──
         engine.progress_rsm(bars_15m, current, ss, atr_val, sym)
 
         # ── Blok 9: FVG/Wick durum yazdırma → ConsoleReporter (Faz 6.2) ──
@@ -439,6 +437,30 @@ class PaperTrader:
             max(atr_val * cfg.FVG_SIZE_MAP.get(sym, cfg.FVG_MIN_SIZE_ATR_MULT), 1e-8),
             current.close,
         )
+
+        # ── Backtest parity: yeni CBDR gunune tasinan TRIGGER_READY'yi temizle ──
+        # backtest analyzer_v5.py:276-284 ayni — kilitsizken can_trigger ise
+        # bias_reject kontrol edilir, daily_bias NEUTRAL ise rsm.reset().
+        # Entry kilitliyken evaluate_trigger (Blok 10) zaten ayni kontrolu yapar.
+        if not ss.cbdr_locked and rsm.can_trigger() and sym not in self.active_trades:
+            sd = rsm.direction
+            db = ss.daily_bias
+            bias_reject = (
+                (sd == "bullish" and db == DailyBias.BEARISH)
+                or (sd == "bearish" and db == DailyBias.BULLISH)
+                or db == DailyBias.NEUTRAL
+            )
+            if bias_reject:
+                log.info(
+                    "[PARITY] %s TRIGGER_READY yeni gune tasindi bias=%s -> rsm.reset",
+                    sym,
+                    db.name,
+                )
+                rsm.reset()
+
+        if not ss.cbdr_locked:
+            log.info("[SKIP] %s CBDR henuz kilitlenmedi — entry engellendi", sym)
+            return
 
         # ── Blok 10: Trigger check + filtreler → SignalEngine ──
         result = engine.evaluate_trigger(current, ss)
