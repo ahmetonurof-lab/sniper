@@ -374,6 +374,18 @@ class UserDataHandler:
                 )
                 return
             label = "SL" if oid == s_id else "TP"
+            # P1-15: son 1 saatte -2021 reject olduysa pozisyon zaten dolmus,
+            # WS FILLED gecikmeli gelecek. Repair emri yerine koymak yeni bir
+            # -2021 uretir (gurultu) — atla. Reaktif catch son savunma olarak
+            # order_manager'da kalmaya devam eder.
+            if _order_manager.had_immediately_trigger(sym):
+                log.info(
+                    "[WS-REPAIR] %s %s emri silindi ama -2021 reject kaydi var — "
+                    "pozisyon zaten dolmus, repair atlaniyor (WS FILLED bekleniyor)",
+                    sym,
+                    label,
+                )
+                return
             log.warning(
                 "[WS-REPAIR] %s %s emri silindi \u2014 onariliyor...", sym, label
             )
@@ -575,6 +587,17 @@ class UserDataHandler:
                 )
                 return
             label = "SL" if oid == s_id else "TP"
+            # P1-15: son 1 saatte -2021 reject olduysa pozisyon zaten dolmus,
+            # WS FILLED gecikmeli gelecek. Repair emri yerine koymak yeni bir
+            # -2021 uretir (gurultu) — atla.
+            if _order_manager.had_immediately_trigger(sym):
+                log.info(
+                    "[WS-REPAIR] %s %s emri silindi ama -2021 reject kaydi var — "
+                    "pozisyon zaten dolmus, repair atlaniyor (WS FILLED bekleniyor)",
+                    sym,
+                    label,
+                )
+                return
             log.warning(
                 "[WS-REPAIR] %s %s emri silindi \u2014 onariliyor...", sym, label
             )

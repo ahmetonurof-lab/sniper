@@ -45,7 +45,8 @@ class RecoveryManager:
       - states: dict[sym, SessionState] — session durumları
       - active_trades: dict[sym, ActiveTrade] — aktif trade'ler
       - pl_callback: callable(sym, key, msg) — _pl() delegesi
-      - order_manager: OrderManager (şimdilik kullanılmıyor)
+      - order_manager: OrderManager — had_immediately_trigger() son 1 saatte
+        -2021 reject kaydi olup olmadigini sorgulamak icin kullanilir
       - atr_state: dict[sym, float] — sembol bazlı gerçek Wilder's ATR
       - protection_service: ProtectionLifecycleService | None —
         policy kararlari icin (None ise eski inline logic korunur)
@@ -165,6 +166,32 @@ class RecoveryManager:
                             f"🔒 {direction.upper()} @ {_fmt_price(entry)} | SL={_fmt_price(sl_price)} TP={_fmt_price(tp_price)} | yeni trade engellendi",
                         )
                 else:
+                    # Hedefli guard: local trade exit akisinda ise koruma kurma —
+                    # exit lifecycle pozisyonu zaten yonetiyor. -2021 reject kaydi
+                    # varsa pozisyon dolmus olabilir (WS FILLED gecikmeli).
+                    if (
+                        existing is not None
+                        and existing.get("status") not in UNRESTRICTED_STATUSES
+                    ):
+                        if not quiet:
+                            self._pl(
+                                sym,
+                                "recover",
+                                f"local status={existing.get('status')} — koruma kurulumu atlandi (exit akisi yonetiyor)",
+                            )
+                        continue
+                    if (
+                        self._order_manager is not None
+                        and hasattr(self._order_manager, "had_immediately_trigger")
+                        and self._order_manager.had_immediately_trigger(sym)
+                    ):
+                        if not quiet:
+                            self._pl(
+                                sym,
+                                "recover",
+                                "-2021 reject kaydi var — koruma kurulumu atlandi (WS FILLED bekleniyor)",
+                            )
+                        continue
                     if not quiet:
                         self._pl(
                             sym,
