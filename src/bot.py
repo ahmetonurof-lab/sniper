@@ -318,41 +318,39 @@ class PaperTrader:
         """ConsoleReporter'a delegate et. Imza birebir aynı."""
         self.reporter.emit(sym, key, msg, force)
 
-    def _build_fvg_scoped_trail_extractor(self, sym: str):
+    def _build_fvg_scan_trail_extractor(self, sym: str):
+        """Post-entry pencerede her 15m bar'da taze FVG taramasi yapan extractor.
+
+        rsm.trigger_fvg (entry'nin tek FVG'si) yerine backtest (analyzer_v5)
+        ile ayni kurali uygular: detect_fvgs + fvg_close_confirmed + ATR buffer
+        (ATR_TRAIL_MULT) + TRAIL_MIN_MOVE_MULT, birden fazla FVG'ye atlayabilir
+        (coklu-hop). Dondurulen SL seviyesi sl_buffered=True ile isaretlenir
+        (compute_trail_candidate tick x2 buffer uygulamaz).
+        """
+
         def extractor(scoped_bars, trade):
-            entry_bar_index = int(trade["entry_bar_index"])
-            side = str(trade["side"]).lower()
-
-            # PaperTrader'da fvg_state yok, rsm'den veya hub'dan FVG listesi alilmali.
-            # RSM'deki trigger_fvg disindaki FVG'ler su an takip edilmiyor.
-            # Basitlik icin rsm'in trigger_fvg'sini kullan (veya ileride fvg_state eklendiginde genislet).
-            rsm = self.rsms.get(sym)
-            if not rsm:
+            if len(scoped_bars) < 4:
                 return None
 
-            tf = rsm.trigger_fvg
-            if not tf:
+            atr_val = self._atr_state.get(sym, 0.0)
+            if atr_val <= 0:
+                last = scoped_bars[-1]
+                atr_val = max(last.range, last.close * cfg.DEFAULT_ATR_FALLBACK_PCT)
+
+            min_mult = cfg.FVG_SIZE_MAP.get(sym, cfg.FVG_MIN_SIZE_ATR_MULT)
+            min_fvg_size = max(atr_val * min_mult, 1e-8)
+
+            res = TrailingManager._fvg_multihop(
+                scoped_bars, trade, atr_val, min_fvg_size
+            )
+            if not res.updated or res.last_bar_index is None:
                 return None
 
-            # Sadece entry sonrasi veya ayni bar index'li FVG'ler
-            if int(tf.real_index) < entry_bar_index:
-                return None
-
-            if side == "long":
-                if tf.direction != "bullish":
-                    return None
-                return TrailLevel(
-                    price=Decimal(str(tf.bottom)),
-                    source_bar_index=int(tf.real_index),
-                    reason="confirmed bullish FVG",
-                )
-
-            if tf.direction != "bearish":
-                return None
             return TrailLevel(
-                price=Decimal(str(tf.top)),
-                source_bar_index=int(tf.real_index),
-                reason="confirmed bearish FVG",
+                price=Decimal(str(res.new_sl)),
+                source_bar_index=int(res.last_bar_index),
+                reason="fvg_scan_multihop",
+                sl_buffered=True,
             )
 
         return extractor
@@ -526,7 +524,7 @@ class PaperTrader:
 
         # ── Trailing + Exit: yalnizca unrestricted durumda ──
         if trade.get("status") in UNRESTRICTED_STATUSES:
-            # ATR (1m'de ATR güncellenmez) — orchestrasyon şu an ATR gerektirmiyor
+            # ATR (1m'de ATR güncellenmez) — extractor ATR'yi _atr_state'ten okur
             _atr_val = self._atr_state.get(
                 sym, max(current.range, current.close * cfg.DEFAULT_ATR_FALLBACK_PCT)
             )
@@ -933,7 +931,7 @@ class PaperTrader:
             risk_pts=risk_pts,
             tick_size=tick_size,
             trail_count=0,
-            trail_level_extractor=self._build_fvg_scoped_trail_extractor(sym),
+            trail_level_extractor=self._build_fvg_scan_trail_extractor(sym),
             trigger_fvg=fvg,
             fvg_top=getattr(fvg, "top", None) if fvg else None,
             fvg_bottom=getattr(fvg, "bottom", None) if fvg else None,

@@ -39,6 +39,7 @@ class TrailLevel:
     price: Decimal
     source_bar_index: int
     reason: str
+    sl_buffered: bool = False
 
 
 @dataclass(frozen=True)
@@ -66,6 +67,15 @@ class TrailResult:
     new_tp: float = 0.0
     trail_count: int = 0
     exit_now: bool = False
+
+
+@dataclass
+class TrailScanResult:
+    updated: bool = False
+    new_sl: float = 0.0
+    new_tp: float = 0.0
+    trail_count: int = 0
+    last_bar_index: int | None = None
 
 
 @dataclass
@@ -117,7 +127,11 @@ class TrailingManager:
         if level is None:
             return None
 
-        raw_sl = self._raw_stop_from_level(level.price, side, tick_size)
+        raw_sl = (
+            level.price
+            if level.sl_buffered
+            else self._raw_stop_from_level(level.price, side, tick_size)
+        )
         normalized_sl = self._normalize_price(
             raw_sl, side, kind="sl", tick_size=tick_size
         )
@@ -522,14 +536,21 @@ class TrailingManager:
         return False
 
     @staticmethod
-    def evaluate_trail(
+    def _fvg_multihop(
         bars_15m: list[Bar],
-        trade: dict,
+        trade: Trade,
         atr_val: float,
         min_fvg_size: float,
-    ) -> TrailResult:
+    ) -> TrailScanResult:
+        """Backtest (analyzer_v5) trailing adimlarinin birebir kopyasi.
+
+        Post-entry pencerede her 15m bar'da taze FVG taramasi yapar ve
+        fvg_close_confirmed + ATR buffer + TRAIL_MIN_MOVE_MULT sartlariyla
+        birden fazla FVG'ye atlayabilir (coklu-hop). TP delta-shift ile
+        SL'deki her degisiklik kadar kayar (RR yeniden hesaplanmaz).
+        """
         if not bars_15m or len(bars_15m) <= 1:
-            return TrailResult()
+            return TrailScanResult()
 
         chunk = bars_15m[:-1] if len(bars_15m) > 1 else bars_15m
         fvgs = detect_fvgs(
@@ -542,12 +563,11 @@ class TrailingManager:
         side = trade["side"]
         current_sl = trade["sl"]
         current_tp = trade["tp"]
-        risk_pts = trade.get(
-            "risk_pts", abs(trade["initial_sl"] - trade["entry_price"])
-        )
+        risk_pts = abs(trade["initial_sl"] - trade["entry_price"])
         trail_count = trade.get("trailing_count", 0)
         trail_steps = trade.get("trail_steps", [])
         updated = False
+        last_bar_index: int | None = None
         atr_buffer = atr_val * cfg.ATR_TRAIL_MULT
 
         for fvg in fvgs:
@@ -558,6 +578,7 @@ class TrailingManager:
             if not TrailingManager._fvg_close_confirmed(fvg, chunk):
                 continue
 
+            hopped = False
             if side == "long":
                 new_sl = fvg.bottom - atr_buffer
                 if (
@@ -568,7 +589,7 @@ class TrailingManager:
                     current_sl = new_sl
                     current_tp += sl_diff
                     trail_count += 1
-                    updated = True
+                    hopped = True
             else:
                 new_sl = fvg.top + atr_buffer
                 if (
@@ -579,9 +600,11 @@ class TrailingManager:
                     current_sl = new_sl
                     current_tp -= sl_diff
                     trail_count += 1
-                    updated = True
+                    hopped = True
 
-            if updated:
+            if hopped:
+                last_bar_index = fvg.real_index
+                updated = True
                 trail_steps.append(
                     {
                         "sl": round(new_sl, 6),
@@ -599,10 +622,28 @@ class TrailingManager:
                 )
 
         if updated:
-            return TrailResult(
+            return TrailScanResult(
                 updated=True,
                 new_sl=current_sl,
                 new_tp=current_tp,
                 trail_count=trail_count,
+                last_bar_index=last_bar_index,
             )
-        return TrailResult()
+        return TrailScanResult()
+
+    @staticmethod
+    def evaluate_trail(
+        bars_15m: list[Bar],
+        trade: dict,
+        atr_val: float,
+        min_fvg_size: float,
+    ) -> TrailResult:
+        res = TrailingManager._fvg_multihop(bars_15m, trade, atr_val, min_fvg_size)
+        if not res.updated:
+            return TrailResult()
+        return TrailResult(
+            updated=True,
+            new_sl=res.new_sl,
+            new_tp=res.new_tp,
+            trail_count=res.trail_count,
+        )
