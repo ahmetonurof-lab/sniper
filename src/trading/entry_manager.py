@@ -274,10 +274,21 @@ class EntryManager:
         return True, ""
 
     async def _emergency_close(
-        self, sym: str, side: str, qty: float, reason: str
+        self, sym: str, mkt_side: str, qty: float, reason: str
     ) -> EntryExecutionResult:
-        opp_side = "SELL" if side.upper() == "BUY" else "BUY"
-        side_label = "long" if side.upper() == "BUY" else "short"
+        """Acil pozisyon kapatma. Dönüş `success`, KAPATMA isteminin borsaya
+        başarıyla gönderilip gönderilmediğini belirtir — entry'nin başarılı
+        olduğu anlamına GELMEZ. Çağıran taraf (execute_live_entry) bu değeri
+        asla doğrudan kendi dönüş değeri olarak kullanmamalı; bkz. çağrı
+        yerlerindeki wrapper.
+        """
+        if mkt_side.upper() not in ("BUY", "SELL"):
+            raise ValueError(
+                f"_emergency_close: mkt_side 'BUY' veya 'SELL' olmali, "
+                f"gelen={mkt_side!r}"
+            )
+        opp_side = "SELL" if mkt_side.upper() == "BUY" else "BUY"
+        side_label = "long" if mkt_side.upper() == "BUY" else "short"
         log.critical("[EMERGENCY] %s %s — acil kapatma baslatiliyor", sym, reason)
         pt_log(
             EventType.EMERGENCY_CLOSE_STARTED,
@@ -317,8 +328,7 @@ class EntryManager:
             )
         return EntryExecutionResult(
             success=True,
-            qty=qty,
-            entry_log_msg=f"EMERGENCY CLOSE — {reason}",
+            error="",
         )
 
     async def execute_live_entry(
@@ -408,11 +418,23 @@ class EntryManager:
                     if p["symbol"] == sym:
                         pos_amt = abs(float(p.get("positionAmt", 0)))
                         if pos_amt > 0:
-                            return await self._emergency_close(
+                            close_result = await self._emergency_close(
                                 sym,
                                 mkt_side,
                                 pos_amt,
                                 "MARKET orderId yok ama pozisyon acik — reconcile",
+                            )
+                            close_note = (
+                                "pozisyon guvenle kapatildi"
+                                if close_result.success
+                                else f"ACIL KAPATMA DA BASARISIZ — {close_result.error}"
+                            )
+                            return EntryExecutionResult(
+                                success=False,
+                                error=(
+                                    "MARKET orderId yok ama pozisyon acik — "
+                                    f"{close_note}"
+                                ),
                             )
             except Exception as e:
                 log.critical("[MARKET-RECONCILE] %s pos sorgu hatasi: %s", sym, e)
@@ -498,8 +520,17 @@ class EntryManager:
                     sym,
                     e,
                 )
-                return await self._emergency_close(
+                close_result = await self._emergency_close(
                     sym, mkt_side, order_qty, f"SL/TP CALC FAIL — {e}"
+                )
+                close_note = (
+                    "pozisyon guvenle kapatildi"
+                    if close_result.success
+                    else f"ACIL KAPATMA DA BASARISIZ — {close_result.error}"
+                )
+                return EntryExecutionResult(
+                    success=False,
+                    error=f"SL/TP CALC FAIL — {e} — {close_note}",
                 )
 
             # ── Tick rounding (Decimal, direction-aware) ──
@@ -524,8 +555,17 @@ class EntryManager:
                     actual_price,
                     dir_msg,
                 )
-                return await self._emergency_close(
+                close_result = await self._emergency_close(
                     sym, mkt_side, order_qty, f"SL/TP direction fail — {dir_msg}"
+                )
+                close_note = (
+                    "pozisyon guvenle kapatildi"
+                    if close_result.success
+                    else f"ACIL KAPATMA DA BASARISIZ — {close_result.error}"
+                )
+                return EntryExecutionResult(
+                    success=False,
+                    error=f"SL/TP direction fail — {dir_msg} — {close_note}",
                 )
 
             risk_dist = abs(sl - actual_price)
@@ -645,8 +685,17 @@ class EntryManager:
                 protected_state_before=False,
                 reason=f"SL code={err_code}",
             )
-            return await self._emergency_close(
+            close_result = await self._emergency_close(
                 sym, mkt_side, order_qty, f"SL FAIL code={err_code}"
+            )
+            close_note = (
+                "pozisyon guvenle kapatildi"
+                if close_result.success
+                else f"ACIL KAPATMA DA BASARISIZ — {close_result.error}"
+            )
+            return EntryExecutionResult(
+                success=False,
+                error=f"SL FAIL code={err_code} — {close_note}",
             )
 
         protected = True

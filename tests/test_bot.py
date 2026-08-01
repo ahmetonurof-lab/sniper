@@ -5,6 +5,7 @@ Heavy mocking of external dependencies (WS, REST, config, trading).
 
 import asyncio
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -451,6 +452,69 @@ class TestTryEntry:
             )
         )
         # Should skip because qty <= 0
+        assert "BTCUSDT" not in bot.active_trades
+        assert rsm.state == RetraceState.IDLE
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.EntryManager")
+    def test_live_sl_fail_emergency_close_trade_not_recorded(
+        self, mock_entry_mgr, mock_cfg, mock_hub_cls, mock_rest_cls
+    ):
+        """BUG-1 regresyon: execute_live_entry success=False dondururse bot
+        trade KAYDETMEZ ve rsm.reset() cagirir (emergency close sonrasi
+        pozisyon kapali olsa bile)."""
+        _setup_minimal_cfg(mock_cfg)
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_entry_mgr.calculate_sl_tp.return_value = (100.0, 118.0)
+        mock_entry_mgr.calculate_qty.return_value = 1.0
+        mock_entry_mgr.validate_risk.return_value = (True, "")
+        exec_result = AsyncMock()
+        exec_result.return_value = SimpleNamespace(
+            success=False,
+            error="SL FAIL code=0 — pozisyon guvenle kapatildi",
+            sl_order_id="",
+            tp_order_id="",
+            qty=0.0,
+            actual_qty=0.0,
+            actual_price=0.0,
+            order_id="",
+            entry_log_msg="",
+        )
+        mock_entry_mgr.return_value.execute_live_entry = exec_result
+
+        from bot import PaperTrader
+
+        bot = PaperTrader(symbols=["BTCUSDT"])
+        bot._live = True
+        rsm = bot.rsms["BTCUSDT"]
+        ss = bot.states["BTCUSDT"]
+
+        rsm.state = RetraceState.TRIGGER_READY
+        rsm.direction = "bullish"
+        rsm.trigger_fvg = HTFFVG(
+            top=105.0, bottom=103.0, direction="bullish", bar_index=5
+        )
+        ss.london_high = 110.0
+        ss.london_low = 95.0
+
+        current = _bar(20, 108, 110, 106, 109)
+        asyncio.run(
+            bot._try_entry(
+                sym="BTCUSDT",
+                current=current,
+                atr_val=3.0,
+                rsm=rsm,
+                ss=ss,
+                sweep_dir="bullish",
+                sl_atr=1.5,
+                tp_rr=2.0,
+                fvg_buf=0.3,
+                min_fvg=0.5,
+            )
+        )
+        # Trade kaydedilmemeli (emergency close sonrasi pozisyon yok)
         assert "BTCUSDT" not in bot.active_trades
         assert rsm.state == RetraceState.IDLE
 

@@ -648,7 +648,7 @@ class TestEmergencyClose:
         mgr = EntryManager(rest_client=mock_rest, is_live=True)
         result = await mgr._emergency_close("BTCUSDT", "BUY", 0.5, "reason test")
         assert result.success is True
-        assert result.qty == 0.5
+        assert result.error == ""
         mock_rest.place_market_order.assert_called_once()
         call_kwargs = mock_rest.place_market_order.call_args.kwargs
         assert call_kwargs.get("reduce_only") is True
@@ -661,6 +661,14 @@ class TestEmergencyClose:
         result = await mgr._emergency_close("BTCUSDT", "SELL", 0.5, "api error")
         assert result.success is False
         assert "BASARISIZ" in result.error
+
+    @pytest.mark.asyncio
+    async def test_emergency_close_invalid_side_raises(self):
+        """BUG-7: mkt_side 'BUY'/'SELL' disinda ise ValueError."""
+        mock_rest = MagicMock()
+        mgr = EntryManager(rest_client=mock_rest, is_live=True)
+        with pytest.raises(ValueError):
+            await mgr._emergency_close("BTCUSDT", "long", 0.5, "test")
 
     @pytest.mark.asyncio
     async def test_emergency_close_opposite_side_from_buy(self):
@@ -767,8 +775,9 @@ class TestExecuteLiveEntry:
         mgr = EntryManager(rest_client=mock_rest, is_live=True)
         result = await mgr.execute_live_entry("BTCUSDT", "long", 0.5, 100.0, 110.0)
 
-        assert result.success is True
-        assert "EMERGENCY CLOSE" in result.entry_log_msg
+        assert result.success is False
+        assert "SL FAIL" in result.error
+        assert "pozisyon guvenle kapatildi" in result.error
         # Emergency close should have been called (opposite side)
         # place_market_order called for entry + emergency close
         assert mock_rest.place_market_order.call_count == 2
@@ -939,6 +948,6 @@ class TestExecuteLiveEntry:
         mgr = EntryManager(rest_client=mock_rest, is_live=True)
         result = await mgr.execute_live_entry("BTCUSDT", "long", 0.5, 100.0, 110.0)
 
-        assert result.success is True
-        assert "EMERGENCY" in result.entry_log_msg
+        assert result.success is False
+        assert "SL FAIL" in result.error
         assert mock_rest.place_market_order.call_count == 2  # entry + emergency
