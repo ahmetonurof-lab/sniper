@@ -1,6 +1,20 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: Canlı/backtest giriş parity tamamlandı — 9 sembol core-diff=0 (2026-07-31)
+## Son İşlem: Rapor dokümanları push edildi (2026-08-01)
+
+`reports/` altına 6 yeni analiz dokümanı eklendi + eski `backtest_canli_farklari_31_07_2026.md` silindi:
+
+- `Trading_Execution_Simulator.md` — emir yürütme simülatörü tasarımı (delay/spread/slippage/partial-fill/reject/protection lifecycle)
+- `entry_decision_tree.md` — ortak canlı/backtest giriş karar ağacı (CBDR→sweep→FVG→TRIGGER_READY→entry) + sembol matrisi
+- `fvg_fix_analysis_report.md` — FVG giriş filtreleri backtest hizalaması
+- `parity_regression.md` — giriş parity regression spec
+- `sniper_cross_context_bug_report.md` + `sniper_cross_context_bug_verification.md` — cross-context bug analizi
+
+Commit: `a6b0667`, push edildi (`7f8c11c..a6b0667 main -> main`).
+
+(Önceki işlemler aşağıda.)
+
+## Son İşlem (önceki): Canlı/backtest giriş parity tamamlandı — 9 sembol core-diff=0 (2026-07-31)
 
 İki düzeltme ile canlı `bot.py` + `signal_engine.py` state transition akışı backtest `analyzer_v5.py` ile birebir hizalandı:
 

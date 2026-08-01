@@ -4,6 +4,7 @@
 
 | Tarih | İşlem | Detay |
 |-------|-------|-------|
+| 2026-08-01 | **Rapor dokümanları push edildi** | `reports/` — `Trading_Execution_Simulator.md`, `entry_decision_tree.md`, `fvg_fix_analysis_report.md`, `parity_regression.md`, `sniper_cross_context_bug_report.md`, `sniper_cross_context_bug_verification.md` eklendi; `backtest_canli_farklari_31_07_2026.md` silindi. Commit: `a6b0667`, push edildi. |
 | 2026-07-31 | **Giriş parity tam + CI regression testi** | `bot.py` bias_reject bloğu (kilitsiz TRIGGER_READY reset) + `signal_engine.py` coin-bazlı session penceresi. 9 sembol core-diff=0, TRIGGER/sweep-lock birebir. `tests/parity/test_parity_regression.py` (9 test, 379s). Commit: `a47b8ae`. |
 | 2026-07-31 | cbdr_locked bağımlılığı düzeltmesi | `signal_engine.py:77` `on_sweep()` artık `ss.sweep_confirmed` koşuluyla (`analyzer_v5.py:266`); `bot.py:419-443` progress_rsm her bar çağrılır, display_sweep_status entry kapısı değil, cbdr_locked engeli evaluate_trigger öncesi. |
 | 2026-07-30 16:21 | paper_trade_logger — append-only JSONL paper trade logger | `src/paper_trade_logger.py` (+135 satır). `EventType` enum (15 tip), `configure()`, `log_event()` schema v1. Bloklar: entry, protection, fvg, validation, error, result, reason, latency_ms, call_count, protected_state. 4 modüle entegre: bot.py, entry_manager.py, exit_lifecycle.py, trailing_manager.py. Mevcut events.json/trades_history.jsonl değişmedi. |
