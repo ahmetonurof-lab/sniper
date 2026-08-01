@@ -518,8 +518,13 @@ class ExitLifecycleService:
                             attempt + 2,
                             adapter_status,
                         )
-            except Exception:
-                pass
+            except Exception as e:
+                log.error(
+                    "[EXIT] %s position verify failed (attempt %d/5): %s",
+                    sym,
+                    attempt + 1,
+                    str(e),
+                )
             if pos_closed:
                 break
             log.info(
