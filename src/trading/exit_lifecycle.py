@@ -318,30 +318,15 @@ class ExitLifecycleService:
                     trade["status"] = STATUS_ACTIVE
                     return False
 
-                if trade.get("pending_exit_price"):
-                    trade["exit_price"] = trade["pending_exit_price"]
-                    trade["exit_actual_price"] = trade["pending_exit_price"]
-                if trade.get("pending_exit_qty"):
-                    trade["exit_actual_qty"] = trade["pending_exit_qty"]
-                if trade.get("pending_exit_order_id"):
-                    trade["exit_order_id"] = trade["pending_exit_order_id"]
-                if trade.get("pending_exit_timestamp"):
-                    trade["exit_timestamp"] = trade["pending_exit_timestamp"]
-                trade["pending_exit_reason"] = None
-                trade["pending_exit_price"] = None
-                trade["pending_exit_qty"] = None
-                trade["pending_exit_order_id"] = None
-                trade["pending_exit_timestamp"] = None
-
-            # Patch Set 4 (WS normalization)
+            # Patch Set 4 (WS normalization) — tek konsolide blok (BUG-11)
             if trade.get("pending_exit_price") is not None:
                 trade["exit_price"] = trade["pending_exit_price"]
                 trade["exit_actual_price"] = trade["pending_exit_price"]
             if trade.get("pending_exit_qty") is not None:
                 trade["exit_actual_qty"] = trade["pending_exit_qty"]
-            if trade.get("pending_exit_order_id"):
+            if trade.get("pending_exit_order_id") is not None:
                 trade["exit_order_id"] = trade["pending_exit_order_id"]
-            if trade.get("pending_exit_timestamp"):
+            if trade.get("pending_exit_timestamp") is not None:
                 trade["exit_timestamp"] = trade["pending_exit_timestamp"]
             trade["pending_exit_reason"] = None
             trade["pending_exit_price"] = None

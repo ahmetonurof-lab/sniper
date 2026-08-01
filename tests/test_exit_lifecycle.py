@@ -108,6 +108,30 @@ class TestWsFallbackGuard:
         assert trade["pending_exit_reason"] is None
 
     @patch("trading.exit_lifecycle.cfg")
+    async def test_pending_exit_qty_zero_copied(self, mock_cfg, service):
+        """BUG-11: pending_exit_qty=0.0 edge case — 'is not None' sayesinde
+        exit_actual_qty'ye kopyalanir (truthy kontrol bunu atlardi)."""
+        svc, rest, om, active_trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        om.position_still_open = AsyncMock(return_value=False)
+
+        active_trades["BTCUSDT"] = _trade(result="WS_FALLBACK")
+        active_trades["BTCUSDT"]["pending_exit_price"] = 51000.0
+        active_trades["BTCUSDT"]["pending_exit_qty"] = 0.0
+        active_trades["BTCUSDT"]["pending_exit_order_id"] = "123"
+        active_trades["BTCUSDT"]["pending_exit_timestamp"] = 50000
+        active_trades["BTCUSDT"]["pending_exit_reason"] = "trail"
+        svc._rsms["BTCUSDT"] = _rsm()
+
+        trade = active_trades["BTCUSDT"]
+        result = await svc.execute("BTCUSDT", trade, 50000)
+
+        assert result is True
+        assert trade["exit_actual_qty"] == 0.0
+        assert trade["exit_price"] == 51000.0
+        assert trade["pending_exit_qty"] is None
+
+    @patch("trading.exit_lifecycle.cfg")
     @patch("trading.exit_lifecycle.asyncio.sleep")
     async def test_real_close_no_pending_still_works(
         self, mock_sleep, mock_cfg, service
