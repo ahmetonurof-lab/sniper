@@ -40,14 +40,12 @@ def should_trade(
     profile = cfg.CBDR_RISK_MATRIX.get(symbol)
     if profile is None:
         return False, symbol + " CBDR_RISK_MATRIX'te tanimli degil"
-    if cbdr_width_pct is not None:
-        cbdr_mult = get_cbdr_multiplier(symbol, cbdr_width_pct)
-        if cbdr_mult == 0.0:
-            return (
-                False,
-                symbol
-                + " CBDR="
-                + f"{cbdr_width_pct:.2f}%"
-                + " Zehirli Bolge (mult=0.0)",
-            )
+    if cbdr_width_pct is None:
+        return False, symbol + " CBDR olcumu yok — fail-closed"
+    cbdr_mult = get_cbdr_multiplier(symbol, cbdr_width_pct)
+    if cbdr_mult == 0.0:
+        return (
+            False,
+            symbol + " CBDR=" + f"{cbdr_width_pct:.2f}%" + " Zehirli Bolge (mult=0.0)",
+        )
     return True, ""
