@@ -483,9 +483,44 @@ class RecoveryManager:
                                         reason="recover_emergency_close",
                                         is_algo=True,
                                     )
-                                except Exception:
-                                    pass
-                            continue
+                                except Exception as e:
+                                    log.error(
+                                        "[RECOVER] %s TP iptal hatasi (id=%s): %s — "
+                                        "retry denecek, koruma emri aktif olabilir",
+                                        sym,
+                                        tp_id,
+                                        e,
+                                    )
+                                    for _attempt in range(1):
+                                        try:
+                                            await asyncio.sleep(0.5)
+                                            await self._rest.cancel_order(
+                                                tp_id,
+                                                sym,
+                                                reason="recover_emergency_close_retry",
+                                                is_algo=True,
+                                            )
+                                            log.info(
+                                                "[RECOVER] %s TP retry iptal OK (id=%s)",
+                                                sym,
+                                                tp_id,
+                                            )
+                                            break
+                                        except Exception as e2:
+                                            log.critical(
+                                                "[RECOVER] %s TP iptal retry de BASARISIZ "
+                                                "(id=%s): %s — MANUEL MUDAHALE GEREKLI",
+                                                sym,
+                                                tp_id,
+                                                e2,
+                                            )
+                                            if not quiet:
+                                                self._pl(
+                                                    sym,
+                                                    "recovery_tp_cancel_failed",
+                                                    f"TP cancel retry failed: {e2}",
+                                                )
+                                    continue
 
                         # place_market_order basarisiz: ya exception atti ya da
                         # {} dondu (minQty/minNotional/POST hatasi -- exception

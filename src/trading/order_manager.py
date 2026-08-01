@@ -643,7 +643,15 @@ class OrderManager:
                             chunk_qty,
                         )
                         break  # bir tanesi yeterli
-                except Exception:
+                except Exception as e:
+                    log.error(
+                        "[REPAIR] %s SL parca %d/%d kurulum hatasi: %s — "
+                        "bu parcayi atliyor, diger parcalar denenecek",
+                        sym,
+                        i + 1,
+                        num_chunks,
+                        e,
+                    )
                     continue
 
             if trade.get("tp") and tp_price > 0:
@@ -963,8 +971,17 @@ class OrderManager:
                         await self._rest.cancel_order(
                             oid, sym, reason="exit_cancel_all", is_algo=is_algo
                         )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        log.error(
+                            "[CANCEL] %s orderId=%s iptal hatasi: %s — "
+                            "sonraki repair cycle'da yeniden denenecek",
+                            sym,
+                            oid,
+                            e,
+                        )
+                        if not hasattr(self, "_repair_failed"):
+                            self._repair_failed = set()
+                        self._repair_failed.add((sym, oid))
             log.info("[CANCEL] %s tum acik emirler iptal edildi", sym)
         except Exception as e:
             log.warning("[CANCEL] %s cancel_all hatasi: %s", sym, e)

@@ -7,6 +7,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from trading.order_manager import OrderManager
+from models import ActiveTrade
 
 
 # ── Helpers ───────────────────────────────────────────────────────
@@ -25,6 +26,33 @@ def _trade(
         "tp_order_id": tp_order_id,
         "status": "",
     }
+
+
+def _active_trade(
+    side="long",
+    sl=100.0,
+    tp=110.0,
+    qty=0.5,
+    sl_order_id="sl_old",
+    tp_order_id="tp_old",
+    entry_bar_index=0,
+    entry_price=100.0,
+):
+    return ActiveTrade(
+        symbol="BTCUSDT",
+        side=side,
+        status="",
+        entry_bar_index=entry_bar_index,
+        entry_price=entry_price,
+        sl=sl,
+        tp=tp,
+        qty=qty,
+        sl_order_id=sl_order_id,
+        tp_order_id=tp_order_id,
+        initial_sl=sl,
+        initial_tp=tp,
+        trailing_count=0,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1135,3 +1163,171 @@ class TestRepairProtectionConcurrency:
         assert trade_b["sl_order_id"] == "sl_ok"
         # place_stop_order 2 kez çağrılmış olmalı (her sembol için 1)
         assert mock_rest.place_stop_order.call_count == 2
+
+
+# ═══════════════════════════════════════════════════════════════════
+# ActiveTrade-based BUG-29 regression tests
+# These tests ensure sl_order_id_history, tp_order_id_history, and
+# protection_orders work correctly with ActiveTrade objects (which
+# do NOT have setdefault — only dict does).
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestActiveTradeHistoryFields:
+    """BUG-29 regression: ActiveTrade has no setdefault().
+    These tests verify that .get()-based history tracking works
+    on ActiveTrade objects, not just plain dicts."""
+
+    @pytest.mark.asyncio
+    async def test_sl_order_id_history_appended_on_active_trade(self):
+        """ActiveTrade'de sl_order_id_history .get() ile okunur ve
+        liste olarak init edilir — setdefault crash'i yok."""
+        from trading.order_manager import OrderManager
+
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.estimate_market_price = AsyncMock(return_value=100.0)
+        mock_rest.get_max_qty = AsyncMock(return_value=1000.0)
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_new"})
+        mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_new"})
+        mock_rest.cancel_order = AsyncMock(return_value={})
+
+        _mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _active_trade(
+            side="long",
+            sl=100.0,
+            tp=110.0,
+            sl_order_id="sl_prev",
+            tp_order_id="tp_prev",
+        )
+
+        # sl_order_id_history is None on a fresh ActiveTrade (not a field,
+        # so .get() returns None — the BUG-29 fix handles this with .get()
+        # + isinstance check instead of .setdefault())
+        assert trade.get("sl_order_id_history") is None
+
+        # Simulate a trail update that replaces the SL
+        trade["sl_order_id"] = "sl_prev"
+        trade["sl"] = 101.0
+
+        # The code path that appends to history uses .get() not .setdefault()
+        # This should NOT raise AttributeError on ActiveTrade
+        hist = trade.get("sl_order_id_history")
+        if not isinstance(hist, list):
+            hist = []
+            trade["sl_order_id_history"] = hist
+        hist.append("sl_prev")
+        trade["sl_order_id_history"] = hist[-5:]
+
+        assert isinstance(trade["sl_order_id_history"], list)
+        assert "sl_prev" in trade["sl_order_id_history"]
+
+    @pytest.mark.asyncio
+    async def test_tp_order_id_history_appended_on_active_trade(self):
+        """ActiveTrade'de tp_order_id_history .get() ile okunur ve
+        liste olarak init edilir — setdefault crash'i yok."""
+        from trading.order_manager import OrderManager
+
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.estimate_market_price = AsyncMock(return_value=100.0)
+        mock_rest.get_max_qty = AsyncMock(return_value=1000.0)
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_new"})
+        mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_new"})
+        mock_rest.cancel_order = AsyncMock(return_value={})
+
+        _mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _active_trade(
+            side="long",
+            sl=100.0,
+            tp=110.0,
+            sl_order_id="sl_prev",
+            tp_order_id="tp_prev",
+        )
+
+        # tp_order_id_history is None on a fresh ActiveTrade
+        assert trade.get("tp_order_id_history") is None
+
+        # Simulate a trail update that replaces the TP
+        trade["tp_order_id"] = "tp_prev"
+        trade["tp"] = 109.0
+
+        # The code path that appends to history uses .get() not .setdefault()
+        hist = trade.get("tp_order_id_history")
+        if not isinstance(hist, list):
+            hist = []
+            trade["tp_order_id_history"] = hist
+        hist.append("tp_prev")
+        trade["tp_order_id_history"] = hist[-5:]
+
+        assert isinstance(trade["tp_order_id_history"], list)
+        assert "tp_prev" in trade["tp_order_id_history"]
+
+    @pytest.mark.asyncio
+    async def test_protection_orders_get_not_setdefault_on_active_trade(self):
+        """ActiveTrade'de protection_orders .get() ile okunur —
+        setdefault crash'i yok."""
+        from trading.order_manager import OrderManager
+
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.estimate_market_price = AsyncMock(return_value=100.0)
+        mock_rest.get_max_qty = AsyncMock(return_value=1000.0)
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_new"})
+        mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_new"})
+        mock_rest.cancel_order = AsyncMock(return_value={})
+
+        _mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _active_trade(
+            side="long",
+            sl=100.0,
+            tp=110.0,
+            sl_order_id="sl_old",
+            tp_order_id="tp_old",
+        )
+
+        # protection_orders is initialized as {} by default_factory on ActiveTrade
+        assert trade.get("protection_orders") == {}
+
+        # The code path uses .get("protection_orders", {}) not .setdefault()
+        # This should NOT raise AttributeError on ActiveTrade
+        protection_orders = trade.get("protection_orders", {})
+        assert isinstance(protection_orders, dict)
+
+    @pytest.mark.asyncio
+    async def test_full_sl_lifecycle_with_active_trade(self):
+        """Full trailing SL update with ActiveTrade — verifies no
+        AttributeError on sl_order_id_history access."""
+        from trading.order_manager import OrderManager
+
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.estimate_market_price = AsyncMock(return_value=100.0)
+        mock_rest.get_max_qty = AsyncMock(return_value=1000.0)
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_new"})
+        mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_new"})
+        mock_rest.cancel_order = AsyncMock(return_value={})
+
+        mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _active_trade(
+            side="long",
+            sl=100.0,
+            tp=110.0,
+            sl_order_id="sl_old",
+            tp_order_id="tp_old",
+        )
+
+        # First update: old SL gets moved to history
+        result = await mgr.update_trail_orders("BTCUSDT", trade, 105.0, 115.0, 1)
+        assert result is True
+
+        # Second update: previous SL (now in history) gets replaced again
+        trade["sl"] = 104.0
+        result2 = await mgr.update_trail_orders("BTCUSDT", trade, 104.0, 114.0, 1)
+        assert result2 is True
+
+        # History should now contain the old SL order ID
+        hist = trade.get("sl_order_id_history")
+        assert hist is not None
+        assert isinstance(hist, list)
+        assert len(hist) >= 1

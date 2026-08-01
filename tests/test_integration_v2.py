@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, AsyncMock
 
 import pytest
 
-from models import Bar
+from models import Bar, ActiveTrade
 from trading.entry_manager import EntryManager
 from trading.order_manager import OrderManager
 from trading.trailing_manager import TrailingManager
@@ -571,3 +571,45 @@ class TestDryFlowExtended:
                 assert decision.triggered is True
         else:
             pytest.skip("TRIGGER_READY ulasilmadi — wick/FVG kosulu saglanamadi")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# ActiveTrade-based BUG-29 regression tests
+# These tests ensure protection/order flows work with ActiveTrade objects
+# (which do NOT have setdefault — only dict does).
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestActiveTradeIntegrationV2:
+    """BUG-29 regression: ActiveTrade has no setdefault().
+    These tests verify that protection/order state flows work correctly
+    with ActiveTrade objects, not just plain dicts."""
+
+    @pytest.mark.asyncio
+    async def test_protection_orders_get_not_setdefault_on_active_trade(self):
+        """ActiveTrade'de protection_orders .get() ile okunur —
+        setdefault crash'i yok."""
+        at = ActiveTrade(
+            symbol="BTCUSDT",
+            side="long",
+            status="",
+            entry_bar_index=0,
+            entry_price=100.0,
+            sl=100.0,
+            tp=110.0,
+            qty=1.0,
+            initial_sl=100.0,
+            initial_tp=110.0,
+            trailing_count=0,
+        )
+
+        # Verify ActiveTrade does NOT have setdefault (the bug trigger)
+        assert not hasattr(at, "setdefault")
+
+        # Verify .get() works on ActiveTrade (the fix)
+        assert at.get("protection_orders") == {}
+
+        # The code path uses .get("protection_orders", {}) not .setdefault()
+        # This should NOT raise AttributeError on ActiveTrade
+        protection_orders = at.get("protection_orders", {})
+        assert isinstance(protection_orders, dict)

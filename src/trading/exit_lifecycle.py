@@ -546,8 +546,12 @@ class ExitLifecycleService:
                             o.get("orderId") or o.get("algoId"),
                         )
                         break
-            except Exception:
-                pass
+            except Exception as e:
+                log.error(
+                    "[EXIT] %s get_all_orders FILLED check hatasi: %s",
+                    sym,
+                    e,
+                )
 
         if not pos_closed:
             await self._mark_repair_required(sym, trade)
@@ -695,18 +699,20 @@ class ExitLifecycleService:
         )
         await self._order_manager.cleanup_on_exit(sym, trade, trade["result"])
 
-        # FVG state dosyasini temizle
+        # FVG state dosyasini temizle (BULGU-12: file handle leak + bare except)
         try:
             if os.path.exists(self._fvg_state_file):
-                data = json.loads(
-                    open(self._fvg_state_file, "r", encoding="utf-8").read()
-                )
+                with open(self._fvg_state_file, "r", encoding="utf-8") as f:
+                    data = json.loads(f.read())
                 data.pop(sym, None)
-                open(self._fvg_state_file, "w", encoding="utf-8").write(
-                    json.dumps(data, ensure_ascii=False)
-                )
-        except Exception:
-            pass
+                with open(self._fvg_state_file, "w", encoding="utf-8") as f:
+                    f.write(json.dumps(data, ensure_ascii=False))
+        except Exception as e:
+            log.error(
+                "[FVG_STATE] %s fvg state cleanup hatasi: %s",
+                sym,
+                e,
+            )
 
         try:
             snap = capture_snapshot(sym, trade, pnl, self._states[sym])

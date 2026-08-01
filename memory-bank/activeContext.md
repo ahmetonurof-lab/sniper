@@ -1,8 +1,8 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: Cross-context bug fix turu tamamlandı — 13 bug, 12 commit (2026-08-01)
+## Son İşlem: Cross-context bug fix turu + P0 safety fixes (2026-08-01)
 
-`sniper_cross_context_bug_report_v2.md` + `sniper_fix_plan_ve_agent_direktifi.md` rehberliğinde, baz `03e6eaf8` üzerine uygulandı. Her madde ayrı commit, her commit kendi testleriyle yeşil:
+`sniper_cross_context_bug_report_v2.md` + `sniper_fix_plan_ve_agent_direktifi.md` rehberliğinde, baz `03e6eaf8` üzerine uygulandı. 13 bug 12 commit. Ek olarak 2026-08-01: 5 bare `except Exception: pass` hatasını remediation — recovery_manager.py:486 (SL/TP cancel retry), exit_lifecycle.py:521/549 (position verify + FILLED order check), order_manager.py:646/966 (SL placement + repair cancel). state_writer.py: BULGU-05 (protection_health flat field'lardan), BULGU-19 (ws_event_normalization config'den).
 
 1. **BUG-1/7** (`5f08154`) — `_emergency_close` başarılı kapanmada `success=True`; 4 call-site wrapper ile `execute_live_entry` hâlâ `success=False`; `mkt_side` parametresi + `ValueError` guard
 2. **BUG-25** (`c776e20`) — risk_manager bozuk/yok/schema-hatalı state'te `initial_equity` fallback; `get_current_dd` peak<=0'da %100 (güvenli taraf)

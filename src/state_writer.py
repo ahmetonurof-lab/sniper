@@ -2,6 +2,8 @@ import json
 import os
 from datetime import UTC, datetime
 
+import config as cfg
+
 from models import (
     STATUS_EXIT_VERIFYING,
     STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
@@ -34,7 +36,7 @@ def write_state(
         # Patch Set 6: operator visibility — hangi kod yollari aktif?
         "feature_flags": {
             "protection_lifecycle_service": True,
-            "ws_event_normalization": False,
+            "ws_event_normalization": cfg.WS_EVENT_NORMALIZATION_ENABLED,
         },
     }
     for sym in symbols:
@@ -79,10 +81,14 @@ def write_state(
                     STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
                 ),
                 "repair_required": trade.get("status") == STATUS_REPAIR_REQUIRED,
-                # Sprint D1: protection lifecycle status
-                "sl_status": trade.runtime.protection.sl_status(trade.get("sl", 0)),
-                "tp_status": trade.runtime.protection.tp_status(trade.get("tp", 0)),
-                "protection_health": trade.runtime.protection.health,
+                # BULGU-05: flat field'lardan türet (trade.runtime.protection hep default)
+                "sl_status": "PLACED" if trade.get("sl_order_id") else "MISSING",
+                "tp_status": "PLACED" if trade.get("tp_order_id") else "MISSING",
+                "protection_health": (
+                    "OK"
+                    if trade.get("sl_order_id") and trade.get("tp_order_id")
+                    else "BROKEN"
+                ),
             }
             if trade
             else None,

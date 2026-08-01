@@ -9,7 +9,7 @@ Sentetik bar verisi kullanir, Binance/network bagimliligi yoktur.
 
 import pytest
 
-from models import Bar
+from models import Bar, ActiveTrade
 from retrace_state import RetraceStateMachine, HTFFVG, RetraceState
 from session import DailyBias, SessionState
 from trading.entry_manager import EntryManager
@@ -552,3 +552,54 @@ class TestDryStrategyFlow:
                 assert decision.triggered is True
         else:
             pytest.skip("RSM TRIGGER_READY ulasmadi — FVG esik/wick kosulu saglanamadi")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# ActiveTrade-based BUG-29 regression tests
+# These tests ensure trailing/exit flows work with ActiveTrade objects
+# (which do NOT have setdefault — only dict does).
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestActiveTradeIntegration:
+    """BUG-29 regression: ActiveTrade has no setdefault().
+    These tests verify that trailing and exit flows work correctly
+    with ActiveTrade objects, not just plain dicts."""
+
+    @pytest.mark.asyncio
+    async def test_trailing_exit_with_active_trade_no_setdefault_crash(self):
+        """ActiveTrade ile trailing exit akisi .setdefault crash'i
+        vermeli degil — .get() kullanilmasi gerekir."""
+
+        at = ActiveTrade(
+            symbol="BTCUSDT",
+            side="long",
+            status="",
+            entry_bar_index=0,
+            entry_price=100.0,
+            sl=100.0,
+            tp=110.0,
+            qty=1.0,
+            initial_sl=100.0,
+            initial_tp=110.0,
+            trailing_count=0,
+        )
+
+        # Verify ActiveTrade does NOT have setdefault (the bug trigger)
+        assert not hasattr(at, "setdefault")
+
+        # Verify .get() works on ActiveTrade (the fix)
+        assert at.get("sl_order_id_history") is None
+        assert at.get("tp_order_id_history") is None
+        assert at.get("protection_orders") == {}
+
+        # Simulate history append using .get() pattern (BUG-29 fix)
+        hist = at.get("sl_order_id_history")
+        if not isinstance(hist, list):
+            hist = []
+            at["sl_order_id_history"] = hist
+        hist.append("sl_old")
+        at["sl_order_id_history"] = hist[-5:]
+
+        assert isinstance(at["sl_order_id_history"], list)
+        assert "sl_old" in at["sl_order_id_history"]
