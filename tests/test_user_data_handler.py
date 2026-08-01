@@ -134,6 +134,34 @@ class TestNormalizeOrderEvent:
         evt = normalize_order_event(raw)
         assert evt.ts_ms is not None
 
+    def test_ts_ms_uses_event_ts_ms_first(self):
+        raw = _raw_order()
+        evt = normalize_order_event(raw, event_ts_ms=1710000000000)
+        assert evt.ts_ms == 1710000000000
+
+    def test_ts_ms_falls_back_to_T(self):
+        raw = _raw_order(T=1710000001111)
+        evt = normalize_order_event(raw)
+        assert evt.ts_ms == 1710000001111
+
+    def test_ts_ms_falls_back_to_O(self):
+        raw = _raw_order(O=1710000002222)
+        evt = normalize_order_event(raw)
+        assert evt.ts_ms == 1710000002222
+
+    def test_ts_ms_falls_back_to_local_clock(self):
+        raw = _raw_order()
+        evt = normalize_order_event(raw)
+        assert evt.ts_ms is not None
+        import time
+
+        assert abs(evt.ts_ms - int(time.time() * 1000)) < 5000
+
+    def test_ts_ms_prefers_event_over_T(self):
+        raw = _raw_order(T=1710000001111)
+        evt = normalize_order_event(raw, event_ts_ms=1710000009999)
+        assert evt.ts_ms == 1710000009999
+
     def test_raw_stored(self):
         raw = _raw_order()
         evt = normalize_order_event(raw)

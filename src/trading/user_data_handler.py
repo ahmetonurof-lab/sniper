@@ -44,26 +44,56 @@ WS_EVENT_NORMALIZATION_ENABLED = cfg.WS_EVENT_NORMALIZATION_ENABLED
 # ── WS event normalization ─────────────────────────────────────
 
 
-def normalize_order_event(raw: dict) -> NormalizedOrderEvent | None:
+def normalize_order_event(
+    raw_order: dict, event_ts_ms: int | None = None
+) -> NormalizedOrderEvent | None:
     """Raw Binance ORDER_TRADE_UPDATE 'o' alanından NormalizedOrderEvent üretir.
+
+    ts_ms kaynağı (BUG-8 clock skew çözümü) — öncelik sırası:
+      1. event_ts_ms (msg['E'] — top-level Binance event timestamp, WS'e yayın
+         anı; stale/event ordering için doğru kaynak)
+      2. raw_order['T'] (order creation time)
+      3. raw_order['O'] (order creation time fallback)
+      4. local clock (son çare)
+
+    Server event time, order transaction time ve local receive time birbirine
+    karıştırılmaz; latency ölçümü için ayrı loglanır.
 
     Dönüş: NormalizedOrderEvent veya None (symbol yoksa - ignore).
     """
-    sym = raw.get("s", "")
+    sym = raw_order.get("s", "")
     if not sym:
         return None
+    server_ts = (
+        event_ts_ms
+        or raw_order.get("T")
+        or raw_order.get("O")
+        or int(time.time() * 1000)
+    )
+    received_ts_ms = int(time.time() * 1000)
+    latency_ms = received_ts_ms - int(server_ts)
+    if latency_ms < 0 or latency_ms > 5000:
+        log.debug(
+            "[WS-LATENCY] sym=%s event_ts=%s received=%s latency=%dms",
+            sym,
+            int(server_ts),
+            received_ts_ms,
+            latency_ms,
+        )
     return NormalizedOrderEvent(
         symbol=sym,
-        order_id=str(raw.get("c", "") or raw.get("i", "")),
-        client_order_id=str(raw.get("c", "")),
-        status=raw.get("X", ""),
-        reduce_only=bool(raw.get("R", False) or raw.get("reduceOnly", False)),
-        avg_price=(float(raw.get("ap", 0)) if raw.get("ap") else None),
-        last_price=(float(raw.get("L", 0)) if raw.get("L") else None),
-        cum_qty=(float(raw.get("z", 0)) if raw.get("z") else None),
-        cum_quote_qty=(float(raw.get("Z", 0)) if raw.get("Z") else None),
-        ts_ms=int(time.time() * 1000),
-        raw=raw,
+        order_id=str(raw_order.get("c", "") or raw_order.get("i", "")),
+        client_order_id=str(raw_order.get("c", "")),
+        status=raw_order.get("X", ""),
+        reduce_only=bool(
+            raw_order.get("R", False) or raw_order.get("reduceOnly", False)
+        ),
+        avg_price=(float(raw_order.get("ap", 0)) if raw_order.get("ap") else None),
+        last_price=(float(raw_order.get("L", 0)) if raw_order.get("L") else None),
+        cum_qty=(float(raw_order.get("z", 0)) if raw_order.get("z") else None),
+        cum_quote_qty=(float(raw_order.get("Z", 0)) if raw_order.get("Z") else None),
+        ts_ms=int(server_ts),
+        raw=raw_order,
     )
 
 
@@ -149,9 +179,10 @@ class UserDataHandler:
         @hub.on_user_data("ORDER_TRADE_UPDATE")
         async def on_order_update(msg: dict) -> None:
             od = msg.get("o", {})
+            event_ts_ms = msg.get("E")
 
             if WS_EVENT_NORMALIZATION_ENABLED:
-                await _on_order_update_normalized(od)
+                await _on_order_update_normalized(od, event_ts_ms=event_ts_ms)
                 return
             await _on_order_update_legacy(od)
 
@@ -171,8 +202,10 @@ class UserDataHandler:
 
         # ── Normalized handler (Patch Set 4) ─────────────────
 
-        async def _on_order_update_normalized(od: dict) -> None:
-            evt = normalize_order_event(od)
+        async def _on_order_update_normalized(
+            od: dict, event_ts_ms: int | None = None
+        ) -> None:
+            evt = normalize_order_event(od, event_ts_ms=event_ts_ms)
             if evt is None:
                 return
             status = evt.status
