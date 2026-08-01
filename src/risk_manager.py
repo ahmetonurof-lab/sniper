@@ -41,6 +41,7 @@ class RiskManager:
         self.early_london_mult = el_mult
         self.dd_trip = dd_trip
         self.dd_reset = dd_reset
+        self.initial_equity = initial_equity
 
         self.state = self._load_state()
         self.is_circuit_broken = self.state.get("is_circuit_broken", False)
@@ -58,8 +59,8 @@ class RiskManager:
                 with open(self.state_file, "r") as f:
                     return json.load(f)
         except json.JSONDecodeError:
-            logger.error("State dosyasi bozuk, varsayilan degerlerle baslatiliyor.")
-            return {"peak_equity": 0.0, "is_circuit_broken": False}
+            logger.error("State dosyasi bozuk, initial_equity ile baslatiliyor.")
+            return {"peak_equity": self.initial_equity, "is_circuit_broken": False}
         except Exception as e:
             logger.error(f"State okunamadi: {e}")
             return {"peak_equity": 0.0, "is_circuit_broken": False}
