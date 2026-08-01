@@ -760,7 +760,32 @@ class EntryManager:
                 protected_state_after=True,
                 reason="tp_placement_failed",
             )
-            log.warning("[ORDER] %s TP BASARISIZ! resp=%s", sym, tp_resp)
+            log.critical(
+                "[ORDER] %s TP BASARISIZ! resp=%s, emergency close triggered",
+                sym,
+                tp_resp,
+            )
+            close_result = await self._emergency_close(
+                sym, mkt_side, order_qty, f"TP FAIL resp={tp_resp}"
+            )
+            return EntryExecutionResult(
+                success=close_result.success,
+                error=f"TP FAIL — {close_result.error if not close_result.success else 'emergency close executed'}",
+                qty=actual_qty,
+                actual_qty=actual_qty,
+                actual_price=actual_price,
+                quote_qty=quote_qty,
+                order_id=mkt_id,
+                entry_price=actual_price,
+                sl_order_id=sl_id,
+                tp_order_id=None,
+                entry_log_msg=(
+                    f"★ ENTRY: {side.upper()} | "
+                    f"PRICE: {_fmt_price(est_price)} (filled @ {_fmt_price(actual_price)}) | "
+                    f"SL: {_fmt_price(sl)} | TP: {_fmt_price(tp)} (FAILED) | "
+                    f"QTY: {valid_qty:.4f} (filled: {actual_qty:.4f})"
+                ),
+            )
 
         return EntryExecutionResult(
             success=True,

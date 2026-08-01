@@ -856,9 +856,14 @@ class TestExecuteLiveEntry:
         mgr = EntryManager(rest_client=mock_rest, is_live=True)
         result = await mgr.execute_live_entry("BTCUSDT", "long", 0.5, 100.0, 110.0)
 
+        # TP başarısız → emergency close tetiklenir (başarılı kapanış)
         assert result.success is True
         assert result.sl_order_id == "sl_001"
-        assert result.tp_order_id == ""  # TP failed, but still success
+        assert result.tp_order_id is None  # TP failed
+        assert "TP FAIL" in result.error
+
+        # place_market_order called for entry + emergency close
+        assert mock_rest.place_market_order.call_count == 2
 
     @pytest.mark.asyncio
     async def test_qty_clamped_to_max_qty(self):
