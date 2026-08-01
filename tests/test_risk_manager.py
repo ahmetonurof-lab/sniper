@@ -3,6 +3,7 @@ risk_manager.py testleri — BUG-25: bozuk state dosyası fallback.
 """
 
 import json
+import os
 
 from risk_manager import RiskManager
 
@@ -39,5 +40,28 @@ class TestLoadState:
     def test_missing_state_uses_defaults(self, tmp_path):
         state_file = str(tmp_path / "nope.json")
         rm = RiskManager(state_file=state_file, initial_equity=10000.0)
-        assert rm.peak_equity == 0.0
+        assert rm.peak_equity == 10000.0
         assert rm.is_circuit_broken is False
+
+    def test_schema_mismatch_falls_back(self, tmp_path):
+        state_file = str(tmp_path / "risk_state.json")
+        self._write(state_file, '{"foo": "bar"}')
+        rm = RiskManager(state_file=state_file, initial_equity=7000.0)
+        assert rm.peak_equity == 7000.0
+        assert rm.is_circuit_broken is False
+
+    def test_permission_error_falls_back(self, tmp_path):
+        state_file = str(tmp_path / "risk_state.json")
+        self._write(state_file, "{}")
+        os.chmod(state_file, 0o000)
+        try:
+            rm = RiskManager(state_file=state_file, initial_equity=9000.0)
+            assert rm.peak_equity == 9000.0
+            assert rm.is_circuit_broken is False
+        finally:
+            os.chmod(state_file, 0o644)
+
+    def test_get_current_dd_zero_peak_returns_safe_value(self):
+        rm = RiskManager(initial_equity=10000.0)
+        rm.peak_equity = 0.0
+        assert rm.get_current_dd(5000.0) == 100.0

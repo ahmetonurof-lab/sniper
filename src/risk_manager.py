@@ -52,18 +52,30 @@ class RiskManager:
     def _load_state(self) -> dict:
         """State dosyasını filelock ile güvenli oku."""
         if not os.path.exists(self.state_file):
-            return {"peak_equity": 0.0, "is_circuit_broken": False}
+            return {
+                "peak_equity": self.initial_equity,
+                "is_circuit_broken": False,
+            }
         lock = FileLock(self.lock_file, timeout=5)
         try:
             with lock:
                 with open(self.state_file, "r") as f:
-                    return json.load(f)
+                    data = json.load(f)
+            if not isinstance(data, dict) or "peak_equity" not in data:
+                raise ValueError("risk_state.json beklenen semaya uymuyor")
+            return data
         except json.JSONDecodeError:
-            logger.error("State dosyasi bozuk, initial_equity ile baslatiliyor.")
-            return {"peak_equity": self.initial_equity, "is_circuit_broken": False}
+            logger.error("State dosyasi bozuk (JSON), initial_equity ile baslatiliyor.")
+            return {
+                "peak_equity": self.initial_equity,
+                "is_circuit_broken": False,
+            }
         except Exception as e:
-            logger.error(f"State okunamadi: {e}")
-            return {"peak_equity": 0.0, "is_circuit_broken": False}
+            logger.error(f"State okunamadi ({e}), initial_equity ile baslatiliyor.")
+            return {
+                "peak_equity": self.initial_equity,
+                "is_circuit_broken": False,
+            }
 
     def _save_state(self) -> None:
         """Atomik yazma (temp + rename) + filelock ile thread-safe kaydet.
@@ -98,7 +110,13 @@ class RiskManager:
     def get_current_dd(self, current_equity: float) -> float:
         """Peak'ten simdiki duruma dusus %."""
         if self.peak_equity <= 0:
-            return 0.0
+            logger.critical(
+                "[RISK] peak_equity <= 0 (%.2f) — DD hesaplanamiyor, "
+                "guvenlik icin devre kesici tetiklenmis SAYILIYOR",
+                self.peak_equity,
+            )
+            return 100.0  # tetikleyici deger — sessizce 0.0 donup devre
+            # kesiciyi devre disi birakmaktansa, guvenli tarafta kal
         return ((self.peak_equity - current_equity) / self.peak_equity) * 100.0
 
     def get_dynamic_risk_multiplier(
