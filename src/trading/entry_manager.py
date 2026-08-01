@@ -502,7 +502,16 @@ class EntryManager:
         )
 
         # ── SL/TP'yi actual fill price ile yeniden hesapla ──
-        order_qty = actual_qty if actual_qty > 0 else valid_qty
+        order_qty = (
+            await self._rest.apply_amount_precision(sym, actual_qty)
+            if actual_qty > 0
+            else valid_qty
+        )
+        order_qty = await self._rest.validate_min_amount(sym, order_qty)
+        if order_qty <= 0:
+            # actual_qty precision sonrasi min altina dustu — SL/TP icin
+            # valid_qty'ye geri don (zaten normalize edilmisti)
+            order_qty = valid_qty
         protected = False
         if actual_price > 0 and risk_pts > 0:
             try:

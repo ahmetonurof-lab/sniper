@@ -749,6 +749,62 @@ class TestExecuteLiveEntry:
         assert "minQty" in result.error
 
     @pytest.mark.asyncio
+    async def test_order_qty_precision_applied_to_sl_tp(self):
+        """BUG-21: borsadan precision-uyumsuz actual_qty gelirse, SL/TP
+        emirleri normalize edilmis order_qty ile gonderilir."""
+        mock_rest = await self._entry_mock_base()
+        # actual_qty 0.567 geliyor — apply_amount_precision 0.57'ye ceker
+        mock_rest.place_market_order = AsyncMock(
+            return_value={
+                "orderId": 12345,
+                "executedQty": "0.567",
+                "avgPrice": "100.0",
+                "cummulativeQuoteQty": "56.7",
+            }
+        )
+        mock_rest.apply_amount_precision = AsyncMock(return_value=0.57)
+        mock_rest.validate_min_amount = AsyncMock(return_value=0.57)
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_001"})
+        mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_001"})
+
+        mgr = EntryManager(rest_client=mock_rest, is_live=True)
+        result = await mgr.execute_live_entry("BTCUSDT", "long", 0.5, 100.0, 110.0)
+
+        assert result.success is True
+        sl_args = mock_rest.place_stop_order.call_args.args
+        tp_args = mock_rest.place_tp_order.call_args.args
+        assert sl_args[2] == 0.57  # SL normalize edilmis qty ile
+        assert tp_args[2] == 0.57  # TP normalize edilmis qty ile
+
+    @pytest.mark.asyncio
+    async def test_order_qty_precision_below_min_falls_back_to_valid(self):
+        """BUG-21: precision sonrasi min altina duserse valid_qty'ye donulur."""
+        mock_rest = await self._entry_mock_base()
+        mock_rest.place_market_order = AsyncMock(
+            return_value={
+                "orderId": 12345,
+                "executedQty": "0.567",
+                "avgPrice": "100.0",
+                "cummulativeQuoteQty": "56.7",
+            }
+        )
+        mock_rest.apply_amount_precision = AsyncMock(return_value=0.0001)
+        # ilk cagri entry valid_qty dogrulamasi (0.5 gecerli), ikinci cagri
+        # order_qty dogrulamasi (min alti -> 0.0) — fallback valid_qty'ye donmeli
+        mock_rest.validate_min_amount = AsyncMock(side_effect=[0.5, 0.0])
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_001"})
+        mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_001"})
+
+        mgr = EntryManager(rest_client=mock_rest, is_live=True)
+        result = await mgr.execute_live_entry("BTCUSDT", "long", 0.5, 100.0, 110.0)
+
+        assert result.success is True
+        sl_args = mock_rest.place_stop_order.call_args.args
+        tp_args = mock_rest.place_tp_order.call_args.args
+        assert sl_args[2] == 0.5  # valid_qty'ye geri donuldu
+        assert tp_args[2] == 0.5
+
+    @pytest.mark.asyncio
     async def test_market_order_failure(self):
         mock_rest = await self._entry_mock_base()
         mock_rest.place_market_order = AsyncMock(return_value={})  # No orderId → fail
