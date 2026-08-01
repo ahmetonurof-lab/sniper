@@ -65,7 +65,7 @@ async def test_sl_2021_has_no_retry_and_closes_position(make_entry_manager):
     )
 
     assert result.success is False
-    assert "EMERGENCY CLOSE" in result.error
+    assert "SL FAIL" in result.error
     sl_calls = [name for name, _ in exchange.calls if name == "sl"]
     assert len(sl_calls) == 1
     close_calls = [name for name, _ in exchange.calls if name == "market"]
@@ -92,7 +92,7 @@ async def test_short_sl_2021_has_no_retry_and_closes(make_entry_manager):
     )
 
     assert result.success is False
-    assert "EMERGENCY CLOSE" in result.error
+    assert "SL FAIL" in result.error
     sl_calls = [name for name, _ in exchange.calls if name == "sl"]
     assert len(sl_calls) == 1
     assert exchange.protected is False
@@ -213,7 +213,7 @@ async def test_direction_validation_sl_too_close_long(make_entry_manager):
     )
 
     assert result.success is False
-    assert "EMERGENCY" in result.error
+    assert "direction fail" in result.error
     # SL order should NOT have been sent (validation fails before API call)
     sl_calls = [name for name, _ in exchange.calls if name == "sl"]
     assert len(sl_calls) == 0
@@ -244,7 +244,7 @@ async def test_direction_validation_tp_too_close_short(make_entry_manager):
     )
 
     assert result.success is False
-    assert "EMERGENCY" in result.error
+    assert "direction fail" in result.error
     sl_calls = [name for name, _ in exchange.calls if name == "sl"]
     assert len(sl_calls) == 0
     assert exchange.protected is False
@@ -371,7 +371,11 @@ async def test_all_scenarios(make_entry_manager, scenario: Scenario):
 
         if Expected.CLOSE in scenario.expected:
             assert result.success is False
-            assert "EMERGENCY" in result.error or "BASARISIZ" in result.error
+            assert (
+                "SL FAIL" in result.error
+                or "BASARISIZ" in result.error
+                or "EMERGENCY" in result.error
+            )
 
         if Expected.PROTECTED in scenario.expected:
             assert exchange.protected is True

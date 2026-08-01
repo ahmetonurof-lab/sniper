@@ -1,6 +1,30 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: Rapor dokümanları push edildi (2026-08-01)
+## Son İşlem: Cross-context bug fix turu tamamlandı — 13 bug, 12 commit (2026-08-01)
+
+`sniper_cross_context_bug_report_v2.md` + `sniper_fix_plan_ve_agent_direktifi.md` rehberliğinde, baz `03e6eaf8` üzerine uygulandı. Her madde ayrı commit, her commit kendi testleriyle yeşil:
+
+1. **BUG-1/7** (`5f08154`) — `_emergency_close` başarılı kapanmada `success=True`; 4 call-site wrapper ile `execute_live_entry` hâlâ `success=False`; `mkt_side` parametresi + `ValueError` guard
+2. **BUG-25** (`c776e20`) — risk_manager bozuk/yok/schema-hatalı state'te `initial_equity` fallback; `get_current_dd` peak<=0'da %100 (güvenli taraf)
+3. **BUG-23** (`985fca0`) — `should_trade` `cbdr_width_pct=None` iken fail-closed `False`
+4. **BUG-5** (`853f6e5`) — ortak `cbdr_day_key` helper (K1=Seçenek B: etiket = döngünün BİTTİĞİ gün); state_manager + session aynı key'i üretir; 22:00/23:59/00:00/01:59/02:00/21:59 parametrize test
+5. **BUG-12** (`105b0f7`) — idempotency key `entry_order_id` öncelikli + `entry_bar_index/price/actual_qty` fallback (K2-A pragmatik; paper modda teorik çakışma docstring'de belgeli)
+6. **BUG-8/2** (`b90d865`) — `normalize_order_event` `ts_ms` kaynağı `msg["E"]` → `o.T` → `o.O` → local clock; `received_ts_ms` + latency log (K3: legacy handler migrasyonu ayrı ticket)
+7. **BUG-21** (`9bcb94f`) — `order_qty` `apply_amount_precision` + `validate_min_amount` ile normalize; min-altı fallback `valid_qty`
+8. **BUG-10** (`a633972`) — `_bump_to_min_notional` Decimal `ROUND_CEILING` + bump sonrası notional/step guard
+9. **BUG-11** (`06fdd78`) — `pending_exit_*` normalization tek blok; `order_id`/`timestamp` de `is not None`
+10. **BUG-3** (`2afd11f`) — trailing `trade["sl"]`/`["tp"]` canonical; `protection_state` ActiveTrade uyumlu (get+None+atama)
+11. **BUG-17** (`4c24ab8`) — `CircuitBreaker.is_open_async` lock korumalı; `call()` kullanır
+12. **BUG-16** (`d49fb5a`) — `detect_phase` `isinstance(dt, int)` dead code silindi
+13. **BUG-29** (`e244165`) — ek: `trade.setdefault` → `trade.get` (order_manager.py:312/337/1088, protection_lifecycle.py:294/314); ActiveTrade canlı path'te AttributeError crash'i (test_trail_state_transitions ile doğrulandı)
+
+**Kararlar:** K1=Seçenek B, K2=Seçenek A, K3=legacy migrasyon bu turda değil, BUG-25 `get_current_dd`=%100 güvenli taraf.
+
+**Test durumu:** 675+ test geçiyor; 78 pre-existing kırık (çoğu `.env`/test-sırası bağımlı, bu turun kapsamı dışı). `test_event_log.py::test_writes_jsonl_line` dosya kirliliğine bağlı sıra-duyarlı — hijyen ticket'ı olarak not düşüldü.
+
+(Önceki işlemler aşağıda.)
+
+## Son İşlem (önceki): Rapor dokümanları push edildi (2026-08-01)
 
 `reports/` altına 6 yeni analiz dokümanı eklendi + eski `backtest_canli_farklari_31_07_2026.md` silindi:
 
