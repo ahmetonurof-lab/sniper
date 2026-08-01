@@ -647,8 +647,8 @@ class TestEmergencyClose:
         mock_rest.place_market_order = AsyncMock(return_value={"orderId": 999})
         mgr = EntryManager(rest_client=mock_rest, is_live=True)
         result = await mgr._emergency_close("BTCUSDT", "BUY", 0.5, "reason test")
-        assert result.success is False
-        assert "EMERGENCY CLOSE" in result.error
+        assert result.success is True
+        assert result.qty == 0.5
         mock_rest.place_market_order.assert_called_once()
         call_kwargs = mock_rest.place_market_order.call_args.kwargs
         assert call_kwargs.get("reduce_only") is True
@@ -767,8 +767,8 @@ class TestExecuteLiveEntry:
         mgr = EntryManager(rest_client=mock_rest, is_live=True)
         result = await mgr.execute_live_entry("BTCUSDT", "long", 0.5, 100.0, 110.0)
 
-        assert result.success is False
-        assert "EMERGENCY CLOSE" in result.error
+        assert result.success is True
+        assert "EMERGENCY CLOSE" in result.entry_log_msg
         # Emergency close should have been called (opposite side)
         # place_market_order called for entry + emergency close
         assert mock_rest.place_market_order.call_count == 2
@@ -939,6 +939,6 @@ class TestExecuteLiveEntry:
         mgr = EntryManager(rest_client=mock_rest, is_live=True)
         result = await mgr.execute_live_entry("BTCUSDT", "long", 0.5, 100.0, 110.0)
 
-        assert result.success is False
-        assert "EMERGENCY" in result.error
+        assert result.success is True
+        assert "EMERGENCY" in result.entry_log_msg
         assert mock_rest.place_market_order.call_count == 2  # entry + emergency

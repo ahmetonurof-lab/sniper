@@ -316,8 +316,9 @@ class EntryManager:
                 error=f"EMERGENCY CLOSE BASARISIZ — {e}",
             )
         return EntryExecutionResult(
-            success=False,
-            error=f"EMERGENCY CLOSE — {reason}",
+            success=True,
+            qty=qty,
+            entry_log_msg=f"EMERGENCY CLOSE — {reason}",
         )
 
     async def execute_live_entry(
