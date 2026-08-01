@@ -334,7 +334,6 @@ class ExitLifecycleService:
             trade["pending_exit_order_id"] = None
             trade["pending_exit_timestamp"] = None
 
-            trade = self._active_trades.get(sym)
             if not trade:
                 log.warning("[EXIT] %s zaten kapali, ikinci exit engellendi", sym)
                 return False
