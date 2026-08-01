@@ -235,6 +235,21 @@ class TestCircuitBreaker:
         assert cb._failure_count == 5
         assert cb.is_open is True
 
+    def test_concurrent_record_failure_and_is_open_async(self):
+        """BUG-17: eszamanli record_failure + is_open_async lock korumali —
+        race condition olmadan tutarli sonuc verir."""
+        cb = CircuitBreaker(failure_threshold=3)
+
+        async def hammer():
+            await asyncio.gather(
+                *[cb.record_failure() for _ in range(10)],
+                *[cb.is_open_async() for _ in range(10)],
+            )
+
+        asyncio.run(hammer())
+        assert cb._failure_count == 10
+        assert cb.is_open is True  # threshold=3, 10 failure → açık
+
     def test_multiple_record_failure_opens(self):
         """Doğrudan record_failure çağrıları devreyi açar."""
         cb = CircuitBreaker(failure_threshold=4)

@@ -205,7 +205,8 @@ class CircuitBreaker:
 
     @property
     def is_open(self) -> bool:
-        """Devre açık mı? (istekler reddediliyor)"""
+        """Devre açık mı? (istekler reddediliyor). NOT: lock'suz, best-effort
+        okuma — kesin karar için `is_open_async()` kullan."""
         if self._failure_count < self._failure_threshold:
             return False
         elapsed = time.time() - self._open_time
@@ -213,6 +214,16 @@ class CircuitBreaker:
             # Recovery süresi doldu → half-open
             return False
         return True
+
+    async def is_open_async(self) -> bool:
+        """Lock korumalı, tutarlı okuma. `call()` icinde bunu kullan."""
+        async with self._lock:
+            if self._failure_count < self._failure_threshold:
+                return False
+            elapsed = time.time() - self._open_time
+            if elapsed >= self._recovery_timeout:
+                return False
+            return True
 
     async def record_success(self) -> None:
         """Başarılı istek — sayacı sıfırla."""
@@ -238,7 +249,7 @@ class CircuitBreaker:
 
         Devre açıksa anında Result.fail döner, kapalıysa fn'i çağırır.
         """
-        if self.is_open:
+        if await self.is_open_async():
             remaining = self._recovery_timeout - (time.time() - self._open_time)
             return Result.fail(f"Circuit breaker open — {remaining:.0f}s remaining")
         try:
