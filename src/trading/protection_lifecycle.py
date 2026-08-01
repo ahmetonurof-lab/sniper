@@ -291,7 +291,7 @@ class ProtectionLifecycleService:
         old_id = trade.get("sl_order_id", "")
         if old_id:
             trade["sl_order_id_prev"] = old_id
-            hist = trade.setdefault("sl_order_id_history", [])
+            hist = trade.get("sl_order_id_history")
             if not isinstance(hist, list):
                 hist = []
                 trade["sl_order_id_history"] = hist
@@ -311,7 +311,7 @@ class ProtectionLifecycleService:
         old_id = trade.get("tp_order_id", "")
         if old_id:
             trade["tp_order_id_prev"] = old_id
-            hist = trade.setdefault("tp_order_id_history", [])
+            hist = trade.get("tp_order_id_history")
             if not isinstance(hist, list):
                 hist = []
                 trade["tp_order_id_history"] = hist

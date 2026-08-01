@@ -309,7 +309,7 @@ class OrderManager:
             self._protection.promote_sl(trade)
         else:
             if old_sl_id:
-                hist = trade.setdefault("sl_order_id_history", [])
+                hist = trade.get("sl_order_id_history")
                 if not isinstance(hist, list):
                     hist = []
                     trade["sl_order_id_history"] = hist
@@ -334,7 +334,7 @@ class OrderManager:
                 self._protection.promote_tp(trade)
             else:
                 if old_tp_id:
-                    hist = trade.setdefault("tp_order_id_history", [])
+                    hist = trade.get("tp_order_id_history")
                     if not isinstance(hist, list):
                         hist = []
                         trade["tp_order_id_history"] = hist
@@ -1085,7 +1085,7 @@ class OrderManager:
         candidate: TrailCandidate,
         current_price: Decimal,
     ) -> bool:
-        protection_orders = trade.setdefault("protection_orders", {})
+        protection_orders = trade.get("protection_orders", {})
         changed = False
 
         if candidate.sl is not None:
