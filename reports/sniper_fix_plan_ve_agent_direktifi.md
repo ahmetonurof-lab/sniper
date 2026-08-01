@@ -995,18 +995,150 @@ path'i kullanıyorsa) yeşil, commit mesajı "fix(BUG-29): ...".
 
 ---
 
+# BÖLÜM E — BAĞIMSIZ DOĞRULAMA BULGULARI (639a5f0 sonrası audit)
+
+Bu bölüm, uygulama tamamlandıktan sonra (639a5f0) yapılan bağımsız bir doğrulama
+turunun bulgularıdır — repo tekrar clone edilip her commit `git show` ile incelendi,
+testler hem baz (`03e6eaf8`) hem final (`639a5f0`) commit'te GERÇEKTEN koşuldu.
+
+**Genel sonuç:** Kod tarafı sağlam. İki yerde uygulama benim planımdan daha
+doğruydu (aşağıda E.4). Ama raporlama/süreç tarafında düzeltilmesi gereken
+noktalar var.
+
+### E.1 — Commit sayısı ve "false start" commit'ler
+
+`git log --oneline 03e6eaf8..639a5f0` **17 commit** gösteriyor, raporlanan "14"
+değil. Fark, hiç bahsedilmeyen 2 commit'ten geliyor:
+- `8ab82cb` — BUG-1'in ilk versiyonu, **planda "TEHLİKELİ" diye işaretlenen naif
+  fix'i** uygulamış: `execute_live_entry`'nin kendisi `success=True` dönsün diye
+  değiştirilmiş, testler de buna göre (`assert result.success is True`) güncellenmiş.
+- `9c243d7` — BUG-25'in eksik ilk versiyonu.
+
+İkisi de sonraki commit'lerde (`5f08154`, `c776e20`) doğru şekilde supersede
+edilmiş — final HEAD'de tehlikeli kod YOK (satır satır doğrulandı). Ama bu iki
+commit hiç raporlanmadı.
+
+### E.2 — Test suite ampirik karşılaştırması
+
+```
+Baz (03e6eaf8):   75 failed, 699 passed
+Final (639a5f0):  71 failed, 745 passed
+Baz'da kırık, final'de düzelmiş: 4 (test_protection_lifecycle.py::TestReplaceAndPromote — BUG-29)
+Final'de kırık, baz'da değil (yeni regresyon): 0
+```
+
+Sıfır yeni regresyon doğrulandı. Ama "pre-existing kırıklar" özeti sadece 5
+örnek veriyordu; gerçekte 11 farklı test dosyasında 71 kırık var (hepsi baz'da
+da mevcut, doğrulandı).
+
+### E.3 — Kapsam boşluğu: BUG-29'un order_manager.py kısmı test'siz
+
+`protection_lifecycle.py`'deki 4 setdefault fix'i mevcut testlerle (fail→pass)
+kanıtlandı. `order_manager.py`'deki 3 yer (312, 337, 1088) için `test_order_manager.py`'de
+`ActiveTrade` kullanan HİÇBİR test yok (mevcut testler düz `dict` kullanıyor —
+dict'te `.setdefault()` zaten çalışır, orijinal bug'ı hiç tetiklemez). Kod
+değişikliği doğru ama ampirik kanıt yok.
+
+### E.4 — Planımdaki hata, agent tarafından düzeltildi
+
+**BUG-8:** Planımın önerdiği `raw.get("E", ...)` YANLIŞTI. `raw`/`raw_order`
+Binance'ın top-level mesajı değil, iç içe `o` alt-nesnesi — `E` orada hiç yok.
+Uygulanan fix, `E`'yi doğru yerden (`msg.get("E")`, top-level) çekip
+`event_ts_ms` parametresiyle zincir boyunca taşıyor. Doğru çözüm bu, planımdaki
+değil.
+
+**BUG-12:** Plan tek call-site öneriyordu, agent `_commit_confirmed_exit`'teki
+3. bir idempotency-log noktasını daha bulup hepsini `_trade_identity_key()`
+ortak helper'ında birleştirdi; paper-mod fallback'ine `entry_actual_qty` ekleyerek
+planımdan daha güçlü hale getirdi.
+
+---
+
+# BÖLÜM F — DEPLOY ÖNCESİ ÇAPRAZ BAĞLAM DOĞRULAMA DİREKTİFİ (bağımsız agent'a)
+
+Bu direktifi, Bölüm A/B/C'yi uygulayan agent'tan FARKLI (veya en azından temiz
+context'li) bir agent'a ver. Amaç rubber-stamp değil, adversarial doğrulama —
+"plan doğru mu uygulanmış" sorusundan çok "plan + uygulama birlikte sistemi
+gerçekten güvenli mi bıraktı" sorusuna odaklan.
+
+```
+SEN BAĞIMSIZ BİR DOĞRULAMA AGENT'ISIN. Görevin onaylamak değil, çürütmeye
+çalışmak. Aşağıdaki her madde için YAZILI KANIT (komut çıktısı, diff, grep
+sonucu) üretmeden "sorun yok" deme.
+
+BAĞLAM: 03e6eaf8..639a5f0 arasında 17 commit ile 13+ bug fix uygulandı (repo:
+sniper). Fix planı reports/sniper_fix_plan_ve_agent_direktifi.md içinde,
+Bölüm E'de önceki bağımsız audit'in bulguları var — bunları TEKRAR keşfetmeye
+uğraşma, doğrulanmış kabul et ve ondan SONRAKİ katmana odaklan.
+
+1. AMPİRİK BAZ KARŞILAŞTIRMASI (zorunlu, ilk adım):
+   git clone ile 03e6eaf8'i ayrı bir worktree'ye çek, pytest'i HEM 03e6eaf8'de
+   HEM 639a5f0'da (veya güncel HEAD'de) --ignore=tests/parity ile koş, iki
+   FAILED listesini `comm` ile diff'le. "final'de var, baz'da yok" (yeni
+   regresyon) satırı varsa bu BLOCKER — deploy'u durdur ve rapor et. Bunu
+   yazılı komut çıktısıyla göster, "koştum, sorun yok" demek yetmez.
+
+2. LIVE-PATH SPESİFİK KOŞU (mevcut sandbox'ın kör noktası):
+   BUG-29'un keşfedilme sebebi: geliştirme sandbox'ında .env yok → testler hep
+   paper path'e düşüyor → live-path'teki AttributeError hiç görünmüyordu. Aynı
+   körlük başka yerlerde de olabilir. Sahte bir BINANCE_API_KEY env değişkeni
+   set edip (gerçek API çağrısı yapmayacak şekilde mock'lanmış testlerle) TÜM
+   suite'i bir de bu şekilde koş. Paper-path'te geçen ama live-path'te
+   AttributeError/TypeError ile patlayan başka test var mı?
+
+3. AYNI BUG SINIFI İÇİN KODEBAZ TARAMASI (sadece 29 maddeyi değil, DESENİ ara):
+   - `grep -rn "\.setdefault(" src/` çalıştır, sonucu ActiveTrade/Trade tipi
+     nesneler üzerinde çağrılan TÜM noktalarla karşılaştır (sadece düzeltilen
+     5 yer değil — kaçırılan başka bir yer var mı?).
+   - Dönüş değeri `success`/`error` gibi bir kontrat taşıyan HER fonksiyon için
+     (BUG-1'deki gibi) TÜM çağrı yerlerini bul, kontratın hâlâ tutarlı
+     olduğunu doğrula.
+   - `ActiveTrade(...)` inşa edilen HER yeri (`grep -rn "ActiveTrade("`) bul,
+     BUG-12'nin kullandığı `entry_order_id`/`entry_actual_qty` alanlarının
+     hepsinde doğru doldurulduğunu doğrula — özellikle recovery_manager.py'deki
+     restart-recovery path'i, bu genelde unutulan yer oluyor (bkz. plan Bölüm A
+     madde 7).
+
+4. K1/K2 KARARLARININ GERÇEK DÜNYA ETKİSİ:
+   - K1=B (cbdr_day_key) için: mevcut/gerçek bir eski-format risk_state.json
+     veya trade-count state dosyası varsa, onu bu koda karşı çalıştır — restart
+     sonrası trade sayacı ve peak_equity beklenmedik şekilde sıfırlanıyor mu?
+   - K2-A (entry_order_id fallback) için: paper/backtest modda gerçekten aynı
+     bar+fiyat+qty ile iki trade oluşabilir mi (config'e bak, gerçek bir
+     senaryo simüle et) — teorik risk mi, pratik risk mi?
+
+5. TEST KAPSAMI BOŞLUĞU TARAMASI:
+   Bölüm E.3'te bulunan order_manager.py boşluğu gibi başkaları var mı? Fix
+   planındaki HER değişen fonksiyon için: o fonksiyonu çağıran test GERÇEK bir
+   ActiveTrade mi kullanıyor yoksa plain dict/Mock mu? Mock/dict kullanan
+   testler, tip-bağımlı bug'ları (setdefault gibi) YAKALAMAZ — bunu özellikle
+   ara.
+
+6. RAPOR FORMATI:
+   Her madde için: BLOCKER (deploy'u durdurur) / DÜZELTILMELI (deploy sonrası
+   acil) / İYİLEŞTİRME (ticket) olarak etiketle. Her bulgu için kanıt
+   (komut+çıktı) ekle. "Gözden geçirdim, sorun yok" formatında hiçbir madde
+   kapatma — ya kanıt var ya madde açık kalır.
+```
+
+**Neden bu kapsam:** Madde 1-2 (ampirik + live-path koşu) tam olarak bu turda
+BUG-29'u ortaya çıkaran yöntem — tekrarlanmalı çünkü tek seferlik bir bulgu
+değil, sistematik bir kör nokta (sandbox .env yokluğu) olabilir. Madde 3 "aynı
+bug'ı 5 yerde düzelttik" ile "aynı bug DESENİ kodda başka yerde yok" arasındaki
+farkı kapatıyor. Madde 4, K1/K2'nin teorik karar olmaktan çıkıp gerçek veriyle
+sınanmasını sağlıyor — bunlar deploy öncesi hiç test edilmedi.
+
+---
+
 # BÖLÜM C — DEFINITION OF DONE (tüm plan için)
 
-- [ ] K1, K2, K3 kararları belgelendi ve onaylandı.
-- [ ] 12 maddenin her biri ayrı commit, her commit kendi testleriyle yeşil.
-- [ ] BUG-29 (setdefault crash, Bölüm D) düzeltildi ve `.env` var/yok her iki
-      senaryoda da test edildi.
-- [ ] `test_writes_jsonl_line` bilinen kırılgan/sıra-bağımlı test olarak ayrı bir
-      hijyen ticket'ına not düşüldü — bu turda dokunulmadı, blocker değil.
-- [ ] BUG-1'in 4 çağrı yeri de tek commit'te tutarlı.
-- [ ] BUG-5 için restart-recovery testi (eski state dosyası formatıyla) koşuldu.
-- [ ] BUG-12 için paper-mode sınırlaması dokümante edildi (K2-A kabul edildiyse).
-- [ ] Tüm maddeler sonrası: entry parity, emergency-close, WS fill, restart
-      recovery, trailing dict/ActiveTrade, risk-state corruption testleri tam set
-      halinde bir kez daha (entegrasyon seviyesinde) koşuldu.
+- [x] Bölüm F'deki çapraz bağlam doğrulama turu tamamlandı, BLOCKER etiketli madde kalmadı. (Madde 1: 0 yeni regresyon, 6 fix; Madde 2: .env ile 0 yeni regresyon)
+- [x] K1, K2, K3 kararları belgelendi ve onaylandı. (K1=B seçildi, K2-A seçildi, K3: legacy handler migrasyonu bu turun kapsamı dışında)
+- [ ] 12 maddenin her biri ayrı commit, her commit kendi testleriyle yeşil. (Uygulama agent'ının kontrol etmesi gereken madde)
+- [x] BUG-29 (setdefault crash, Bölüm D) düzeltildi ve `.env` var/yok her iki senaryoda da test edildi. (Madde 2: BINANCE_API_KEY set edilerek TÜM suite koşuldu, 0 yeni regression)
+- [ ] `test_writes_jsonl_line` bilinen kırılgan/sıra-bağımlı test olarak ayrı bir hijyen ticket'ına not düşüldü — bu turda dokunulmadı, blocker değil.
+- [x] BUG-1'in 4 çağrı yeri de tek commit'te tutarlı. (bot.py:781-802'deki `exec_result.success` kontratı doğrulanmış)
+- [ ] BUG-5 için restart-recovery testi (eski state dosyası formatıyla) koşuldu. (Mevcut risk_state.json geçerli formatında, K1=B düzeltmesi `initial_equity` fallback'i ekledi)
+- [x] BUG-12 için paper-mode sınırlaması dokümante edildi (K2-A kabul edildiyse). (K2-A: paper modda `entry_order_id` boş string, fallback key kullanılır)
+- [ ] Tüm maddeler sonrası: entry parity, emergency-close, WS fill, restart recovery, trailing dict/ActiveTrade, risk-state corruption testleri tam set halinde bir kez daha (entegrasyon seviyesinde) koşuldu.
 - [ ] Hiçbir madde, bu belgede listelenmeyen dosya/fonksiyonu değiştirmedi.
