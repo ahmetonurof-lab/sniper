@@ -926,10 +926,83 @@ bırakılmamalı.
 
 ---
 
+# BÖLÜM D — YÜRÜTME SIRASINDA BULUNAN YENİ BUG (BUG-29)
+
+**Bulundu:** Plan uygulanırken, `test_trail_state_transitions` testi izole çalıştırıldığında
+canlı path'te (`.env`/API key mevcutken) `AttributeError: 'ActiveTrade' object has no
+attribute 'setdefault'` ile çöktü. Kök neden bağımsız olarak doğrulandı.
+
+**Dosyalar / gerçek konumlar:**
+- `src/trading/order_manager.py:312` (`sl_order_id_history`)
+- `src/trading/order_manager.py:337` (`tp_order_id_history`)
+- `src/trading/order_manager.py:1088` (`protection_orders`)
+- `src/trading/protection_lifecycle.py:294` (`sl_order_id_history`)
+- `src/trading/protection_lifecycle.py:314` (`tp_order_id_history`)
+
+**Kök neden:** `ActiveTrade` (`models.py:457`) dict benzeri erişim için `__getitem__`,
+`__setitem__`, `get()`, `__contains__`, `keys()`, `__iter__` tanımlıyor ama
+`setdefault()` YOK — `collections.abc.MutableMapping`'den türemiyor, bu yüzden
+mixin metod olarak da gelmiyor. `trade.setdefault(...)` her çağrıldığında
+`AttributeError` fırlatıyor. Bu, BUG-3'teki (`stop_loss`/`take_profit` key
+tutarsızlığı) İLE AYNI SINIF hata ama farklı kök neden — BUG-3 yanlış key
+kullanımıydı, bu ise var olmayan bir dict metodunun çağrılmasıydı.
+
+**Önem derecesi — plandaki çoğu maddeden YÜKSEK:** Bu path (`promote_sl`,
+`promote_tp`, `replace_protection`) trailing güncellemesi olan HER açık canlı
+pozisyonda tetikleniyor — yani nadir bir edge-case değil, sık işletilen bir kod
+yolu. Deploy öncesi bu path'in daha önce production'da hiç tetiklenip
+tetiklenmediği (log/crash geçmişi) kontrol edilmeli.
+
+**ANCHOR + FIX (4 yerde birebir aynı desen — `order_manager.py:312`, `:337`,
+`protection_lifecycle.py:294`, `:314`):**
+```python
+# ANCHOR
+                hist = trade.setdefault("sl_order_id_history", [])
+                if not isinstance(hist, list):
+                    hist = []
+                    trade["sl_order_id_history"] = hist
+# FIX — sadece ilk satır değişiyor, isinstance fallback'i zaten None'ı yakalıyor
+                hist = trade.get("sl_order_id_history")
+                if not isinstance(hist, list):
+                    hist = []
+                    trade["sl_order_id_history"] = hist
+```
+(`tp_order_id_history` için birebir aynı, sadece key adı değişiyor.)
+
+**ANCHOR + FIX (`order_manager.py:1088`, isinstance fallback'i yok çünkü
+`protection_orders` zaten `field(default_factory=dict)` ile tanımlı, hiç None
+dönmez):**
+```python
+# ANCHOR
+        protection_orders = trade.setdefault("protection_orders", {})
+# FIX
+        protection_orders = trade.get("protection_orders", {})
+```
+
+**Test gereksinimi:** `test_trail_state_transitions`'ın hem paper hem live (`.env`
+var/yok) path'te geçtiğini doğrula — CI'da her iki koşulu da simüle eden bir
+matrix/parametrize test ekle, böylece bu sınıf hata bir daha ortam farkına gizlenip
+kaçmasın. `test_full_sl_lifecycle` de aynı path'i kullanıyorsa dahil et.
+
+**Uygulama sırası:** Bu madde, keşfedildiği an itibarıyla plana P0 olarak eklendi —
+Bölüm B'deki sıralamada BUG-25'ten hemen sonra, BUG-1'den önce uygulanmalı (tek
+dosya değil iki dosya ama düşük karmaşıklık, yüksek gerçek risk, ve zaten elde
+başarısız bir test var — hızlı doğrulanabilir).
+
+**Definition of Done:** 5 konumun hepsi düzeltildi, `test_trail_state_transitions`
+hem `.env` var hem yok senaryosunda yeşil, `test_full_sl_lifecycle` (varsa aynı
+path'i kullanıyorsa) yeşil, commit mesajı "fix(BUG-29): ...".
+
+---
+
 # BÖLÜM C — DEFINITION OF DONE (tüm plan için)
 
 - [ ] K1, K2, K3 kararları belgelendi ve onaylandı.
 - [ ] 12 maddenin her biri ayrı commit, her commit kendi testleriyle yeşil.
+- [ ] BUG-29 (setdefault crash, Bölüm D) düzeltildi ve `.env` var/yok her iki
+      senaryoda da test edildi.
+- [ ] `test_writes_jsonl_line` bilinen kırılgan/sıra-bağımlı test olarak ayrı bir
+      hijyen ticket'ına not düşüldü — bu turda dokunulmadı, blocker değil.
 - [ ] BUG-1'in 4 çağrı yeri de tek commit'te tutarlı.
 - [ ] BUG-5 için restart-recovery testi (eski state dosyası formatıyla) koşuldu.
 - [ ] BUG-12 için paper-mode sınırlaması dokümante edildi (K2-A kabul edildiyse).
