@@ -855,3 +855,69 @@ def test_tp_rounds_to_tick_on_delta_shift():
     # sl_shift = 106.0 - 95.0 = 11.0
     # raw_tp = 120.0 + 11.0 = 131.0 → normalized to tick 0.5 for long TP = ceil = 131.0
     assert candidate.tp == Decimal("131.0")
+
+
+class TestOrchestrateTrailCanonicalKeys:
+    """BUG-3: orchestratet_trail trade['sl']/['tp'] canonical alanlarini yazar
+    (stop_loss/take_profit DEGIL) — hem ActiveTrade hem duz dict icin."""
+
+    def _extractor(self, scoped_bars, trade):
+        return TrailLevel(
+            price=Decimal("106.0"),
+            source_bar_index=scoped_bars[-1]["index"],
+            reason="post-entry swing low",
+        )
+
+    def _bars(self):
+        return [
+            {"index": 30, "high": 108, "low": 103, "close": 107},
+            {"index": 31, "high": 109, "low": 104, "close": 108},
+            {"index": 32, "high": 110, "low": 105, "close": 109},
+        ]
+
+    def _base_trade(self):
+        return {
+            "symbol": "BTCUSDT",
+            "side": "long",
+            "entry_price": 100.0,
+            "entry_bar_index": 30,
+            "sl": 95.0,
+            "tp": 120.0,
+            "tick_size": 0.5,
+            "trail_level_extractor": self._extractor,
+        }
+
+    @pytest.mark.asyncio
+    async def test_active_trade_updates_sl_tp(self):
+        from models import ActiveTrade
+
+        trade = ActiveTrade(**self._base_trade())
+        manager = TrailingManager(
+            price_reader=FakePriceReader("109.0"),
+            protection_gateway=FakeGateway(),
+            config=TrailingConfig(sl_buffer_ticks=0),
+        )
+        decision = await manager.orchestrate_trail(trade, self._bars())
+        assert decision.action == "updated"
+        assert trade.sl == 106.0  # canonical sl guncellendi
+        assert trade.tp == 131.0
+        # fingerprint state: protection_state set edildi ve last_applied yazildi
+        ps = trade.get("protection_state") or {}
+        assert ps.get("last_applied_fingerprint") == decision.candidate.fingerprint
+
+    @pytest.mark.asyncio
+    async def test_plain_dict_updates_sl_tp(self):
+        trade = self._base_trade()
+        manager = TrailingManager(
+            price_reader=FakePriceReader("109.0"),
+            protection_gateway=FakeGateway(),
+            config=TrailingConfig(sl_buffer_ticks=0),
+        )
+        decision = await manager.orchestrate_trail(trade, self._bars())
+        assert decision.action == "updated"
+        # order_manager.update_trail_orders trade.get("sl") ile okur — guncel deger
+        assert trade.get("sl") == 106.0
+        assert trade.get("tp") == 131.0
+        # fingerprint state: duz dict icin protection_state yoksa olusturuldu
+        ps = trade.get("protection_state") or {}
+        assert ps.get("last_applied_fingerprint") == decision.candidate.fingerprint

@@ -221,7 +221,10 @@ class TrailingManager:
                 candidate=None,
             )
 
-        protection_state = trade.setdefault("protection_state", {})
+        protection_state = trade.get("protection_state")
+        if protection_state is None:
+            protection_state = {}
+            trade["protection_state"] = protection_state
 
         if protection_state.get("last_applied_fingerprint") == candidate.fingerprint:
             pt_log(
@@ -311,9 +314,9 @@ class TrailingManager:
             )
 
         if candidate.sl is not None:
-            trade["stop_loss"] = float(candidate.sl)
+            trade["sl"] = float(candidate.sl)
         if candidate.tp is not None:
-            trade["take_profit"] = float(candidate.tp)
+            trade["tp"] = float(candidate.tp)
 
         trade["trail_count"] = int(trade.get("trail_count", 0)) + 1
         protection_state.pop("last_invalid_fingerprint", None)
