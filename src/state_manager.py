@@ -33,17 +33,30 @@ LOCK_FILE = STATE_FILE + ".lock"
 # ── Yardımcılar ───────────────────────────────────────────────────
 
 
+def cbdr_day_key(dt: datetime, start_hour: int = 22, end_hour: int = 2) -> str:
+    """CBDR döngüsünün BİTTİĞİ takvim gününü döner (K1=Seçenek B).
+
+    SessionState 22:00 UTC'de yeni CBDR döngüsü başlatır ve trades_today=0 yapar.
+    Etiket, döngünün bitişine denk gelen takvim günüdür: saat 22:00 ve sonrası
+    yeni döngünün "bitiş günü" (yarın) olarak etiketlenir; öncesi bugün kalır.
+
+    Hem state_manager._today() hem session.py cbdr_key bu fonksiyona delege
+    eder — iki modül aynı key'i üretir (BUG-5).
+    """
+    today = dt.strftime("%Y-%m-%d")
+    if dt.hour >= start_hour:
+        return (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    return today
+
+
 def _today() -> str:
-    """CBDR döngüsüne uyumlu gün tanımı.
+    """CBDR döngüsüne uyumlu gün tanımı (K1=B ortak helper'a delege eder).
 
     SessionState 22:00 UTC'de yeni CBDR döngüsü başlatır ve trades_today=0 yapar.
     state_manager da aynı sınırı kullanmalı, aksi halde 22:00-00:00 UTC arasında
     can_open_trade() eski günün count'unu görüp yeni döngünün ilk trade'ini engeller.
     """
-    now = datetime.now(UTC)
-    if now.hour >= 22:
-        return (now + timedelta(days=1)).strftime("%Y-%m-%d")
-    return now.strftime("%Y-%m-%d")
+    return cbdr_day_key(datetime.now(UTC))
 
 
 def _load() -> dict:

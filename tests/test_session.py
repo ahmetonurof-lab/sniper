@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
 
+import pytest
+
 from session import (
     SessionState,
     SessionPhase,
@@ -7,6 +9,7 @@ from session import (
     detect_phase,
     detect_phase_from_timestamp,
 )
+from state_manager import cbdr_day_key
 
 
 def _dt(hour: int, minute: int = 0, day: int = 1) -> datetime:
@@ -131,6 +134,40 @@ class TestSessionState:
         assert ss.trades_today == 0
         ss.trades_today += 1
         assert ss.trades_today == 1
+
+
+class TestCbdrDayKeyConsistency:
+    """BUG-5: state_manager.cbdr_day_key ve session.py ayni kanonik etiketi
+    uretir (K1=Seçenek B — etiket = döngünün bittigi takvim gunu)."""
+
+    @pytest.mark.parametrize(
+        "hour,minute,day",
+        [
+            (22, 0, 1),  # 22:00 — yeni döngü baslangici → bitis gunu = yarin
+            (23, 59, 1),  # 23:59 — hala ayni döngu → yarin
+            (0, 0, 2),  # 00:00 — döngü devam → yarin (bitis gunu)
+            (1, 59, 2),  # 01:59 — döngü devam → yarin
+            (2, 0, 2),  # 02:00 — döngü bitti sınırı → yarin
+            (21, 59, 2),  # 21:59 — son bar, döngü bitmeden → bugün (2'si)
+        ],
+    )
+    def test_state_manager_and_session_same_key(self, hour, minute, day):
+        dt = datetime(2026, 6, day, hour, minute, tzinfo=UTC)
+        expected = cbdr_day_key(dt, 22, 2)
+        ss = SessionState()
+        ss.update(dt, open=100, high=110, low=90, close=105)
+        assert ss.cbdr_day == expected
+
+    def test_cbdr_day_key_b_roundtrip(self):
+        # K1=B: 22:00'de etiket yarina geçer
+        dt = datetime(2026, 6, 1, 22, 0, tzinfo=UTC)
+        assert cbdr_day_key(dt, 22, 2) == "2026-06-02"
+        # 21:59'da hala bugün
+        dt2 = datetime(2026, 6, 1, 21, 59, tzinfo=UTC)
+        assert cbdr_day_key(dt2, 22, 2) == "2026-06-01"
+        # 00:00'de (ertesi gün) döngü bitis gunu = bugün (1'i degil 2'si)
+        dt3 = datetime(2026, 6, 2, 0, 0, tzinfo=UTC)
+        assert cbdr_day_key(dt3, 22, 2) == "2026-06-02"
 
 
 class TestCheckCbdrSweep:

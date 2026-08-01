@@ -260,6 +260,24 @@ class TestGetTradeCountToday:
         _save({"BTCUSDT": {"date": _today()}})
         assert get_trade_count_today("BTCUSDT") == 0
 
+    def test_restart_recovery_legacy_format_date(self, clean_state, monkeypatch):
+        """BUG-5 restart-recovery: eski state dosyasi (22:00'de yazilmis 'yarin'
+        tarihli date) ile restart sonrasi count dogru okunur (K1=B)."""
+        from datetime import UTC, datetime, timedelta
+
+        # 22:00 sonrasi yazilmis eski kayit: etiket = bitis gunu (yarin)
+        now = datetime.now(UTC)
+        if now.hour >= 22:
+            legacy_date = (now + timedelta(days=1)).strftime("%Y-%m-%d")
+        else:
+            legacy_date = now.strftime("%Y-%m-%d")
+        _save({"BTCUSDT": {"date": legacy_date, "count": 1, "open": True}})
+
+        # restart: reconcile_from_active (eski kayit bugune denk gelirse korunur)
+        reconcile_from_active({"BTCUSDT": {"entry_price": 50000.0}})
+        assert get_trade_count_today("BTCUSDT") == 1
+        assert can_open_trade("BTCUSDT") is False
+
 
 # ═══════════════════════════════════════════════════════════════════
 # Edge cases

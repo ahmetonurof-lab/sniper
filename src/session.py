@@ -11,11 +11,12 @@ Geriye dönük uyumluluk: SessionState tüm eski API'yi korur,
 içeride 3 sınıfa delegate eder.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Literal
 
 import config as cfg
+from state_manager import cbdr_day_key
 
 
 class SessionPhase(Enum):
@@ -364,22 +365,15 @@ class SessionState:
         """Tüm alt state'leri güncelle. cbdr_start/cbdr_end ile dinamik pencere."""
         sess = detect_phase(dt, {"start": self.cbdr_start, "end": self.cbdr_end})
         h = dt.hour
-        today = dt.strftime("%Y-%m-%d")
         cbdr = self._cbdr
         rng = self._range
         sh = self.cbdr_start
         eh = self.cbdr_end
         spans_midnight = sh > eh
 
-        # CBDR day_key: spans_midnight ise dünün bugününe düşen saatler
-        if spans_midnight:
-            cbdr_key = (
-                today if h >= sh else (dt - timedelta(days=1)).strftime("%Y-%m-%d")
-            )
-        else:
-            cbdr_key = (
-                today if h >= sh else (dt - timedelta(days=1)).strftime("%Y-%m-%d")
-            )
+        # CBDR day_key: state_manager ile AYNI kanonik etiket (K1=B).
+        # Etiket = CBDR döngüsünün BİTTİĞİ takvim günü.
+        cbdr_key = cbdr_day_key(dt, sh, eh)
         if cbdr_key != cbdr.day:
             self._reset_for_new_cbdr_cycle()
             cbdr.day = cbdr_key
