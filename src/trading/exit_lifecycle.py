@@ -69,6 +69,23 @@ log = logging.getLogger("sniper.exit_lifecycle")
 COMMISSION_RATE = 0.0005
 
 
+def _trade_identity_key(trade: Any) -> str:
+    """Aynı bar/fiyat tekrar trade collision'ını önlemek için benzersiz trade anahtarı.
+
+    BUG-12: entry_bar_index+entry_price ikilisi aynı bar aynı fiyattan iki
+    trade'de çakışır. entry_order_id varsa (canlı market emri) onu kullan;
+    boşsa (paper/test/eksik response) entry_bar_index+entry_price+actual_qty
+    fallback kombinasyonunu kullan.
+    """
+    entry_order_id = trade.get("entry_order_id", "")
+    if entry_order_id:
+        return str(entry_order_id)
+    return (
+        f"{trade.get('entry_bar_index', -1)}_{trade.get('entry_price', 0)}"
+        f"_{trade.get('entry_actual_qty', 0)}"
+    )
+
+
 class ExitLifecycleService:
     """_exit_trade() içindeki canlı riskin kalbi.
 
@@ -136,18 +153,14 @@ class ExitLifecycleService:
 
     async def execute(self, sym: str, trade: Any, exit_timestamp: int) -> bool:
         # P0-1: per-trade lock — aynı sembolde farklı trade'ler birbirini bloklamaz.
-        _trade_id_key = (
-            f"{trade.get('entry_bar_index', -1)}_{trade.get('entry_price', 0)}"
-        )
+        _trade_id_key = _trade_identity_key(trade)
         trade_key = f"{sym}_{_trade_id_key}"
         lock = self._exit_locks.setdefault(trade_key, asyncio.Lock())
         async with lock:
-            # ── Idempotency guard (P0-1): entry_bar_index+entry_price bazli ──
+            # ── Idempotency guard (P0-1): benzersiz trade anahtari bazli ──
             _exit_reason = trade.get("result", "")
             if _exit_reason:
-                _trade_id = (
-                    f"{trade.get('entry_bar_index', -1)}_{trade.get('entry_price', 0)}"
-                )
+                _trade_id = _trade_identity_key(trade)
                 prev_result = self._exit_log.get(sym, {}).get(_trade_id)
                 if prev_result == _exit_reason:
                     log.warning(
@@ -742,8 +755,8 @@ class ExitLifecycleService:
                 pass
         rsm.reset()
 
-        # P0-1 idempotency log: entry_bar_index+entry_price bazlı
-        _trade_id = f"{trade.get('entry_bar_index', -1)}_{trade.get('entry_price', 0)}"
+        # P0-1 idempotency log: benzersiz trade anahtari bazli
+        _trade_id = _trade_identity_key(trade)
         self._exit_log.setdefault(sym, {})[_trade_id] = trade.get("result", "")
 
         pt_log(

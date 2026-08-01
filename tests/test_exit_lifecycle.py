@@ -649,6 +649,8 @@ def _trade(side="long", **kw):
                 "status",
                 "trailing_count",
                 "exit_bar",
+                "entry_order_id",
+                "entry_actual_qty",
             )
         }
     )
@@ -884,3 +886,85 @@ class TestP0OneIdempotencyStaleConcurrency:
         results = await asyncio.gather(exit_a(), exit_b())
         assert results == [True, True]
         assert len(trades) == 2  # her trade PnL kaydetti
+
+    @pytest.mark.asyncio
+    @patch("trading.exit_lifecycle.cfg")
+    async def test_same_bar_same_price_different_order_id_both_commit(
+        self, mock_cfg, service
+    ):
+        """BUG-12: ayni bar+fiyat iki farkli trade (farkli entry_order_id) → ikisi de gecer."""
+        svc, rest, om, active_trades, trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        rest.get_positions = AsyncMock(return_value=[])
+
+        # Ayni entry_bar_index + entry_price, farkli entry_order_id
+        trade_a = _trade(
+            result="SL",
+            entry_price=100.0,
+            exit_price=99.0,
+            qty=1.0,
+            entry_bar_index=50,
+            entry_order_id="order-AAA",
+            entry_actual_qty=1.0,
+        )
+        trade_b = _trade(
+            result="SL",
+            entry_price=100.0,
+            exit_price=99.0,
+            qty=1.0,
+            entry_bar_index=50,
+            entry_order_id="order-BBB",
+            entry_actual_qty=1.0,
+        )
+        active_trades["BTCUSDT"] = trade_a
+        bal = [1000.0]
+        svc._get_balance = lambda: bal[0]
+        svc._set_balance = lambda v: bal.__setitem__(0, v)
+        svc._rsms.setdefault("BTCUSDT", _rsm())
+
+        result1 = await svc.execute("BTCUSDT", trade_a, 1000)
+        assert result1 is True
+
+        active_trades["BTCUSDT"] = trade_b
+        result2 = await svc.execute("BTCUSDT", trade_b, 2000)
+        assert result2 is True  # farkli entry_order_id → yeni trade kabul
+        assert len(trades) == 2  # her trade PnL kaydetti
+
+    @pytest.mark.asyncio
+    @patch("trading.exit_lifecycle.cfg")
+    async def test_same_order_id_same_reason_blocked(self, mock_cfg, service):
+        """BUG-12: ayni entry_order_id + ayni result → ikinci exit idempotency engellenir."""
+        svc, rest, om, active_trades, trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        rest.get_positions = AsyncMock(return_value=[])
+
+        trade = _trade(
+            result="TP",
+            entry_price=100.0,
+            exit_price=110.0,
+            qty=1.0,
+            entry_bar_index=50,
+            entry_order_id="order-AAA",
+            entry_actual_qty=1.0,
+        )
+        active_trades["BTCUSDT"] = trade
+        bal = [1000.0]
+        svc._get_balance = lambda: bal[0]
+        svc._set_balance = lambda v: bal.__setitem__(0, v)
+        svc._rsms.setdefault("BTCUSDT", _rsm())
+
+        result1 = await svc.execute("BTCUSDT", trade, 1000)
+        assert result1 is True
+
+        trade2 = _trade(
+            result="TP",
+            entry_price=100.0,
+            exit_price=110.0,
+            qty=1.0,
+            entry_bar_index=50,
+            entry_order_id="order-AAA",
+            entry_actual_qty=1.0,
+        )
+        active_trades["BTCUSDT"] = trade2
+        result2 = await svc.execute("BTCUSDT", trade2, 2000)
+        assert result2 is False  # ayni entry_order_id + ayni result → engellenir
