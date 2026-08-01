@@ -44,9 +44,6 @@ class TestDetectPhase:
     def test_newyork_21_00(self):
         assert detect_phase(_dt(21)) == SessionPhase.NEWYORK
 
-    def test_invalid_int_returns_closed(self):
-        assert detect_phase(123) == SessionPhase.CLOSED
-
 
 class TestDetectPhaseFromTimestamp:
     def test_valid_timestamp(self):

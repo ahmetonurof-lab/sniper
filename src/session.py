@@ -441,8 +441,6 @@ def detect_phase(dt: datetime, session_hours: dict | None = None) -> SessionPhas
     session_hours: {'start': int, 'end': int} — CBDR penceresi.
                    None = default (22-2, mevcut hardcoded davranis).
     """
-    if isinstance(dt, int):
-        return SessionPhase.CLOSED
     if session_hours is None:
         session_hours = {"start": 22, "end": 2}
     h = dt.hour
