@@ -611,24 +611,27 @@ class ExitLifecycleService:
     async def _commit_confirmed_exit(
         self, sym: str, trade: Any, exit_timestamp: int
     ) -> bool:
-        trade["status"] = STATUS_CLOSED
-        # P1-15: stale cooldown temizliği — pozisyon kapatildi, sayac sifirla
-        self._stale_cooldown.pop(sym, None)
-        self._stale_count.pop(sym, None)
-        _itr = getattr(self._order_manager, "_immediately_trigger_rejects", None)
-        if isinstance(_itr, dict):
-            _itr.pop(sym, None)
-        trade = self._active_trades.pop(sym, None)
-        if not trade:
-            log.warning(
-                "[CONFIRMATION] %s dogrulama sirasinda ikinci exit ile kapanmis, atlaniyor",
-                sym,
-            )
-            return False
+        lock = self._exit_locks.setdefault(sym, asyncio.Lock())
+        async with lock:
+            trade = self._active_trades.pop(sym, None)
+            if not trade:
+                log.warning(
+                    "[CONFIRMATION] %s dogrulama sirasinda ikinci exit ile kapanmis, atlaniyor",
+                    sym,
+                )
+                return False
 
-        log.info(
-            "[COMMIT] %s pnl hesaplama ve muhasebe defterine kayit basliyor...", sym
-        )
+            trade["status"] = STATUS_CLOSED
+            # P1-15: stale cooldown temizliği — pozisyon kapatildi, sayac sifirla
+            self._stale_cooldown.pop(sym, None)
+            self._stale_count.pop(sym, None)
+            _itr = getattr(self._order_manager, "_immediately_trigger_rejects", None)
+            if isinstance(_itr, dict):
+                _itr.pop(sym, None)
+
+            log.info(
+                "[COMMIT] %s pnl hesaplama ve muhasebe defterine kayit basliyor...", sym
+            )
         actual_entry_price = trade.get("entry_actual_price", 0) or trade["entry_price"]
         actual_entry_qty = trade.get("entry_actual_qty", 0) or trade["qty"]
         actual_exit_price = trade.get("exit_actual_price", 0) or trade["exit_price"]
