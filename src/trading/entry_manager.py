@@ -811,9 +811,23 @@ class EntryManager:
         # Minimum geçerli qty hesapla
         step = await self._rest.get_step_size(sym)
         min_qty_n = min_notional / price  # gereken ham miktar
-        # step'e yukarı yuvarla
-        bumped = math.ceil(min_qty_n / step) * step
+        # step'e yukarı yuvarla (BUG-10: Decimal ile float precision hatasi yok)
+        step_d = Decimal(str(step))
+        min_qty_d = Decimal(str(min_qty_n))
+        bumped = float(
+            (min_qty_d / step_d).to_integral_value(rounding=ROUND_CEILING) * step_d
+        )
         bumped = round(bumped, 8)
+
+        # Bump sonrasi dogrulama guard'ı: min_notional + step uyumu saglanmali
+        if not (bumped >= min_qty_n and bumped * price >= min_notional):
+            log.warning(
+                "[MINNOTIONAL] %s bump=%.8f notional=%.2f hala min_notional altinda — trade iptal",
+                sym,
+                bumped,
+                bumped * price,
+            )
+            return 0.0
 
         # Buying power tavanı
         if balance > 0 and leverage > 0 and price > 0:

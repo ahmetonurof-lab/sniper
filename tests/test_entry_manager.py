@@ -1007,3 +1007,63 @@ class TestExecuteLiveEntry:
         assert result.success is False
         assert "SL FAIL" in result.error
         assert mock_rest.place_market_order.call_count == 2  # entry + emergency
+
+
+# ═══════════════════════════════════════════════════════════════════
+# _bump_to_min_notional tests (BUG-10)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestBumpToMinNotional:
+    async def _mgr(self, min_notional=5.0, step=0.01, max_qty=1000.0):
+        mock_rest = MagicMock()
+        mock_rest.get_min_notional = AsyncMock(return_value=min_notional)
+        mock_rest.get_step_size = AsyncMock(return_value=step)
+        return EntryManager(rest_client=mock_rest, is_live=True)
+
+    @pytest.mark.asyncio
+    async def test_already_valid_returns_qty(self):
+        mgr = await self._mgr()
+        result = await mgr._bump_to_min_notional("BTCUSDT", 0.1, 100.0, 1000.0, 10)
+        assert result == 0.1
+
+    @pytest.mark.asyncio
+    async def test_edge_case_step_001_min_qty_1235(self):
+        """BUG-10: step=0.01, min_qty_n=1.235 -> 1.24 (Decimal, doğru)."""
+        # min_notional=5, price=4.049... -> min_qty_n=1.235
+        mgr = await self._mgr(min_notional=5.0, step=0.01)
+        result = await mgr._bump_to_min_notional("BTCUSDT", 1.0, 4.05, 1000.0, 10)
+        assert result == 1.24
+
+    @pytest.mark.asyncio
+    async def test_float_floor_edge_avoided(self):
+        """1.235/0.01 float'ta 123.49999 olabilir; Decimal ceil 124 verir."""
+        mgr = await self._mgr(min_notional=5.0, step=0.01)
+        result = await mgr._bump_to_min_notional("BTCUSDT", 1.0, 4.05, 1000.0, 10)
+        assert result >= 1.235
+        assert result == round(result / 0.01) * 0.01  # step uyumlu
+
+    @pytest.mark.parametrize(
+        "min_notional,price,step,expected",
+        [
+            (5.0, 100.0, 0.1, 0.1),  # notional 5.0 -> zaten gecerli
+            (10.0, 100.0, 0.1, 0.1),  # 0.1*100=10 gecerli
+            (10.0, 80.0, 0.1, 0.2),  # 0.1*80=8 < 10 -> 0.2*80=16
+            (7.0, 55.0, 0.01, 0.13),  # 0.12*55=6.6 < 7 -> 0.13*55=7.15
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_parametrized_bump(self, min_notional, price, step, expected):
+        mgr = await self._mgr(min_notional=min_notional, step=step)
+        result = await mgr._bump_to_min_notional("BTCUSDT", 0.1, price, 1000.0, 10)
+        assert result == expected
+        assert result * price >= min_notional
+
+    @pytest.mark.asyncio
+    async def test_above_buying_power_returns_zero(self):
+        mock_rest = MagicMock()
+        mock_rest.get_min_notional = AsyncMock(return_value=5000.0)
+        mock_rest.get_step_size = AsyncMock(return_value=1.0)
+        mgr = EntryManager(rest_client=mock_rest, is_live=True)
+        result = await mgr._bump_to_min_notional("BTCUSDT", 0.1, 100.0, 100.0, 1)
+        assert result == 0.0
