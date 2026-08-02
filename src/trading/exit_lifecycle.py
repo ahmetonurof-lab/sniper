@@ -44,6 +44,7 @@ import os
 import time
 from typing import Any, Callable
 
+import config as cfg  # noqa: F401  (tests patch trading.exit_lifecycle.cfg)
 from event_log import log_event
 from paper_trade_logger import EventType as PtEventType, log_event as pt_log
 from models import (
@@ -501,7 +502,7 @@ class ExitLifecycleService:
                 for p in positions:
                     if p["symbol"] == sym:
                         amt = float(p.get("positionAmt", 0))
-                        if abs(amt) < 0.0001:
+                        if amt == 0:
                             pos_closed = True
                         break
                 else:
