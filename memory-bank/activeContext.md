@@ -1,6 +1,16 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: MARKET empty_response reconcile guard eklendi (2026-08-02)
+## Son İşlem: CBDR kilit log metni düzeltildi (2026-08-03)
+
+`src/bot.py:465` — `[SKIP] %s CBDR henuz kilitlenmedi — entry engellendi` → `[SKIP] %s CBDR henuz kilitlenmedi — akis baslatilmadi`.
+
+Gerekçe: "entry engellendi" yanıltıcıydı — bu satır `evaluate_trigger`'dan ÖNCE (satır 469), yani ortada engellenecek bir entry adayı yokken basılıyor. Gerçekte olan: CBDR kilitli olmadığı için trigger değerlendirme akışı hiç başlatılmıyor. Kod akışına dokunulmadı — sadece log metni gerçeğe uygun hale getirildi.
+
+Akış netleştirme (kullanıcı ile birlikte): terminaldeki "CBDR ✅ LOCKED → SWEEP → FVG → TRIGGER → ENTRY" sırası kod akışının birebir karşılığı — `cbdr_locked` (464) kapısı geçilmeden `evaluate_trigger` (469) ve `_try_entry` (497) çalışmaz. `display_fvg_status` (437) display'i kapının ÖNÜNDE çalıştığı için "ENTRY BEKLENIYOR" görüntüsü CBDR kapısından bağımsız basılabiliyordu — bu sadece görüntü, gerçek karar kapının arkasında.
+
+(Önceki işlemler aşağıda.)
+
+## Son İşlem (önceki): MARKET empty_response reconcile guard eklendi (2026-08-02)
 
 `src/trading/entry_manager.py` `execute_live_entry()` — HTTP 408 / `-1007` ("Send status unknown; execution status unknown") senaryosu için yeni reconcile kontrolü (satır ~445):
 

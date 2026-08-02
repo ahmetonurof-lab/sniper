@@ -462,7 +462,7 @@ class PaperTrader:
                 rsm.reset()
 
         if not ss.cbdr_locked:
-            log.info("[SKIP] %s CBDR henuz kilitlenmedi — entry engellendi", sym)
+            log.info("[SKIP] %s CBDR henuz kilitlenmedi — akis baslatilmadi", sym)
             return
 
         # ── Blok 10: Trigger check + filtreler → SignalEngine ──
