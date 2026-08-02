@@ -725,6 +725,16 @@ class PaperTrader:
         )
         is_defense_mode = self.risk_mgr.is_circuit_broken
 
+        current_dd = self.risk_mgr.get_current_dd(self._available_balance)
+        log.info(
+            "[RISK-DEBUG] %s | equity=%.2f | peak=%.2f | dd=%.2f%% | broken=%s",
+            sym,
+            self._available_balance,
+            self.risk_mgr.peak_equity,
+            current_dd,
+            self.risk_mgr.is_circuit_broken,
+        )
+
         # ── P1-13: DD devre kesici → entry tamamen engelle ──
         if is_defense_mode:
             log.warning("[DD_GUARD] %s DD devre kesici aktif — entry ENGELLENDI", sym)

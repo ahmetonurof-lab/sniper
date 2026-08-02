@@ -1,5 +1,18 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: DD_GUARD öncesi [RISK-DEBUG] log eklendi (2026-08-02)
+
+`src/bot.py:728-733` — `_try_entry()` içinde `is_defense_mode` hesabından hemen sonra, P1-13 DD_GUARD kontrolünden ÖNCE `get_current_dd()` çağrılıp `[RISK-DEBUG]` INFO logu basılıyor:
+
+```
+current_dd = self.risk_mgr.get_current_dd(self._available_balance)
+log.info("[RISK-DEBUG] %s | equity=%.2f | peak=%.2f | dd=%.2f%% | broken=%s", ...)
+```
+
+Amaç: DD_GUARD devreye girip entry'yi engellediğinde equity/peak/dd/broken değerlerinin log'da görünür olması — DD_GUARD tetiklenme anındaki portföy durumunu tespit etmek. `get_current_dd()` ve `peak_equity` zaten `risk_manager.py`'de mevcuttu, yeni API eklenmedi.
+
+(Önceki işlemler aşağıda.)
+
 ## Son İşlem: 12 BULGU ayrı commit'lerle düzeltildi (2026-08-02)
 
 `sniper_fix_plan_ve_agent_direktifi.md`'deki 12 madde, üç ayrı doğrulama turu sonrası kesinleşen duruma göre tek tek uygulandı. Her madde ayrı commit, her biri kendi testiyle doğrulandı. Baz `e369ddc` üzerine 10 commit.
