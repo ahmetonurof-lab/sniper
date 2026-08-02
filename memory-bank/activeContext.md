@@ -1,6 +1,18 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: config.py ölü sabitler temizlendi (2026-08-02)
+## Son İşlem: MARKET empty_response reconcile guard eklendi (2026-08-02)
+
+`src/trading/entry_manager.py` `execute_live_entry()` — HTTP 408 / `-1007` ("Send status unknown; execution status unknown") senaryosu için yeni reconcile kontrolü (satır ~445):
+
+- **Tetikleyici:** `not mkt_id and actual_qty <= 0` — hem orderId hem qty yok, tam belirsiz durum (timeout/empty_response). Mevcut 414. blok (`actual_qty > 0`) bu senaryoda hiç çalışmıyordu.
+- **Davranış:** `get_positions()` ile sembolü sorgular; `pos_amt > 0` ise `_emergency_close()` ile pozisyonu güvenle kapatır (`success=False`, "MARKET cevap yok ama pozisyon acik"). Pozisyon yoksa mevcut `MARKET BASARISIZ — empty_response` yoluna düşer.
+- **Gerekçe:** 2026-08-02 21:42:30 canlı olay — DYDXUSDT entry'de Binance 408 timeout döndü, bot emri başarısız saydı ama emir sunucuda dolmuş olabilirdi; pozisyon korumasız ve takipsiz kalabilirdi.
+
+**Testler:** `test_entry_manager.py` — `test_market_empty_response_pos_open_emergency_close` (pozisyon açık → emergency close) + `test_market_order_failure` güncellendi (get_positions=[] → MARKET BASARISIZ yolu). 81 entry_manager + 119 infra pass; test_bot.py 15 fail ve test_integration_v2.py 8 fail pre-existing (baseline ile birebir aynı, bu işlemle ilgisiz).
+
+(Önceki işlemler aşağıda.)
+
+## Son İşlem (önceki): config.py ölü sabitler temizlendi (2026-08-02)
 
 `src/config.py`'den 5 ölü sabit silindi (grep + kod doğrulaması ile sıfır kullanım teyit edildi):
 - `LOG_LEVEL` (bot.py logging.INFO hardcoded, config okunmuyordu)

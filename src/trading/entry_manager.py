@@ -442,6 +442,37 @@ class EntryManager:
                     success=False, error=f"MARKET RECONCILE BASARISIZ — {e}"
                 )
 
+        if not mkt_id and actual_qty <= 0:
+            try:
+                positions = await self._rest.get_positions()
+                for p in positions:
+                    if p["symbol"] == sym:
+                        pos_amt = abs(float(p.get("positionAmt", 0)))
+                        if pos_amt > 0:
+                            close_result = await self._emergency_close(
+                                sym,
+                                mkt_side,
+                                pos_amt,
+                                "MARKET cevap yok (orderId/qty belirsiz) ama pozisyon acik — reconcile",
+                            )
+                            close_note = (
+                                "pozisyon guvenle kapatildi"
+                                if close_result.success
+                                else f"ACIL KAPATMA DA BASARISIZ — {close_result.error}"
+                            )
+                            return EntryExecutionResult(
+                                success=False,
+                                error=(
+                                    "MARKET cevap yok ama pozisyon acik — "
+                                    f"{close_note}"
+                                ),
+                            )
+            except Exception as e:
+                log.critical("[MARKET-RECONCILE] %s pos sorgu hatasi: %s", sym, e)
+                return EntryExecutionResult(
+                    success=False, error=f"MARKET RECONCILE BASARISIZ — {e}"
+                )
+
         if not mkt_id or actual_qty <= 0 or actual_price <= 0:
             if mkt_id and actual_qty <= 0:
                 log.info("[MARKET] %s orderId=%s fill bekleniyor...", sym, mkt_id)

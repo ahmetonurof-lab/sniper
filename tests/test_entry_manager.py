@@ -808,12 +808,42 @@ class TestExecuteLiveEntry:
     async def test_market_order_failure(self):
         mock_rest = await self._entry_mock_base()
         mock_rest.place_market_order = AsyncMock(return_value={})  # No orderId → fail
+        # 408/timeout gibi belirsiz durum: pozisyon kontrolü yapılır, pozisyon
+        # yoksa (emir hiç gitmemiş) MARKET BASARISIZ döner.
+        mock_rest.get_positions = AsyncMock(return_value=[])
 
         mgr = EntryManager(rest_client=mock_rest, is_live=True)
         result = await mgr.execute_live_entry("BTCUSDT", "long", 0.5, 100.0, 110.0)
 
         assert result.success is False
         assert "MARKET BASARISIZ" in result.error
+
+    @pytest.mark.asyncio
+    async def test_market_empty_response_pos_open_emergency_close(self):
+        """HTTP 408 / execution status unknown senaryosu: emir cevabı boş ama
+        pozisyon aslında açılmış. Bot pozisyonu bulup emergency close ile
+        güvenle kapatmalı — korumasız pozisyon kayıp edilmemeli."""
+        mock_rest = await self._entry_mock_base()
+        mock_rest.place_market_order = AsyncMock(return_value={})  # empty_response
+        mock_rest.get_positions = AsyncMock(
+            return_value=[{"symbol": "BTCUSDT", "positionAmt": "0.5"}]
+        )
+        # emergency close market emri (opposite side)
+        mock_rest.place_market_order.side_effect = [
+            {},  # entry denemesi
+            {"orderId": 999},  # emergency close
+        ]
+
+        mgr = EntryManager(rest_client=mock_rest, is_live=True)
+        result = await mgr.execute_live_entry("BTCUSDT", "long", 0.5, 100.0, 110.0)
+
+        assert result.success is False
+        assert "pozisyon acik" in result.error
+        assert "pozisyon guvenle kapatildi" in result.error
+        # entry + emergency close = 2 market emri
+        assert mock_rest.place_market_order.call_count == 2
+        close_side = mock_rest.place_market_order.call_args.args[1]
+        assert close_side == "SELL"  # long girdi → SELL ile kapat
 
     @pytest.mark.asyncio
     async def test_sl_order_failure_triggers_emergency_close(self):
