@@ -247,11 +247,11 @@ class PaperTrader:
         )
         self.entry_manager = EntryManager(
             rest_client=self.rest,
-            is_live=bool(cfg.BINANCE_API_KEY),
+            is_live=self._live,
         )
         self.order_manager = OrderManager(
             rest_client=self.rest,
-            is_live=bool(cfg.BINANCE_API_KEY),
+            is_live=self._live,
         )
         self.trailing_manager = TrailingManager(
             price_reader=BotPriceReader(self.hub),
@@ -779,7 +779,7 @@ class PaperTrader:
             entry_price_original = entry_price
             sl_id = ""
             tp_id = ""
-            if cfg.BINANCE_API_KEY and getattr(self, "_live", False):
+            if self._live:
                 assert self.entry_manager is not None
                 exec_result = await self.entry_manager.execute_live_entry(
                     sym,
@@ -966,12 +966,8 @@ class PaperTrader:
             sweep_level=ss.sweep_level,
             cbdr_high=ss.cbdr_body_high,
             cbdr_low=ss.cbdr_body_low,
-            sl_order_id=sl_id
-            if (cfg.BINANCE_API_KEY and getattr(self, "_live", False))
-            else "",
-            tp_order_id=tp_id
-            if (cfg.BINANCE_API_KEY and getattr(self, "_live", False))
-            else "",
+            sl_order_id=sl_id if self._live else "",
+            tp_order_id=tp_id if self._live else "",
             entry_order_id=live_entry_order_id,
             entry_requested_qty=live_requested_qty,
             entry_price_estimate=entry_price_original,
@@ -1254,6 +1250,9 @@ class PaperTrader:
                 )
 
         self._live = True
+        self.entry_manager._is_live = True
+        self.order_manager._is_live = True
+        self.exit_service._is_live = True
 
         # Periyodik pozisyon+emir kontrolü (her 60sn)
         self._pos_check_task = asyncio.create_task(
