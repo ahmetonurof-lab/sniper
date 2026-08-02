@@ -13,6 +13,7 @@ from models import Bar, ActiveTrade
 from retrace_state import RetraceStateMachine, HTFFVG, RetraceState
 from session import DailyBias, SessionState
 from trading.entry_manager import EntryManager
+from trading.signal_engine import SignalEngine
 from trading.trailing_manager import TrailingManager
 
 
@@ -147,6 +148,52 @@ class TestSweepFVGTrigger:
 
         side = "long" if rsm.direction == "bullish" else "short"
         assert side == "short"
+
+    def test_sweep_invalidated_clears_sweep_confirmed(self):
+        """progress_rsm: RSM reset (sweep invalid) → ss.sweep_confirmed must become False."""
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0)
+        assert rsm.state == RetraceState.SWEEP_DETECTED
+
+        ss = SessionState(start_hour=22, end_hour=2)
+        ss.cbdr_locked = True
+        ss.sweep_confirmed = True
+        ss.sweep_direction = "bullish"
+        ss.sweep_level = 105.0
+        ss.daily_bias = DailyBias.BULLISH
+
+        engine = SignalEngine(rsm)
+        # Bars where close < sweep_level → invalidation → RSM reset to IDLE
+        bars = [_bar(i, 100, 102, 98, 101, ts=i * 900000) for i in range(5)]
+        sweep_bar = _bar(5, 106, 109, 101, 102, ts=5 * 900000)  # close=102 < sweep=105
+
+        engine.progress_rsm(bars, sweep_bar, ss, atr_val=1.0)
+
+        assert rsm.state == RetraceState.IDLE
+        assert ss.sweep_confirmed is False
+
+    def test_progress_rsm_keeps_sweep_confirmed_when_sweep_stays_valid(self):
+        """progress_rsm: no FVG found but sweep still valid → ss.sweep_confirmed stays True."""
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0)
+        assert rsm.state == RetraceState.SWEEP_DETECTED
+
+        ss = SessionState(start_hour=22, end_hour=2)
+        ss.cbdr_locked = True
+        ss.sweep_confirmed = True
+        ss.sweep_direction = "bullish"
+        ss.sweep_level = 105.0
+        ss.daily_bias = DailyBias.BULLISH
+
+        engine = SignalEngine(rsm)
+        # Bars with NO FVG gaps — sweep stays active, no reset
+        bars = [_bar(i, 100, 102, 98, 101, ts=i * 900000) for i in range(20)]
+        sweep_bar = _bar(20, 101, 106, 99, 105, ts=20 * 900000)
+
+        engine.progress_rsm(bars, sweep_bar, ss, atr_val=1.0)
+
+        assert rsm.state == RetraceState.SWEEP_DETECTED
+        assert ss.sweep_confirmed is True
 
 
 # ═══════════════════════════════════════════════════════════════════

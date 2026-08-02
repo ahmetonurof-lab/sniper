@@ -84,6 +84,8 @@ class SignalEngine:
 
         if self.rsm.state_name == "SWEEP_DETECTED":
             self.rsm.on_sweep_confirmed(bars_15m, current, atr_val, symbol)
+            if self.rsm.state_name == "IDLE":
+                ss.sweep_confirmed = False
 
         ss.fvg_ready = self.rsm.state_name == "TRIGGER_READY"
 
