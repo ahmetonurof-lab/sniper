@@ -1,6 +1,16 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: DD_GUARD öncesi [RISK-DEBUG] log eklendi (2026-08-02)
+## Son İşlem: DD_GUARD + [RISK-DEBUG] log kaldırıldı (2026-08-02)
+
+`src/bot.py` `_try_entry()` — P1-13 DD devre kesici (entry tamamen engelleme) ve `44ee72d` ile eklenen `[RISK-DEBUG]` logu (equity/peak/dd/broken) tamamen kaldırıldı. `is_defense_mode` değişkeni başka yerde kullanılmadığı için o da silindi.
+
+Kalan durum: `RiskManager.get_dynamic_risk_multiplier()` hâlâ devre kesici state machine'ini (trip/reset, histeresis) ve EL/risk çarpanını yönetiyor — sadece entry engelleme guard'ı yok. `risk_manager.py`'de değişiklik yapılmadı, testleri geçiyor (`test_risk_manager.py`).
+
+**Test durumu:** `test_bot.py` dışındaki suite 190 passed (test_bot.py'deki 15 fail pre-existing: `mark_trade_closed`, `_stage`, legacy fonksiyonlar — bu işlemle ilgisiz, kapsam dışı).
+
+(Önceki işlemler aşağıda.)
+
+## Son İşlem (önceki): DD_GUARD öncesi [RISK-DEBUG] log eklendi (2026-08-02)
 
 `src/bot.py:728-733` — `_try_entry()` içinde `is_defense_mode` hesabından hemen sonra, P1-13 DD_GUARD kontrolünden ÖNCE `get_current_dd()` çağrılıp `[RISK-DEBUG]` INFO logu basılıyor:
 
@@ -11,7 +21,7 @@ log.info("[RISK-DEBUG] %s | equity=%.2f | peak=%.2f | dd=%.2f%% | broken=%s", ..
 
 Amaç: DD_GUARD devreye girip entry'yi engellediğinde equity/peak/dd/broken değerlerinin log'da görünür olması — DD_GUARD tetiklenme anındaki portföy durumunu tespit etmek. `get_current_dd()` ve `peak_equity` zaten `risk_manager.py`'de mevcuttu, yeni API eklenmedi.
 
-(Önceki işlemler aşağıda.)
+(Not: Bu commit daha sonraki "DD_GUARD + [RISK-DEBUG] log kaldırıldı" işlemiyle geri alındı.)
 
 ## Son İşlem: 12 BULGU ayrı commit'lerle düzeltildi (2026-08-02)
 

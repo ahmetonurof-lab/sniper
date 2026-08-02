@@ -723,27 +723,7 @@ class PaperTrader:
         risk_mgr_mult = self.risk_mgr.get_dynamic_risk_multiplier(
             self._available_balance, is_early_london
         )
-        is_defense_mode = self.risk_mgr.is_circuit_broken
-
-        current_dd = self.risk_mgr.get_current_dd(self._available_balance)
-        log.info(
-            "[RISK-DEBUG] %s | equity=%.2f | peak=%.2f | dd=%.2f%% | broken=%s",
-            sym,
-            self._available_balance,
-            self.risk_mgr.peak_equity,
-            current_dd,
-            self.risk_mgr.is_circuit_broken,
-        )
-
-        # ── P1-13: DD devre kesici → entry tamamen engelle ──
-        if is_defense_mode:
-            log.warning("[DD_GUARD] %s DD devre kesici aktif — entry ENGELLENDI", sym)
-            log_event("entry_blocked_dd", sym, dd_active=True)
-            rsm.reset()
-            return
-
         # ── Nihai carpan (Guvenlik Freni) ──
-        # is_defense_mode True ise zaten return ile çıkıldı (P1-13 guard).
         final_risk_mult = risk_mgr_mult * cbdr_mult
 
         adjusted_risk_pct = RISK_PER_TRADE * final_risk_mult
