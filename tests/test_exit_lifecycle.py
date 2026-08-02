@@ -161,6 +161,7 @@ class TestSecondExitPrevention:
         """Trade already popped from active_trades → return False."""
         svc, *_, active_trades, _ = service
         mock_cfg.BINANCE_API_KEY = ""
+        svc._is_live = False
 
         trade = _trade()
         result = await svc.execute("BTCUSDT", trade, 50000)
@@ -179,6 +180,7 @@ class TestPaperModeAlreadyClosed:
         """No API key + result=TP → skip market close, go to commit."""
         svc, rest, om, active_trades, *_ = service
         mock_cfg.BINANCE_API_KEY = ""
+        svc._is_live = False
 
         trade = _trade(result="TP")
         active_trades["BTCUSDT"] = trade
@@ -193,6 +195,7 @@ class TestPaperModeAlreadyClosed:
         """No API key + result=SL → skip market close."""
         svc, rest, om, active_trades, *_ = service
         mock_cfg.BINANCE_API_KEY = ""
+        svc._is_live = False
 
         trade = _trade(result="SL")
         active_trades["BTCUSDT"] = trade
@@ -207,6 +210,7 @@ class TestPaperModeAlreadyClosed:
         """No API key + result=WS_FALLBACK → skip market close."""
         svc, rest, om, active_trades, *_ = service
         mock_cfg.BINANCE_API_KEY = ""
+        svc._is_live = False
 
         trade = _trade(result="WS_FALLBACK")
         active_trades["BTCUSDT"] = trade
@@ -623,6 +627,7 @@ def service():
         fvg_state_file="/tmp/fvg.json",
         exit_log={},
         exit_locks={},
+        is_live=True,
     )
     return svc, rest, om, active_trades, trades, pl_callback, risk_mgr
 

@@ -282,6 +282,7 @@ class PaperTrader:
             fvg_state_file=_FVG_STATE_FILE,
             exit_log=self._exit_reason_log,
             exit_locks=self._exit_locks,
+            is_live=self._live,
         )
         # ── Gerçek Wilder's ATR rolling state (sembol bazlı) ──
         # TANIM: RecoveryManager'dan ÖNCE gelmeli (atr_state parametresi)

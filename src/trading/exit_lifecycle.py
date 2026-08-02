@@ -44,7 +44,6 @@ import os
 import time
 from typing import Any, Callable
 
-import config as cfg
 from event_log import log_event
 from paper_trade_logger import EventType as PtEventType, log_event as pt_log
 from models import (
@@ -124,6 +123,7 @@ class ExitLifecycleService:
         fvg_state_file: str,
         exit_log: dict | None = None,
         exit_locks: dict | None = None,
+        is_live: bool = False,
     ):
         self._rest = rest_client
         self._order_manager = order_manager
@@ -133,6 +133,7 @@ class ExitLifecycleService:
         self._trades = trades
         self._pl = pl_callback
         self._risk_mgr = risk_mgr
+        self._is_live = is_live
         self._get_balance = balance_getter
         self._set_balance = balance_setter
         self._get_wallet_balance = wallet_balance_getter
@@ -174,7 +175,7 @@ class ExitLifecycleService:
             # P0-6 EXPANDED: SL/TP/WS_FALLBACK result'larında pozisyonun gerçekten
             # kapalı olup olmadığını REST ile doğrula.
             _exit_result = trade.get("result")
-            if _exit_result in ("SL", "TP", "WS_FALLBACK") and cfg.BINANCE_API_KEY:
+            if _exit_result in ("SL", "TP", "WS_FALLBACK") and self._is_live:
                 try:
                     position_open = await self._order_manager.position_still_open(sym)
                 except Exception as e:
@@ -345,7 +346,7 @@ class ExitLifecycleService:
             else:
                 trade["status"] = STATUS_EXIT_VERIFYING
 
-            if cfg.BINANCE_API_KEY and not _exit_already_closed:
+            if self._is_live and not _exit_already_closed:
                 pos_closed = await self._submit_and_verify_market_close(sym, trade)
                 if not pos_closed:
                     return False
