@@ -82,7 +82,7 @@ def normalize_order_event(
         )
     return NormalizedOrderEvent(
         symbol=sym,
-        order_id=str(raw_order.get("c", "") or raw_order.get("i", "")),
+        order_id=str(raw_order.get("i", "") or raw_order.get("c", "")),
         client_order_id=str(raw_order.get("c", "")),
         status=raw_order.get("X", ""),
         reduce_only=bool(

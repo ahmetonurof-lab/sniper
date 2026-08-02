@@ -86,7 +86,8 @@ class TestNormalizeOrderEvent:
         evt = normalize_order_event(raw)
         assert evt is not None
         assert evt.symbol == "BTCUSDT"
-        assert evt.order_id == "order_123"
+        assert evt.order_id == "12345"
+        assert evt.client_order_id == "order_123"
         assert evt.status == "FILLED"
         assert evt.reduce_only is True
         assert evt.avg_price == 51000.0
@@ -590,7 +591,7 @@ class TestSelfExitRaceGuard:
         mock_log_event.assert_called_once_with(
             "ws_unmatched_reduce_only",
             "BTCUSDT",
-            oid="UNKNOWN_ORPHAN",
+            oid="66666",
             expected_sl="SL_X",
             expected_tp="TP_X",
             trade_status_before_exit="ACTIVE",
