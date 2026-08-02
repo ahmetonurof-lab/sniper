@@ -4,6 +4,7 @@
 
 | Tarih | İşlem | Detay |
 |-------|-------|-------|
+| 2026-08-02 | **12 BULGU ayrı commit'lerle düzeltildi** | `e369ddc` baz üzerine 10 commit: BULGU-07 (`21be255` bare except→log.error), BULGU-09 (`df14756` TP fail→emergency close), BULGU-03 (`fb82685` trade referansı tek kaynak), BULGU-04 (`bac575c` sym lock), BULGU-01/10 (`e5d9151` pending_exit_* fields + __contains__ + known_ids), BULGU-23 (`54b2ce6` _is_live), BULGU-02/06 (`4c7c4c7` atomik yazma), BULGU-08 (`5b9bb7b` amt==0), BULGU-11 (`4006acb` order_id ayrı), BULGU-21 (`870930e` _live tek kaynak). BULGU-17/18 bug değil, kapatıldı. 198 test passed. |
 | 2026-08-01 | **P0 safety fixes: bare except remediation** | recovery_manager.py:486, exit_lifecycle.py:521/549, order_manager.py:646/966 bare `except Exception: pass` → `log.error` + retry/fallback. state_writer.py: BULGU-05 (protection_health flat field'lardan) + BULGU-19 (ws_event_normalization config'den). |
 | 2026-08-01 | **Cross-context bug fix turu — 13 bug, 12 commit** | `03e6eaf8` baz: BUG-1/7, BUG-25, BUG-23, BUG-5, BUG-12, BUG-8/2, BUG-21, BUG-10, BUG-11, BUG-3, BUG-17, BUG-16, BUG-29. Commitler: `5f08154..e244165`. |
 | 2026-08-01 | **Rapor dokümanları push edildi** | `reports/` — `Trading_Execution_Simulator.md`, `entry_decision_tree.md`, `fvg_fix_analysis_report.md`, `parity_regression.md`, `sniper_cross_context_bug_report.md`, `sniper_cross_context_bug_verification.md` eklendi; `backtest_canli_farklari_31_07_2026.md` silindi. Commit: `a6b0667`, push edildi. |

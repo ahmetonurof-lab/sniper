@@ -1,6 +1,27 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: Cross-context bug fix turu + P0 safety fixes (2026-08-01)
+## Son İşlem: 12 BULGU ayrı commit'lerle düzeltildi (2026-08-02)
+
+`sniper_fix_plan_ve_agent_direktifi.md`'deki 12 madde, üç ayrı doğrulama turu sonrası kesinleşen duruma göre tek tek uygulandı. Her madde ayrı commit, her biri kendi testiyle doğrulandı. Baz `e369ddc` üzerine 10 commit.
+
+1. **BULGU-07** (`21be255`) — `exit_lifecycle.py:521` bare `except Exception: pass` → `except Exception as e: log.error(...)` (position verify bloğu)
+2. **BULGU-09** (`df14756`) — `entry_manager.py:766` TP emri başarısız olunca `success=True` dönüyordu; artık `_emergency_close` tetikleniyor, `execute_live_entry` kontratı korundu (test güncellendi: `test_tp_failure_still_returns_success`)
+3. **BULGU-03** (`fb82685`) — `exit_lifecycle.py:337` execute() içinde gereksiz `self._active_trades.get(sym)` tekrarı silindi; trade parametresi tek referans (WS callback pop'lamışsa accounting kaybolmuyor)
+4. **BULGU-04** (`bac575c`) — `exit_lifecycle.py:621` `_commit_confirmed_exit` sym bazlı `_exit_locks` ile korundu (iki exit path aynı anda ulaşınca PnL commit kaybolmuyor)
+5. **BULGU-01/10** (`e5d9151`) — `models.py` ActiveTrade'e `pending_exit_price/qty/order_id/timestamp/reason` gerçek dataclass field'ları eklendi (JSONL'e yazılıyor); `__contains__` `hasattr` → `key in self.__dataclass_fields__`; ProtectionState'e `known_ids()` eklendi
+6. **BULGU-23** (`54b2ce6`) — `exit_lifecycle.py:177/350` `cfg.BINANCE_API_KEY` guard'ları `self._is_live` ile değiştirildi (paper mode'da key set edilse de gerçek emir gitmez); `__init__`'e `is_live` parametresi, `bot.py`'den `is_live=self._live` geçildi
+7. **BULGU-02/06** (`4c7c4c7`) — `bot.py` `_save_fvg_state`/`_load_fvg_state` bare except → log.error + atomik yazma (temp dosya + `os.replace`)
+8. **BULGU-08** (`5b9bb7b`) — `exit_lifecycle.py:504` sabit `abs(amt) < 0.0001` eşiği → `amt == 0` (micro-cap token'larda yanlış "kapalı" sayma önlendi)
+9. **BULGU-11** (`4006acb`) — `user_data_handler.py:85-86` `order_id` (server orderId `i`) ile `client_order_id` (`c`) ayrı tutuldu, fallback'te server orderId öncelikli
+10. **BULGU-21** (`870930e`) — `bot.py` `self._live` tek kaynak; `EntryManager`/`OrderManager` `is_live=self._live`; canlı moda geçerken `_is_live`'lar senkronize edildi (satır 1256 civarı)
+
+**BULGU-17/18** — bug değil; `HTFFVG.bar_index` runtime'da gerçek alan (retrace_state.py doğrulandı). Kod değişikliği yapılmadı, kapatıldı.
+
+**Test durumu:** `test_exit_lifecycle.py` 34, `test_entry_manager.py` 80, `test_models.py` 48, `test_user_data_handler.py` 36 (2 pre-existing `_exit_trade_legacy` fail hariç) — toplam 198 passed. `test_bot.py` 15 pre-existing fail (kaldırılmış legacy fonksiyonlar: `mark_trade_closed`, `_stage`, `_exit_trade_legacy`) — bu turun kapsamı dışı.
+
+(Önceki işlemler aşağıda.)
+
+## Son İşlem (önceki): Cross-context bug fix turu + P0 safety fixes (2026-08-01)
 
 `sniper_cross_context_bug_report_v2.md` + `sniper_fix_plan_ve_agent_direktifi.md` rehberliğinde, baz `03e6eaf8` üzerine uygulandı. 13 bug 12 commit. Ek olarak 2026-08-01: 5 bare `except Exception: pass` hatasını remediation — recovery_manager.py:486 (SL/TP cancel retry), exit_lifecycle.py:521/549 (position verify + FILLED order check), order_manager.py:646/966 (SL placement + repair cancel). state_writer.py: BULGU-05 (protection_health flat field'lardan), BULGU-19 (ws_event_normalization config'den).
 
