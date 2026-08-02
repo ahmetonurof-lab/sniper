@@ -27,8 +27,6 @@ RISK_PER_TRADE = 0.003
 
 LEVERAGE = 5
 
-LOG_LEVEL = "INFO"
-
 
 # ── Semboller (aktif trade listesi) ───────────────────────────
 
@@ -529,18 +527,9 @@ FVG_BUFFER_MULT = 0.50
 EARLY_LONDON_RISK_MULT = 1.5  # 02-08 UTC risk carpani (Altin Oran)
 
 
-# ── Dinamik FVG filtreleri (ATR bazli) ────────────────────────
-
-MIN_REL_FVG_THRESHOLD = 0.40
-
-
 # ── Magic Numbers (Faz 1.2) ────────────────────────────────────
 
 TRAIL_MIN_MOVE_MULT = 0.2
-
-BE_RISK_MULT = 1.0
-
-BE_SPREAD_PTS = 0.0
 
 ATR_TRAIL_MULT = 0.25
 
@@ -549,8 +538,6 @@ MIN_STOP_DIST_PCT = 0.006
 MAX_MARGIN_PCT = 0.20
 
 MIN_RISK_DIST_ATR_MULT = 0.1
-
-MAX_SL_DIST_MULT = 2.0
 
 DEFAULT_ATR_FALLBACK_PCT = 0.0001
 

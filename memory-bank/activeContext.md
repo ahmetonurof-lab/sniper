@@ -1,6 +1,18 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: DD_GUARD + [RISK-DEBUG] log kaldırıldı (2026-08-02)
+## Son İşlem: config.py ölü sabitler temizlendi (2026-08-02)
+
+`src/config.py`'den 5 ölü sabit silindi (grep + kod doğrulaması ile sıfır kullanım teyit edildi):
+- `LOG_LEVEL` (bot.py logging.INFO hardcoded, config okunmuyordu)
+- `MAX_SL_DIST_MULT` (kod karşılığı yok)
+- `MIN_REL_FVG_THRESHOLD` (`is_high_quality_fvg()` yalnızca memory-bank'ta yazıyordu, session_router.py'de böyle bir fonksiyon yok)
+- `BE_RISK_MULT`, `BE_SPREAD_PTS` (breakeven özelliği hiç inşa edilmemiş)
+
+**Korundu:** `EARLY_LONDON_RISK_MULT` — kullanıcının raporunda "ölü" denmişti ama `simulate.py:305`'te `_cfg.EARLY_LONDON_RISK_MULT` aktif olarak kullanılıyor, silinmedi.
+
+(Önceki işlemler aşağıda.)
+
+## Son İşlem (önceki): DD_GUARD + [RISK-DEBUG] log kaldırıldı (2026-08-02)
 
 `src/bot.py` `_try_entry()` — P1-13 DD devre kesici (entry tamamen engelleme) ve `44ee72d` ile eklenen `[RISK-DEBUG]` logu (equity/peak/dd/broken) tamamen kaldırıldı. `is_defense_mode` değişkeni başka yerde kullanılmadığı için o da silindi.
 
