@@ -105,10 +105,12 @@ def _save_fvg_state(sym: str, fvg_data: dict) -> None:
             with open(_FVG_STATE_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
         data[sym] = fvg_data
-        with open(_FVG_STATE_FILE, "w", encoding="utf-8") as f:
+        tmp_file = f"{_FVG_STATE_FILE}.tmp"
+        with open(tmp_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
-    except Exception:
-        pass
+        os.replace(tmp_file, _FVG_STATE_FILE)
+    except Exception as e:
+        log.error("[FVG_STATE] %s kayit hatasi: %s", sym, e)
 
 
 def _load_fvg_state(sym: str) -> dict:
@@ -117,8 +119,8 @@ def _load_fvg_state(sym: str) -> dict:
         if os.path.exists(_FVG_STATE_FILE):
             with open(_FVG_STATE_FILE, "r", encoding="utf-8") as f:
                 return json.load(f).get(sym, {})
-    except Exception:
-        pass
+    except Exception as e:
+        log.error("[FVG_STATE] %s okuma hatasi: %s", sym, e)
     return {}
 
 
