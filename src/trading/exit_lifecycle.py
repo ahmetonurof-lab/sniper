@@ -751,8 +751,8 @@ class ExitLifecycleService:
         if rsm and rsm.sweep_level is not None and rsm.direction is not None:
             try:
                 mark_sweep_consumed(rsm.direction, rsm.sweep_level)
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning("[EXIT] %s sweep consumption mark hatasi: %s", sym, e)
         rsm.reset()
 
         # P0-1 idempotency log: benzersiz trade anahtari bazli

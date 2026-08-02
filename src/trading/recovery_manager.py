@@ -777,8 +777,8 @@ class RecoveryManager:
                         oid,
                         otype,
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    log.warning("[ORPHAN] %s emir iptal hatasi: %s", sym, e)
 
     async def periodic_check_loop(self):
         """Her ~60sn'de recover_positions(quiet=True) + orphan sweep calistir.
