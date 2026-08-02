@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Final, Generic, Literal, TypeVar
 
 logger = logging.getLogger("sniper.models")
@@ -325,7 +326,7 @@ INCIDENT_WS_UNMATCHED_REDUCE_ONLY = "WS_UNMATCHED_REDUCE_ONLY"
 INCIDENT_ORPHAN_CANCEL_DURING_TRANSITION = "ORPHAN_CANCEL_DURING_TRANSITION"
 
 
-class TradeStatus(str):
+class TradeStatus(str, Enum):
     ACTIVE = "ACTIVE"
     PENDING = "PENDING"
     TRAIL_REPLACING = "TRAIL_REPLACING"
@@ -367,7 +368,24 @@ class ProtectionState:
 
     @property
     def tp_present(self) -> bool:
-        return self.tp_current is not None
+        return self.tp_current is not None or self.tp_pending is not None
+
+    def known_ids(self) -> set[str]:
+        ids: set[str] = set()
+        for ref in (
+            self.sl_current,
+            self.sl_pending,
+            self.sl_previous,
+            self.tp_current,
+            self.tp_pending,
+            self.tp_previous,
+        ):
+            if ref:
+                ids.add(ref.order_id)
+        for ref in self.history:
+            if ref:
+                ids.add(ref.order_id)
+        return ids
 
     def sl_status(self, current_sl: float) -> str:
         if self.sl_current is None:
@@ -527,6 +545,12 @@ class ActiveTrade:
     exit_actual_qty: float = 0.0
     exit_actual_price: float = 0.0
     exit_quote_qty: float = 0.0
+
+    pending_exit_price: float | None = None
+    pending_exit_qty: float | None = None
+    pending_exit_order_id: str | None = None
+    pending_exit_timestamp: int | None = None
+    pending_exit_reason: str | None = None
 
     # ── Dict uyumluluğu ───────────────────────────────────────
 
