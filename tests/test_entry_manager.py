@@ -839,8 +839,13 @@ class TestExecuteLiveEntry:
         assert mock_rest.place_market_order.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_tp_failure_still_returns_success(self):
-        """TP failure is non-fatal — execution still succeeds."""
+    async def test_tp_failure_returns_failure_with_emergency_close(self):
+        """TP failure → success=False her zaman (emergency close sonucundan bağımsız).
+
+        BUG-1 deseni: emergency close başarılı olsa bile entry başarısız sayılır;
+        aksi halde bot.py:796 guard'ı atlanır ve acil kapatılmış pozisyon
+        aktif trade olarak kaydedilir.
+        """
         mock_rest = await self._entry_mock_base()
         mock_rest.place_market_order = AsyncMock(
             return_value={
@@ -856,8 +861,8 @@ class TestExecuteLiveEntry:
         mgr = EntryManager(rest_client=mock_rest, is_live=True)
         result = await mgr.execute_live_entry("BTCUSDT", "long", 0.5, 100.0, 110.0)
 
-        # TP başarısız → emergency close tetiklenir (başarılı kapanış)
-        assert result.success is True
+        # TP başarısız → success her zaman False (entry başarısız oldu)
+        assert result.success is False
         assert result.sl_order_id == "sl_001"
         assert result.tp_order_id is None  # TP failed
         assert "TP FAIL" in result.error

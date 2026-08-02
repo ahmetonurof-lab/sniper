@@ -768,9 +768,14 @@ class EntryManager:
             close_result = await self._emergency_close(
                 sym, mkt_side, order_qty, f"TP FAIL resp={tp_resp}"
             )
+            close_note = (
+                "pozisyon guvenle kapatildi"
+                if close_result.success
+                else f"ACIL KAPATMA DA BASARISIZ — {close_result.error}"
+            )
             return EntryExecutionResult(
-                success=close_result.success,
-                error=f"TP FAIL — {close_result.error if not close_result.success else 'emergency close executed'}",
+                success=False,
+                error=f"TP FAIL resp={tp_resp} — {close_note}",
                 qty=actual_qty,
                 actual_qty=actual_qty,
                 actual_price=actual_price,
