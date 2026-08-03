@@ -1,5 +1,18 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: Deploy sonrası log analizi — trailing fix CANLI, P1-16 henüz değil (2026-08-03 23:11)
+
+`output/paper_trade.log` (1159 satır, 22:28→23:10, run `paper-20260803-192800`) incelendi.
+
+- **Bot 22:28'de restart oldu** → ENAUSDT trailing fingerprint fix'i (9263516) deploy edilmiş durumda ve **CANLI doğrulandı**: tüm pencerede **sıfır** `identical_invalid_candidate_suppressed` ve **sıfır** `candidate_not_placeable`. ENAUSDT her dakika `trail_skipped` reason=`no_better_trail_candidate` ile normal şekilde değerlendiriliyor (SL 0.0906, high 0.0915-0.0920 → meşru "daha iyi aday yok" durumu, suppress kilidi yok).
+- **P1-16 fix (694b11d, 23:08 push) HENÜZ CANLI DEĞİL**: 23:08 sonrası restart yok; ayrıca STRKUSDT tüm pencerede CBDR kilitlenmedi (lock=False, sweep=False) → entry denemesi yok. P1-16'nın aktif olması ve doğrulanması için **bot restart'ı gerekiyor**.
+- Normal işleyiş: ONDOUSDT 22:31 TP exit +5.34, 22:45 yeni long entry qty=3283 @0.37640. ARBUSDT 23:01:29 TP stale event #1 → "pozisyon hala açık, exit iptal" (P1-15 stale handling doğru).
+- Hata yok: `-4005/-2021/-1007/-4130/WS_FALLBACK/orphan/force_close/reconnect` hiçbiri görülmedi. WARNING'ler yalnızca beklenen `[P1-15_DEBUG]` + `[POST_ENTRY_DEBUG]`.
+
+**Sonraki adım:** sunucuda `git pull` + bot restart → P1-16 conservative default canlıya alınacak.
+
+---
+
 ## Son İşlem: P1-16 fix — get_max_qty cache miss'te conservative default (2026-08-03)
 
 Baş mühendis kararı netleşti: **emri geciktirmek yerine conservative default max_qty**. Gerekçe: sistemin failure mode'u "biraz küçük pozisyon" olsun, "belirsiz bekleme" veya "clamp'sız aşırı büyük pozisyon" olmasın. Emri geciktirmek fırsat kaybı (STRKUSDT'de yaşanan sorun) ve belirsiz order queue/race riski taşıyordu.
