@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-08-03 — ✅ **P1-16 KAPANDI** (conservative default max_qty + ek düzeltme: sabit quantity floor kaldırıldı → notional bazlı, stale fiyat fallback, fiyat hiç yoksa reddet). ENAUSDT trailing kilitlenme fix'i canlı doğrulandı. Toplam arşiv: 25 madde.
+> **Son güncelleme:** 2026-08-04 — ✅ **P1-16 KAPANDI + CANLI** (conservative default max_qty + ek düzeltme: sabit quantity floor kaldırıldı → notional bazlı, stale fiyat fallback, fiyat hiç yoksa reddet; 23:56:26 restart ile canlıya alındı). ENAUSDT trailing kilitlenme fix'i canlı doğrulandı. Toplam arşiv: 25 madde.
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ---
@@ -20,7 +20,7 @@
 | **P3-3** | 🐛 | except Exception yaygın | HÂLÂ GEÇERLİ |
 | **🆕 P3-4** | 🔧 | NEARUSDT SL çok dar (0.055%) — MIN_SL_DISTANCE_PCT=%0.15 taban eşik eklendi | FIX YAZILDI, PENDING DEPLOY (entry_manager.py) |
 | **P1-15** | 🐛 | Stale event loop — Binance WS FILLED gecikmesi 87-353sn, GMXUSDT orantısız etkileniyor (%71) | KÖK NEDEN DOĞRULANDI (27 Tem), client-side fix mümkün değil — mitigation aksiyonları öneriliyor |
-| **🆕 P1-16** | ✅ | Entry max_qty clamp cache boşken atlanıyor — STRKUSDT -4005, teorik risk büyük pozisyon | KAPANDI: conservative default (override > canlı notional > stale notional > reddet), deploy bekliyor |
+| **🆕 P1-16** | ✅ | Entry max_qty clamp cache boşken atlanıyor — STRKUSDT -4005, teorik risk büyük pozisyon | KAPANDI + CANLI: conservative default (override > canlı notional > stale notional > reddet), 23:56:26 restart |
 
 ---
 
@@ -397,7 +397,7 @@ kaynağını açıklıyor.
 ## 🆕 P1-16: Entry max_qty clamp cache boşken atlanıyor — STRKUSDT -4005 (teorik risk: limitsiz pozisyon)
 
 **Severity:** HIGH (P1)
-**Status:** ✅ KAPANDI — fix + ek düzeltme commit'lendi, notional-bazlı sürümün deploy'u bekliyor
+**Status:** ✅ KAPANDI — fix + ek düzeltme commit'lendi, notional-bazlı sürüm **CANLI** (23:56:26 restart, `[HISTORY] 367 trade gecmisten yuklendi`)
 **Date:** 2026-08-03 (restart öncesi log analizi, `paper_trade.log.20260803_212142.bak`)
 **File:** `src/trading/entry_manager.py:385-394`, `src/bot_binance.py:241-280`, `src/config.py`
 

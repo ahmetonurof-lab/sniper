@@ -997,3 +997,68 @@ class TestP0OneIdempotencyStaleConcurrency:
         active_trades["BTCUSDT"] = trade2
         result2 = await svc.execute("BTCUSDT", trade2, 2000)
         assert result2 is False  # ayni entry_order_id + ayni result → engellenir
+
+
+class TestStaleBackstop:
+    """N ardışık stale event sonrası REST backstop: pozisyon kapandıysa
+    active_trades'ten temizle ve exit'i başarılı kabul et."""
+
+    @pytest.mark.asyncio
+    @patch("trading.exit_lifecycle.cfg")
+    async def test_stale_backstop_pops_active_trade(self, mock_cfg, service):
+        """3 stale event sonrası pozisyon kapandıysa trade active_trades'ten
+        cikarilmalidir ve execute True donusmelidir."""
+        svc, rest, om, active_trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        om.position_still_open = AsyncMock(return_value=False)
+
+        trade = _trade(result="SL", exit_price=51000.0)
+        active_trades["BTCUSDT"] = trade
+
+        # 3 stale event simule et
+        svc._stale_count["BTCUSDT"] = 3
+        svc._stale_cooldown["BTCUSDT"] = 0  # cooldown süresi dolmuş
+
+        result = await svc.execute("BTCUSDT", trade, 50000)
+
+        assert result is True
+        assert "BTCUSDT" not in active_trades
+
+    @pytest.mark.asyncio
+    @patch("trading.exit_lifecycle.cfg")
+    async def test_stale_backstop_position_still_open(self, mock_cfg, service):
+        """3 stale event sonrası pozisyon hâlâ açıksa trade active_trades'te
+        kalmalidir ve execute False donusmelidir."""
+        svc, rest, om, active_trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        om.position_still_open = AsyncMock(return_value=True)
+
+        trade = _trade(result="SL")
+        active_trades["BTCUSDT"] = trade
+
+        svc._stale_count["BTCUSDT"] = 3
+        svc._stale_cooldown["BTCUSDT"] = 0
+
+        result = await svc.execute("BTCUSDT", trade, 50000)
+
+        assert result is False
+        assert "BTCUSDT" in active_trades
+
+    @pytest.mark.asyncio
+    @patch("trading.exit_lifecycle.cfg")
+    async def test_stale_backstop_rest_exception_safe(self, mock_cfg, service):
+        """REST exception stale backstop'ta yutulmalidir, trade aktif kalir."""
+        svc, rest, om, active_trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        om.position_still_open = AsyncMock(side_effect=Exception("timeout"))
+
+        trade = _trade(result="SL")
+        active_trades["BTCUSDT"] = trade
+
+        svc._stale_count["BTCUSDT"] = 3
+        svc._stale_cooldown["BTCUSDT"] = 0
+
+        result = await svc.execute("BTCUSDT", trade, 50000)
+
+        assert result is False
+        assert "BTCUSDT" in active_trades

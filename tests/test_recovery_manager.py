@@ -144,6 +144,7 @@ class TestRecoverPositionsCloseFallback:
 
         assert "BTCUSDT" in active_trades
         assert active_trades["BTCUSDT"].is_recovered is True
+        assert active_trades["BTCUSDT"].trail_mode == "fvg"
 
     @patch("trading.recovery_manager.cfg")
     def test_force_close_exception_handled(self, mock_cfg):

@@ -556,6 +556,12 @@ class PaperTrader:
             )
 
             # ── FVG Trailing ──
+            # Restart'ta recover edilen trade'lerde extractor closure kaybolur;
+            # trail_mode="fvg" ise ayni yolu korumak icin extractor'u yeniden kur.
+            if not callable(trade.get("trail_level_extractor")):
+                trade["trail_level_extractor"] = self._build_fvg_scan_trail_extractor(
+                    sym
+                )
             bars_15m = self.hub.get_bars(sym, "15m")
             if bars_15m:
                 trail_res = await self.trailing_manager.orchestrate_trail(
@@ -948,6 +954,7 @@ class PaperTrader:
             tick_size=tick_size,
             trail_count=0,
             trail_level_extractor=self._build_fvg_scan_trail_extractor(sym),
+            trail_mode="fvg",
             trigger_fvg=fvg,
             fvg_top=getattr(fvg, "top", None) if fvg else None,
             fvg_bottom=getattr(fvg, "bottom", None) if fvg else None,

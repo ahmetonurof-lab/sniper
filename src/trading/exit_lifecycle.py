@@ -281,6 +281,37 @@ class ExitLifecycleService:
 
                     self._stale_cooldown[sym] = _now
 
+                    # P1-15: stale event backstop — N ardışık stale
+                    # sonrası REST ile pozisyon durumunu doğrula.
+                    # Pozisyon kapandıysa active_trades'ten temizle
+                    # ve exit'i başarılı olarak kabul et (stale döngüsünü kır).
+                    if _stale_n >= 3:
+                        try:
+                            pos_open = await self._order_manager.position_still_open(
+                                sym
+                            )
+                        except Exception:
+                            pos_open = True
+                        if not pos_open:
+                            log.warning(
+                                "[EXIT] %s %s stale backstop (#%d) — "
+                                "pozisyon kapanmisti, active_trades'ten cikariliyor",
+                                sym,
+                                _exit_result,
+                                _stale_n,
+                            )
+                            self._active_trades.pop(sym, None)
+                            self._stale_cooldown.pop(sym, None)
+                            self._stale_count.pop(sym, None)
+                            _itr = getattr(
+                                self._order_manager,
+                                "_immediately_trigger_rejects",
+                                None,
+                            )
+                            if isinstance(_itr, dict):
+                                _itr.pop(sym, None)
+                            return True
+
                     log.warning(
                         "[EXIT] %s %s stale event #%d — pozisyon hala acik, exit iptal",
                         sym,

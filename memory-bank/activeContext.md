@@ -1,5 +1,27 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: Trailing yol kalıcılığı (#3) — trail_mode state'e yazıldı (2026-08-04)
+
+Restart sonrası recover edilen trade'lerde `trail_level_extractor` closure'ı kayboluyor ve trailing `_default_level_from_swings` (swing) yoluna düşüyordu — canlı logdaki 3692 `no_better_trail_candidate` + yalnızca 1 güncelleme ile ilgili kök nedenlerden biri. Fix:
+
+- `ActiveTrade.trail_mode: str = "fvg"` (models.py) — JSON-safe string, state/JSONL'ye yazılabilir.
+- Entry (bot.py) + `recover_positions` (recovery_manager.py, 2 recovery sitesi) `trail_mode="fvg"` set ediyor.
+- `_on_1m_close`'ta `trail_level_extractor` callable değilse FVG extractor yeniden kuruluyor → restart sonrası aynı yol korunuyor.
+
+Test: +2 yeni (test_bot `test_rebuilds_fvg_extractor_when_missing`, test_models `TestActiveTrade::test_trail_mode_defaults_to_fvg`); recovery testine `trail_mode == "fvg"` assert eklendi. TestOn1mClose'daki 2 stale test (eski `evaluate_trail` API, await edilemeyen MagicMock) güncel `orchestrate_trail` API'sine uyarlandı. Baseline 72 fail → 70 (0 yeni); hedefli 58/58 geçti. Kalan 70 fail pre-existing (parity/SOLUSDT, TestCheckExit stale API, TestExitTrade AttributeError vb., #3 ile ilgisiz).
+
+Öncesi A/B/C trailing replay (2026-08-04): close-confirm gevşetmesi 0 ekstra hop → **elendi**; price-based ATR-chase 9/10 trade'de tetikleniyor → K=0.5/1.0/1.5 replay + is_placeable uyumlu K seçimi **ayrı iş** olarak sırada.
+
+---
+
+## Son İşlem: P1-16 notional sürümü CANLI — deploy + restart (2026-08-04 00:00)
+
+Sunucuda `git pull` + bot restart tamamlandı (2026-08-03 23:56:26) → **P1-16 notional-bazlı fix (`1b0b647`) artık canlıda**: `[HISTORY] 367 trade gecmisten yuklendi` (önceki 22:28 koşusunda 364'tü, 3 trade eklendi). İlk floor'lu sürüm (`694b11d`, 22:28 deploy) hiç canlıya alınmamıştı — devreye giren sürüm notional-bazlı.
+
+Canlı doğrulama beklentisi: normal akışta exchange info cache dolu olduğundan gerçek `LOT_SIZE.maxQty` kullanılır (davranış değişmez). Gerçek bir cache miss'inde `[MAX_QTY] <sembol> ... conservative notional tavan` WARNING görülür; fiyat hiç yoksa `MaxQtyUnavailableError` → emir açılmaz (reddedilir). Deploy sonrası logda hata olmaması beklenir (STRKUSDT pencerede CBDR kilitlenip entry üretmediği için -4005 path'i pasif kalabilir).
+
+---
+
 ## Son İşlem: P1-16 ek düzeltme — notional bazlı conservative tavan + fiyat yoksa reddet (2026-08-03 23:30)
 
 Doğrulama: **fiyatsız `get_max_qty()` çağrısı MÜMKÜN** — `estimate_market_price()` ticker REST hatasında `0.0` döner ve `BinanceRESTClient`'ta fiyat cache'i yoktu. Çağıranlar: `entry_manager.py:385` (emir clamp), `order_manager.py:598` (parçalı SL/TP), `recovery_manager.py:244` (aynı).
@@ -15,7 +37,7 @@ Testler: `TestGetMaxQty` 6 test — `test_returns_max_qty`, `test_notional_cap_w
 
 **Sonuç:** test_bot_binance + test_entry_manager + test_order_manager + test_recovery_manager = **220 passed**; ruff temiz. `test_bot.py` 15 fail + trailing/session/snapshot vb. 29 fail **pre-existing** (git stash ile doğrulandı, bu işlemle ilgisiz).
 
-**Not:** İlk sürüm (694b11d, floor'lu) 22:28'de deploy edildi; bu notional-bazlı sürümün canlıya alınması için restart gerekli. bugs.md'de P1-16 **KAPANDI** (✅), notional sürüm deploy'u bekliyor.
+**Not:** İlk sürüm (694b11d, floor'lu) 22:28'de deploy edildi; notional-bazlı sürüm **23:56:26'da restart ile canlıya alındı** (`1b0b647`, 367 trade yüklendi). bugs.md'de P1-16 KAPANDI (✅), canlı doğrulama log gözlemiyle yapılacak.
 
 ---
 

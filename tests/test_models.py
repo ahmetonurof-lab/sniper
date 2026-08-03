@@ -321,3 +321,15 @@ class TestNormalizedOrderEvent:
             last_price=99.0,
         )
         assert evt.fill_price == 99.0
+
+
+class TestActiveTrade:
+    def test_trail_mode_defaults_to_fvg(self):
+        from models import ActiveTrade
+
+        t = ActiveTrade(
+            symbol="BTCUSDT", side="long", entry_price=100.0, sl=95.0, tp=110.0
+        )
+        assert t.trail_mode == "fvg"
+        assert t.trail_level_extractor is None
+        assert t.is_recovered is False

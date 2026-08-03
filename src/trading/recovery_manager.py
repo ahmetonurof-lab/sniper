@@ -157,6 +157,7 @@ class RecoveryManager:
                             trailing_count=0,
                             risk_pts=risk_pts,
                             is_recovered=True,
+                            trail_mode="fvg",
                             sl_order_id=sl_id,
                             tp_order_id=tp_id,
                         )
@@ -593,6 +594,7 @@ class RecoveryManager:
                             trailing_count=0,
                             risk_pts=risk_pts,
                             is_recovered=True,
+                            trail_mode="fvg",
                             sl_order_id=sl_id,
                             tp_order_id=tp_id,
                         )

@@ -558,25 +558,22 @@ class TestOn1mClose:
         mock_hub = bot.hub
         mock_hub.get_bars.return_value = [_bar(i, 100, 105, 95, 102) for i in range(20)]
 
-        # Mock TrailingManager.evaluate_trail
+        # Mock TrailingManager.orchestrate_trail (awaited)
         mock_result = MagicMock()
-        mock_result.updated = False
-        mock_trail_mgr.evaluate_trail.return_value = mock_result
-
-        # Mock TrailingManager.evaluate_break_even
-        mock_be = MagicMock()
-        mock_be.updated = False
-        mock_trail_mgr.evaluate_break_even.return_value = mock_be
+        mock_result.action = "none"
+        mock_trail_mgr.return_value.orchestrate_trail = AsyncMock(
+            return_value=mock_result
+        )
 
         # Mock TrailingManager.check_exit
         mock_exit = MagicMock()
         mock_exit.triggered = False
-        mock_trail_mgr.check_exit.return_value = mock_exit
+        mock_trail_mgr.return_value.check_exit.return_value = mock_exit
 
         bars = [_bar(i, 100, 102, 98, 101) for i in range(5)]
         asyncio.run(bot._on_1m_close("BTCUSDT", bars))
-        mock_trail_mgr.evaluate_trail.assert_called_once()
-        mock_trail_mgr.check_exit.assert_called_once()
+        mock_trail_mgr.return_value.orchestrate_trail.assert_awaited_once()
+        mock_trail_mgr.return_value.check_exit.assert_called_once()
 
     @patch("bot.BinanceRESTClient")
     @patch("bot.BinanceWSHub")
@@ -597,15 +594,12 @@ class TestOn1mClose:
         bot.active_trades["BTCUSDT"] = trade
         bot.hub.get_bars.return_value = [_bar(i, 100, 105, 95, 102) for i in range(20)]
 
-        mock_be = MagicMock()
-        mock_be.updated = False
-        mock_trail_mgr.evaluate_break_even.return_value = mock_be
         mock_tr = MagicMock()
-        mock_tr.updated = False
-        mock_trail_mgr.evaluate_trail.return_value = mock_tr
+        mock_tr.action = "none"
+        mock_trail_mgr.return_value.orchestrate_trail = AsyncMock(return_value=mock_tr)
         mock_exit = MagicMock()
         mock_exit.triggered = False
-        mock_trail_mgr.check_exit.return_value = mock_exit
+        mock_trail_mgr.return_value.check_exit.return_value = mock_exit
 
         bars = [_bar(i, 50010, 50020, 49980, 50015) for i in range(5)]
         for _ in range(4):
@@ -614,6 +608,37 @@ class TestOn1mClose:
 
         asyncio.run(bot._on_1m_close("BTCUSDT", bars))
         bot.recovery_manager.reconcile_orphan_orders.assert_called_once()
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.TrailingManager")
+    def test_rebuilds_fvg_extractor_when_missing(
+        self, mock_trail_mgr, mock_cfg, mock_hub_cls, mock_rest_cls
+    ):
+        """Restart sonrasi recover edilen trade (extractor yok) FVG extractor alir."""
+        _setup_minimal_cfg(mock_cfg)
+        from bot import PaperTrader
+
+        bot = PaperTrader(symbols=["BTCUSDT"])
+
+        trade = ActiveTrade(
+            symbol="BTCUSDT", side="long", entry_price=50000.0, sl=49000.0, tp=52000.0
+        )
+        assert not callable(trade.get("trail_level_extractor"))
+        bot.active_trades["BTCUSDT"] = trade
+        bot.hub.get_bars.return_value = [_bar(i, 100, 105, 95, 102) for i in range(20)]
+
+        mock_tr = MagicMock()
+        mock_tr.action = "none"
+        mock_trail_mgr.return_value.orchestrate_trail = AsyncMock(return_value=mock_tr)
+        mock_exit = MagicMock()
+        mock_exit.triggered = False
+        mock_trail_mgr.return_value.check_exit.return_value = mock_exit
+
+        bars = [_bar(i, 100, 102, 98, 101) for i in range(5)]
+        asyncio.run(bot._on_1m_close("BTCUSDT", bars))
+        assert callable(trade.get("trail_level_extractor"))
 
     @patch("bot.BinanceRESTClient")
     @patch("bot.BinanceWSHub")

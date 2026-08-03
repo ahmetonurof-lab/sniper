@@ -534,6 +534,9 @@ class ActiveTrade:
     protection_state: dict[str, Any] = field(default_factory=dict)
     protection_orders: dict[str, Any] = field(default_factory=dict)
     trail_level_extractor: Any = None
+    # Restart'ta recover edilen trade'lerde closure kaybolur; hangi trailing
+    # yolunun kullanilacagini state'e yazilabilir (JSON-safe) isaretle.
+    trail_mode: str = "fvg"
     runtime: TradeRuntimeState = field(default_factory=TradeRuntimeState)
     # End
     entry_order_id: str = ""
