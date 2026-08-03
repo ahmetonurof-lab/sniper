@@ -542,12 +542,13 @@ MAX_MARGIN_PCT = 0.20
 # 0.0 dönmek entry_manager'daki `max_qty > 0` guard'ını atlar ve emir
 # limitsiz qty ile exchange'e gider (STRKUSDT -4005). Bu sabitler failure
 # mode'u "biraz küçük pozisyon" yapar, "clamp'sız aşırı büyük pozisyon" değil.
-# Öncelik: sembol override > fiyat bazlı notional tavan > sabit floor.
+# Öncelik: sembol override > canlı fiyat ile notional tavan > stale fiyat ile
+# aynı notional tavan. Fiyat hiç yoksa get_max_qty() MaxQtyUnavailableError
+# fırlatır ve emir açılmaz — sessizce sabit quantity tavanı kullanılmaz.
 # Notional tavan, risk engine'in tipik notional'ının alt sınırına yakın
 # tutulur (tipik ~5-10K USDT) — sembole özel volatiliteyi fiyat üzerinden
 # hesaba katar.
 MAX_QTY_DEFAULT_NOTIONAL = 500.0
-MAX_QTY_DEFAULT_FLOOR = 1000.0
 MAX_QTY_DEFAULT_OVERRIDES: dict[str, float] = {
     # Örn. düşük fiyatlı semboller için notional/price çok büyük qty üretirse
     # burada sembol bazlı sabit bir tavan tanımlanabilir.

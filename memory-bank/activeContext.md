@@ -1,5 +1,24 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: P1-16 ek düzeltme — notional bazlı conservative tavan + fiyat yoksa reddet (2026-08-03 23:30)
+
+Doğrulama: **fiyatsız `get_max_qty()` çağrısı MÜMKÜN** — `estimate_market_price()` ticker REST hatasında `0.0` döner ve `BinanceRESTClient`'ta fiyat cache'i yoktu. Çağıranlar: `entry_manager.py:385` (emir clamp), `order_manager.py:598` (parçalı SL/TP), `recovery_manager.py:244` (aynı).
+
+Direktif uyarınca `MAX_QTY_DEFAULT_FLOOR` (sabit quantity 1000) **kaldırıldı** → notional bazlı oldu:
+
+- `_conservative_max_qty()` yeni zincir: sembol override → **canlı fiyat** ile `MAX_QTY_DEFAULT_NOTIONAL/price` → **stale fiyat** (`_last_price_cache`, sembolün en son başarılı ticker fiyatı) ile aynı formül → fiyat hiç yoksa **`MaxQtyUnavailableError`** (emir açılmaz, "conservative default" değil "reddet").
+- Sabit 1000 quantity'nin sorunu: yüksek fiyatlı sembollerde (BTC ~100K → 1000×100K = 100M USDT) devasa tavan üretiyordu — conservative değil.
+- `entry_manager`: `MaxQtyUnavailableError` → `EntryExecutionResult(success=False)` (emir reddedildi). `order_manager`/`recovery_manager`: parçalı SL/TP atlanır, closePosition akışı korunur.
+- `binanceRESTClient`'a `_last_price_cache: dict[str, float]` eklendi (her başarılı fiyat çekiminde güncellenir).
+
+Testler: `TestGetMaxQty` 6 test — `test_returns_max_qty`, `test_notional_cap_when_price_known`, **`test_stale_price_when_fresh_fails`** (yeni), **`test_rejects_when_no_price`** (yeni), `test_override_wins`, `test_missing_symbol_with_price_returns_notional_cap`. Floor testleri kaldırıldı.
+
+**Sonuç:** test_bot_binance + test_entry_manager + test_order_manager + test_recovery_manager = **220 passed**; ruff temiz. `test_bot.py` 15 fail + trailing/session/snapshot vb. 29 fail **pre-existing** (git stash ile doğrulandı, bu işlemle ilgisiz).
+
+**Not:** İlk sürüm (694b11d, floor'lu) 22:28'de deploy edildi; bu notional-bazlı sürümün canlıya alınması için restart gerekli. bugs.md'de P1-16 **KAPANDI** (✅), notional sürüm deploy'u bekliyor.
+
+---
+
 ## Son İşlem: Deploy sonrası log analizi — trailing fix CANLI, P1-16 henüz değil (2026-08-03 23:11)
 
 `output/paper_trade.log` (1159 satır, 22:28→23:10, run `paper-20260803-192800`) incelendi.

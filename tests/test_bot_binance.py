@@ -861,23 +861,6 @@ class TestGetMaxQty:
         max_qty = asyncio.run(client.get_max_qty("BTCUSDT"))
         assert max_qty == 1000.0
 
-    def test_returns_floor_on_missing(self, client):
-        """P1-16: LOT_SIZE.maxQty eksik → 0.0 DEĞİL, conservative floor döner."""
-        import config as cfg
-
-        async def mock_get(url, headers):
-            if "exchangeInfo" in url:
-                return _mock_response(
-                    200, {"symbols": [{"symbol": "BTCUSDT", "filters": []}]}
-                )
-            # fiyat da alınamıyor → floor kullanılmalı
-            return _mock_response(200, {"symbol": "BTCUSDT", "price": "0.0"})
-
-        _inject_session(client, get_fn=mock_get)
-        max_qty = asyncio.run(client.get_max_qty("BTCUSDT"))
-        assert max_qty > 0.0
-        assert max_qty == cfg.MAX_QTY_DEFAULT_FLOOR
-
     def test_notional_cap_when_price_known(self, client):
         """P1-16: fiyat biliniyorsa notional/price conservative tavan döner."""
         import config as cfg
@@ -892,12 +875,51 @@ class TestGetMaxQty:
         _inject_session(client, get_fn=mock_get)
         max_qty = asyncio.run(client.get_max_qty("STRKUSDT"))
         assert max_qty > 0.0
-        assert max_qty == max(
-            cfg.MAX_QTY_DEFAULT_NOTIONAL / 0.025, cfg.MAX_QTY_DEFAULT_FLOOR
-        )
+        assert max_qty == cfg.MAX_QTY_DEFAULT_NOTIONAL / 0.025
+
+    def test_stale_price_when_fresh_fails(self, client):
+        """P1-16: canlı fiyat alınamazsa son bilinen fiyat ile notional tavan."""
+        import config as cfg
+
+        calls = {"n": 0}
+
+        async def mock_get(url, headers):
+            if "exchangeInfo" in url:
+                return _mock_response(
+                    200, {"symbols": [{"symbol": "STRKUSDT", "filters": []}]}
+                )
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return _mock_response(200, {"symbol": "STRKUSDT", "price": "0.025"})
+            return _mock_response(200, {"symbol": "STRKUSDT", "price": "0.0"})
+
+        _inject_session(client, get_fn=mock_get)
+        max_qty1 = asyncio.run(client.get_max_qty("STRKUSDT"))
+        assert max_qty1 == cfg.MAX_QTY_DEFAULT_NOTIONAL / 0.025
+        # canlı fiyat başarısız → stale (0.025) kullanılmalı
+        max_qty2 = asyncio.run(client.get_max_qty("STRKUSDT"))
+        assert max_qty2 == cfg.MAX_QTY_DEFAULT_NOTIONAL / 0.025
+
+    def test_rejects_when_no_price(self, client):
+        """P1-16: fiyat hiç yoksa (canlı + stale) MaxQtyUnavailableError fırlatır.
+
+        Sessizce sabit quantity ile devam edilmez — emir açılmaz (reddet).
+        """
+        from bot_binance import MaxQtyUnavailableError
+
+        async def mock_get(url, headers):
+            if "exchangeInfo" in url:
+                return _mock_response(
+                    200, {"symbols": [{"symbol": "BTCUSDT", "filters": []}]}
+                )
+            return _mock_response(200, {"symbol": "BTCUSDT", "price": "0.0"})
+
+        _inject_session(client, get_fn=mock_get)
+        with pytest.raises(MaxQtyUnavailableError):
+            asyncio.run(client.get_max_qty("BTCUSDT"))
 
     def test_override_wins(self, client):
-        """P1-16: sembol bazlı override, notional/floor'dan önce gelir."""
+        """P1-16: sembol bazlı override, notional tavanından önce gelir."""
         import config as cfg
 
         async def mock_get(url, headers):
@@ -915,19 +937,19 @@ class TestGetMaxQty:
         finally:
             del cfg.MAX_QTY_DEFAULT_OVERRIDES["BTCUSDT"]
 
-    def test_missing_symbol_returns_floor(self, client):
-        """P1-16: sembol exchange info'da hiç yoksa bile 0.0 dönmez."""
+    def test_missing_symbol_with_price_returns_notional_cap(self, client):
+        """P1-16: sembol exchange info'da hiç yoksa bile fiyat varsa 0.0 dönmez."""
         import config as cfg
 
         async def mock_get(url, headers):
             if "exchangeInfo" in url:
                 return _mock_response(200, {"symbols": []})
-            return _mock_response(200, {"symbol": "AAAUSDT", "price": "0.0"})
+            return _mock_response(200, {"symbol": "AAAUSDT", "price": "0.025"})
 
         _inject_session(client, get_fn=mock_get)
         max_qty = asyncio.run(client.get_max_qty("AAAUSDT"))
         assert max_qty > 0.0
-        assert max_qty == cfg.MAX_QTY_DEFAULT_FLOOR
+        assert max_qty == cfg.MAX_QTY_DEFAULT_NOTIONAL / 0.025
 
 
 class TestPlaceMarketOrderPriority:

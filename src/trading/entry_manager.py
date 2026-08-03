@@ -30,6 +30,7 @@ from decimal import Decimal, ROUND_FLOOR, ROUND_CEILING
 from typing import TYPE_CHECKING
 
 import config as cfg
+from bot_binance import MaxQtyUnavailableError
 from bot_infra import extract_order_id, _fmt_price
 from paper_trade_logger import EventType, log_event as pt_log
 
@@ -303,7 +304,7 @@ class EntryManager:
                 opp_side,
                 qty,
                 reduce_only=True,
-                client_order_id=f"emergency-{sym.lower()}-{int(time.time()*1000)}",
+                client_order_id=f"emergency-{sym.lower()}-{int(time.time() * 1000)}",
             )
             log.critical("[EMERGENCY] %s acil kapatma gonderildi", sym)
             pt_log(
@@ -382,7 +383,13 @@ class EntryManager:
                 ),
             )
 
-        max_qty = await self._rest.get_max_qty(sym)
+        try:
+            max_qty = await self._rest.get_max_qty(sym)
+        except MaxQtyUnavailableError as e:
+            log.warning("[MAX_QTY] %s %s", sym, e)
+            return EntryExecutionResult(
+                success=False, error=f"max_qty belirlenemedi (fiyat yok): {e}"
+            )
         if max_qty > 0 and valid_qty > max_qty:
             log.warning(
                 "[MAX_QTY] %s qty=%.8f > LOT_SIZE.maxQty=%.8f — "
@@ -406,7 +413,7 @@ class EntryManager:
             sym,
             mkt_side,
             valid_qty,
-            client_order_id=f"entry-{sym.lower()}-{int(time.time()*1000)}",
+            client_order_id=f"entry-{sym.lower()}-{int(time.time() * 1000)}",
         )
         actual_qty, actual_price, quote_qty = self.parse_market_fill(mkt_resp)
         mkt_id = extract_order_id(mkt_resp)
@@ -463,8 +470,7 @@ class EntryManager:
                             return EntryExecutionResult(
                                 success=False,
                                 error=(
-                                    "MARKET cevap yok ama pozisyon acik — "
-                                    f"{close_note}"
+                                    f"MARKET cevap yok ama pozisyon acik — {close_note}"
                                 ),
                             )
             except Exception as e:

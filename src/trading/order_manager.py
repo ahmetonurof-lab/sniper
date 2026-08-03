@@ -21,6 +21,7 @@ from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
 from typing import TYPE_CHECKING, Any, MutableMapping
 
 import config as cfg
+from bot_binance import MaxQtyUnavailableError
 from bot_infra import extract_order_id
 from event_log import log_event
 from models import (
@@ -595,7 +596,14 @@ class OrderManager:
 
         Returns: (sl_id, tp_id) — başarısız olanlar boş string.
         """
-        max_qty = await self._rest.get_max_qty(sym)
+        try:
+            max_qty = await self._rest.get_max_qty(sym)
+        except MaxQtyUnavailableError:
+            log.warning(
+                "[REPAIR] %s max_qty alinamadi (fiyat yok) — parcali SL/TP atlanir, closePosition akisi korunuyor",
+                sym,
+            )
+            return "", ""
         original_qty = trade.get("qty", 0)
 
         if max_qty <= 0 or original_qty <= max_qty:

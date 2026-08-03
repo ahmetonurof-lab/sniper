@@ -21,6 +21,7 @@ import time
 from typing import TYPE_CHECKING
 
 import config as cfg
+from bot_binance import MaxQtyUnavailableError
 from bot_infra import _fmt_price, extract_order_id
 from event_log import log_event
 from models import (
@@ -241,7 +242,14 @@ class RecoveryManager:
                         s: str, d: str, sl_px: float, tp_px: float, total_qty: float
                     ) -> tuple[str, str]:
                         """Miktarı bölerek SL/TP dene."""
-                        max_qty = await self._rest.get_max_qty(s)
+                        try:
+                            max_qty = await self._rest.get_max_qty(s)
+                        except MaxQtyUnavailableError:
+                            log.warning(
+                                "[RECOVER] %s max_qty alinamadi (fiyat yok) — parcali SL/TP atlanir",
+                                s,
+                            )
+                            return "", ""
                         if max_qty <= 0 or total_qty <= max_qty:
                             return "", ""
                         safe_chunk = await self._rest.apply_amount_precision(
@@ -447,7 +455,7 @@ class RecoveryManager:
                                 close_side,
                                 abs(amt),
                                 reduce_only=True,
-                                client_order_id=f"recover-{sym.lower()}-{int(time.time()*1000)}",
+                                client_order_id=f"recover-{sym.lower()}-{int(time.time() * 1000)}",
                             )
                         except Exception as e:
                             close_error = str(e)

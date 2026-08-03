@@ -36,6 +36,15 @@ from models import Result
 log = logging.getLogger("nexus.live")
 
 
+class MaxQtyUnavailableError(Exception):
+    """P1-16: max_qty conservative tavanı hesaplanamadı.
+
+    Exchange info cache boş VE hem canlı hem de stale fiyat yoksa fırlatılır.
+    Fiyatsız pozisyon büyüklüğü hesaplamak yanlış olduğundan emir açılmaz;
+    caller emri reddeder.
+    """
+
+
 # ─────────────────────────────────────────────────────────────────
 # Precision yardımcıları (sonnet exchange.py'den)
 # ─────────────────────────────────────────────────────────────────
@@ -115,6 +124,7 @@ class BinanceRESTClient:
         self._exchange_info: dict | None = None
         self._exchange_info_ts: float = 0.0
         self._symbol_info: dict[str, dict] = {}
+        self._last_price_cache: dict[str, float] = {}
 
     # ─────────────────────────────────────────────────────────────
     # Session yönetimi (P9.2)
@@ -253,7 +263,8 @@ class BinanceRESTClient:
         entry_manager'daki `max_qty > 0` guard'ını atlar ve emir limitsiz
         qty ile exchange'e gider (STRKUSDT -4005). Bunun yerine conservative
         bir varsayılan döner: failure mode "biraz küçük pozisyon" olur,
-        "clamp'sız aşırı büyük pozisyon" değil.
+        "clamp'sız aşırı büyük pozisyon" değil. Fiyat hiç bulunamazsa
+        MaxQtyUnavailableError fırlatılır (emir reddedilir).
         """
         info = await self.get_symbol_info(symbol)
         if info:
@@ -275,15 +286,17 @@ class BinanceRESTClient:
         return await self._conservative_max_qty(symbol)
 
     async def _conservative_max_qty(self, symbol: str) -> float:
-        """P1-16: Cache miss fallback'i — sembol override > fiyat bazlı notional > floor.
+        """P1-16: Cache miss fallback'i — sembol override > canlı notional > stale notional > REDDET.
 
         Öncelik sırası:
         1. `cfg.MAX_QTY_DEFAULT_OVERRIDES` — sembol bazlı sabit tavan.
-        2. `cfg.MAX_QTY_DEFAULT_NOTIONAL / fiyat` — fiyat bazlı conservative
-           tavan (sembole özel volatiliteyi fiyat üzerinden hesaba katar).
-        3. `cfg.MAX_QTY_DEFAULT_FLOOR` — fiyat da alınamıyorsa sabit tavan.
+        2. `cfg.MAX_QTY_DEFAULT_NOTIONAL / fiyat` — CANLI fiyat ile fiyat bazlı
+           conservative tavan (sembole özel volatiliteyi fiyat üzerinden hesaba katar).
+        3. Aynı formül, son bilinen fiyat (`_last_price_cache`, stale) ile.
+        4. Fiyat gerçekten yoksa → `MaxQtyUnavailableError` — fiyatsız pozisyon
+           büyüklüğü hesaplamak yanlış olduğundan emir açılmaz.
 
-        Hiçbir durumda 0.0 dönmez — clamp her zaman korunur.
+        Asla 0.0 dönmez ve sessizce sabit quantity tavanı kullanmaz.
         """
         override = cfg.MAX_QTY_DEFAULT_OVERRIDES.get(symbol)
         if override and override > 0:
@@ -293,19 +306,34 @@ class BinanceRESTClient:
                 override,
             )
             return override
+
         price = await self.estimate_market_price(symbol)
         if price > 0:
-            notional_cap = cfg.MAX_QTY_DEFAULT_NOTIONAL / price
-            fallback = max(notional_cap, cfg.MAX_QTY_DEFAULT_FLOOR)
+            self._last_price_cache[symbol] = price
         else:
-            fallback = cfg.MAX_QTY_DEFAULT_FLOOR
+            price = self._last_price_cache.get(symbol, 0.0)
+            if price > 0:
+                log.warning(
+                    "[MAX_QTY] %s canli fiyat alinamadi — stale fiyat %.8f kullaniliyor",
+                    symbol,
+                    price,
+                )
+
+        if price <= 0:
+            raise MaxQtyUnavailableError(
+                f"{symbol}: max_qty conservative tavan hesaplanamadi "
+                "(exchange info cache bos, canli ve stale fiyat yok) — emir acilmadi"
+            )
+
+        notional_cap = cfg.MAX_QTY_DEFAULT_NOTIONAL / price
         log.warning(
-            "[MAX_QTY] %s conservative default %.8f (price=%.8f)",
+            "[MAX_QTY] %s conservative notional tavan %.8f (notional=%.2f, price=%.8f)",
             symbol,
-            fallback,
+            notional_cap,
+            cfg.MAX_QTY_DEFAULT_NOTIONAL,
             price,
         )
-        return fallback
+        return notional_cap
 
     async def apply_price_precision(self, symbol: str, price: float) -> float:
         """Fiyatı tick size'a göre yuvarla."""

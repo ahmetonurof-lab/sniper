@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-08-03 — 🆕 P1-16 (entry max_qty clamp cache boşken atlanıyor) eklendi; trailing kilitlenme fix'i onaylandı (fingerprint'e bucket'lı fiyat). **P1-16 fix yazıldı: `get_max_qty()` cache miss'te conservative default döndürüyor (🔧 pending deploy).** Toplam arşiv: 25 madde.
+> **Son güncelleme:** 2026-08-03 — ✅ **P1-16 KAPANDI** (conservative default max_qty + ek düzeltme: sabit quantity floor kaldırıldı → notional bazlı, stale fiyat fallback, fiyat hiç yoksa reddet). ENAUSDT trailing kilitlenme fix'i canlı doğrulandı. Toplam arşiv: 25 madde.
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ---
@@ -20,7 +20,7 @@
 | **P3-3** | 🐛 | except Exception yaygın | HÂLÂ GEÇERLİ |
 | **🆕 P3-4** | 🔧 | NEARUSDT SL çok dar (0.055%) — MIN_SL_DISTANCE_PCT=%0.15 taban eşik eklendi | FIX YAZILDI, PENDING DEPLOY (entry_manager.py) |
 | **P1-15** | 🐛 | Stale event loop — Binance WS FILLED gecikmesi 87-353sn, GMXUSDT orantısız etkileniyor (%71) | KÖK NEDEN DOĞRULANDI (27 Tem), client-side fix mümkün değil — mitigation aksiyonları öneriliyor |
-| **🆕 P1-16** | 🔧 | Entry max_qty clamp cache boşken atlanıyor — STRKUSDT -4005, teorik risk büyük pozisyon | FIX YAZILDI: `get_max_qty()` cache miss'te conservative default (notional/fiyat, floor, sembol override) — PENDING DEPLOY |
+| **🆕 P1-16** | ✅ | Entry max_qty clamp cache boşken atlanıyor — STRKUSDT -4005, teorik risk büyük pozisyon | KAPANDI: conservative default (override > canlı notional > stale notional > reddet), deploy bekliyor |
 
 ---
 
@@ -397,7 +397,7 @@ kaynağını açıklıyor.
 ## 🆕 P1-16: Entry max_qty clamp cache boşken atlanıyor — STRKUSDT -4005 (teorik risk: limitsiz pozisyon)
 
 **Severity:** HIGH (P1)
-**Status:** 🔧 FIX YAZILDI — pending deploy
+**Status:** ✅ KAPANDI — fix + ek düzeltme commit'lendi, notional-bazlı sürümün deploy'u bekliyor
 **Date:** 2026-08-03 (restart öncesi log analizi, `paper_trade.log.20260803_212142.bak`)
 **File:** `src/trading/entry_manager.py:385-394`, `src/bot_binance.py:241-280`, `src/config.py`
 
@@ -433,13 +433,35 @@ aşırı büyük pozisyon" olmasın.
 `get_max_qty()` artık cache miss'te **asla 0.0 dönmez**; `_conservative_max_qty()`
 şu öncelik sırasıyla çalışır:
 1. `cfg.MAX_QTY_DEFAULT_OVERRIDES` — sembol bazlı sabit tavan (opsiyonel).
-2. `cfg.MAX_QTY_DEFAULT_NOTIONAL / fiyat` — fiyat bazlı conservative tavan.
-   Notional, risk engine'in tipik notional'ının alt sınırına yakın tutulur
-   (tipik ~5-10K USDT; `MAX_QTY_DEFAULT_NOTIONAL = 500.0`) — sembole özel
-   volatiliteyi fiyat üzerinden hesaba katar.
-3. `cfg.MAX_QTY_DEFAULT_FLOOR` — fiyat da alınamıyorsa sabit tavan (`1000.0`).
+2. `cfg.MAX_QTY_DEFAULT_NOTIONAL / fiyat` — CANLI fiyat ile fiyat bazlı
+   conservative tavan. Notional, risk engine'in tipik notional'ının alt sınırına
+   yakın tutulur (tipik ~5-10K USDT; `MAX_QTY_DEFAULT_NOTIONAL = 500.0`) —
+   sembole özel volatiliteyi fiyat üzerinden hesaba katar.
+3. Aynı notional tavan, son bilinen fiyat (`_last_price_cache`, stale) ile —
+   canlı fiyat alınamıyorsa.
+4. Fiyat gerçekten yoksa → `MaxQtyUnavailableError` fırlatılır; `entry_manager`
+   emri REDDEDER, `order_manager`/`recovery_manager` parçalı SL/TP atlar
+   (closePosition akışı korunur). Sessizce sabit quantity tavanı kullanılmaz.
 
 Cache dolduğunda normal akışa döner (gerçek `LOT_SIZE.maxQty` okunur).
+
+**İlk sürüm (commit `694b11d`, deploy edildi 22:28):** fiyat yoksa sabit
+`MAX_QTY_DEFAULT_FLOOR = 1000.0` quantity tavanı dönerdi.
+
+**Ek düzeltme (commit sonrası, notional-bazlı sürüm):**
+- Doğrulama: fiyatsız çağrı MÜMKÜN — `estimate_market_price()` ticker REST
+  hatasında `0.0` döner; `BinanceRESTClient`'ta fiyat cache'i yoktu.
+- `MAX_QTY_DEFAULT_FLOOR` (sabit quantity 1000) **kaldırıldı** — quantity yerine
+  notional bazlı: hem fiyat-bilinen hem fiyat-yok-stale durumlarında aynı
+  `MAX_QTY_DEFAULT_NOTIONAL` kullanılır. Sabit 1000 quantity'nin sorunu:
+  yüksek fiyatlı sembollerde (ör. BTC ~100K → 1000 × 100K = 100M USDT notional)
+  "conservative" değil, tam tersine devasa bir tavan üretiyordu.
+- Fiyat hiç yoksa (canlı + stale) → **reddet** (`MaxQtyUnavailableError`):
+  fiyatsız pozisyon büyüklüğü hesaplamak zaten yanlış; "conservative default"
+  değil "reddet" doğru davranış.
+- Yeni testler: `test_stale_price_when_fresh_fails`, `test_rejects_when_no_price`,
+  `test_missing_symbol_with_price_returns_notional_cap`; `test_returns_floor_on_missing`
+  ve `test_missing_symbol_returns_floor` kaldırıldı (floor artık yok).
 
 **Neden "emri geciktir" seçilmedi:** sinyal anlık, piyasa hızlı hareket ediyor;
 cache'in ne zaman dolacağı garantili değil → fırsat kaçırma (STRKUSDT'de yaşanan
