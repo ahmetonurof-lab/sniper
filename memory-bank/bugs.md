@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-07-26 14:54 — P0-1 FULL FIX (flag temizliği, legacy silme, idempotency guard, per-trade lock, 3 yeni test). P0-6/P0-7/P2-2 doğrulandı. Toplam arşiv: 25 madde.
+> **Son güncelleme:** 2026-08-03 — 🆕 P1-16 (entry max_qty clamp cache boşken atlanıyor) eklendi; trailing kilitlenme fix'i onaylandı (fingerprint'e bucket'lı fiyat). Toplam arşiv: 25 madde.
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ---
@@ -20,6 +20,7 @@
 | **P3-3** | 🐛 | except Exception yaygın | HÂLÂ GEÇERLİ |
 | **🆕 P3-4** | 🔧 | NEARUSDT SL çok dar (0.055%) — MIN_SL_DISTANCE_PCT=%0.15 taban eşik eklendi | FIX YAZILDI, PENDING DEPLOY (entry_manager.py) |
 | **P1-15** | 🐛 | Stale event loop — Binance WS FILLED gecikmesi 87-353sn, GMXUSDT orantısız etkileniyor (%71) | KÖK NEDEN DOĞRULANDI (27 Tem), client-side fix mümkün değil — mitigation aksiyonları öneriliyor |
+| **🆕 P1-16** | 🐛 | Entry max_qty clamp cache boşken atlanıyor — STRKUSDT -4005, teorik risk büyük pozisyon | AÇIK — fix önerisi: emri geciktirip cache'i beklet veya conservative default max_qty |
 
 ---
 
@@ -390,3 +391,50 @@ azaltmayı hedefliyor. Canlı testte doğrulama bekleniyor. P1-14
 (stale event → exit gecikmesi, cross-val ile düzeltilmişti) ile karıştırılmamalı
 — P1-14 exit'in doğruluğunu garantiliyordu, P1-15 exit'in *gecikmesinin*
 kaynağını açıklıyor.
+
+---
+
+## 🆕 P1-16: Entry max_qty clamp cache boşken atlanıyor — STRKUSDT -4005 (teorik risk: limitsiz pozisyon)
+
+**Severity:** HIGH (P1)
+**Status:** 🐛 AÇIK — fix bekliyor
+**Date:** 2026-08-03 (restart öncesi log analizi, `paper_trade.log.20260803_212142.bak`)
+**File:** `src/trading/entry_manager.py:385-394`, `src/bot_binance.py:241-255`
+
+### Olay
+
+STRKUSDT entry `RISK ENGINE QTY=93116.1146` → MARKET emri Binance'ten
+`-4005 "Quantity greater than max quantity"` ile reddedildi → trade kaydedilmedi
+(21:15:15). Aynı saniyede `[EXCHANGE_INFO] 731 sembol yüklendi` loglandı.
+
+### Kök neden
+
+`entry_manager.py:385` `max_qty = await self._rest.get_max_qty(sym)` çağırır;
+`bot_binance.py:get_max_qty()` (241-255) `LOT_SIZE.maxQty`'i cache'ten okur,
+cache'te yoksa **`0.0` döner**. `if max_qty > 0 and valid_qty > max_qty` guard'ı
+(max_qty=0) atlanır → clamp yapılmaz → emir limitsiz qty ile exchange'e gider.
+
+Restart sonrası cache henüz yüklenmemişken (731 sembolün exchange info'su
+asenkron gelir) ilk entry'ler bu duruma düşebilir.
+
+### Risk
+
+Gözlenen vaka sadece entry kaçırılmasıyla sonuçlandı (exchange emri reddetti).
+**Teorik ters yön:** clamp atlanır, qty gerçekten LOT_SIZE.maxQty üzerinde kalır,
+exchange emri reddetmezse (farklı filtre/koşul) → pozisyon riski istenenin
+üzerinde büyür — risk yönetimi bypass edilmiş olur.
+
+### Önerilen fix (henüz uygulanmadı)
+
+Cache "henüz yüklenmedi" durumunda clamp'i atlamak yerine:
+1. **Emri geciktirip cache'i beklet** — exchange info yüklenene kadar entry'yi ertele, veya
+2. **Conservative varsayılan max_qty** — `get_max_qty()` cache miss'te `0.0` yerine
+   buying-power tabanlı güvenli üst sınır döndürsün (ör. `calculate_qty`'nin
+   ürettiği değeri aşmayan bir tavan).
+
+### İlişki
+
+P1-6 (entry sizing max_qty kontrolü, ✅ DÜZELTİLDİ) clamp'ın kendisini ekledi;
+bu madde clamp'ın **cache-bağımlılık açığını** konu alır — P1-6'nın eksik
+tamamlayıcısı. P2-5/P0-5 (-4005 fallback zincirleri) defense-in-depth olarak
+kalmalı.

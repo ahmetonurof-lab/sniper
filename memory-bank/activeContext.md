@@ -1,5 +1,38 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: ENAUSDT trailing kilitlenme fix'i — fingerprint'e bucket'lı fiyat (2026-08-03)
+
+Baş mühendis onayı ile BULGU 1 fix'lendi. **Zaman bazlı expiry kullanılmadı** — fingerprint fiyat içerecek şekilde güncellendi.
+
+### Değişiklik: `src/trading/trailing_manager.py`
+
+- **`_fingerprint()`** (eski :472) artık fiyat bucket'ı içerir: `f"{side}|{sl}|{tp}|{source_bar_index}|{price_bucket}"`.
+  - Bucket = `max(tick_size * epsilon_ticks, abs(price) * 0.001)` — sembolün tick precision'ı ile %0.1 fiyat tabanı arasından büyük olanı (mikro-noise emilir: 0.09231 vs 0.09232 aynı bucket).
+  - Fiyat/tick_size verilmezse eski davranış (`-` bucket) korunur.
+  - `@staticmethod` → instance method (config.epsilon_ticks erişimi için).
+- **`compute_trail_candidate(trade, bars, current_price=None)`** — `current_price` opsiyonel parametre, fingerprint'e geçirilir.
+- **`orchestrate_trail()`** — `compute_trail_candidate` çağrısına `current_price=current_price` geçirir.
+
+### Davranış
+
+- Fiyat lehine **bucket atlarsa** yeni fingerprint → `identical_invalid_candidate_suppressed` bypass → candidate yeniden değerlendirilir (ENABUG çözümü).
+- Fiyat aynı bucket'ta kalırsa suppress devam eder — gereksiz log/CPU üretilmez (suppress'ün amacı korunur).
+- `last_applied_fingerprint` de fiyatlı olduğundan, fiyat bucket'ı değişmedikçe aynı SL/TP tekrar yerleştirilmez.
+
+### Testler: `tests/test_trailing_manager.py` — `TestFingerprintPriceBucket` (3 yeni test)
+
+1. `test_price_inside_same_bucket_shares_fingerprint` — mikro-noise (109.0 vs 109.4) aynı fingerprint.
+2. `test_price_crossing_bucket_changes_fingerprint` — 109.0 vs 110.5 farklı fingerprint.
+3. `test_suppress_lifted_when_price_moves_favorably` — ENABUG regression: not placeable → suppress → fiyat lehine bucket atlayınca `updated`.
+
+**Sonuç:** trailing manager dosyası 30 passed (17 pre-existing eski API fail — bu işlemle ilgisiz, baseline ile aynı), ruff temiz.
+
+### Eş zamanlı: bugs.md'ye P1-16 eklendi (STRKUSDT -4005)
+
+Baş mühendis önerisi doğrultusunda `memory-bank/bugs.md`'ye **P1-16** eklendi: entry max_qty clamp cache boşken atlanıyor (`get_max_qty` cache miss → `0.0` → clamp guard atlanır). Fix önerisi: emri geciktirip cache'i beklet veya conservative default max_qty. P1-6'nın eksik tamamlayıcısı.
+
+---
+
 ## Son İşlem: Restart öncesi paper_trade.log analizi — trailing kilitlenme bug'ı bulundu (2026-08-03)
 
 `output/paper_trade.log.20260803_212142.bak` (restart öncesi sunucu logu, 16.252 satır) analiz edildi.

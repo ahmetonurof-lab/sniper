@@ -113,6 +113,7 @@ class TrailingManager:
         self,
         trade: Trade,
         bars: Sequence[BarLike],
+        current_price: Optional[Decimal] = None,
     ) -> Optional[TrailCandidate]:
         side = self._side(trade)
         tick_size = self._tick_size(trade)
@@ -161,6 +162,8 @@ class TrailingManager:
             sl=improved_sl,
             tp=improved_tp,
             source_bar_index=level.source_bar_index,
+            price=current_price,
+            tick_size=tick_size,
         )
 
         return TrailCandidate(
@@ -205,7 +208,9 @@ class TrailingManager:
         current_price = self._decimal(await self.price_reader.get_last_price(symbol))
         trade_id = f"{symbol}-{trade.get('entry_bar_index', '?')}"
 
-        candidate = self.compute_trail_candidate(trade, bars)
+        candidate = self.compute_trail_candidate(
+            trade, bars, current_price=current_price
+        )
         if candidate is None:
             pt_log(
                 EventType.TRAIL_SKIPPED,
@@ -461,15 +466,26 @@ class TrailingManager:
             return True
         return candidate > current if side == "long" else candidate < current
 
-    @staticmethod
     def _fingerprint(
+        self,
         *,
         side: str,
         sl: Optional[Decimal],
         tp: Optional[Decimal],
         source_bar_index: int,
+        price: Optional[Decimal] = None,
+        tick_size: Optional[Decimal] = None,
     ) -> str:
-        return f"{side}|{sl or '-'}|{tp or '-'}|{source_bar_index}"
+        if price is not None and tick_size is not None:
+            epsilon = tick_size * Decimal(self.config.epsilon_ticks)
+            bucket = max(epsilon, abs(price) * Decimal("0.001"))
+            if bucket > 0:
+                price_bucket = str(int(price / bucket))
+            else:
+                price_bucket = f"{price}"
+        else:
+            price_bucket = "-"
+        return f"{side}|{sl or '-'}|{tp or '-'}|{source_bar_index}|{price_bucket}"
 
     def _tick_size(self, trade: Trade) -> Decimal:
         return self._decimal(trade.get("tick_size", self.config.default_tick_size))

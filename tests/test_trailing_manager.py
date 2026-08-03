@@ -921,3 +921,98 @@ class TestOrchestrateTrailCanonicalKeys:
         # fingerprint state: duz dict icin protection_state yoksa olusturuldu
         ps = trade.get("protection_state") or {}
         assert ps.get("last_applied_fingerprint") == decision.candidate.fingerprint
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Fingerprint fiyat bucket'i — identical_invalid_candidate_suppressed
+# kilitlenme bug'i (ENAUSDT 2026-08-03). Zaman bazli expiry YOK.
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestFingerprintPriceBucket:
+    """Fingerprint'e fiyat bucket'i eklenir; suppress fiyat lehine
+    degistiginde otomatik kalkar (mikro-noise emilir)."""
+
+    def _extractor(self, scoped_bars, trade):
+        return TrailLevel(
+            price=Decimal("106.0"),
+            source_bar_index=scoped_bars[-1]["index"],
+            reason="post-entry swing low",
+        )
+
+    def _bars(self):
+        return [
+            {"index": 30, "high": 108, "low": 103, "close": 107},
+            {"index": 31, "high": 109, "low": 104, "close": 108},
+            {"index": 32, "high": 110, "low": 105, "close": 109},
+        ]
+
+    def _trade(self):
+        return {
+            "symbol": "BTCUSDT",
+            "side": "long",
+            "entry_price": 100.0,
+            "entry_bar_index": 30,
+            "sl": 95.0,
+            "tp": 120.0,
+            "tick_size": 0.5,
+            "trail_level_extractor": self._extractor,
+        }
+
+    def _candidate(self, price: str):
+        manager = TrailingManager(
+            price_reader=FakePriceReader(price),
+            protection_gateway=FakeGateway(),
+            config=TrailingConfig(sl_buffer_ticks=0),
+        )
+        return manager.compute_trail_candidate(
+            self._trade(), self._bars(), current_price=Decimal(price)
+        )
+
+    def test_price_inside_same_bucket_shares_fingerprint(self):
+        # mikro-noise (109.0 vs 109.49) ayni bucket — ayni fingerprint
+        a = self._candidate("109.0")
+        b = self._candidate("109.4")
+        assert a is not None and b is not None
+        assert a.fingerprint == b.fingerprint
+        # fingerprint fiyat bucket'ini icerir (suffix degil "-")
+        assert a.fingerprint.endswith("|") is False
+        assert a.fingerprint.rsplit("|", 1)[1] != "-"
+
+    def test_price_crossing_bucket_changes_fingerprint(self):
+        a = self._candidate("109.0")
+        b = self._candidate("110.5")
+        assert a is not None and b is not None
+        assert a.fingerprint != b.fingerprint
+
+    @pytest.mark.asyncio
+    async def test_suppress_lifted_when_price_moves_favorably(self):
+        """ENABUG regression: ayni candidate not placeable -> suppress.
+        Fiyat lehine bucket atlarsa yeniden degerlendirilir (updated)."""
+        trade = self._trade()
+        # fiyat 104.99 -> sl=106.0 placeable degil (sl < price + epsilon gerekli)
+        manager = TrailingManager(
+            price_reader=FakePriceReader("104.99"),
+            protection_gateway=FakeGateway(),
+            config=TrailingConfig(sl_buffer_ticks=0),
+        )
+        decision = await manager.orchestrate_trail(trade, self._bars())
+        assert decision.action == "skip"
+        assert decision.reason == "candidate not placeable against current price"
+        ps = trade["protection_state"]
+        assert ps.get("last_invalid_fingerprint") == decision.candidate.fingerprint
+
+        # ayni fiyat bucket'inda tekrar -> suppressed
+        again = await manager.orchestrate_trail(trade, self._bars())
+        assert again.action == "skip"
+        assert again.reason == "identical invalid candidate suppressed"
+
+        # fiyat lehine bucket atlar -> yeni fingerprint -> updated
+        manager2 = TrailingManager(
+            price_reader=FakePriceReader("109.0"),
+            protection_gateway=FakeGateway(),
+            config=TrailingConfig(sl_buffer_ticks=0),
+        )
+        lifted = await manager2.orchestrate_trail(trade, self._bars())
+        assert lifted.action == "updated"
+        assert trade.get("sl") == 106.0
