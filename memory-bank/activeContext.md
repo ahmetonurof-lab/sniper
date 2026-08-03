@@ -1,5 +1,32 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: Restart öncesi paper_trade.log analizi — trailing kilitlenme bug'ı bulundu (2026-08-03)
+
+`output/paper_trade.log.20260803_212142.bak` (restart öncesi sunucu logu, 16.252 satır) analiz edildi.
+
+### 🔴 BULGU 1 (BUG): ENAUSDT trailing kilitlenmesi — `identical_invalid_candidate_suppressed`
+
+- **20:45:00** `candidate_not_placeable`: candidate `sl=0.092235`, fiyat ~0.0923'e yakındı → `is_placeable` (trailing_manager.py:185 `sl < current_price - epsilon`) reddetti → `protection_state["last_invalid_fingerprint"]` set edildi (:260).
+- **21:01 → 21:21** (~35 dk): her 1m'de `[TRAIL] trail#1 sl=0.092235 tp=0.095635` üretiliyor ama `identical_invalid_candidate_suppressed` (:244-257) ile reddediliyor.
+- **Kök neden:** `_fingerprint()` = `f"{side}|{sl}|{tp}|{source_bar_index}"` (:472) **fiyat içermiyor**. `is_placeable` fiyat-bağımlı, ama `last_invalid_fingerprint` cache fiyatsız → fiyat lehine değişse bile aynı candidate sonsuza dek suppress. SL 0.0906'da kaldı, fiyat 0.0925-0.0929'a çıktı — kâr korunmadı.
+- **Öneri:** ya fingerprint'e `current_price` dahil et, ya `candidate_not_placeable` sonrası cache'e fiyat koşulu ekle, ya da placeability fiyat duyarlı olduğu için cache'i bir sonraki bar'da geçersiz kıl.
+
+### 🟠 BULGU 2: STRKUSDT entry -4005 (max quantity) — fırsat kaçtı (21:15:15)
+
+RISK ENGINE `QTY=93116.1146` → MARKET `-4005 "Quantity greater than max quantity"` → trade kaydedilmedi. `entry_manager.py:385-386` max_qty clamp muhtemelen `get_max_qty` cache henüz boşken 0 döndüğü için atlandı (aynı saniyede `[EXCHANGE_INFO] 731 sembol yüklendi`).
+
+### 🟡 BULGU 3: GMXUSDT trail sonrası 13 sn çift koruma penceresi (21:01:14→27-28)
+
+Trail güncellemesinden sonra eski entry SL/TP emirleri (id ...2931/...2933) orphan_sweep ile 13 sn sonra temizlendi. Zararsız; eski+yeni koruma kısa süre çakıştı.
+
+### ✅ Doğru çalışanlar
+
+- GMXUSDT 09:35-09:40 stale event #1-6 iptal edildi → WS FILLED ile nihai exit doğru commit (P1-15 mitigasyonları çalışıyor).
+- `no_better_trail_candidate` akışı normal.
+- `[P1-15_DEBUG]` WARNING her bar tüm aktif pozisyonlar için basılıyor — log hacmi yüksek (gözlem).
+
+(Önceki işlemler aşağıda.)
+
 ## Son İşlem: Backtest parametre optimizasyonu → config default'ları sabitlendi (2026-08-03)
 
 `src/config.py` default değerleri değiştirildi (kullanıcı onayı, paper trade):
