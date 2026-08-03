@@ -520,7 +520,7 @@ FVG_SIZE_MAP: dict[str, float] = {
 
 SL_ATR_MULT = 1.5
 
-TP_RR = 2.0
+TP_RR = float(os.environ.get("SNIPER_TP_RR", "1.8"))
 
 FVG_BUFFER_MULT = 0.50
 
@@ -531,7 +531,7 @@ EARLY_LONDON_RISK_MULT = 1.5  # 02-08 UTC risk carpani (Altin Oran)
 
 TRAIL_MIN_MOVE_MULT = 0.2
 
-ATR_TRAIL_MULT = 0.25
+ATR_TRAIL_MULT = float(os.environ.get("SNIPER_ATR_TRAIL_MULT", "0.10"))
 
 MIN_STOP_DIST_PCT = 0.006
 

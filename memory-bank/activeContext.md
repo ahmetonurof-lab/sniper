@@ -1,5 +1,20 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: Backtest parametre optimizasyonu → config default'ları sabitlendi (2026-08-03)
+
+`src/config.py` default değerleri değiştirildi (kullanıcı onayı, paper trade):
+
+- **`TP_RR` = 2.0 → 1.8** (config.py:523)
+- **`ATR_TRAIL_MULT` = 0.25 → 0.10** (config.py:534)
+
+Her ikisi de `os.environ.get("SNIPER_TP_RR", ...)` / `os.environ.get("SNIPER_ATR_TRAIL_MULT", ...)` üzerinden okunuyor — env var set edilmezse yeni default'lar geçerli (1.8 / 0.10). Canlı/paper bot restart edildiğinde otomatik yeni değerlerle çalışır.
+
+**Gerekçe (backtest kanıtı):** `backtest-sniper` (root repo'da, gitignore'da) `analyzer_v5.py` ile yapılan sweep'lerde 28 coinin 28'i de iyileşti: toplam net PnL +3582448 → **+4100540 (+14.5%)**, MaxDD tüm coinlerde düştü. Küçük/düşük volatilite coinler en çok kazandı (PYTH, TIA, STRK, SEI, ENA, LDO — Score 1000+). ATR 0.10, 3 coin cross-coin doğrulamasında (GMX/BNB/SOL) monotonik iyileşme gösteren sweep'in daha yüksek ucu; 0.05/0.01 daha kârlıydı ama 15m kapanış bazlı backtest'te canlıda whipsaw riski nedeniyle elendi.
+
+**Not:** Env override canlı botu da etkiler — `SNIPER_TP_RR`/`SNIPER_ATR_TRAIL_MULT` ortamda kalıcı set edilirse bot onları kullanır. Şu an default'lar zaten yeni değerler olduğundan gerek yok.
+
+(Önceki işlemler aşağıda.)
+
 ## Son İşlem: CBDR kilit log metni düzeltildi (2026-08-03)
 
 `src/bot.py:465` — `[SKIP] %s CBDR henuz kilitlenmedi — entry engellendi` → `[SKIP] %s CBDR henuz kilitlenmedi — akis baslatilmadi`.
