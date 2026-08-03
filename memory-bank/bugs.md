@@ -1,6 +1,6 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-08-03 — 🆕 P1-16 (entry max_qty clamp cache boşken atlanıyor) eklendi; trailing kilitlenme fix'i onaylandı (fingerprint'e bucket'lı fiyat). Toplam arşiv: 25 madde.
+> **Son güncelleme:** 2026-08-03 — 🆕 P1-16 (entry max_qty clamp cache boşken atlanıyor) eklendi; trailing kilitlenme fix'i onaylandı (fingerprint'e bucket'lı fiyat). **P1-16 fix yazıldı: `get_max_qty()` cache miss'te conservative default döndürüyor (🔧 pending deploy).** Toplam arşiv: 25 madde.
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ---
@@ -20,7 +20,7 @@
 | **P3-3** | 🐛 | except Exception yaygın | HÂLÂ GEÇERLİ |
 | **🆕 P3-4** | 🔧 | NEARUSDT SL çok dar (0.055%) — MIN_SL_DISTANCE_PCT=%0.15 taban eşik eklendi | FIX YAZILDI, PENDING DEPLOY (entry_manager.py) |
 | **P1-15** | 🐛 | Stale event loop — Binance WS FILLED gecikmesi 87-353sn, GMXUSDT orantısız etkileniyor (%71) | KÖK NEDEN DOĞRULANDI (27 Tem), client-side fix mümkün değil — mitigation aksiyonları öneriliyor |
-| **🆕 P1-16** | 🐛 | Entry max_qty clamp cache boşken atlanıyor — STRKUSDT -4005, teorik risk büyük pozisyon | AÇIK — fix önerisi: emri geciktirip cache'i beklet veya conservative default max_qty |
+| **🆕 P1-16** | 🔧 | Entry max_qty clamp cache boşken atlanıyor — STRKUSDT -4005, teorik risk büyük pozisyon | FIX YAZILDI: `get_max_qty()` cache miss'te conservative default (notional/fiyat, floor, sembol override) — PENDING DEPLOY |
 
 ---
 
@@ -397,9 +397,9 @@ kaynağını açıklıyor.
 ## 🆕 P1-16: Entry max_qty clamp cache boşken atlanıyor — STRKUSDT -4005 (teorik risk: limitsiz pozisyon)
 
 **Severity:** HIGH (P1)
-**Status:** 🐛 AÇIK — fix bekliyor
+**Status:** 🔧 FIX YAZILDI — pending deploy
 **Date:** 2026-08-03 (restart öncesi log analizi, `paper_trade.log.20260803_212142.bak`)
-**File:** `src/trading/entry_manager.py:385-394`, `src/bot_binance.py:241-255`
+**File:** `src/trading/entry_manager.py:385-394`, `src/bot_binance.py:241-280`, `src/config.py`
 
 ### Olay
 
@@ -410,7 +410,7 @@ STRKUSDT entry `RISK ENGINE QTY=93116.1146` → MARKET emri Binance'ten
 ### Kök neden
 
 `entry_manager.py:385` `max_qty = await self._rest.get_max_qty(sym)` çağırır;
-`bot_binance.py:get_max_qty()` (241-255) `LOT_SIZE.maxQty`'i cache'ten okur,
+`bot_binance.py:get_max_qty()` (241-280) `LOT_SIZE.maxQty`'i cache'ten okur,
 cache'te yoksa **`0.0` döner**. `if max_qty > 0 and valid_qty > max_qty` guard'ı
 (max_qty=0) atlanır → clamp yapılmaz → emir limitsiz qty ile exchange'e gider.
 
@@ -424,13 +424,27 @@ Gözlenen vaka sadece entry kaçırılmasıyla sonuçlandı (exchange emri redde
 exchange emri reddetmezse (farklı filtre/koşul) → pozisyon riski istenenin
 üzerinde büyür — risk yönetimi bypass edilmiş olur.
 
-### Önerilen fix (henüz uygulanmadı)
+### ✅ Fix (2026-08-03) — conservative default max_qty
 
-Cache "henüz yüklenmedi" durumunda clamp'i atlamak yerine:
-1. **Emri geciktirip cache'i beklet** — exchange info yüklenene kadar entry'yi ertele, veya
-2. **Conservative varsayılan max_qty** — `get_max_qty()` cache miss'te `0.0` yerine
-   buying-power tabanlı güvenli üst sınır döndürsün (ör. `calculate_qty`'nin
-   ürettiği değeri aşmayan bir tavan).
+Baş mühendis kararı: **emri geciktirmek yerine conservative default** — sistemin
+failure mode'u "biraz küçük pozisyon" olsun, "belirsiz bekleme" veya "clamp'sız
+aşırı büyük pozisyon" olmasın.
+
+`get_max_qty()` artık cache miss'te **asla 0.0 dönmez**; `_conservative_max_qty()`
+şu öncelik sırasıyla çalışır:
+1. `cfg.MAX_QTY_DEFAULT_OVERRIDES` — sembol bazlı sabit tavan (opsiyonel).
+2. `cfg.MAX_QTY_DEFAULT_NOTIONAL / fiyat` — fiyat bazlı conservative tavan.
+   Notional, risk engine'in tipik notional'ının alt sınırına yakın tutulur
+   (tipik ~5-10K USDT; `MAX_QTY_DEFAULT_NOTIONAL = 500.0`) — sembole özel
+   volatiliteyi fiyat üzerinden hesaba katar.
+3. `cfg.MAX_QTY_DEFAULT_FLOOR` — fiyat da alınamıyorsa sabit tavan (`1000.0`).
+
+Cache dolduğunda normal akışa döner (gerçek `LOT_SIZE.maxQty` okunur).
+
+**Neden "emri geciktir" seçilmedi:** sinyal anlık, piyasa hızlı hareket ediyor;
+cache'in ne zaman dolacağı garantili değil → fırsat kaçırma (STRKUSDT'de yaşanan
+sorun) veya belirsiz süre bloklanan order queue + yeni race condition sınıfı
+(bekleme süresi/timeout belirsizliği) riski.
 
 ### İlişki
 

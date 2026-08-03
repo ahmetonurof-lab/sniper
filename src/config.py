@@ -537,6 +537,22 @@ MIN_STOP_DIST_PCT = 0.006
 
 MAX_MARGIN_PCT = 0.20
 
+# P1-16: Cache boşken (exchange info henüz yüklenmedi / sembol bulunamadı /
+# LOT_SIZE.maxQty eksik) get_max_qty() için conservative varsayılan.
+# 0.0 dönmek entry_manager'daki `max_qty > 0` guard'ını atlar ve emir
+# limitsiz qty ile exchange'e gider (STRKUSDT -4005). Bu sabitler failure
+# mode'u "biraz küçük pozisyon" yapar, "clamp'sız aşırı büyük pozisyon" değil.
+# Öncelik: sembol override > fiyat bazlı notional tavan > sabit floor.
+# Notional tavan, risk engine'in tipik notional'ının alt sınırına yakın
+# tutulur (tipik ~5-10K USDT) — sembole özel volatiliteyi fiyat üzerinden
+# hesaba katar.
+MAX_QTY_DEFAULT_NOTIONAL = 500.0
+MAX_QTY_DEFAULT_FLOOR = 1000.0
+MAX_QTY_DEFAULT_OVERRIDES: dict[str, float] = {
+    # Örn. düşük fiyatlı semboller için notional/price çok büyük qty üretirse
+    # burada sembol bazlı sabit bir tavan tanımlanabilir.
+}
+
 MIN_RISK_DIST_ATR_MULT = 0.1
 
 DEFAULT_ATR_FALLBACK_PCT = 0.0001

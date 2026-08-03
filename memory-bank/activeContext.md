@@ -1,5 +1,35 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: P1-16 fix — get_max_qty cache miss'te conservative default (2026-08-03)
+
+Baş mühendis kararı netleşti: **emri geciktirmek yerine conservative default max_qty**. Gerekçe: sistemin failure mode'u "biraz küçük pozisyon" olsun, "belirsiz bekleme" veya "clamp'sız aşırı büyük pozisyon" olmasın. Emri geciktirmek fırsat kaybı (STRKUSDT'de yaşanan sorun) ve belirsiz order queue/race riski taşıyordu.
+
+### Değişiklik: `src/bot_binance.py` + `src/config.py`
+
+- **`get_max_qty()`** artık cache miss'te **asla 0.0 dönmez** — `0.0` dönmek entry_manager'daki `max_qty > 0` guard'ını atlayıp emri limitsiz qty ile exchange'e gönderiyordu (STRKUSDT -4005).
+- Yeni **`_conservative_max_qty()`** yardımcısı, öncelik sırasıyla:
+  1. `cfg.MAX_QTY_DEFAULT_OVERRIDES` — sembol bazlı sabit tavan (opsiyonel).
+  2. `cfg.MAX_QTY_DEFAULT_NOTIONAL / fiyat` — fiyat bazlı conservative tavan (sembole özel volatiliteyi fiyat üzerinden hesaba katar). Notional, risk engine tipik notional'ının alt sınırına yakın: `MAX_QTY_DEFAULT_NOTIONAL = 500.0` USDT.
+  3. `cfg.MAX_QTY_DEFAULT_FLOOR = 1000.0` — fiyat da alınamıyorsa sabit tavan.
+- `MAX_QTY_DEFAULT_OVERRIDES` dict'i config'de boş tanımlandı — düşük fiyatlı semboller için gerektikçe doldurulacak.
+- Cache dolduğunda normal akışa döner (gerçek LOT_SIZE.maxQty okunur).
+
+### Testler: `tests/test_bot_binance.py` — `TestGetMaxQty` güncellendi/genişletildi
+
+1. `test_returns_max_qty` (mevcut) — cache doluysa gerçek maxQty döner.
+2. `test_returns_floor_on_missing` — LOT_SIZE.maxQty eksik + fiyat yok → floor (> 0).
+3. `test_notional_cap_when_price_known` — fiyat varsa notional/price tavanı.
+4. `test_override_wins` — sembol override öncelikli.
+5. `test_missing_symbol_returns_floor` — sembol hiç yoksa bile 0.0 dönmez.
+
+**Sonuç:** test_bot_binance (79) + test_entry_manager (81) + test_order_manager/recovery (59) tümü pass; ruff temiz. Trailing suite'teki 17 fail pre-existing `TestCheckExit` API drift (bu işlemle ilgisiz, baseline ile aynı).
+
+### bugs.md güncellendi
+
+P1-16 durumu `🐛 AÇIK` → `🔧 FIX YAZILDI — pending deploy`. Fix detayı ve "neden emri geciktir seçilmedi" gerekçesi eklendi.
+
+---
+
 ## Son İşlem: ENAUSDT trailing kilitlenme fix'i — fingerprint'e bucket'lı fiyat (2026-08-03)
 
 Baş mühendis onayı ile BULGU 1 fix'lendi. **Zaman bazlı expiry kullanılmadı** — fingerprint fiyat içerecek şekilde güncellendi.
