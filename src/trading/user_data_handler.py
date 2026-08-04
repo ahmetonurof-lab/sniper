@@ -253,6 +253,7 @@ class UserDataHandler:
                         await _exit_trade(
                             sym, trade, evt.ts_ms or int(time.time() * 1000)
                         )
+                        _active_trades.pop(sym, None)
                     else:
                         if is_reduce_only:
                             # FIX (race): trade zaten kendi exit surecindeyse
@@ -320,6 +321,7 @@ class UserDataHandler:
                                 await _exit_trade(
                                     sym, trade, evt.ts_ms or int(time.time() * 1000)
                                 )
+                                _active_trades.pop(sym, None)
                                 return
                             if result == "WS_FALLBACK":
                                 trade["pending_exit_reason"] = (
@@ -341,6 +343,7 @@ class UserDataHandler:
                                 await _exit_trade(
                                     sym, trade, evt.ts_ms or int(time.time() * 1000)
                                 )
+                                _active_trades.pop(sym, None)
                                 log.critical(
                                     "[%s] %s reduceOnly FILLED ID eslesmedi "
                                     "(oid=%s, beklenen_sl=%s, beklenen_tp=%s, "
@@ -479,6 +482,7 @@ class UserDataHandler:
                             trade["exit_timestamp"] = int(time.time() * 1000)
                             trade["result"] = result
                             await _exit_trade(sym, trade, int(time.time() * 1000))
+                            _active_trades.pop(sym, None)
                     else:
                         if is_reduce_only:
                             if trade.get("status") in _SELF_EXIT_IN_PROGRESS_STATUSES:
@@ -537,6 +541,7 @@ class UserDataHandler:
                                 if cum_quote > 0:
                                     trade["exit_quote_qty"] = cum_quote
                                 await _exit_trade(sym, trade, int(time.time() * 1000))
+                                _active_trades.pop(sym, None)
                                 return
                             if result == "WS_FALLBACK":
                                 trade["pending_exit_reason"] = (
@@ -554,6 +559,7 @@ class UserDataHandler:
                                 trade["result"] = "WS_FALLBACK"
                                 _status_snapshot = trade.get("status", "")
                                 await _exit_trade(sym, trade, int(time.time() * 1000))
+                                _active_trades.pop(sym, None)
                                 log.critical(
                                     "[%s] %s reduceOnly FILLED ID eslesmedi "
                                     "(oid=%s, beklenen_sl=%s, beklenen_tp=%s, "

@@ -630,3 +630,63 @@ class TestSelfExitRaceGuard:
         assert t.get("pending_exit_reason") is None
         exit_cb.assert_not_awaited()
         mock_log_event.assert_not_called()
+
+
+class TestWsHandlerPop:
+    """WS handler pop after FILLED — primary cleanup point."""
+
+    @pytest.mark.asyncio
+    @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", True)
+    @patch("trading.user_data_handler.cfg")
+    async def test_matched_fill_pops_active_trade(self, mock_cfg):
+        active_trades = {}
+        exit_cb = AsyncMock()
+        on_order = _make_handler(active_trades, exit_cb)
+        assert on_order is not None
+
+        t = _trade(sl_order_id="SL_MATCH", tp_order_id="TP_X")
+        active_trades["BTCUSDT"] = t
+
+        raw_msg = {
+            "o": {
+                "s": "BTCUSDT",
+                "c": "SL_MATCH",
+                "X": "FILLED",
+                "R": True,
+                "ap": "49000",
+                "z": "0.1",
+                "Z": "4900",
+            }
+        }
+        await on_order(raw_msg)
+
+        exit_cb.assert_awaited_once()
+        assert "BTCUSDT" not in active_trades
+
+    @pytest.mark.asyncio
+    @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", False)
+    @patch("trading.user_data_handler.cfg")
+    async def test_legacy_matched_fill_pops_active_trade(self, mock_cfg):
+        active_trades = {}
+        exit_cb = AsyncMock()
+        on_order = _make_handler(active_trades, exit_cb)
+        assert on_order is not None
+
+        t = _trade(sl_order_id="SL_MATCH", tp_order_id="TP_X")
+        active_trades["BTCUSDT"] = t
+
+        raw_msg = {
+            "o": {
+                "s": "BTCUSDT",
+                "c": "SL_MATCH",
+                "X": "FILLED",
+                "R": True,
+                "ap": "49000",
+                "z": "0.1",
+                "Z": "4900",
+            }
+        }
+        await on_order(raw_msg)
+
+        exit_cb.assert_awaited_once()
+        assert "BTCUSDT" not in active_trades
