@@ -1,5 +1,17 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: Log seviyesi düzeltmesi + baş mühendis onaylı öncelik sırası (2026-08-05)
+
+`[P1-15_DEBUG]` (`src/bot.py:582`, check_exit öncesi) ve `[POST_ENTRY_DEBUG]` (`src/trading/order_manager.py:385`, get_open_order_ids) logları `WARNING` → `DEBUG` çekildi (commit `1a439c9`). `trail_skipped` bir log değil — `paper_trade_logger.py` JSONL telemetri event'i, log seviyesi kapsamına girmedi.
+
+**Baş mühendis onaylı öncelik sırası (2026-08-05):**
+1. **Log seviyesi** — ✅ YAPILDI (`1a439c9`)
+2. **Stale event kök neden araştırması** — WS FILLED gecikme aralığı 87–353 sn'nin kaynağı: Binance push mu, bot event loop tıkanması mı? Dashboard/alert DEĞİL; ölçümle başla (emir zamanı vs WS FILLED delta serisi).
+3. **ATR-chase trailing** — K=0.5/1.0/1.5 replay doğrulamalı (2026-08-04 A/B/C replay'den ayrı iş; is_placeable uyumlu K seçimi).
+4. **FVG gevşetme** — SIRADA DEĞİL, "backtest bekliyor" kovasında: %87.8 red oranı başlı başına kanıt değil (wrong_direction doğru çalışıyor); gevşetilirse hangi trade'ler kabul edilir + kaçı kârlı çıkar somut backtest kanıtı gelmeden sıraya alınmayacak.
+
+---
+
 ## Son İşlem: Trailing yol kalıcılığı (#3) — trail_mode state'e yazıldı (2026-08-04)
 
 Restart sonrası recover edilen trade'lerde `trail_level_extractor` closure'ı kayboluyor ve trailing `_default_level_from_swings` (swing) yoluna düşüyordu — canlı logdaki 3692 `no_better_trail_candidate` + yalnızca 1 güncelleme ile ilgili kök nedenlerden biri. Fix:
