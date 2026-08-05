@@ -1,5 +1,30 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-06 canlı teyit — log fix CANLI doğrulandı; SOLUSDT/ONDO korumasız tespit edildi (KRİTİK)
+
+Yeni sunucu dosyaları (paper_trade.log 552 satır run `paper-20260805-212252`, trades_history.jsonl 440, events_2026-08-06.jsonl) analiz edildi.
+
+### ✅ (1) Log seviyesi fix'i CANLI DOĞRULANDI — KAPANDI
+- Restart **00:22:52** (`[HISTORY] 440 trade gecmisten yuklendi`) sonrası tüm pencerede (→00:41:00) **sıfır** `[POST_ENTRY_DEBUG]` / `[P1-15_DEBUG]` satırı. `bc73b5c` (bot.py:838 `log.warning`→`log.debug`) sunucuda aktif. Daha önce 00:03:06'da görünen WARNING yok.
+- 28 sembol LEVERAGE + PREFILL + WARMUP + INIT normal; `[STATE] reconcile: tüm semboller zaten güncel`.
+
+### 🔴 (2) KRİTİK BULGU: SOLUSDT-0 ve ONDOUSDT-0 koruma emirleri BORSA'DA YOK (çıplak pozisyon)
+- `events_2026-08-06.jsonl`: **00:03:47** ONDOUSDT `orphan_cleaned` (STOP_MARKET `1000000157572041` + TAKE_PROFIT_MARKET `1000000157572047`); **00:04:24** SOLUSDT `orphan_cleaned` (STOP_MARKET `1000000157356807` + TAKE_PROFIT_MARKET `1000000157356808`); 00:03:07 ENAUSDT `entry`.
+- Restart (00:22:52) sonrası log'da **hiçbir trade için koruma yerleştirme satırı yok** — `[POST_ENTRY]`, `SL OK`/`TP OK`, `[RECOVER]`, `[MARKET]` hiçbiri yok. 12 restore trade (`[SYNC] ... trades_today: 1`: SOL/LINK/ADA/SUI/OP/ARB/ALGO/TIA/ONDO/RENDER/ENA/GMX) trailing döngüsünde görünüyor ama korumaları borsaya koyulmadı.
+- SOLUSDT-0 trailing her ~1dk `[TRAIL] trail#1 sl=74.092724 tp=75.092724` basıyor **ama eşzamanlı** `trail_skipped | no_better_trail_candidate` event'i düşüyor → SL/TP değişmiyor. trailing "daha iyi kandidat" arıyor, **koruma eksikliğini yakalamıyor**. ONDOUSDT-0 için de `trail#1 sl=0.384778 tp=0.356078` + `trail#2` benzer (short, korumasız).
+- **Kök neden hipotezi (kod doğrulaması sıradaki adım):** `orphan_cleaned` trade state'teki `sl_order_id`/`tp_order_id`'yi temizlemiyor; restart'ta `recover_positions` state'te ID olduğu için korumayı borsaya YENİDEN KOYMUYOR; trailing de no_better_trail_candidate ile hiçbir şey yapmıyor → pozisyon çıplak.
+- **Kullanıcı aksiyonu (acil):** Binance hesabında SOLUSDT ve ONDOUSDT açık emirlerini manuel kontrol et; koruma yoksa manuel koy veya pozisyonu kapat.
+
+### 🟡 P1-15 stale hâlâ canlıda
+- 00:31:01 `[WARNING] [EXIT] LINKUSDT SL stale event #1 — pozisyon hala acik, exit iptal` — WS FILLED gecikmesi (87–353sn) sürüyor; mitigation'lar devrede (exit iptal doğru).
+
+### Sonraki adım
+1. `recovery_manager` / `order_manager` orphan_sweep kodunu doğrula (state'teki order_id'leri temizliyor mu; restart koruma restore ediyor mu).
+2. Koruma restore fix'i: restart'ta koruma borsada yoksa (open_orders kontrolü) YENİDEN KOY.
+3. ATR-chase trailing replay (K=0.5/1.0/1.5) yerelde devam — SOLUSDT teyidinden bağımsız.
+
+---
+
 ## Son İşlem: Log seviyesi düzeltmesi + baş mühendis onaylı öncelik sırası (2026-08-05)
 
 `[P1-15_DEBUG]` (`src/bot.py:582`, check_exit öncesi) ve `[POST_ENTRY_DEBUG]` (`src/trading/order_manager.py:385`, get_open_order_ids) logları `WARNING` → `DEBUG` çekildi (commit `1a439c9`). `trail_skipped` bir log değil — `paper_trade_logger.py` JSONL telemetri event'i, log seviyesi kapsamına girmedi.
