@@ -579,7 +579,7 @@ class PaperTrader:
                 # invalidation durumunda (immediate trigger) local flag set eder.
 
             # ── Exit kontrolü ──
-            log.warning(
+            log.debug(
                 "[P1-15_DEBUG] %s check_exit oncesi: current.high=%r trade_sl=%r current.ts=%s",
                 sym,
                 current.high,

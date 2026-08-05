@@ -382,7 +382,7 @@ class OrderManager:
         try:
             orders = await self._rest.get_all_orders(sym)
             id_set = {str(o.get("algoId") or o.get("orderId") or "") for o in orders}
-            log.warning(
+            log.debug(
                 "[POST_ENTRY_DEBUG] %s raw_orders_count=%d raw_ids=%s filtered_empty=%s",
                 sym,
                 len(orders),
