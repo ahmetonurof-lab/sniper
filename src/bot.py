@@ -835,7 +835,7 @@ class PaperTrader:
                     try:
                         await asyncio.sleep(2.5)
                         open_ids = await self.order_manager.get_open_order_ids(sym)
-                        log.warning(
+                        log.debug(
                             "[POST_ENTRY_DEBUG] %s raw_ids=%s sl_id=%s tp_id=%s sl_id_type=%s tp_id_type=%s",
                             sym,
                             sorted(open_ids) if open_ids is not None else None,
