@@ -1,5 +1,31 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-06 — DEPLOY TEYİDİ TAMAMEN KAPANDI (git-hash + davranışsal); ATR-chase replay için yeşil ışık
+
+### ✅ Deploy teyidi KAPANDI — üç katmanlı kanıt
+1. **Git-hash:** Sunucuda `git log -1 --oneline` → `bc73b5c` (HEAD -> main, origin/main, origin/HEAD) — kod sunucuda `bc73b5c`.
+2. **Davranışsal:** Sunucuda `grep -cE "P1-15_DEBUG|POST_ENTRY_DEBUG" output/paper_trade.log` → **0**. `[P1-15_DEBUG]` (bot.py:582) + `[POST_ENTRY_DEBUG]` (bot.py:838, order_manager.py:386) hiçbir canlı seviyede basılmıyor.
+3. **Post-entry yolu canlıda:** Restart (00:22:52) sonrası **9/9 entry** `[POST_ENTRY] SL/TP sanity check OK` INFO seviyesinde: NEAR 04:30, APT 05:00+05:15, LDO 05:30, PYTH 06:00, SEI 09:15, TIA 10:00, NEAR 11:30, XRP 11:45. WARNING sıfır → `bc73b5c` fix'i aktif.
+- Kullanıcının "deploy edilen kod commit'lediğimizle eşleşmiyorsa emek boşa gider" endişesi giderildi → **ATR-chase replay (K=0.5/1.0/1.5) için yeşil ışık.**
+
+### ✅ Bot çalışıyor (10:12 duraklaması yanlış alarmdı)
+- Sunucuda PID 317218 `python3 bot.py` (pts/0, çalışıyor). Log 11:57'ye kadar akıyor: `[TRAIL]` döngüsü canlı (XRPUSDT-545 trail_skipped, LDOUSDT-520 identical_candidate_already_applied). 10:12'deki "duraklama" indirilen kopyanın o anki durumu — bot değil.
+
+### ✅ SOLUSDT koruması kapalı (önceki tur) + yeni gözlemler
+- Recovery korumaları yeniden yerleştiriyor (3× `[RECOVER] SOLUSDT`); kullanıcı Binance open-orders teyidi.
+- **Yeni entry'ler:** NEAR 11:30 (sl=1000000157984872), XRP 11:45 (sl=1000000157994762).
+- **Stale:** 11:27 ALGOUSDT TP stale #1; toplam stale'ler (SOL #1, LINK #2-#8+backstop#9, ARB #1, GMX #1, SEI #1-#4, ALGO #1) hepsi doğru iptal — WS FILLED gecikmesi sürüyor, kök neden açık (P1-15 ikinci öncelik).
+
+### 🔍 State/raporlama bug'ı deseni sürüyor (baş mühendise görev önerisi)
+- NEARUSDT (kapanmış): trailing_count=1, `protection_orders` DOLU (sl 1000000157804391, fingerprint `short|1.710|1.665|519|1000`) ama `runtime.protection.sl_current=None` → trailing koruma değiştirdiğinde runtime state'e yazılmıyor (26-trade bulgusuyla tutarlı).
+
+### Sonraki adım
+1. **ATR-chase replay** başlat: `replay_trailing_v2.py`'ye long `new_sl = close − K×ATR`, short `new_sl = close + K×ATR` (yalnız SL iyileştirmesi); K=0.5/1.0/1.5 + FVG-only/ATR-only/max-SL karşılaştırması. Deploy teyidi kapandığı için karar verebilir durumdayız.
+2. State bug'ı (trailing sonrası `runtime.protection` yazılmıyor) baş mühendise yeni görev olarak önerildi.
+3. `[VERSION] git=<hash>` startup log satırı önerisi — deploy teyidini gelecekte tamamen log'dan yapılabilir kılar (opsiyonel, düşük öncelik).
+
+---
+
 ## Son İşlem: 2026-08-06 güncel log analizi — deploy teyidi DAVRANIŞSAL DOĞRULANDI; stale backstop çalıştı; state bug deseni sürüyor
 
 Yeni indirilen 3 dosya (paper_trade.log 1.6MB restart 00:22:52 → 10:12, trades_history.jsonl 448 trade, events_2026-08-06.jsonl 32 event) analiz edildi.
