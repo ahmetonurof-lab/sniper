@@ -78,6 +78,11 @@ class ProtectionLifecycleService:
         birebir aynı kümeyi üretir. Geçiş halindeki (henüz cancel
         edilmemiş eski / henüz confirm edilmemiş yeni) ID'lerin
         orphan sanılmaması içindir (A5).
+
+        P2-4 (STATE-SYNC): protection_orders dict'i de kaynak
+        olarak dahil edilir — trailing _replace_one() yolu buraya
+        yazar. Bu olmadan trailing sonrası yeni emir orphan
+        sanılıp iptal ediliyordu.
         """
         known: set[str] = set()
         for k in (
@@ -95,6 +100,10 @@ class ProtectionLifecycleService:
             for oid in trade.get(k) or []:
                 if oid:
                     known.add(str(oid))
+        for kind in ("sl", "tp"):
+            ref = (trade.get("protection_orders") or {}).get(kind)
+            if isinstance(ref, dict) and ref.get("order_id"):
+                known.add(str(ref["order_id"]))
         return known
 
     # ── Transition guard ────────────────────────────────────────

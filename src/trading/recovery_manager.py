@@ -735,6 +735,10 @@ class RecoveryManager:
                 for oid in t.get(k) or []:
                     if oid:
                         known_ids.add(str(oid))
+            for kind in ("sl", "tp"):
+                ref = (t.get("protection_orders") or {}).get(kind)
+                if isinstance(ref, dict) and ref.get("order_id"):
+                    known_ids.add(str(ref["order_id"]))
         return known_ids
 
     async def reconcile_orphan_orders(self) -> None:

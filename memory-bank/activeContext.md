@@ -1,6 +1,41 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: 2026-08-06 — DEPLOY TEYİDİ TAMAMEN KAPANDI (git-hash + davranışsal); ATR-chase replay için yeşil ışık
+## Son İşlem: 2026-08-06 — STATE-SYNC FIX (P2-4): trailing → runtime state atomik senkron; üç semptom tek kökten kapatıldı
+
+### 🔬 Hipotez doğrulandı (genişletilmiş hal)
+- **Hipotez:** orphan_sweep canlı emirleri tanıma işlemini `runtime.protection.sl_current` gibi state alanına bakarak yapıyorsa, trailing bu alanı güncellemediği için trailed SL emri (0.089049) orphan sayılıp iptal ediliyor; recovery eski/ham değerlerle (0.093530) yeniden kuruyor. NEARUSDT `sl_current=None` + SOLUSDT `no_better_trail_candidate` yanlış reddiyle aynı kök.
+- **Doğrulama:** `reconcile_orphan_orders` (recovery_manager.py:744) ve `_known_protection_ids` (:706-742) `runtime.protection.sl_current`'i DEĞİL, trade dict flat alanlarını okuyor: `sl_order_id/tp_order_id/sl_order_id_prev/tp_order_id_prev/pending_*_order_id` + `*_history` (ProtectionLifecycleService varsa `known_ids(t)`'ye delege — protection_lifecycle.py:73-98).
+- **Kök neden:** Canlıdaki trailing yolu `replace_protection` → `_replace_one` (order_manager.py:1136) yalnızca `protection_orders[kind]` + `trade["stop_loss"]`/`trade["take_profit"]` yazıyor; `sl_order_id`/`tp_order_id`'yi ve `runtime.protection`'ı güncellemiyordu → trailing sonrası yeni emir `known_ids`'te yok → orphan_sweep iptal ediyor → recovery ham değerlerle yeniden kuruyor. NEARUSDT `sl_current=None` ve SOLUSDT `no_better_trail_candidate` aynı kökün diğer belirtileri (trail karşılaştırması flat alanları okuyor).
+
+### 🔧 Fix 1 — order_manager.py: `_replace_one` state senkronu (atomik)
+- Import: `from trading.protection_lifecycle import _HISTORY_MAX` (döngüsel import yok — protection_lifecycle yalnızca models import ediyor).
+- `_replace_one` başarı bloğu: `protection_orders[kind]` yazımına ek olarak `trade["sl"]`/`trade["stop_loss"]` (veya `trade["tp"]`/`trade["take_profit"]`) + yeni `_sync_replaced_order_id` çağrısı.
+- `_sync_replaced_order_id`: flat `sl_order_id`/`tp_order_id` günceller, eski ID'yi `*_prev` + `*_history`'ye arşivler (`_HISTORY_MAX` cap), `_sync_runtime_protection` ile `runtime.protection.sl_current`/`tp_current`'e `ProtectionRef(slot=CURRENT)` yazar.
+
+### 🔧 Fix 2 — known_ids'e `protection_orders` kaynağı (her iki trailing yolu)
+- `ProtectionLifecycleService.known_ids` (protection_lifecycle.py:73-98) + `RecoveryManager._known_protection_ids` (recovery_manager.py:706-742): flat alanlara ek olarak `trade["protection_orders"]["sl"/"tp"].order_id`'yi de topluyor.
+- Böylece eski trailing yolu (`update_trail_orders` → `protection_orders`) ile yeni yol (`replace_protection` → flat + protection_orders) birlikte tanınıyor.
+
+### 🧪 Regression testi — tek testte üç semptom (TestStateSyncTrailOrphanRecovery, test_integration_lifecycle.py)
+1. `test_trail_syncs_state_and_orphan_recovery_preserve` — ALGOUSDT senaryosu:
+   - (a) `replace_protection` sonrası `sl_order_id=="TRAIL_SL"`, `tp_order_id=="TRAIL_TP"`, `runtime.protection.sl_current/tp_current` DOLU (None değil), flat `sl==0.0891`/`tp==0.0879` (tick 0.0001 normalize) → `no_better_trail_candidate` artık doğru karşılaştırır; eski REC_SL arşivden tanınır.
+   - (b) `reconcile_orphan_orders`: trailing emirleri (TRAIL_SL/TRAIL_TP) iptal EDİLMEZ; yalnızca FOREIGN_ID iptal edilir.
+   - (c) `recover_positions`: borsada trailed emirler açıkken mevcut SL/TP korunur (0.0891/0.0879), ham değerlere (0.093530/0.086690) DÖNMEZ; yeni koruma emri kurulmaz.
+- Not: mock `get_order_type`/`get_order_price` lambda'ları gerçek davranışı veriyor (MagicMock MagicMock döndürürdü → recovery filtresi boş kalırdı).
+
+### ✅ Test sonucu
+- Regression testi GEÇTİ (1 passed).
+- Etkilenen dosyalar (order_manager/protection_lifecycle/integration_lifecycle/recovery/trailing): 20 fail — **hepsi pre-existing** (git stash baseline ile birebir aynı: 20 failed, 144 passed → benimle 145 passed, yeni fail yok). Pre-existing fail'ler: TestCheckExit 17 (eski API drift) + TestExitStateTransitions 3 (runtime.status senkronu — ayrı konu).
+- Tam suite: 70 fail — tamamı pre-existing (test_bot 15, trailing 17, session/snapshot/state_writer/user_data_handler/integration_v2/parity 50'lik set — git stash baseline 50 failed/140 passed ile birebir aynı).
+
+### Sonraki adım
+1. **ATR-chase replay** (K=0.5/1.0/1.5) paralel devam edebilir: `replay_trailing_v2.py`'ye long `close − K×ATR` / short `close + K×ATR` (SL-only); FVG-only/ATR-only/max-SL karşılaştırması. **Canlıya alınması bu state-sync fix'inden SONRA olmalı** (aksi halde ATR-chase kâr kilidi da recovery/orphan tarafından silinebilir).
+2. Deploy: fix'i sunucuya `git pull` + bot restart ile al.
+3. Pre-existing test fail'leri (TestExitStateTransitions runtime.status senkronu, TestCheckExit API drift) ayrı iş — bu tur kapsamı dışı.
+
+---
+
+
 
 ### ✅ Deploy teyidi KAPANDI — üç katmanlı kanıt
 1. **Git-hash:** Sunucuda `git log -1 --oneline` → `bc73b5c` (HEAD -> main, origin/main, origin/HEAD) — kod sunucuda `bc73b5c`.

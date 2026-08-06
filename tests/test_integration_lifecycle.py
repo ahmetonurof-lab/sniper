@@ -7,6 +7,7 @@ birlikte calisirken test eder.
 
 import os
 import tempfile
+from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -21,6 +22,7 @@ from models import (
 from trading.exit_lifecycle import ExitLifecycleService
 from trading.order_manager import OrderManager
 from trading.protection_lifecycle import ProtectionLifecycleService
+from trading.trailing_manager import TrailCandidate
 
 
 def _tmpdir():
@@ -332,3 +334,173 @@ class TestExitStateTransitions:
         trade["status"] = STATUS_CLOSED
         assert trade["status"] == STATUS_CLOSED
         assert trade.runtime.status.value == STATUS_CLOSED
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Scenario 7 (P2-4 STATE-SYNC): Trailing → runtime state senkronu
+# ───────────────────────────────────────────────────────────────────
+# ALGOUSDT vakasi: trailing borsada SL/TP guncelledi (0.089049/0.087999)
+# ama runtime state (sl_order_id/tp_order_id + runtime.protection)
+# guncellenmedi. Sonuc:
+#   (b) orphan_sweep yeni emri "bilinmeyen" sayip iptal etti,
+#   (c) recovery ham degerlerle (0.093530) yeniden kurdu.
+# Fix: _replace_one() ayni islem icinde flat ID'leri + runtime.protection
+# ref'lerini atomik gunceller; known_ids() protection_orders'i da okur.
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestStateSyncTrailOrphanRecovery:
+    def _rest_mock(self):
+        r = MagicMock()
+        r.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        r.place_stop_order = AsyncMock(return_value={"algoId": "TRAIL_SL"})
+        r.place_tp_order = AsyncMock(return_value={"algoId": "TRAIL_TP"})
+        r.cancel_order = AsyncMock(return_value=True)
+        r.get_all_orders = AsyncMock(return_value=[])
+        r.get_positions = AsyncMock(return_value=[])
+        r.place_market_order = AsyncMock(
+            return_value={"orderId": 999, "_status": "EXECUTION_CONFIRMED"}
+        )
+        r.get_order_type = lambda o: o.get("type") or o.get("orderType") or ""
+        r.get_order_price = lambda o: float(
+            o.get("triggerPrice") or o.get("stopPrice") or 0
+        )
+        return r
+
+    def _recovered_trade(self):
+        """ALGOUSDT recovery import'u — ham SL/TP (0.093530/0.086690)."""
+        t = ActiveTrade(
+            symbol="ALGOUSDT",
+            side="short",
+            entry_price=0.089930,
+            sl=0.093530,
+            tp=0.086690,
+            qty=21683.2,
+            sl_order_id="REC_SL",
+            tp_order_id="REC_TP",
+            initial_sl=0.093530,
+            initial_tp=0.086690,
+            trailing_count=0,
+            status="ACTIVE",
+            entry_bar_index=0,
+            is_recovered=True,
+            trail_mode="fvg",
+            tick_size=0.0001,
+        )
+        return t
+
+    @patch("trading.recovery_manager.cfg")
+    @patch("trading.order_manager.cfg")
+    @pytest.mark.asyncio
+    async def test_trail_syncs_state_and_orphan_recovery_preserve(
+        self, mock_om_cfg, mock_rm_cfg
+    ):
+        mock_om_cfg.BINANCE_API_KEY = "test_key"
+        mock_rm_cfg.BINANCE_API_KEY = "test_key"
+
+        rest = self._rest_mock()
+        svc = ProtectionLifecycleService()
+        om = OrderManager(rest_client=rest, is_live=True, protection_service=svc)
+        trade = self._recovered_trade()
+
+        # ── (a) TRAIL: borsada SL/TP guncellenir, state atomik senkron olur ──
+        candidate = TrailCandidate(
+            sl=Decimal("0.089049"),
+            tp=Decimal("0.087999"),
+            source_bar_index=5,
+            reason="test_trail",
+            tick_size=Decimal("0.0001"),
+            fingerprint="fp_algo_1",
+        )
+        changed = await om.replace_protection(
+            trade=trade, candidate=candidate, current_price=Decimal("0.0874")
+        )
+        assert changed is True
+        # flat order ID'ler artık borsadaki gerçek emirleri gösteriyor
+        assert trade["sl_order_id"] == "TRAIL_SL"
+        assert trade["tp_order_id"] == "TRAIL_TP"
+        # runtime.protection ref'leri de senkron (sl_current None değil)
+        assert trade.runtime.protection.sl_current is not None
+        assert trade.runtime.protection.sl_current.order_id == "TRAIL_SL"
+        assert trade.runtime.protection.tp_current is not None
+        assert trade.runtime.protection.tp_current.order_id == "TRAIL_TP"
+        # flat price alanları da güncel — no_better_trail_candidate
+        # artık eski (0.093530) değil, yeni (0.089049) ile karşılaştırır
+        assert trade["sl"] == 0.0891  # tick 0.0001 ile normalize edildi
+        assert trade["tp"] == 0.0879
+        # eski recovery emirleri orphan sayılmaz (prev/history arşivde)
+        known = svc.known_ids(trade)
+        assert "TRAIL_SL" in known
+        assert "TRAIL_TP" in known
+        assert "REC_SL" in known  # arşivlendi, hâlâ tanınır
+
+        # ── (b) ORPHAN SWEEP: borsada trailing emirleri + bir yabancı ──
+        # trailing emirleri biliniyor → iptal edilmez; yabancı → iptal
+        rest.get_all_orders = AsyncMock(
+            return_value=[
+                {"algoId": "TRAIL_SL", "orderType": "STOP_MARKET"},
+                {"algoId": "TRAIL_TP", "orderType": "TAKE_PROFIT_MARKET"},
+                {"algoId": "FOREIGN_ID", "orderType": "LIMIT"},
+            ]
+        )
+        from trading.recovery_manager import RecoveryManager
+
+        rm = RecoveryManager(
+            rest_client=rest,
+            symbols=["ALGOUSDT"],
+            cfgs={"ALGOUSDT": {}},
+            states={},
+            active_trades={"ALGOUSDT": trade},
+            pl_callback=MagicMock(),
+            order_manager=om,
+            atr_state={"ALGOUSDT": 0.001},
+            protection_service=svc,
+        )
+        await rm.reconcile_orphan_orders()
+
+        # iptal edilenler: yalnızca FOREIGN_ID
+        cancelled = [c.args[0] for c in rest.cancel_order.call_args_list]
+        assert cancelled == ["FOREIGN_ID"]
+        assert "TRAIL_SL" not in cancelled
+        assert "TRAIL_TP" not in cancelled
+
+        # ── (c) RECOVERY: mevcut trailed SL/TP korunur, sıfırlanmaz ──
+        # Binance'te trailing emirleri hâlâ açık (0.0891/0.0879)
+        rest.reset_mock()
+        rest.get_all_orders = AsyncMock(
+            return_value=[
+                {
+                    "algoId": "TRAIL_SL",
+                    "orderType": "STOP_MARKET",
+                    "triggerPrice": "0.0891",
+                    "reduceOnly": True,
+                },
+                {
+                    "algoId": "TRAIL_TP",
+                    "orderType": "TAKE_PROFIT_MARKET",
+                    "triggerPrice": "0.0879",
+                    "reduceOnly": True,
+                },
+            ]
+        )
+        rest.get_positions = AsyncMock(
+            return_value=[
+                {
+                    "symbol": "ALGOUSDT",
+                    "positionAmt": "-21683.2",
+                    "entryPrice": "0.089930",
+                }
+            ]
+        )
+
+        await rm.recover_positions(quiet=True)
+
+        # recovery, borsadaki trailed emirleri devraldı — ham değerlere
+        # (0.093530/0.086690) DÖNMEDİ
+        assert trade["sl"] == 0.0891
+        assert trade["tp"] == 0.0879
+        assert trade["sl_order_id"] == "TRAIL_SL"
+        assert trade["tp_order_id"] == "TRAIL_TP"
+        # yeni koruma emri kurulmadı (mevcutlar korundu)
+        assert rest.place_stop_order.call_count == 0
+        assert rest.place_tp_order.call_count == 0

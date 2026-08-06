@@ -25,10 +25,13 @@ from bot_binance import MaxQtyUnavailableError
 from bot_infra import extract_order_id
 from event_log import log_event
 from models import (
+    ProtectionRef,
+    ProtectionSlot,
     STATUS_ACTIVE,
     STATUS_TRAIL_REPLACING,
     UNRESTRICTED_STATUSES,
 )
+from trading.protection_lifecycle import _HISTORY_MAX
 from trading.trailing_manager import ImmediateTriggerError, TrailCandidate
 
 if TYPE_CHECKING:
@@ -1200,10 +1203,68 @@ class OrderManager:
 
         if kind == "sl":
             trade["stop_loss"] = float(normalized)
+            trade["sl"] = float(normalized)
         else:
             trade["take_profit"] = float(normalized)
+            trade["tp"] = float(normalized)
+
+        # P2-4 (STATE-SYNC): Trailing, koruma emrini borsada guncellerken
+        # runtime state'i de ayni islem icinde atomik gunceller. Daha once
+        # sadece protection_orders dict'i yaziliyordu; orphan_sweep'in ve
+        # recovery'nin okudugu flat sl_order_id/tp_order_id ile
+        # runtime.protection (ProtectionState) eski degerlerde kaliyordu.
+        # Bu yuzden trailing sonrasi yeni emir orphan sanilip iptal ediliyor,
+        # recovery de ham degerlerle yeniden kuruyordu.
+        self._sync_replaced_order_id(trade, kind, str(order_id), float(normalized))
 
         return True
+
+    def _sync_replaced_order_id(
+        self, trade: Trade, kind: str, new_id: str, price: float
+    ) -> None:
+        """Replace sonrasi order ID state'lerini atomik senkron tutar.
+
+        Flat alanlar (sl_order_id/tp_order_id + prev/history) ve
+        runtime.protection (ProtectionState) birlikte guncellenir —
+        trailing'in state yazma noktasi olarak merkezi kayit noktasi.
+        """
+        if kind == "sl":
+            old_id = trade.get("sl_order_id", "")
+            if old_id:
+                trade["sl_order_id_prev"] = str(old_id)
+                hist = trade.get("sl_order_id_history")
+                if not isinstance(hist, list):
+                    hist = []
+                hist.append(str(old_id))
+                trade["sl_order_id_history"] = hist[-_HISTORY_MAX:]
+            trade["sl_order_id"] = new_id
+            self._sync_runtime_protection(trade, "sl_current", new_id, price)
+        else:
+            old_id = trade.get("tp_order_id", "")
+            if old_id:
+                trade["tp_order_id_prev"] = str(old_id)
+                hist = trade.get("tp_order_id_history")
+                if not isinstance(hist, list):
+                    hist = []
+                hist.append(str(old_id))
+                trade["tp_order_id_history"] = hist[-_HISTORY_MAX:]
+            trade["tp_order_id"] = new_id
+            self._sync_runtime_protection(trade, "tp_current", new_id, price)
+
+    def _sync_runtime_protection(
+        self, trade: Trade, slot: str, order_id: str, price: float
+    ) -> None:
+        """runtime.protection (ProtectionState) ref'lerini gunceller."""
+        runtime = trade.get("runtime")
+        if runtime is None or not hasattr(runtime, "protection"):
+            return
+        protection = runtime.protection
+        ref = ProtectionRef(
+            order_id=order_id,
+            kind="SL" if slot == "sl_current" else "TP",
+            slot=ProtectionSlot.CURRENT,
+        )
+        setattr(protection, slot, ref)
 
     @staticmethod
     def _normalize_trigger_price(
