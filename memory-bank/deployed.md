@@ -2,6 +2,7 @@
 
 | Tarih | Commit | Açıklama |
 |-------|--------|----------|
+| 2026-08-07 01:45 | `b9c2d53` | Continuation-confirm + is_placeable stale-candidate guard (FVG trailing) — screen 349790.bot, venv python, run paper-20260806-223127 |
 | 2026-07-28 18:53 | `1bed283` | Fibo filter + P1-15 mitigation + trailing_manager guard (MIN_SL_DISTANCE_PCT) + tüm P0/P1/P2 fixleri |
 | 2026-07-28 23:03 | `9a069e6` | Guard trailing_manager'dan kaldırıldı (kategori hatası). apply_min_sl_distance entry_manager'de kaldı. would_reject backtest'te kaldı. order_manager -2021 handler canlıda kaldı. |
 

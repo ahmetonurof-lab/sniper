@@ -1,5 +1,32 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-07 — Continuation-confirm + is_placeable fix CANLI (baş mühendis direktifi)
+
+### 🔧 Yapılan (commit `b9c2d53`, yerelde testli, deploy edildi)
+- `trailing_manager.py`: `_fvg_close_confirmed` → **`_fvg_confirm_mode`** — retrace/continuation/invalidation üçlü ayrımı. Yön kontrolü: short `close < fvg.bottom`, long `close > fvg.top` = continuation (lehimize kırılma); aksi yön (`close > fvg.top` short için) = invalidation → None (karıştırılmaz). Continuation SL: short `fvg.bottom + atr_buffer`, long `fvg.top - atr_buffer`.
+- `_fvg_multihop` artık **`current_price`** alıyor; hop sonrası is_placeable şartı (long `new_sl < price`, short `new_sl > price`) — fiyata çok yakın aday stale sayılır, üretilmez (ALGO 0.089049 vs fiyat 0.0897 örneği canlıda teyitli).
+- `bot.py` `_build_fvg_scan_trail_extractor`: `_fvg_multihop(..., current_price=float(scoped_bars[-1].close))`.
+- `tests/test_trailing_manager.py` +169 satır (retrace/continuation/invalidation/stale regression) — **55/55 passed**; pre-commit ruff/vulture temiz; 13 failed / 82 passed baseline ile birebir (ilgisiz).
+
+### ✅ Deploy (3 katmanlı teyit)
+1. **Hash:** sunucuda `git log -1` → `b9c2d53` (aac0e3e→b9c2d53 fast-forward).
+2. **Grep:** `_fvg_confirm_mode` sunucuda trailing_manager.py:540/623.
+3. **Davranışsal:** yeni run `paper-20260806-223127`, 28 sembol init, WS 56 stream, 8 pozisyon envanterde, ilk trailing taraması yeni kodla `no_better_trail_candidate`, LDOUSDT orphan STOP_MARKET temizlendi.
+
+### ⚠️ Restart zorlukları (dokümante)
+- `screen -dm` TTY'siz plink'te **sessiz başarısız** oluyor → `plink -t` + `TERM=xterm` şart.
+- System `python3` (3.14.4) **dotenv içermiyor** → bot `/root/sniper/venv/bin/python3` ile çalışmak zorunda. Yeni screen `349790.bot` (PID 349791).
+
+### 📊 Pozisyon durumu
+- 9→8 (biri downtime ~3 dk'da borsa SL/TP ile kapandı). ALGOUSDT-0 dokunulmadı: trailing_count=0, sl=0.09353/tp=0.08669, uPnL ~+19.3.
+- Açık iz: ENAUSDT 08-06 18:00'de SEIUSDT fix'inden (`aac0e3e`) sonra aynı `SL/TP direction fail` — pre-entry guard ENA'ya uzanmıyor.
+
+### Sonraki adım
+1. İlk canlı **continuation-trail** olayını gözlemle (şimdilik trail_skipped) — backtest A/B/C replay ile karşılaştır.
+2. ENAUSDT direction-fail'ını baş mühendisle görüş (tick/eps kalibrasyonu).
+
+---
+
 ## Son İşlem: 2026-08-06 — SEIUSDT direction-fail döngüsü fix (baş mühendis direktifi): PRE-ENTRY SL-EPS GUARD + SWEEP CONSUMPTION
 
 ### 🔴 Baş mühendis direktifi — ayrı ve ÖNCELİKLİ konu
