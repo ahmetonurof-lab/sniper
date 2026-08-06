@@ -708,6 +708,32 @@ class PaperTrader:
             rsm.reset()
             return
 
+        # ── 1b. PRE-ENTRY SL-eps guard (SEIUSDT direction-fail döngüsü fix) ──
+        # SL/TP, entry fiyatına borsa "immediately trigger" epsilon'undan (2 tick)
+        # yakınsa sinyal BAŞTAN reddedilir — pozisyon hiç açılmaz, gereksiz
+        # MARKET emri + fill-sonrası acil kapanma trafiği (fee/slippage) olmaz.
+        # tick_size bilinemiyorsa (0.0) epsilon hesaplanamaz, guard atlanır
+        # (fill-sonrası validate_protection_with_actual_fill yine devrededir).
+        if tick_size > 0:
+            valid_dir, dir_msg = EntryManager.validate_protection_with_actual_fill(
+                side,
+                entry_price,
+                sl,
+                tp,
+                Decimal(str(tick_size)),
+                epsilon_ticks=cfg.SL_EPSILON_TICKS,
+            )
+            if not valid_dir:
+                log.warning(
+                    "[PRE-ENTRY] %s %s — SL/TP eps icinde, sinyal reddedildi: %s",
+                    sym,
+                    side,
+                    dir_msg,
+                )
+                rsm.reset()
+                ss.sweep_confirmed = False
+                return
+
         # Entry öncesi taze availableBalance (position sizing için)
         if cfg.BINANCE_API_KEY:
             try:

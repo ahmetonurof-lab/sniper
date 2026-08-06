@@ -195,6 +195,58 @@ class TestSweepFVGTrigger:
         assert rsm.state == RetraceState.SWEEP_DETECTED
         assert ss.sweep_confirmed is True
 
+    def test_progress_rsm_idle_consumes_sweep_confirmed_once(self):
+        """SEIUSDT direction-fail fix: IDLE + sweep_confirmed → on_sweep calisir ve
+        bayrak tuketilir (False). Ayni sweep bir sonraki 15m bar'da tekrar
+        tetiklenemez — olu sinyal dongusu kirilir."""
+        rsm = RetraceStateMachine()
+        assert rsm.state == RetraceState.IDLE
+
+        ss = SessionState(start_hour=22, end_hour=2)
+        ss.cbdr_locked = True
+        ss.sweep_confirmed = True
+        ss.sweep_direction = "bullish"
+        ss.sweep_level = 105.0
+        ss.daily_bias = DailyBias.BULLISH
+
+        engine = SignalEngine(rsm)
+        bars = [_bar(i, 100, 102, 98, 101, ts=i * 900000) for i in range(20)]
+        sweep_bar = _bar(20, 101, 106, 99, 105, ts=20 * 900000)
+
+        engine.progress_rsm(bars, sweep_bar, ss, atr_val=1.0)
+
+        assert rsm.state == RetraceState.SWEEP_DETECTED
+        assert ss.sweep_confirmed is False
+
+    def test_progress_rsm_consumed_sweep_does_not_retrigger(self):
+        """SEIUSDT direction-fail fix (a): sweep tuketildikten sonra ayni
+        sweep_confirmed degeriyle tekrar progress_rsm cagrildiginda on_sweep
+        YENIDEN calismaz — ayni seviye her bar'da tekrar aday olmaz."""
+        rsm = RetraceStateMachine()
+
+        ss = SessionState(start_hour=22, end_hour=2)
+        ss.cbdr_locked = True
+        ss.sweep_confirmed = True
+        ss.sweep_direction = "bullish"
+        ss.sweep_level = 105.0
+        ss.daily_bias = DailyBias.BULLISH
+
+        engine = SignalEngine(rsm)
+        bars = [_bar(i, 100, 102, 98, 101, ts=i * 900000) for i in range(20)]
+        sweep_bar = _bar(20, 101, 106, 99, 105, ts=20 * 900000)
+
+        # Bar N: sweep tuketildi
+        engine.progress_rsm(bars, sweep_bar, ss, atr_val=1.0)
+        assert ss.sweep_confirmed is False
+
+        # Bar N+1: sweep_confirmed hala False → IDLE dalindan on_sweep atlanir.
+        # (check_sweep yeni bir sweep yakalamadigi surece olcek sinyal uretilemez.)
+        next_bar = _bar(21, 101, 107, 99, 106, ts=21 * 900000)
+        engine.progress_rsm(bars, next_bar, ss, atr_val=1.0)
+
+        assert ss.sweep_confirmed is False
+        assert rsm.state == RetraceState.SWEEP_DETECTED
+
 
 # ═══════════════════════════════════════════════════════════════════
 # 2) Trigger -> Entry entegrasyon testleri

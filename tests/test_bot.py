@@ -458,6 +458,64 @@ class TestTryEntry:
     @patch("bot.BinanceRESTClient")
     @patch("bot.BinanceWSHub")
     @patch("bot.cfg", autospec=True)
+    @patch("bot.log")
+    @patch("bot.EntryManager")
+    def test_pre_entry_sl_eps_guard_rejects_before_order(
+        self, mock_entry_mgr, mock_log, mock_cfg, mock_hub_cls, mock_rest_cls
+    ):
+        """SEIUSDT direction-fail fix: SL/TP entry fiyatına eps'ten yakınsa
+        sinyal pre-entry reddedilir — MARKET emri gönderilmez, pozisyon hiç
+        açılmaz, acil kapanma trafiği (fee/slippage) oluşmaz."""
+        _setup_minimal_cfg(mock_cfg)
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_entry_mgr.calculate_sl_tp.return_value = (100.0, 118.0)
+        mock_entry_mgr.calculate_qty.return_value = 1.0
+        mock_entry_mgr.validate_risk.return_value = (True, "")
+        mock_entry_mgr.validate_protection_with_actual_fill.return_value = (
+            False,
+            "SL=100.0 >= actual_fill=109.0 - eps=0.0002",
+        )
+
+        from bot import PaperTrader
+
+        bot = PaperTrader(symbols=["BTCUSDT"])
+        bot.rest.get_tick_size = AsyncMock(return_value=0.0001)
+        bot._live = True
+        rsm = bot.rsms["BTCUSDT"]
+        ss = bot.states["BTCUSDT"]
+
+        rsm.state = RetraceState.TRIGGER_READY
+        rsm.direction = "bullish"
+        rsm.trigger_fvg = HTFFVG(
+            top=105.0, bottom=103.0, direction="bullish", bar_index=5
+        )
+        ss.london_high = 110.0
+        ss.london_low = 95.0
+
+        current = _bar(20, 108, 110, 106, 109)
+        asyncio.run(
+            bot._try_entry(
+                sym="BTCUSDT",
+                current=current,
+                atr_val=3.0,
+                rsm=rsm,
+                ss=ss,
+                sweep_dir="bullish",
+                sl_atr=1.5,
+                tp_rr=2.0,
+                fvg_buf=0.3,
+                min_fvg=0.5,
+            )
+        )
+        assert "BTCUSDT" not in bot.active_trades
+        assert rsm.state == RetraceState.IDLE
+        assert ss.sweep_confirmed is False
+        mock_entry_mgr.validate_protection_with_actual_fill.assert_called_once()
+        mock_entry_mgr.return_value.execute_live_entry.assert_not_called()
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
     @patch("bot.EntryManager")
     def test_live_sl_fail_emergency_close_trade_not_recorded(
         self, mock_entry_mgr, mock_cfg, mock_hub_cls, mock_rest_cls
@@ -1321,3 +1379,4 @@ def _setup_minimal_cfg(mock_cfg, balance=1000.0, symbols=None):
     mock_cfg.CBDR_DEAD_THRESHOLD_PCT = 0.5
     mock_cfg.ASIA_DEAD_THRESHOLD_PCT = 0.3
     mock_cfg.DEFAULT_ATR_FALLBACK_PCT = 0.005
+    mock_cfg.SL_EPSILON_TICKS = 2

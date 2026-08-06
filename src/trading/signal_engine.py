@@ -79,8 +79,13 @@ class SignalEngine:
             self.rsm.on_sweep(
                 direction=ss.sweep_direction or "bullish",
                 level=ss.sweep_level or 0.0,
-                bar_index=None,
+                bar_index=current.index,
             )
+            # Sweep tüketildi (SWEEP_DETECTED'e geçildi veya dedup reddetti):
+            # bayrağı temizle. Aksi halde aynı sweep her 15m bar'da yeniden
+            # onaylanıp aynı "ölü" sinyali üretirdi (SEIUSDT direction-fail
+            # döngüsü — giriş reddi sonrası pozisyon açılmadan tekrar denenir).
+            ss.sweep_confirmed = False
 
         if self.rsm.state_name == "SWEEP_DETECTED":
             self.rsm.on_sweep_confirmed(bars_15m, current, atr_val, symbol)

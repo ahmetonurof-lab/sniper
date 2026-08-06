@@ -575,6 +575,12 @@ MIN_SL_DISTANCE_PCT = 0.0015
 # garanti eder (2 tick epsilon x 2 = 4 tick).
 MIN_SL_DISTANCE_TICKS = 4
 
+# Entry-öncesi SL/TP validasyon epsilon'u (tick cinsinden). Borsa
+# "immediately trigger" eşiği: SL/TP, fill fiyatına bu kadar tick yakınsa
+# emir reddedilir. Pre-entry guard, pozisyon hiç açılmadan önce aynı eşiği
+# uygular — gereksiz MARKET emri + acil kapanma trafiğini keser.
+SL_EPSILON_TICKS = 2
+
 # Restart recovery sirasinda gercek ATR yoksa (bot yeni acildi, henuz bar
 # birikmedi) kullanilan ACIL DURUM SL/TP mesafesi. DEFAULT_ATR_FALLBACK_PCT
 # (0.01%) bu amac icin kullanilirsa SL/TP fiilen giris fiyatina yapisir ve

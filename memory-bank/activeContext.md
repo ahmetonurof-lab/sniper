@@ -1,6 +1,42 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: 2026-08-06 — SEIUSDT kök neden + baş mühendis direktifi: TICK-TABANLI SL TABANI (MIN_SL_DISTANCE_TICKS)
+## Son İşlem: 2026-08-06 — SEIUSDT direction-fail döngüsü fix (baş mühendis direktifi): PRE-ENTRY SL-EPS GUARD + SWEEP CONSUMPTION
+
+### 🔴 Baş mühendis direktifi — ayrı ve ÖNCELİKLİ konu
+- Sorun "trade açılıp zararla kapanıyor" DEĞİL, daha kötüsü: her 15m bar'da aynı ölü sinyali üretip **anında acil kapatma** — sistematik kaynak israfı (emir/fee/slippage her denemede) + izlenmesi zor gürültü.
+- Kök neden net: FVG üst sınırı ile SL arası mesafe (0.0001) validasyon epsilon'undan (0.0002) küçük, ama bu **fill sonrası** yakalanıyor (`execute_live_entry` `[SL_TP_VALIDATION]`), entry'den ÖNCE değil.
+- Doğru fix konumu: kontrolü **sinyal üretim/entry pipeline'ının başına** taşı — SL mesafesi eps altındaysa sinyali baştan reddet (MARKET emri + acil kapanma yerine).
+- İki parçalı direktif: (a) aynı FVG neden her bar'da yeniden aday oluyor — invalidate edilmeli mi? (b) SL-eps kontrolünü entry-öncesi validasyona taşı, pozisyon hiç açılmasın.
+
+### 🧩 KÖK NEDEN (a) — aynı ölü sinyalin her bar'da yeniden üretilmesi
+- **`signal_engine.progress_rsm`** (signal_engine.py:78-83) `on_sweep()` çağrısını **`bar_index=None`** ile yapıyordu → `retrace_state.on_sweep` içindeki `is_sweep_used(sweep_id)` dedup'ı (`sweep_id = f"{direction}_{bar_index}"`, retrace_state.py:104-116) **atlanıyordu**; `_mark_sweep_used` de `None` ID ile kalıcı kayıt yapamıyordu.
+- **`_try_entry` red yolları** `rsm.reset()` çağırıyor ama `ss.sweep_confirmed` **hiç temizlenmiyordu** → sonraki 15m bar'da `progress_rsm` aynı sweep'i yeniden onaylayıp aynı FVG'yi tekrar aday gösteriyordu → SEIUSDT direction-fail döngüsü.
+- FVG scan'i aslında aynı seviyeyi "yeniden sunmuyor" — sorun, **sweep'in her bar'da yeniden tetiklenmesi** (önceki turlarda "cooldown yok" diye gözlemlenen şeyin gerçek kök nedeni buydu).
+
+### 🔧 FIX (2 üretim dosyası + 1 config + 2 test dosyası)
+1. **`src/trading/signal_engine.py` `progress_rsm`:** `on_sweep(...)` artık `bar_index=current.index` alıyor (dedup çalışır, sweep_id gerçek bar'a bağlanır) ve çağrı sonrası **`ss.sweep_confirmed = False`** → sweep tüketildi; yeni bir sweep yakalanmadan aynı sinyal bir daha tetiklenemez.
+2. **`src/config.py`:** `SL_EPSILON_TICKS = 2` eklendi (borsa "immediately trigger" epsilon'u, `validate_protection_with_actual_fill` default'u ile birebir).
+3. **`src/bot.py` `_try_entry`:** `validate_risk` kontrolünün hemen ardına **`1b. PRE-ENTRY SL-eps guard`** eklendi:
+   - `tick_size > 0` ise `EntryManager.validate_protection_with_actual_fill(side, entry_price, sl, tp, Decimal(str(tick_size)), epsilon_ticks=cfg.SL_EPSILON_TICKS)`.
+   - Geçemezse → `log.warning("[PRE-ENTRY] ... SL/TP eps icinde, sinyal reddedildi")`, `rsm.reset()`, `ss.sweep_confirmed = False`, return — **emir gönderilmez**.
+   - `tick_size` 0.0 (bilinmiyor) → guard atlanır, fill-sonrası `validate_protection_with_actual_fill` güvenlik ağı olarak kalır.
+4. **`tests/test_bot.py`:** `_setup_minimal_cfg`'ye `SL_EPSILON_TICKS = 2`; yeni `test_pre_entry_sl_eps_guard_rejects_before_order`.
+5. **`tests/test_integration.py`:** `test_progress_rsm_idle_consumes_sweep_confirmed_once` (IDLE + sweep_confirmed → on_sweep çalışır, bayrak False olur) + `test_progress_rsm_consumed_sweep_does_not_retrigger` (tüketilen sweep bir sonraki bar'da yeniden tetiklenmez).
+
+### ✅ Test sonucu
+- test_bot: **27 passed / 13 fail** — fail'ler bilinen pre-existing (MIN_FVG_SIZE KeyError, TestExitTradeWiring); guard testi dahil TestTryEntry 6/6.
+- test_integration + v2 + lifecycle: **47 passed / 19 fail** (önceki 45 passed + 2 yeni test) — 19 fail pre-existing (TestCheckExit API drift, get_max_qty MagicMock await, runtime.status).
+- test_entry_manager + test_retrace_state: **119 passed**.
+- ruff check temiz.
+
+### Sonraki adım
+1. Baş mühendis onayı sonrası Contabo deploy (`git pull` + `screen -S bot` restart).
+2. Canlıda SEIUSDT için: `[PRE-ENTRY]` reddi (kötü senaryo) veya normal SL/TP kurulumu (iyi senaryo — tick tabanlı `MIN_SL_DISTANCE_TICKS=4` devrede); aynı sinyalin birden çok bar'da yeniden denenmemesi.
+3. İlk gerçek trailing updated olayını canlıda gözlemleyip state-sync fix'ini (P2-4) kesin kapat.
+
+---
+
+## Önceki İşlem: 2026-08-06 — SEIUSDT kök neden + baş mühendis direktifi: TICK-TABANLI SL TABANI (MIN_SL_DISTANCE_TICKS)
 
 ### 🔬 Baş mühendis teşhisi (SEIUSDT SL/TP VALIDATION guard'ı)
 - **Teşhis:** `MIN_SL_DISTANCE_PCT=0.0015` entry fiyatına göre hesaplanıyor ama Binance'in "immediately trigger" reddi **fill/current price'a göre epsilon** (2 tick, `validate_protection_with_actual_fill` epsilon_ticks=2) kullanıyor. SEIUSDT ~0.0414'te % tabanı ≈ 0.000062 — bu, borsa epsilon'u 0.0002'den küçük. FVG_SIZE_MAP'teki SEIUSDT 0.020 (backtest onaylı, score=1166) SUÇLU DEĞİL.
