@@ -308,6 +308,29 @@ class TestCalculateSlTp:
         assert tp == pytest.approx(83.0)
 
     @patch("trading.entry_manager.cfg")
+    def test_short_seiusdt_narrow_fvg_tick_floor_passes_validation(self, mock_cfg):
+        mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
+        mock_cfg.MIN_SL_DISTANCE_TICKS = 4
+        mock_cfg.FVG_BUFFER_MIN_FACTOR = 0.10
+        fvg = _mock_fvg(top=0.0414, bottom=0.0411, direction="bearish")
+        sl, tp = EntryManager.calculate_sl_tp(
+            side="short",
+            entry_price=0.0414,
+            risk_pts=0.00075,
+            fvg_buf=0.5,
+            tp_rr=1.8,
+            trigger_fvg=fvg,
+            tick_size=0.0001,
+        )
+        # Tick tabanı = 4 * 0.0001 = 0.0004, % tabanı = 0.000062
+        # raw_sl = 0.0414 + 0.000075 = 0.041475 → 0.0414 + 0.0004 = 0.0418
+        assert sl == pytest.approx(0.0418)
+        valid_dir, dir_msg = EntryManager.validate_protection_with_actual_fill(
+            "short", 0.0414, sl, tp, Decimal("0.0001"), epsilon_ticks=2
+        )
+        assert valid_dir, dir_msg
+
+    @patch("trading.entry_manager.cfg")
     def test_short_fvg_height_zero_fallback(self, mock_cfg):
         mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
         fvg = _mock_fvg(top=100.0, bottom=100.0)  # height=0
@@ -502,6 +525,54 @@ class TestApplyMinSlDistance:
         wide_sl = 102.0
         result = EntryManager.apply_min_sl_distance(entry, wide_sl, "short")
         assert result == wide_sl
+
+    @patch("trading.entry_manager.cfg")
+    def test_long_tick_floor_overrides_pct_when_tighter(self, mock_cfg):
+        mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
+        mock_cfg.MIN_SL_DISTANCE_TICKS = 4
+        entry = 0.0414  # SEIUSDT gibi düşük fiyatlı sembol
+        tight_sl = 0.0415  # 1 tick mesafe — % tabanı (0.000062) yetmiyor
+        result = EntryManager.apply_min_sl_distance(
+            entry, tight_sl, "short", tick_size=0.0001
+        )
+        # tick tabanı = 4 * 0.0001 = 0.0004 > % tabanı 0.000062
+        assert result == entry + 0.0004  # 0.0418
+        assert result > tight_sl
+
+    @patch("trading.entry_manager.cfg")
+    def test_short_tick_floor_expands_when_pct_insufficient(self, mock_cfg):
+        mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
+        mock_cfg.MIN_SL_DISTANCE_TICKS = 4
+        entry = 0.5
+        tight_sl = 0.5003
+        result = EntryManager.apply_min_sl_distance(
+            entry, tight_sl, "short", tick_size=0.001
+        )
+        # tick tabanı = 4 * 0.001 = 0.004 > % tabanı 0.00075
+        assert result == entry + 0.004
+        assert result > tight_sl
+
+    @patch("trading.entry_manager.cfg")
+    def test_wide_sl_unchanged_with_tick_floor(self, mock_cfg):
+        mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
+        mock_cfg.MIN_SL_DISTANCE_TICKS = 4
+        entry = 0.0414
+        wide_sl = 0.0430  # zaten 16 tick mesafe
+        result = EntryManager.apply_min_sl_distance(
+            entry, wide_sl, "short", tick_size=0.0001
+        )
+        assert result == wide_sl
+
+    @patch("trading.entry_manager.cfg")
+    def test_tick_floor_zero_keeps_pct_only(self, mock_cfg):
+        mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
+        mock_cfg.MIN_SL_DISTANCE_TICKS = 4
+        entry = 100.0
+        tight_sl = 99.95
+        result = EntryManager.apply_min_sl_distance(
+            entry, tight_sl, "long", tick_size=0.0
+        )
+        assert result == entry - entry * 0.0015  # 99.85 — eski davranış
 
 
 # ═══════════════════════════════════════════════════════════════════

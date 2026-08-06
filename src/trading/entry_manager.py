@@ -159,6 +159,7 @@ class EntryManager:
         fvg_buf: float,
         tp_rr: float,
         trigger_fvg: "FVG | None",
+        tick_size: float = 0.0,
     ) -> tuple[float, float]:
         """
         Backtest-parity SL/TP hesaplama (analyzer_v5 ile birebir).
@@ -184,7 +185,9 @@ class EntryManager:
             else:
                 raw_sl = entry_price - risk_pts * 2
 
-            sl = EntryManager.apply_min_sl_distance(entry_price, raw_sl, side)
+            sl = EntryManager.apply_min_sl_distance(
+                entry_price, raw_sl, side, tick_size
+            )
             risk_dist = entry_price - sl
             if risk_dist <= 0:
                 raise InvalidProtectionLevel(
@@ -202,7 +205,9 @@ class EntryManager:
             else:
                 raw_sl = entry_price + risk_pts * 2
 
-            sl = EntryManager.apply_min_sl_distance(entry_price, raw_sl, side)
+            sl = EntryManager.apply_min_sl_distance(
+                entry_price, raw_sl, side, tick_size
+            )
             risk_dist = sl - entry_price
             if risk_dist <= 0:
                 raise InvalidProtectionLevel(
@@ -216,8 +221,12 @@ class EntryManager:
     # ── 3. Canlı emir yerleştirme ────────────────────────────────
 
     @staticmethod
-    def apply_min_sl_distance(entry_price: float, sl: float, side: str) -> float:
+    def apply_min_sl_distance(
+        entry_price: float, sl: float, side: str, tick_size: float = 0.0
+    ) -> float:
         min_dist = entry_price * cfg.MIN_SL_DISTANCE_PCT
+        if tick_size > 0:
+            min_dist = max(min_dist, tick_size * cfg.MIN_SL_DISTANCE_TICKS)
         if side == "long":
             min_sl_price = entry_price - min_dist
             return min(sl, min_sl_price)
@@ -551,6 +560,8 @@ class EntryManager:
             order_qty = valid_qty
         protected = False
         if actual_price > 0 and risk_pts > 0:
+            tick_size = await self._rest.get_tick_size(sym)
+            tick_dec = Decimal(str(tick_size))
             try:
                 sl, tp = EntryManager.calculate_sl_tp(
                     side=side,
@@ -559,6 +570,7 @@ class EntryManager:
                     fvg_buf=fvg_buf,
                     tp_rr=tp_rr,
                     trigger_fvg=trigger_fvg,
+                    tick_size=tick_size,
                 )
             except InvalidProtectionLevel as e:
                 log.critical(
@@ -580,8 +592,6 @@ class EntryManager:
                 )
 
             # ── Tick rounding (Decimal, direction-aware) ──
-            tick_size = await self._rest.get_tick_size(sym)
-            tick_dec = Decimal(str(tick_size))
             raw_sl, raw_tp = sl, tp
             rsl, rtp = EntryManager.round_sl_tp(side, sl, tp, tick_dec)
             sl, tp = rsl, rtp

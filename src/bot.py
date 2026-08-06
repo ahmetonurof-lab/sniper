@@ -637,6 +637,13 @@ class PaperTrader:
         risk_pts = atr_val * sl_atr
         fvg = rsm.trigger_fvg
 
+        tick_size = 0.0
+        if getattr(self.rest, "get_tick_size", None) is not None:
+            try:
+                tick_size = await self.rest.get_tick_size(sym)
+            except Exception:
+                tick_size = 0.0
+
         sl, tp = EntryManager.calculate_sl_tp(
             side=side,
             entry_price=entry_price,
@@ -644,6 +651,7 @@ class PaperTrader:
             fvg_buf=fvg_buf,
             tp_rr=tp_rr,
             trigger_fvg=rsm.trigger_fvg,
+            tick_size=tick_size,
         )
 
         trade_id = f"{sym}-{current.index}"

@@ -1,6 +1,36 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: 2026-08-06 — STATE-SYNC FIX (P2-4): trailing → runtime state atomik senkron; üç semptom tek kökten kapatıldı
+## Son İşlem: 2026-08-06 — SEIUSDT kök neden + baş mühendis direktifi: TICK-TABANLI SL TABANI (MIN_SL_DISTANCE_TICKS)
+
+### 🔬 Baş mühendis teşhisi (SEIUSDT SL/TP VALIDATION guard'ı)
+- **Teşhis:** `MIN_SL_DISTANCE_PCT=0.0015` entry fiyatına göre hesaplanıyor ama Binance'in "immediately trigger" reddi **fill/current price'a göre epsilon** (2 tick, `validate_protection_with_actual_fill` epsilon_ticks=2) kullanıyor. SEIUSDT ~0.0414'te % tabanı ≈ 0.000062 — bu, borsa epsilon'u 0.0002'den küçük. FVG_SIZE_MAP'teki SEIUSDT 0.020 (backtest onaylı, score=1166) SUÇLU DEĞİL.
+- **Doğrulama (log):** SEIUSDT 17:00:51/17:15:17 `[SL_TP_VALIDATION] SL=0.0415 <= actual_fill=0.0414 + eps=0.0002` → acil kapanma; risk_dist=7.5e-05 (SL 0.0415 vs fill 0.0414) — % tabanı (6.2e-05) geçiyor ama borsa epsilon'u (2e-04) geçemiyor.
+
+### 🔧 Fix — SL hesap zincirinin SON adımına tick tabanlı mutlak taban (pre-entry + fill-sonrası)
+- **config.py:** `MIN_SL_DISTANCE_TICKS = 4` eklendi (epsilon_ticks=2 × 2 güvenlik payı).
+- **entry_manager.py:**
+  - `apply_min_sl_distance(entry_price, sl, side, tick_size=0.0)`: `min_dist = max(entry_price * MIN_SL_DISTANCE_PCT, tick_size * MIN_SL_DISTANCE_TICKS)` (tick_size>0 ise).
+  - `calculate_sl_tp(..., tick_size=0.0)` — imzaya opsiyonel parametre; iki `apply_min_sl_distance` çağrısına geçirildi.
+  - `execute_live_entry`: `get_tick_size` tek çağrı (try öncesi), `calculate_sl_tp`'ye geçiriliyor, tick rounding aynı tick_dec kullanıyor.
+- **bot.py `_try_entry`:** pre-entry SL/TP hesabında `get_tick_size` (önbellekli, başarısızlıkta 0.0 → eski davranış) alınıp `calculate_sl_tp`'ye geçiriliyor.
+- **FVG_SIZE_MAP SEIUSDT 0.020'ye DOKUNULMADI** (baş mühendis direktifi).
+- SEIUSDT senaryosunda: SL 0.041475 → tick tabanı 4×0.0001=0.0004 → SL 0.0418; `validate_protection_with_actual_fill` (eps=2 tick) ARTIK GEÇİYOR → acil kapanma yerine normal koruma kurulur.
+
+### ✅ Test sonucu
+- test_entry_manager: **86 passed** (5 yeni tick tabanı testi: SEIUSDT uçtan uca `test_short_seiusdt_narrow_fvg_tick_floor_passes_validation` + 4 `TestApplyMinSlDistance` tick testi).
+- test_bot (26 pass) + test_integration/integration_v2/lifecycle (45 pass): kırılan YOK — 19 (integration) + 13 (test_bot) fail **pre-existing** (git stash baseline ile birebir doğrulandı: HEAD'de de aynı; `mark_trade_closed`/`_stage`/`MIN_FVG_SIZE` kayıp migration, TestCheckExit API drift, `get_max_qty` MagicMock await, runtime.status).
+- ruff check + format temiz; mypy yalnızca dokunulmayan dosyalarda (trailing_manager/exit_lifecycle) pre-existing hata veriyor.
+
+### ⚠️ Backtest parity notu
+- Tick tabanlı taban **sadece canlı** `sniper` tarafına eklendi; `backtest-sniper` `analyzer_v5.py` aynı `adaptive_buf` formülünü kullanıyor ama tick tabanlı SL tabanı YOK. Canlıda dar FVG'li düşük fiyat sembollerinde SL itilir, backtest'te itilmez — küçük bir canlı/backtest sapması oluştu. Baş mühendise görüşülmesi gereken parity konusu (FVG_SIZE_MAP'e dokunmadan backtest'e aynı tabanın eklenip eklenmeyeceği).
+
+### Sonraki adım
+1. Bu fix deploy edilecekse Contabo'da `git pull` + bot restart; ardından SEIUSDT sinyali 15m bar'ında `[SL_TP_VALIDATION]` reddi yerine normal SL/TP kurulumu görülmeli.
+2. Baş mühendis çıkınca: bu turun raporu + memory-bank'a ek bulgular (FVG kenarına giriş filtresi, başarısız entry sonrası cooldown — direktif kapsamı dışında kalan öneriler).
+3. ATR-chase replay paralel sürüyor; state-sync fix sonrası canlıya alınması görüşülecek.
+
+---
+
 
 ### 🔬 Hipotez doğrulandı (genişletilmiş hal)
 - **Hipotez:** orphan_sweep canlı emirleri tanıma işlemini `runtime.protection.sl_current` gibi state alanına bakarak yapıyorsa, trailing bu alanı güncellemediği için trailed SL emri (0.089049) orphan sayılıp iptal ediliyor; recovery eski/ham değerlerle (0.093530) yeniden kuruyor. NEARUSDT `sl_current=None` + SOLUSDT `no_better_trail_candidate` yanlış reddiyle aynı kök.

@@ -569,6 +569,12 @@ FVG_BUFFER_MIN_FACTOR = 0.10
 # ATR bazlı SL hesaplamasını BOZMAZ, sadece taban garanti altına alır.
 MIN_SL_DISTANCE_PCT = 0.0015
 
+# Exchange'in "immediately trigger" eşiği (validate_protection_with_actual_fill
+# epsilon_ticks=2) üzerinde güvenlik payı bırakır. Fiyat çok düşük sembollerde
+# % tabanı tick cinsinden anlamsız küçük kalabilir; bu mutlak tick tabanı
+# garanti eder (2 tick epsilon x 2 = 4 tick).
+MIN_SL_DISTANCE_TICKS = 4
+
 # Restart recovery sirasinda gercek ATR yoksa (bot yeni acildi, henuz bar
 # birikmedi) kullanilan ACIL DURUM SL/TP mesafesi. DEFAULT_ATR_FALLBACK_PCT
 # (0.01%) bu amac icin kullanilirsa SL/TP fiilen giris fiyatina yapisir ve
