@@ -325,10 +325,12 @@ class PaperTrader:
         """Post-entry pencerede her 15m bar'da taze FVG taramasi yapan extractor.
 
         rsm.trigger_fvg (entry'nin tek FVG'si) yerine backtest (analyzer_v5)
-        ile ayni kurali uygular: detect_fvgs + fvg_close_confirmed + ATR buffer
-        (ATR_TRAIL_MULT) + TRAIL_MIN_MOVE_MULT, birden fazla FVG'ye atlayabilir
-        (coklu-hop). Dondurulen SL seviyesi sl_buffered=True ile isaretlenir
-        (compute_trail_candidate tick x2 buffer uygulamaz).
+        ile ayni kurali uygular: detect_fvgs + fvg_confirm_mode (retrace /
+        continuation) + ATR buffer (ATR_TRAIL_MULT) + TRAIL_MIN_MOVE_MULT,
+        birden fazla FVG'ye atlayabilir (coklu-hop). is_placeable: turetilen
+        SL'nin current price'tan uygun tarafta oldugu dogrulanir (stale
+        candidate uretmez). Dondurulen SL seviyesi sl_buffered=True ile
+        isaretlenir (compute_trail_candidate tick x2 buffer uygulamaz).
         """
 
         def extractor(scoped_bars, trade):
@@ -344,7 +346,11 @@ class PaperTrader:
             min_fvg_size = max(atr_val * min_mult, 1e-8)
 
             res = TrailingManager._fvg_multihop(
-                scoped_bars, trade, atr_val, min_fvg_size
+                scoped_bars,
+                trade,
+                atr_val,
+                min_fvg_size,
+                current_price=float(scoped_bars[-1].close),
             )
             if not res.updated or res.last_bar_index is None:
                 return None

@@ -384,6 +384,175 @@ class TestEvaluateTrail:
         assert result.exit_now is False
         assert result.updated is False  # zaten iyilesme degil — davranis ayni
 
+    # ── FVG confirm-mode: retrace vs continuation ──
+
+    @patch("trading.trailing_manager.cfg")
+    def test_short_continuation_on_close_below_fvg_bottom(self, mock_cfg):
+        """Short: close < fvg.bottom → continuation confirm.
+        SL = fvg.bottom + atr_buffer (retrace'teki fvg.top + buffer'dan daha siki)."""
+        mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
+        mock_cfg.ATR_TRAIL_MULT = 0.25
+        trade = _trade(side="short", entry_price=100.0, sl=103.0, tp=94.0, risk_pts=3.0)
+
+        # bearish FVG at i=1: top=99, bottom=98; bar3 close 94 < bottom → continuation
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 99, 101, 97, 98),
+            _bar(2, 96, 98, 93, 95),
+            _bar(3, 95, 97, 93, 94),
+            _bar(4, 92, 95, 91, 93),  # current (chunk'tan haric)
+        ]
+        # atr_buffer = 0.3 * 0.25 = 0.075; continuation new_sl = 98 + 0.075 = 98.075
+        result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
+
+        assert result.updated is True
+        assert result.new_sl == pytest.approx(98.075)
+        assert result.new_tp == pytest.approx(94.0 - (103.0 - 98.075))
+        assert result.trail_count == 1
+
+    @patch("trading.trailing_manager.cfg")
+    def test_long_continuation_on_close_above_fvg_top(self, mock_cfg):
+        """Long: close > fvg.top → continuation confirm. SL = fvg.top - atr_buffer."""
+        mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
+        mock_cfg.ATR_TRAIL_MULT = 0.25
+        trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
+
+        # bullish FVG at i=2: top=105, bottom=104; bar4 close 109 > top → continuation
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 101, 104, 100, 102),
+            _bar(2, 103, 106, 102, 105),
+            _bar(3, 106, 109, 105, 107),
+            _bar(4, 108, 110, 107, 109),
+            _bar(5, 110, 112, 109, 111),  # current (chunk'tan haric)
+        ]
+        # continuation new_sl = 105 - 0.075 = 104.925
+        result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
+
+        assert result.updated is True
+        assert result.new_sl == pytest.approx(104.925)
+        assert result.new_tp == pytest.approx(106.0 + (104.925 - 97.0))
+        assert result.trail_count == 1
+
+    def test_bearish_close_above_top_is_invalidation_not_continuation(self):
+        """Yon kontrolu: short (bearish FVG) icin close > fvg.top invalidation'dir,
+        continuation degil → trailing tetiklenmez."""
+        trade = _trade(side="short", entry_price=100.0, sl=103.0, tp=94.0, risk_pts=3.0)
+
+        # bearish FVG at i=1: top=109, bottom=108; bar3 close 111 > top → invalidation
+        bars = [
+            _bar(0, 110, 113, 109, 111),
+            _bar(1, 109, 111, 107, 108),
+            _bar(2, 106, 108, 103, 105),
+            _bar(3, 110, 112, 109, 111),
+            _bar(4, 111, 113, 110, 112),  # current
+        ]
+        result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
+        assert result.updated is False
+
+    def test_bullish_close_below_bottom_is_invalidation_not_continuation(self):
+        """Yon kontrolu: long (bullish FVG) icin close < fvg.bottom invalidation'dir,
+        continuation degil → trailing tetiklenmez."""
+        trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
+
+        # bullish FVG at i=2: top=105, bottom=104; bar4 close 103 < bottom → invalidation
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 101, 104, 100, 102),
+            _bar(2, 103, 106, 102, 105),
+            _bar(3, 106, 109, 105, 107),
+            _bar(4, 102, 104, 101, 103),
+            _bar(5, 101, 103, 100, 102),  # current
+        ]
+        result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
+        assert result.updated is False
+
+    @patch("trading.trailing_manager.cfg")
+    def test_is_placeable_blocks_stale_short_candidate(self, mock_cfg):
+        """is_placeable: fvg.top + buffer, current close'un altinda kaliyorsa stale →
+        hop yok. (ALGO 01:00:44 ornegi: aday sl=0.089049 < price=0.0897.)"""
+        mock_cfg.TRAIL_MIN_MOVE_MULT = 0.2
+        mock_cfg.ATR_TRAIL_MULT = 0.10
+        trade = _trade(side="short", entry_price=100.0, sl=103.0, tp=94.0, risk_pts=3.0)
+
+        # bearish FVG at i=1: top=99, bottom=98; bar3 close 99.5 in gap → retrace
+        # new_sl = 99 + 0.3*0.10 = 99.03 < current close 99.5 → stale
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 99, 101, 97, 98),
+            _bar(2, 96, 98, 93, 95),
+            _bar(3, 98.9, 100, 98, 99.5),
+            _bar(4, 100, 101, 99.5, 100.2),  # current
+        ]
+        result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
+        assert result.updated is False
+
+    @patch("trading.trailing_manager.cfg")
+    def test_is_placeable_blocks_stale_long_candidate(self, mock_cfg):
+        """is_placeable: fvg.bottom - buffer, current close'un ustunde kaliyorsa
+        stale → hop yok (long simetrik kontrol)."""
+        mock_cfg.TRAIL_MIN_MOVE_MULT = 0.2
+        mock_cfg.ATR_TRAIL_MULT = 0.10
+        trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
+
+        # bullish FVG at i=2: top=105, bottom=104; bar4 close 103.5 in gap → retrace
+        # new_sl = 104 - 0.03 = 103.97 > current close 103.5 → stale
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 101, 104, 100, 102),
+            _bar(2, 103, 106, 102, 105),
+            _bar(3, 106, 109, 105, 107),
+            _bar(4, 102.5, 104, 102, 103.5),
+            _bar(5, 102, 103.5, 101, 102.5),  # current
+        ]
+        result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
+        assert result.updated is False
+
+    @patch("trading.trailing_manager.cfg")
+    def test_retrace_ilk_onay_kazanir_continuation_ezmez(self, mock_cfg):
+        """Once gap ici close (retrace) sonra far-side close gelirse retrace SL
+        kullanilir; continuation SL (daha siki) ilk onayi ezmez."""
+        mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
+        mock_cfg.ATR_TRAIL_MULT = 0.25
+        trade = _trade(side="short", entry_price=100.0, sl=103.0, tp=94.0, risk_pts=3.0)
+
+        # bearish FVG at i=1: top=99, bottom=98
+        # bar3 close 98.8 in gap → retrace (ilk onay); bar4 close 96.5 < bottom gorulmez
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 99, 101, 97, 98),
+            _bar(2, 96, 98, 93, 95),
+            _bar(3, 98.5, 100, 98, 98.8),
+            _bar(4, 96, 98, 95, 96.5),
+            _bar(5, 95, 97, 94, 96),  # current
+        ]
+        result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
+        assert result.updated is True
+        assert result.new_sl == pytest.approx(99.075)  # retrace: 99 + 0.075
+        assert result.new_tp == pytest.approx(94.0 - (103.0 - 99.075))
+
+    @patch("trading.trailing_manager.cfg")
+    def test_continuation_stale_after_price_return_blocked(self, mock_cfg):
+        """Continuation onaylanir ama SL fiyatin gerisinde kalirsa hop olmaz
+        (is_placeable) — stale candidate sorununun continuation kopyasi."""
+        mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
+        mock_cfg.ATR_TRAIL_MULT = 0.25
+        trade = _trade(side="short", entry_price=100.0, sl=103.0, tp=94.0, risk_pts=3.0)
+
+        # bearish FVG at i=1: top=99, bottom=98
+        # bar3 close 94 < bottom → continuation onayi; ama bar4 fiyat 98.8'e dondu →
+        # new_sl = 98.075 < current 98.8 → stale → hop yok
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 99, 101, 97, 98),
+            _bar(2, 96, 98, 93, 95),
+            _bar(3, 95, 97, 93, 94),
+            _bar(4, 98.5, 100, 98, 98.8),
+            _bar(5, 97, 99, 96, 98),  # current
+        ]
+        result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
+        assert result.updated is False
+
 
 # ═══════════════════════════════════════════════════════════════════
 # check_exit tests

@@ -350,12 +350,13 @@ class TrailingManager:
             candidate=candidate,
         )
 
-    def check_exit(self, current_bar: BarLike, trade: Trade) -> ExitDecision:
-        side = self._side(trade)
-        stop_loss = self._read_price(trade, "stop_loss", "sl")
-        take_profit = self._read_price(trade, "take_profit", "tp")
-        high = self._decimal(self._get(current_bar, "high"))
-        low = self._decimal(self._get(current_bar, "low"))
+    @staticmethod
+    def check_exit(current_bar: BarLike, trade: Trade) -> ExitDecision:
+        side = TrailingManager._side(trade)
+        stop_loss = TrailingManager._read_price(trade, "stop_loss", "sl")
+        take_profit = TrailingManager._read_price(trade, "take_profit", "tp")
+        high = TrailingManager._decimal(TrailingManager._get(current_bar, "high"))
+        low = TrailingManager._decimal(TrailingManager._get(current_bar, "low"))
 
         if side == "long":
             if stop_loss is not None and low <= stop_loss:
@@ -513,10 +514,11 @@ class TrailingManager:
     def _decimal(value: Any) -> Decimal:
         return value if isinstance(value, Decimal) else Decimal(str(value))
 
-    def _read_price(self, trade: Trade, *keys: str) -> Optional[Decimal]:
+    @staticmethod
+    def _read_price(trade: Trade, *keys: str) -> Optional[Decimal]:
         for key in keys:
             if key in trade and trade[key] is not None:
-                return self._decimal(trade[key])
+                return TrailingManager._decimal(trade[key])
         return None
 
     @staticmethod
@@ -535,7 +537,18 @@ class TrailingManager:
         return ticks.quantize(Decimal("1"), rounding=rounding) * tick_size
 
     @staticmethod
-    def _fvg_close_confirmed(fvg: FVG, bars: list[Bar]) -> bool:
+    def _fvg_confirm_mode(fvg: FVG, bars: list[Bar]) -> Optional[str]:
+        """FVG icin onay modunu dondurur: "retrace" veya "continuation".
+
+        - "retrace": fiyat gap icinde kapandi (mevcut davranis).
+        - "continuation": fiyat pozisyon lehine far-side kapandi
+          (bullish: close > top, long lehine; bearish: close < bottom, short lehine).
+        - None: invalidation (bullish: close < bottom, bearish: close > top)
+          veya henuz onay yok. Aksi yon invalidation ile elenir,
+          continuation ile karistirilmaz.
+        Ilk gorulen onay kazanir — retrace oncesi continuation veya tam tersi
+        deterministik sekilde ilk bar'a gore karar verir (birbirini ezmez).
+        """
         scan_from = fvg.real_index + 2
         for b in bars:
             if b.index < scan_from:
@@ -543,16 +556,20 @@ class TrailingManager:
             if not b.is_closed:
                 break
             if fvg.direction == "bullish":
-                if b.close < fvg.bottom:
-                    return False
-                if fvg.bottom <= b.close <= fvg.top:
-                    return True
-            else:
                 if b.close > fvg.top:
-                    return False
+                    return "continuation"
+                if b.close < fvg.bottom:
+                    return None
                 if fvg.bottom <= b.close <= fvg.top:
-                    return True
-        return False
+                    return "retrace"
+            else:
+                if b.close < fvg.bottom:
+                    return "continuation"
+                if b.close > fvg.top:
+                    return None
+                if fvg.bottom <= b.close <= fvg.top:
+                    return "retrace"
+        return None
 
     @staticmethod
     def _fvg_multihop(
@@ -560,18 +577,27 @@ class TrailingManager:
         trade: Trade,
         atr_val: float,
         min_fvg_size: float,
+        current_price: Optional[float] = None,
     ) -> TrailScanResult:
         """Backtest (analyzer_v5) trailing adimlarinin birebir kopyasi.
 
         Post-entry pencerede her 15m bar'da taze FVG taramasi yapar ve
-        fvg_close_confirmed + ATR buffer + TRAIL_MIN_MOVE_MULT sartlariyla
-        birden fazla FVG'ye atlayabilir (coklu-hop). TP delta-shift ile
-        SL'deki her degisiklik kadar kayar (RR yeniden hesaplanmaz).
+        fvg_confirm_mode (retrace veya continuation) + ATR buffer +
+        TRAIL_MIN_MOVE_MULT sartlariyla birden fazla FVG'ye atlayabilir
+        (coklu-hop). TP delta-shift ile SL'deki her degisiklik kadar kayar
+        (RR yeniden hesaplanmaz).
+
+        is_placeable: uretilen SL'nin current price'tan uygun tarafta
+        oldugu dogrulanir (long: new_sl < fvg bottom/top tabanli fiyat,
+        short: new_sl > fiyat). FVG'den tureyen seviye fiyatin gerisinde
+        kalip stale candidate uretmesin diye hop oncesi kontrol edilir.
         """
         if not bars_15m or len(bars_15m) <= 1:
             return TrailScanResult()
 
         chunk = bars_15m[:-1] if len(bars_15m) > 1 else bars_15m
+        if current_price is None and chunk:
+            current_price = float(chunk[-1].close)
         fvgs = detect_fvgs(
             chunk,
             lookback=min(50, len(chunk)),
@@ -594,15 +620,20 @@ class TrailingManager:
                 continue
             if side == "short" and fvg.direction != "bearish":
                 continue
-            if not TrailingManager._fvg_close_confirmed(fvg, chunk):
+            mode = TrailingManager._fvg_confirm_mode(fvg, chunk)
+            if mode is None:
                 continue
 
             hopped = False
             if side == "long":
-                new_sl = fvg.bottom - atr_buffer
+                if mode == "continuation":
+                    new_sl = fvg.top - atr_buffer
+                else:
+                    new_sl = fvg.bottom - atr_buffer
                 if (
                     new_sl > current_sl
                     and (new_sl - current_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
+                    and (current_price is None or new_sl < current_price)
                 ):
                     sl_diff = new_sl - current_sl
                     current_sl = new_sl
@@ -610,10 +641,14 @@ class TrailingManager:
                     trail_count += 1
                     hopped = True
             else:
-                new_sl = fvg.top + atr_buffer
+                if mode == "continuation":
+                    new_sl = fvg.bottom + atr_buffer
+                else:
+                    new_sl = fvg.top + atr_buffer
                 if (
                     new_sl < current_sl
                     and (current_sl - new_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
+                    and (current_price is None or new_sl > current_price)
                 ):
                     sl_diff = current_sl - new_sl
                     current_sl = new_sl
