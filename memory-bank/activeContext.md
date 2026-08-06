@@ -24,9 +24,14 @@
 ### ⚠️ Backtest parity notu
 - Tick tabanlı taban **sadece canlı** `sniper` tarafına eklendi; `backtest-sniper` `analyzer_v5.py` aynı `adaptive_buf` formülünü kullanıyor ama tick tabanlı SL tabanı YOK. Canlıda dar FVG'li düşük fiyat sembollerinde SL itilir, backtest'te itilmez — küçük bir canlı/backtest sapması oluştu. Baş mühendise görüşülmesi gereken parity konusu (FVG_SIZE_MAP'e dokunmadan backtest'e aynı tabanın eklenip eklenmeyeceği).
 
+### 🔍 Bu turun ek bulguları — direktif kapsamı DIŞINDA (baş mühendise gösterilecek)
+Direktif yalnızca tick tabanlı tabanı kapsadı; SEIUSDT soruşturmasında bunun DIŞINDA kalan 2 gözlem not edildi:
+1. **FVG kenarına giriş filtresi yok:** SEIUSDT sinyali FVG üst sınırından (0.0414) short'a giriyor; SL = FVG top + adaptive_buf → entry ile SL arası yapısal olarak dar. Entry fiyatı FVG kenarındayken SL'nin fill'e yakın kalması kaçınılmaz. Öneri: entry fiyatının FVG kenarına denk gelmesi durumunda ya FVG içi giriş (entry kenardan içeride) ya da bu senaryoda SL itme kuralı (backtest ile doğrulanmadan devreye ALINMAMALI — kullanıcı önceliği "backtest bekliyor").
+2. **Başarısız entry sonrası cooldown yok:** SEIUSDT aynı sinyal her 15m bar'da yeniden üretildi (17:00:51 ve 17:15:17) ve her seferinde guard → acil kapanma. Başarısız/filtre-reddi entry sonrası sembole özel kısa cooldown (örn. 1 bar) yok — aynı FVG'li sinyal tekrar tekrar deneniyor.
+
 ### Sonraki adım
 1. Bu fix deploy edilecekse Contabo'da `git pull` + bot restart; ardından SEIUSDT sinyali 15m bar'ında `[SL_TP_VALIDATION]` reddi yerine normal SL/TP kurulumu görülmeli.
-2. Baş mühendis çıkınca: bu turun raporu + memory-bank'a ek bulgular (FVG kenarına giriş filtresi, başarısız entry sonrası cooldown — direktif kapsamı dışında kalan öneriler).
+2. Baş mühendis çıkınca: bu turun raporu + ek bulgular (FVG kenarına giriş filtresi, başarısız entry cooldown — direktif kapsamı dışında kalan öneriler, backtest parity notu).
 3. ATR-chase replay paralel sürüyor; state-sync fix sonrası canlıya alınması görüşülecek.
 
 ---
