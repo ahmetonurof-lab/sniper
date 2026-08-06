@@ -1,5 +1,34 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-06 güncel log analizi — deploy teyidi DAVRANIŞSAL DOĞRULANDI; stale backstop çalıştı; state bug deseni sürüyor
+
+Yeni indirilen 3 dosya (paper_trade.log 1.6MB restart 00:22:52 → 10:12, trades_history.jsonl 448 trade, events_2026-08-06.jsonl 32 event) analiz edildi.
+
+### ✅ Deploy teyidi — davranışsal olarak DOĞRULANDI (git-hash için sunucu komutu hâlâ tek kesin yol)
+- Restart sonrası **7 yeni canlı entry**: NEAR 04:30, APT 05:00+05:15, LDO 05:30, PYTH 06:00, SEI 09:15, TIA 10:00. Hepsi `[ORDER] SL OK/TP OK` + `[POST_ENTRY] sanity check OK` INFO seviyesinde.
+- Post-entry check 7/7 çalıştı; `[POST_ENTRY_DEBUG]` WARNING (bot.py:838 + order_manager.py:386) **sıfır** → `bc73b5c` + `1a439c9` canlıda (önceki turda bu yol "hiç çalışmadı, kanıtlanamaz"dı — artık 7 kez çalıştı).
+- `[P1-15_DEBUG]` (bot.py:582) sıfır → `1a439c9` doğrulandı.
+- Trail reason'ları `identical_candidate_already_applied` (trailing_manager.py:240) ve `no_protection_update_required` (:312) kaynak kodla birebir eşleşiyor → canlı kod = yerel HEAD davranışı.
+- Bot başlangıçta hâlâ commit hash basmıyor (log'da `[VERSION]` yok; yalnızca JSONL `schema_version`). Kesin teyit: sunucuda `git log -1 --oneline` → beklenen `bc73b5c`.
+
+### ✅ SOLUSDT koruması — endişe TAMAMEN kapandı
+- events: SOLUSDT art arda `orphan_cleaned` + **`[RECOVER] SOLUSDT icin Binance uzerinde SL/TP emirleri olusturuldu`** (02:01 sl=1000000157641573/tp=...1577, 02:02 ...2493/...2497, 02:15 ...9249/...9255). Recovery, iptal edilen korumaları borsaya YENİDEN yerleştiriyor. Kullanıcının Binance open-orders teyidi + recovery log'ları → korumasız-pozisyon senaryosu geçersiz.
+
+### ✅ P1-15 stale backstop ÇALIŞTI (exit_lifecycle)
+- LINKUSDT SL stale #1→#8 (04:42-04:57), **#9 backstop**: "pozisyon kapanmisti, active_trades'ten cikariliyor" — pozisyon zaten kapanmıştı, trade temizlendi; stale zinciri kırıldı.
+- ARBUSDT TP stale #1 (05:00), GMXUSDT TP stale #1 (07:17), SEIUSDT SL stale #1→#4 (09:59-10:02), SOLUSDT SL stale #1 (02:16) — hepsi doğru iptal edildi. WS FILLED gecikmesi SÜRÜYOR (P1-15 kök neden açık, mitigasyonlar çalışıyor).
+
+### 🔍 State/raporlama bug'ı deseni SÜRÜYOR
+- NEARUSDT trailing yaptı (trail_count=1, trail_steps dolu, `protection_orders` **DOLU**: sl `1000000157804391`/tp `1000000157804396`, `last_applied_fingerprint=short|1.710|1.665|519|1000`) ama `runtime.protection.sl_current=None`. Trailing koruma değiştirdiğinde runtime state'e yazılmıyor → 26-trade bulgusu (2026-07-30→08-05) ile tutarlı, sistemik.
+- Yeni trade'lerde (NEAR/APT/LDO/PYTH/SEI/TIA) `entry_order_id` DOLU; recovered'larda (ENA/ARB/TIA/GMX) boş — beklenen.
+
+### Sonraki adım
+1. Baş mühendise karar isteği: (a) recovery-state bug'ı (trailing sonrası `runtime.protection` yazılmıyor) yeni görev olarak eklensin mi? — öneri: evet, orta öncelik; (b) ATR-chase replay K=0.5/1.0/1.5 başlatılsın mı? — öneri: EVET, deploy teyidi davranışsal kapandı.
+2. Kullanıcıdan sunucuda `git log -1 --oneline` ile kesin hash teyidi (opsiyonel, davranışsal kanıt yeterli).
+3. Kalıcı: bot startup'ına `[VERSION] git=<hash>` log satırı önerisi (deploy teyidini log'dan yapılabilir kılar) — onay bekliyor.
+
+---
+
 ## Son İşlem: 2026-08-06 canlı teyit — log fix CANLI doğrulandı; SOLUSDT/ONDO korumasız tespit edildi (KRİTİK)
 
 Yeni sunucu dosyaları (paper_trade.log 552 satır run `paper-20260805-212252`, trades_history.jsonl 440, events_2026-08-06.jsonl) analiz edildi.
