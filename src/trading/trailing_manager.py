@@ -590,16 +590,18 @@ class TrailingManager:
     ) -> TrailScanResult:
         """Backtest (analyzer_v5) trailing adimlarinin birebir kopyasi.
 
-        Post-entry pencerede her 15m bar'da taze FVG taramasi yapar ve
-        fvg_confirm_mode (retrace veya continuation) + ATR buffer +
-        TRAIL_MIN_MOVE_MULT sartlariyla birden fazla FVG'ye atlayabilir
-        (coklu-hop). TP delta-shift ile SL'deki her degisiklik kadar kayar
-        (RR yeniden hesaplanmaz).
+        D Modu (TRAIL_MODE="activation", varsayilan):
+        1. FVG retrace-only onay (fvg_close_confirmed) her zaman aktiftir;
+           continuation onayi kullanilmaz (backtest ile birebir).
+        2. FVG adayi bulunamazsa (updated=False) ve unrealized kar >=
+           TRAIL_ACTIVATION_R_MULT * risk_pts (1.5R) ise ATR-Chase fallback:
+           new_sl = current_price ∓ CONT_BUFFER_MULT * ATR (K=2.0).
+           Esik altinda fallback PASIFTIR — SL/TP yalnizca FVG varsa hareket eder.
+        3. TP, SL'deki her degisiklik kadar paralel kayar (PTrail).
 
-        is_placeable: uretilen SL'nin current price'tan uygun tarafta
-        oldugu dogrulanir (long: new_sl < fvg bottom/top tabanli fiyat,
-        short: new_sl > fiyat). FVG'den tureyen seviye fiyatin gerisinde
-        kalip stale candidate uretmesin diye hop oncesi kontrol edilir.
+        is_placeable: activation/retrace modlarinda backtest ile birebir olarak
+        uygulanmaz (stale kontrolu yok); continuation/atr_chase modlarinda
+        uretilen SL'nin current price'tan uygun tarafta oldugu dogrulanir.
         """
         if not bars_15m or len(bars_15m) <= 1:
             return TrailScanResult()
@@ -625,23 +627,31 @@ class TrailingManager:
         atr_buffer_retrace = atr_val * cfg.ATR_TRAIL_MULT
         atr_buffer_continuation = atr_val * cfg.ATR_TRAIL_MULT_CONTINUATION
 
+        retrace_only = cfg.TRAIL_MODE in ("retrace", "activation")
+
         for fvg in fvgs:
             if side == "long" and fvg.direction != "bullish":
                 continue
             if side == "short" and fvg.direction != "bearish":
                 continue
 
-            mode = TrailingManager._fvg_confirm_mode(
-                fvg, chunk, cfg.CONTINUATION_CONFIRM_BARS
-            )
-            if mode is None:
-                continue
+            if retrace_only:
+                if not TrailingManager._fvg_close_confirmed(fvg, chunk):
+                    continue
+                mode = "retrace"
+            else:
+                mode = TrailingManager._fvg_confirm_mode(
+                    fvg, chunk, cfg.CONTINUATION_CONFIRM_BARS
+                )
+                if mode is None:
+                    continue
 
             atr_buffer = (
                 atr_buffer_continuation
                 if mode == "continuation"
                 else atr_buffer_retrace
             )
+            placeable = not retrace_only
             hopped = False
             if side == "long":
                 if mode == "continuation":
@@ -651,7 +661,7 @@ class TrailingManager:
                 if (
                     new_sl > current_sl
                     and (new_sl - current_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
-                    and (current_price is None or new_sl < current_price)
+                    and (not placeable or new_sl < current_price)
                 ):
                     sl_diff = new_sl - current_sl
                     current_sl = new_sl
@@ -666,7 +676,7 @@ class TrailingManager:
                 if (
                     new_sl < current_sl
                     and (current_sl - new_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
-                    and (current_price is None or new_sl > current_price)
+                    and (not placeable or new_sl > current_price)
                 ):
                     sl_diff = current_sl - new_sl
                     current_sl = new_sl
@@ -693,6 +703,59 @@ class TrailingManager:
                     current_tp,
                 )
 
+        # ── D Modu fallback: FVG adayi yoksa 1.5R kilitli ATR-Chase ──
+        if cfg.TRAIL_MODE in ("atr_chase", "activation") and not updated:
+            entry = trade["entry_price"]
+            upnl_pts = (
+                current_price - entry if side == "long" else entry - current_price
+            )
+            if cfg.TRAIL_MODE != "activation" or upnl_pts >= (
+                cfg.TRAIL_ACTIVATION_R_MULT * risk_pts
+            ):
+                atr_buffer = atr_val * cfg.CONT_BUFFER_MULT
+                if side == "long":
+                    new_sl = current_price - atr_buffer
+                    if (
+                        new_sl > current_sl
+                        and (new_sl - current_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
+                        and new_sl < current_price
+                    ):
+                        sl_diff = new_sl - current_sl
+                        current_sl = new_sl
+                        current_tp += sl_diff
+                        trail_count += 1
+                        updated = True
+                else:
+                    new_sl = current_price + atr_buffer
+                    if (
+                        new_sl < current_sl
+                        and (current_sl - new_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
+                        and new_sl > current_price
+                    ):
+                        sl_diff = current_sl - new_sl
+                        current_sl = new_sl
+                        current_tp -= sl_diff
+                        trail_count += 1
+                        updated = True
+                if updated:
+                    last_bar_index = int(chunk[-1].index) if chunk else None
+                    trail_steps.append(
+                        {
+                            "sl": round(current_sl, 6),
+                            "tp": round(current_tp, 6),
+                            "fvg_top": None,
+                            "fvg_bot": None,
+                            "bar": last_bar_index,
+                            "reason": "atr_chase_fallback",
+                        }
+                    )
+                    log.info(
+                        "[TRAIL] ATR-chase fallback trail#%d sl=%.6f tp=%.6f",
+                        trail_count,
+                        current_sl,
+                        current_tp,
+                    )
+
         if updated:
             return TrailScanResult(
                 updated=True,
@@ -702,6 +765,31 @@ class TrailingManager:
                 last_bar_index=last_bar_index,
             )
         return TrailScanResult()
+
+    @staticmethod
+    def _fvg_close_confirmed(fvg: FVG, all_bars: list[Bar]) -> bool:
+        """Backtest (analyzer_v5 fvg_close_confirmed) birebir kopyasi.
+
+        Yalnizca gap ici kapanis onaylar; pozisyon lehine far-side kapanis
+        (bullish: close > top) FVG'yi ELIMINE ETMEZ, donguye devam eder
+        (sonraki gap ici kapanis onay verebilir). Aksi yon
+        (bullish: close < bottom) invalidation = False.
+        """
+        scan_from = fvg.real_index + 2
+        for b in all_bars:
+            if b.index < scan_from:
+                continue
+            if fvg.direction == "bullish":
+                if b.close < fvg.bottom:
+                    return False
+                if fvg.bottom <= b.close <= fvg.top:
+                    return True
+            else:
+                if b.close > fvg.top:
+                    return False
+                if fvg.bottom <= b.close <= fvg.top:
+                    return True
+        return False
 
     @staticmethod
     def evaluate_trail(

@@ -529,6 +529,14 @@ EARLY_LONDON_RISK_MULT = 1.5  # 02-08 UTC risk carpani (Altin Oran)
 
 # ── Magic Numbers (Faz 1.2) ────────────────────────────────────
 
+# ── D Modu (Aktivasyonlu ATR-Chase): kalici parametreler ──
+# FVG retrace takibi her zaman aktif; 1.5R esigi yalnizca FVG adayi
+# bulunamadiginda (updated=False) ATR-Chase fallback'i icin kilittir.
+# K: fallback SL tamponu (K*ATR), R: aktivasyon esigi (R * risk_pts).
+TRAIL_MODE = os.environ.get("SNIPER_TRAIL_MODE", "activation")
+CONT_BUFFER_MULT = float(os.environ.get("SNIPER_CONT_BUFFER_MULT", "2.0"))
+TRAIL_ACTIVATION_R_MULT = float(os.environ.get("SNIPER_TRAIL_ACTIVATION_R_MULT", "1.5"))
+
 TRAIL_MIN_MOVE_MULT = 0.2
 
 ATR_TRAIL_MULT = float(os.environ.get("SNIPER_ATR_TRAIL_MULT", "0.10"))

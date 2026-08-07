@@ -223,8 +223,15 @@ class TestEvaluateTrail:
         result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
         assert result.updated is True
 
-    def test_skips_wrong_direction_fvg_long(self):
-        """Long trade skips bearish FVGs."""
+    @patch("trading.trailing_manager.cfg")
+    def test_skips_wrong_direction_fvg_long(self, mock_cfg):
+        """Long trade skips bearish FVGs (retrace-only FVG yolu izole edilir;
+        ATR-chase fallback burada devre disi)."""
+        mock_cfg.TRAIL_MODE = "retrace"
+        mock_cfg.TRAIL_MIN_MOVE_MULT = 0.2
+        mock_cfg.ATR_TRAIL_MULT = 0.10
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.10
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
 
         bars = [
@@ -1345,3 +1352,131 @@ class TestConfirmModeNBar:
         assert result.new_sl == pytest.approx(98.15)
         assert result.new_tp == pytest.approx(94.0 - (103.0 - 98.15))
         assert result.trail_count == 1
+
+
+# ═══════════════════════════════════════════════════════════════════
+# D Modu (TRAIL_MODE="activation"): 1.5R kilitli ATR-chase fallback tests
+# FVG retrace her zaman aktif; FVG adayi yoksa 1.5R esiginde ATR-chase
+# fallback (K=2.0*ATR) + paralel TP (PTrail). Backtest (analyzer_v5) birebir.
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestActivationDModu:
+    def _no_fvg_bars_long_up(self):
+        """Cakisali barlar — hicbir yonde FVG uretmez, fiyat yukselir."""
+        return [
+            _bar(0, 100, 104, 96, 102),
+            _bar(1, 102, 106, 98, 104),
+            _bar(2, 104, 108, 100, 108),
+            _bar(3, 106, 110, 102, 109),
+        ]
+
+    @patch("trading.trailing_manager.cfg")
+    def test_activation_fallback_active_above_threshold(self, mock_cfg):
+        """FVG yok, kar >= 1.5R (esik 1.5*risk_pts=4.5) → ATR-chase fallback:
+        new_sl = current_price - K*ATR (2.0*0.3=0.6); TP paralel kayar."""
+        mock_cfg.TRAIL_MODE = "activation"
+        mock_cfg.CONT_BUFFER_MULT = 2.0
+        mock_cfg.TRAIL_ACTIVATION_R_MULT = 1.5
+        mock_cfg.TRAIL_MIN_MOVE_MULT = 0.2
+        mock_cfg.ATR_TRAIL_MULT = 0.10
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.10
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
+        trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
+
+        # chunk = bars[:-1] (bar0..2); current_price = bar2.close = 108
+        # upnl = 108-100 = 8 >= 4.5 → fallback aktif
+        result = TrailingManager.evaluate_trail(
+            self._no_fvg_bars_long_up(), trade, 0.3, 0.5
+        )
+
+        assert result.updated is True
+        assert result.new_sl == pytest.approx(108.0 - 0.6)  # 107.4
+        assert result.new_tp == pytest.approx(106.0 + (107.4 - 97.0))
+        assert result.trail_count == 1
+
+    @patch("trading.trailing_manager.cfg")
+    def test_activation_fallback_passive_below_threshold(self, mock_cfg):
+        """FVG yok, kar < 1.5R → fallback PASIF: SL/TP sabit, updated=False."""
+        mock_cfg.TRAIL_MODE = "activation"
+        mock_cfg.CONT_BUFFER_MULT = 2.0
+        mock_cfg.TRAIL_ACTIVATION_R_MULT = 1.5
+        mock_cfg.TRAIL_MIN_MOVE_MULT = 0.2
+        mock_cfg.ATR_TRAIL_MULT = 0.10
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.10
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
+        trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
+
+        bars = [
+            _bar(0, 100, 104, 96, 102),
+            _bar(1, 101, 105, 99, 103),
+            _bar(2, 102, 106, 100, 103),  # chunk[-1].close=103 → upnl=3 < 4.5
+            _bar(3, 103, 107, 101, 104),
+        ]
+        result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
+
+        assert result.updated is False
+
+    @patch("trading.trailing_manager.cfg")
+    def test_activation_fvg_priority_over_fallback(self, mock_cfg):
+        """FVG adayi varsa ONCELIK FVG'dedir (fallback'e dusulmez)."""
+        mock_cfg.TRAIL_MODE = "activation"
+        mock_cfg.CONT_BUFFER_MULT = 2.0
+        mock_cfg.TRAIL_ACTIVATION_R_MULT = 1.5
+        mock_cfg.TRAIL_MIN_MOVE_MULT = 0.2
+        mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.25
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
+        trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
+
+        # Bullish FVG (bottom=103); bar3 close gap ici → retrace onay
+        # new_sl = 103 - 0.25*0.3 = 102.925 (fallback olsaydi 108-0.6=107.4)
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 103, 105, 102, 104),
+            _bar(2, 106, 110, 105, 108),  # bullish FVG: top=105, bottom=103
+            _bar(3, 103, 106, 102, 104),  # close in gap → confirms
+            _bar(4, 108, 112, 107, 110),  # current
+        ]
+        result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
+
+        assert result.updated is True
+        assert result.new_sl == pytest.approx(102.925)
+        assert result.new_tp == pytest.approx(106.0 + (102.925 - 97.0))
+
+    def test_fvg_close_confirmed_far_side_does_not_eliminate(self):
+        """fvg_close_confirmed: far-side kapanis (close > top) FVG'yi elimine
+        ETMEZ; sonraki gap ici kapanis onay verebilir."""
+        fvg = FVG(
+            direction="bullish",
+            top=105.0,
+            bottom=103.0,
+            real_index=2,
+            timeframe="15m",
+        )
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 102, 104, 101, 103),
+            _bar(2, 103, 105, 102, 104),
+            _bar(3, 106, 109, 105, 108),  # far-side (index 3 < scan_from=4)
+            _bar(4, 104, 106, 103, 104),  # gap ici kapanis → onay
+        ]
+        assert TrailingManager._fvg_close_confirmed(fvg, bars) is True
+
+    def test_fvg_close_confirmed_invalidation(self):
+        """fvg_close_confirmed: aksi yon kapanis (close < bottom) invalidation."""
+        fvg = FVG(
+            direction="bullish",
+            top=105.0,
+            bottom=103.0,
+            real_index=2,
+            timeframe="15m",
+        )
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 102, 104, 101, 103),
+            _bar(2, 103, 105, 102, 104),
+            _bar(3, 104, 106, 103, 104),
+            _bar(4, 101, 103, 100, 101),  # close < bottom → invalidation
+        ]
+        assert TrailingManager._fvg_close_confirmed(fvg, bars) is False
