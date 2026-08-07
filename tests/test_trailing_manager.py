@@ -8,7 +8,7 @@ from decimal import Decimal
 import pytest
 from unittest.mock import patch
 
-from models import Bar
+from models import Bar, FVG
 from trading.trailing_manager import (
     ImmediateTriggerError,
     TrailLevel,
@@ -1221,3 +1221,127 @@ class TestFingerprintPriceBucket:
         lifted = await manager2.orchestrate_trail(trade, self._bars())
         assert lifted.action == "updated"
         assert trade.get("sl") == 106.0
+
+
+# ═══════════════════════════════════════════════════════════════════
+# _fvg_confirm_mode N-bar teyit (continuation streak) tests
+# Off-by-one / streak-sifirlama kontrolu: far-side kapanislar ard arda
+# sayilir; araya gap ici kapanis girerse retrace kazanir, invalidation
+# girerse None (streak anlamini yitirir).
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestConfirmModeNBar:
+    def _bull(self, real_index=2):
+        # bullish FVG: top=105, bottom=104; scan_from = real_index + 2
+        return FVG(
+            direction="bullish",
+            top=105.0,
+            bottom=104.0,
+            real_index=real_index,
+            timeframe="15m",
+        )
+
+    def _bear(self, real_index=1):
+        # bearish FVG: top=99, bottom=98; scan_from = real_index + 2
+        return FVG(
+            direction="bearish",
+            top=99.0,
+            bottom=98.0,
+            real_index=real_index,
+            timeframe="15m",
+        )
+
+    def _bars(self, closes):
+        bars = []
+        for i, c in enumerate(closes):
+            if i < 3:
+                hi, lo = c + 2.0, c - 2.0
+            else:
+                hi, lo = c + 1.0, c - 1.0
+            bars.append(_bar(i, c, hi, lo, c))
+        return bars
+
+    def test_n1_first_far_side_bar_immediately_continuation(self):
+        """Off-by-one kontrolu: N=1'de ilk far-side kapanis (scan_from sonrasi)
+        hemen 'continuation' dondurur."""
+        fvg = self._bull(real_index=2)
+        bars = self._bars([100.0, 101.0, 102.0, 103.0, 107.0, 108.0])
+        assert TrailingManager._fvg_confirm_mode(fvg, bars, 1) == "continuation"
+
+    def test_n2_two_consecutive_far_side_continuation(self):
+        """N=2: ard arda iki far-side kapanis kesintisiz sayilir → continuation."""
+        fvg = self._bull(real_index=2)
+        bars = self._bars([100.0, 101.0, 102.0, 103.0, 107.0, 108.0])
+        assert TrailingManager._fvg_confirm_mode(fvg, bars, 2) == "continuation"
+
+    def test_n2_streak_broken_by_gap_inside_returns_retrace(self):
+        """Streak sifirlama: 1 far-side sonra gap ici kapanis → retrace kazanir,
+        continuation tetiklenmez (sahte kirilim filtre edilir)."""
+        fvg = self._bull(real_index=2)
+        bars = self._bars([100.0, 101.0, 102.0, 103.0, 107.0, 104.5])
+        assert TrailingManager._fvg_confirm_mode(fvg, bars, 2) == "retrace"
+
+    def test_n2_streak_broken_by_invalidation_returns_none(self):
+        """Streak sifirlama: 1 far-side sonra invalidation (close < bottom)
+        → None (FVG olur, trailing tetiklenmez)."""
+        fvg = self._bull(real_index=2)
+        bars = self._bars([100.0, 101.0, 102.0, 103.0, 107.0, 103.0])
+        assert TrailingManager._fvg_confirm_mode(fvg, bars, 2) is None
+
+    def test_n3_requires_three_consecutive_far_side(self):
+        """N=3: iki far-side yeterli degil; ucuncu ard arda bar ile tetiklenir."""
+        fvg = self._bull(real_index=2)
+        bars = self._bars([100.0, 101.0, 102.0, 103.0, 107.0, 108.0, 109.0])
+        assert TrailingManager._fvg_confirm_mode(fvg, bars, 3) == "continuation"
+
+    def test_n3_two_far_side_then_gap_inside_returns_retrace(self):
+        """N=3: iki far-side sonra gap ici kapanis → streak sifirlanir, retrace."""
+        fvg = self._bull(real_index=2)
+        bars = self._bars([100.0, 101.0, 102.0, 103.0, 107.0, 108.0, 104.5])
+        assert TrailingManager._fvg_confirm_mode(fvg, bars, 3) == "retrace"
+
+    def test_bearish_n2_two_consecutive_continuation(self):
+        """Bearish simetri: ard arda iki far-side (close < bottom) → continuation."""
+        fvg = self._bear(real_index=1)
+        bars = self._bars([102.0, 99.0, 95.0, 94.0, 93.0])
+        assert TrailingManager._fvg_confirm_mode(fvg, bars, 2) == "continuation"
+
+    def test_bearish_n2_streak_broken_by_gap_inside_retrace(self):
+        """Bearish simetri: far-side sonra gap ici → retrace."""
+        fvg = self._bear(real_index=1)
+        bars = self._bars([102.0, 99.0, 95.0, 94.0, 98.2])
+        assert TrailingManager._fvg_confirm_mode(fvg, bars, 2) == "retrace"
+
+    def test_bearish_n2_invalidation_returns_none(self):
+        """Bearish simetri: far-side sonra close > top → invalidation, None."""
+        fvg = self._bear(real_index=1)
+        bars = self._bars([102.0, 99.0, 95.0, 94.0, 100.0])
+        assert TrailingManager._fvg_confirm_mode(fvg, bars, 2) is None
+
+    @patch("trading.trailing_manager.cfg")
+    def test_continuation_uses_wider_separate_buffer(self, mock_cfg):
+        """Tasarim kontrolu: continuation hop'u retrace tamponundan AYRI ve daha
+        genis K kullanir (ATR_TRAIL_MULT_CONTINUATION). N=1, K=0.5:
+        short continuation SL = fvg.bottom + 0.5*ATR (retrace 0.25*ATR'den uzak)."""
+        mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
+        mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.5
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
+        trade = _trade(side="short", entry_price=100.0, sl=103.0, tp=94.0, risk_pts=3.0)
+
+        # bearish FVG at i=1: top=99, bottom=98; bar3 close 94 < bottom → continuation
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 99, 101, 97, 98),
+            _bar(2, 96, 98, 93, 95),
+            _bar(3, 95, 97, 93, 94),
+            _bar(4, 92, 95, 91, 93),  # current (chunk'tan haric)
+        ]
+        # K=0.5: new_sl = 98 + 0.5*0.3 = 98.15 (retrace buffer 0.25 olsaydi 98.075)
+        result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
+
+        assert result.updated is True
+        assert result.new_sl == pytest.approx(98.15)
+        assert result.new_tp == pytest.approx(94.0 - (103.0 - 98.15))
+        assert result.trail_count == 1
