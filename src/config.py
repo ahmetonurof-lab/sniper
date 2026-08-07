@@ -533,6 +533,19 @@ TRAIL_MIN_MOVE_MULT = 0.2
 
 ATR_TRAIL_MULT = float(os.environ.get("SNIPER_ATR_TRAIL_MULT", "0.10"))
 
+# Continuation trailing SL tamponu (far-side hop): retrace tamponundan (ATR_TRAIL_MULT)
+# ayri ve daha genis tutulur — fiyat az once gap sinirini kirdigi icin yakina konan
+# dar tampon (0.1xATR) trend-ici noise'a savunmasiz kalip trade'i erken kapatir.
+# Baskanlik direktifi: baslangic 0.5, replay'de 0.3/0.5/1.0 taramasiyla kesinlesecek.
+ATR_TRAIL_MULT_CONTINUATION = float(
+    os.environ.get("SNIPER_ATR_TRAIL_MULT_CONT", "0.50")
+)
+
+# Continuation onay penceresi: far-side kaparisan ard arda N bar korunmali
+# (sahte kirilim filtresi). Araya gap ici kapanis girerse retrace kazanir.
+# Baskanlik direktifi: baslangic 2, replay'de 1/2/3 taramasiyla kesinlesecek.
+CONTINUATION_CONFIRM_BARS = int(os.environ.get("SNIPER_CONT_CONFIRM_BARS", "2"))
+
 MIN_STOP_DIST_PCT = 0.006
 
 MAX_MARGIN_PCT = 0.20

@@ -129,6 +129,8 @@ class TestEvaluateTrail:
         """Long trade: new SL = fvg.bottom - buffer > current SL → trail."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.2
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.25
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
         mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
         mock_cfg.MIN_SL_DISTANCE_PCT_MAP = {}
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
@@ -157,6 +159,8 @@ class TestEvaluateTrail:
         """Long trade: new_sl <= current_sl → no trail."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.25
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
         trade = _trade(side="long", entry_price=100.0, sl=102.0, tp=106.0, risk_pts=2.0)
 
         # Bullish FVG bottom below current SL — should NOT trail
@@ -192,6 +196,8 @@ class TestEvaluateTrail:
         # To block: need sl_diff <= min_move. Let me set min_move very high.
         mock_cfg.TRAIL_MIN_MOVE_MULT = 3.0  # min_move = 3.0 * 3.0 = 9.0
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.25
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
         result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
         assert result.updated is False  # 5.925 < 9.0 → blocked
 
@@ -200,6 +206,8 @@ class TestEvaluateTrail:
         """Filled/invalidated FVGs are skipped."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.25
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
         mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
         mock_cfg.MIN_SL_DISTANCE_PCT_MAP = {}
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
@@ -268,6 +276,8 @@ class TestEvaluateTrail:
         with patch("trading.trailing_manager.cfg") as mock_cfg:
             mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
             mock_cfg.ATR_TRAIL_MULT = 0.25
+            mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.25
+            mock_cfg.CONTINUATION_CONFIRM_BARS = 1
             mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
             mock_cfg.MIN_SL_DISTANCE_PCT_MAP = {}
             result = TrailingManager.evaluate_trail(bars, trade, 0.3, 0.5)
@@ -278,6 +288,8 @@ class TestEvaluateTrail:
         """Long: FVG.bottom is very close to current price → trail skipped."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.25
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
         mock_cfg.MIN_SL_DISTANCE_PCT = 0.0030
         mock_cfg.MIN_SL_DISTANCE_PCT_MAP = {}
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
@@ -298,6 +310,8 @@ class TestEvaluateTrail:
         """Short: FVG.top is very close to current price → trail skipped."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.25
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
         mock_cfg.MIN_SL_DISTANCE_PCT = 0.0030
         mock_cfg.MIN_SL_DISTANCE_PCT_MAP = {}
         trade = _trade(side="short", entry_price=100.0, sl=103.0, tp=94.0, risk_pts=3.0)
@@ -338,6 +352,8 @@ class TestEvaluateTrail:
         """
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.2
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.25
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
         mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
         mock_cfg.MIN_SL_DISTANCE_PCT_MAP = {}
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
@@ -368,6 +384,8 @@ class TestEvaluateTrail:
         sadece yanlis erken-exit kaldirildi)."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.25
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
         trade = _trade(side="short", entry_price=100.0, sl=103.0, tp=94.0, risk_pts=3.0)
 
         bars = [
@@ -392,6 +410,8 @@ class TestEvaluateTrail:
         SL = fvg.bottom + atr_buffer (retrace'teki fvg.top + buffer'dan daha siki)."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.25
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
         trade = _trade(side="short", entry_price=100.0, sl=103.0, tp=94.0, risk_pts=3.0)
 
         # bearish FVG at i=1: top=99, bottom=98; bar3 close 94 < bottom → continuation
@@ -415,6 +435,8 @@ class TestEvaluateTrail:
         """Long: close > fvg.top → continuation confirm. SL = fvg.top - atr_buffer."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.25
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
 
         # bullish FVG at i=2: top=105, bottom=104; bar4 close 109 > top → continuation
@@ -473,6 +495,8 @@ class TestEvaluateTrail:
         hop yok. (ALGO 01:00:44 ornegi: aday sl=0.089049 < price=0.0897.)"""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.2
         mock_cfg.ATR_TRAIL_MULT = 0.10
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.10
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
         trade = _trade(side="short", entry_price=100.0, sl=103.0, tp=94.0, risk_pts=3.0)
 
         # bearish FVG at i=1: top=99, bottom=98; bar3 close 99.5 in gap → retrace
@@ -493,6 +517,8 @@ class TestEvaluateTrail:
         stale → hop yok (long simetrik kontrol)."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.2
         mock_cfg.ATR_TRAIL_MULT = 0.10
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.10
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
 
         # bullish FVG at i=2: top=105, bottom=104; bar4 close 103.5 in gap → retrace
@@ -514,6 +540,8 @@ class TestEvaluateTrail:
         kullanilir; continuation SL (daha siki) ilk onayi ezmez."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.25
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
         trade = _trade(side="short", entry_price=100.0, sl=103.0, tp=94.0, risk_pts=3.0)
 
         # bearish FVG at i=1: top=99, bottom=98
@@ -537,6 +565,8 @@ class TestEvaluateTrail:
         (is_placeable) — stale candidate sorununun continuation kopyasi."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.25
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
         trade = _trade(side="short", entry_price=100.0, sl=103.0, tp=94.0, risk_pts=3.0)
 
         # bearish FVG at i=1: top=99, bottom=98
@@ -686,6 +716,8 @@ class TestTrailAndExitSequence:
         """Trail SL up, then next bar hits the new SL."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.25
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
         mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
         mock_cfg.MIN_SL_DISTANCE_PCT_MAP = {}
 
@@ -720,6 +752,8 @@ class TestTrailAndExitSequence:
         """Trail SL up, then price shoots to new TP."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.25
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
         mock_cfg.MIN_SL_DISTANCE_PCT = 0.0015
         mock_cfg.MIN_SL_DISTANCE_PCT_MAP = {}
 
@@ -748,6 +782,8 @@ class TestTrailAndExitSequence:
         """Without FVG trail, original SL is hit."""
         mock_cfg.TRAIL_MIN_MOVE_MULT = 0.1
         mock_cfg.ATR_TRAIL_MULT = 0.25
+        mock_cfg.ATR_TRAIL_MULT_CONTINUATION = 0.25
+        mock_cfg.CONTINUATION_CONFIRM_BARS = 1
 
         trade = _trade(side="long", entry_price=100.0, sl=97.0, tp=106.0, risk_pts=3.0)
 

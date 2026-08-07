@@ -537,19 +537,20 @@ class TrailingManager:
         return ticks.quantize(Decimal("1"), rounding=rounding) * tick_size
 
     @staticmethod
-    def _fvg_confirm_mode(fvg: FVG, bars: list[Bar]) -> Optional[str]:
+    def _fvg_confirm_mode(
+        fvg: FVG,
+        bars: list[Bar],
+        continuation_confirm_bars: int = 1,
+    ) -> Optional[str]:
         """FVG icin onay modunu dondurur: "retrace" veya "continuation".
 
         - "retrace": fiyat gap icinde kapandi (mevcut davranis).
-        - "continuation": fiyat pozisyon lehine far-side kapandi
-          (bullish: close > top, long lehine; bearish: close < bottom, short lehine).
-        - None: invalidation (bullish: close < bottom, bearish: close > top)
-          veya henuz onay yok. Aksi yon invalidation ile elenir,
-          continuation ile karistirilmaz.
-        Ilk gorulen onay kazanir — retrace oncesi continuation veya tam tersi
-        deterministik sekilde ilk bar'a gore karar verir (birbirini ezmez).
+        - "continuation": fiyat pozisyon lehine far-side'da ustuste
+          `continuation_confirm_bars` bar kapandi (sahte kirilimlari filtreler).
+        - None: invalidation veya henuz onay yok.
         """
         scan_from = fvg.real_index + 2
+        streak = 0
         for b in bars:
             if b.index < scan_from:
                 continue
@@ -557,14 +558,22 @@ class TrailingManager:
                 break
             if fvg.direction == "bullish":
                 if b.close > fvg.top:
-                    return "continuation"
+                    streak += 1
+                    if streak >= continuation_confirm_bars:
+                        return "continuation"
+                    continue
+                streak = 0
                 if b.close < fvg.bottom:
                     return None
                 if fvg.bottom <= b.close <= fvg.top:
                     return "retrace"
             else:
                 if b.close < fvg.bottom:
-                    return "continuation"
+                    streak += 1
+                    if streak >= continuation_confirm_bars:
+                        return "continuation"
+                    continue
+                streak = 0
                 if b.close > fvg.top:
                     return None
                 if fvg.bottom <= b.close <= fvg.top:
@@ -613,17 +622,26 @@ class TrailingManager:
         trail_steps = trade.get("trail_steps", [])
         updated = False
         last_bar_index: int | None = None
-        atr_buffer = atr_val * cfg.ATR_TRAIL_MULT
+        atr_buffer_retrace = atr_val * cfg.ATR_TRAIL_MULT
+        atr_buffer_continuation = atr_val * cfg.ATR_TRAIL_MULT_CONTINUATION
 
         for fvg in fvgs:
             if side == "long" and fvg.direction != "bullish":
                 continue
             if side == "short" and fvg.direction != "bearish":
                 continue
-            mode = TrailingManager._fvg_confirm_mode(fvg, chunk)
+
+            mode = TrailingManager._fvg_confirm_mode(
+                fvg, chunk, cfg.CONTINUATION_CONFIRM_BARS
+            )
             if mode is None:
                 continue
 
+            atr_buffer = (
+                atr_buffer_continuation
+                if mode == "continuation"
+                else atr_buffer_retrace
+            )
             hopped = False
             if side == "long":
                 if mode == "continuation":
