@@ -1,26 +1,23 @@
 # Bug Registry — sniper/src/
 
-> **Son güncelleme:** 2026-08-04 — ✅ **P1-16 KAPANDI + CANLI** (conservative default max_qty + ek düzeltme: sabit quantity floor kaldırıldı → notional bazlı, stale fiyat fallback, fiyat hiç yoksa reddet; 23:56:26 restart ile canlıya alındı). ENAUSDT trailing kilitlenme fix'i canlı doğrulandı. Toplam arşiv: 25 madde.
+> **Son güncelleme:** 2026-08-08 — ✅ **P1-17 KAPANDI + CANLI** (recovery tick_size parity fix `daaeeb0` — recovered trade'ler doğru tick ile trailing üretiyor; ALGO trail#1 +19.96 canlı kanıt). ✅ **P2-6/P2-7 KAPANDI** (D-2 Fark 1 canlı doğrulandı: gir-çık döngüsü yok, trailing çıkışları pozitif). ✅ **P3-4 KAPANDI** (tick tabanlı SL tabanı canlıda). P1-15 canlıda tekrar gözlemlendi (RENDER 06:33) — mitigasyonlar doğru çalıştı.
 > Dosya referansları `sniper/src/` olarak güncellendi.
 
 ---
 
-## 🔴 AKTİF BUG ÖZETİ (26 Tem 2026)
+## 🔴 AKTİF BUG ÖZETİ (08 Ağu 2026)
 
 > 🆕 = yeni keşfedildi | 🐛 = açık/henüz fix yok | 🔧 = fix yazıldı/pending deploy | ✅ = fix deploy edildi | 📎 = mevcut bug'a veri eklendi
 
 | ID | Durum | Başlık | Aciliyet |
 |---|---|---|---|
-| **P1-4** | ✅ | Ghost/temizlik sadece restart'ta | KISMEN DÜZELTİLDİ |
-| **P1-7** | 📎 | Harici kapanışlar (26 WS_FALLBACK) + ONDOUSDT fix | KISMEN AÇIKLANDI |
-| **P1-8** | 🐛 | POST_ENTRY check %100 başarısız — iki kök neden tespit edildi | DEBUG LOG AKTİF, KÖK NEDEN AYRIMINDA |
-| **D-2** | 🔧 | Trailing/entry formülleri kopya kod — exit_now Fark 1 DÜZELTİLDİ | FARK 1 DÜZELTİLDİ, FARK 2-5 AÇIK |
-| **🆕 P2-6** | 🔧 | TIAUSDT her bar close'da gir-çık döngüsü | D-2 FARK 1 FIX İLE GİDERİLDİ, CANLI DOĞRULAMA BEKLİYOR |
-| **🆕 P2-7** | 🔧 | Tüm TRAIL_CLOSE çıkışları negatif (5/5) | D-2 FARK 1 FIX İLE GİDERİLDİ, CANLI DOĞRULAMA BEKLİYOR |
+| **P1-15** | 🐛 | Stale event loop — Binance WS FILLED gecikmesi 87-353sn, GMXUSDT orantısız etkileniyor (%71) | KÖK NEDEN DOĞRULANDI (27 Tem), client-side fix mümkün değil — mitigation aksiyonları öneriliyor. **08 Ağu RENDER 06:33'te tekrar görüldü; mitigasyonlar (cooldown + -2021 + repair atla) doğru çalıştı, aksiyon gerekmedi** |
+| **D-2** | 🔧 | Trailing/entry formülleri kopya kod — exit_now Fark 1 DÜZELTİLDİ | FARK 1 DÜZELTİLDİ (canlı doğrulandı), FARK 2-5 AÇIK |
+| **P1-4** | ✅ | Ghost/temizlik sadece restart'ta | KISMEN DÜZELTİLDİ — reconcile_orphan_orders periyodik (5×1m), reconcile_ghost_positions hâlâ restart'ta |
+| **P1-7** | 📎 | Harici kapanışlar (26 WS_FALLBACK) + ONDOUSDT fix | KISMEN AÇIKLANDI — 22 Temmuz 9 kesin-harici vaka kaynağı açık; mainnet'te reassess |
+| **P1-8** | 📎 | POST_ENTRY check %100 başarısız — iki kök neden tespit edildi | KÖK NEDEN AYRIMINDA (08-06: restart sonrası 9/9 sanity check OK — muhtemelen kapandı, resmi kapanma baş mühendis onayına bağlı) |
 | **P3-3** | 🐛 | except Exception yaygın | HÂLÂ GEÇERLİ |
-| **🆕 P3-4** | 🔧 | NEARUSDT SL çok dar (0.055%) — MIN_SL_DISTANCE_PCT=%0.15 taban eşik eklendi | FIX YAZILDI, PENDING DEPLOY (entry_manager.py) |
-| **P1-15** | 🐛 | Stale event loop — Binance WS FILLED gecikmesi 87-353sn, GMXUSDT orantısız etkileniyor (%71) | KÖK NEDEN DOĞRULANDI (27 Tem), client-side fix mümkün değil — mitigation aksiyonları öneriliyor |
-| **🆕 P1-16** | ✅ | Entry max_qty clamp cache boşken atlanıyor — STRKUSDT -4005, teorik risk büyük pozisyon | KAPANDI + CANLI: conservative default (override > canlı notional > stale notional > reddet), 23:56:26 restart |
+| **🆕 P1-17** | ✅ | Recovery tick_size parity — recovered trade'ler tick_size'sız kuruluyordu (models default 0.10), trailing normalize tüm iyileşmeleri yutuyordu | KAPANDI + CANLI (daaeeb0, ALGO trail#1 +19.96) |
 
 ---
 
@@ -174,7 +171,7 @@ P0-5 fix deploy edilmesine rağmen 25/Jul'da **17+ post_entry_check_failed** kay
 
 ### 🆕 P2-6: TIAUSDT Her Bar Close'da Gir-Çık Döngüsü
 **Severity:** MEDIUM
-**Status:** OPEN
+**Status:** ✅ KAPANDI (2026-08-08 — canlı doğrulama)
 **Date:** 2026-07-25
 **Evidence:** `paper_trade.log` — 4 consecutive entries, all TRAIL_CLOSE within 1 min
 
@@ -182,18 +179,19 @@ TIAUSDT 4 bar üst üste her 15 dk'da bir entry almış, her biri ~1 dk içinde 
 
 ```
 07:45:07  entry @ 0.3420  →  07:46:01  TRAIL_CLOSE  pnl=-0.99  (54s)
-08:00:07  entry @ 0.3414  →  08:01:01  TRAIL_CLOSE  pnl=-1.57  (54s)
+08:00:07  entry @ 0.3414  →  08:01:01  TRAIL_CLOSE  pnl=-0.99  (54s)
 08:15:07  entry @ 0.3412  →  08:16:01  TRAIL_CLOSE  pnl=-0.70  (54s)
 09:30:03  entry @ 0.3384  →  açık (log sonu)
 ```
 
 Toplam zarar: -$3.26. D-2 ile ilişkili olabilir — live trailing formülü backtest'ten farklıysa optimizasyon yanlış çalışıyordur.
 
-**✅ D-2 FARK 1 FIX (2026-07-26):** `exit_now` guard kaldırıldı. Canlı deploy sonrası TIAUSDT benzeri gir-çık döngüsü tekrar üretilmeli — üretilmiyorsa P2-6 kapatılacak.
+**✅ D-2 FARK 1 FIX (2026-07-26):** `exit_now` guard kaldırıldı.
+**✅ CANLI DOĞRULAMA (2026-08-08):** D-2 Fark 1 + trailing fix'leri canlıda — TIAUSDT gir-çık döngüsü tekrar üretilmedi; trailing artık kâr kilitliyor (ALGOUSDT trail#1 0.08901 uygulandı → +19.96 SL kapanış). KAPANDI.
 
 ### 🆕 P2-7: Tüm TRAIL_CLOSE Çıkışları Negatif (5/5)
 **Severity:** MEDIUM
-**Status:** OPEN
+**Status:** ✅ KAPANDI (2026-08-08 — canlı doğrulama)
 **Date:** 2026-07-25
 **Evidence:** `paper_trade.log` — 5 TRAIL_CLOSE exit, 0 positive
 
@@ -207,7 +205,8 @@ Toplam zarar: -$3.26. D-2 ile ilişkili olabilir — live trailing formülü bac
 
 Trailing stop kâr kilitleme yerine her seferinde zararla çıkış üretiyor. D-2'deki trailing formül farklılıklarıyla ilişkili olabilir.
 
-**✅ D-2 FARK 1 FIX (2026-07-26):** `exit_now` guard kaldırıldı. Canlı deploy sonrası TRAIL_CLOSE çıkışlarının negatif olup olmadığı kontrol edilmeli — pozitif/trailing çıkışlar oluşuyorsa P2-7 kapatılacak.
+**✅ D-2 FARK 1 FIX (2026-07-26):** `exit_now` guard kaldırıldı.
+**✅ CANLI DOĞRULAMA (2026-08-08):** trailing çıkışları artık pozitif — ALGOUSDT short trail#1 (sl=0.08901/tp=0.08217) uygulandı, STOP_MARKET ile **+19.96** kârla kapandı (fix öncesi recovered trade'lerde tick=0.1 yüzünden hiçbir iyileşme uygulanamıyordu). KAPANDI.
 
 ---
 
@@ -235,7 +234,7 @@ Trailing stop kâr kilitleme yerine her seferinde zararla çıkış üretiyor. D
 
 ### 🆕 P3-4: NEARUSDT SL Çok Dar (0.055%)
 **Severity:** LOW
-**Status:** OPEN
+**Status:** ✅ KAPANDI (2026-08-08 — tick tabanlı taban canlıda)
 **Date:** 2026-07-25
 **Evidence:** `paper_trade.log` line 1523-1548
 
@@ -251,6 +250,8 @@ SL neredeyse entry fiyatında. Her küçük wick tetikliyor → 4 stale event (0
 - Toplam eşik: **%0.15**
 - ATR bazlı SL primary kalır; bu sadece taban guard.
 - Formül: long'da `min(sl, entry - min_dist)`, short'ta `max(sl, entry + min_dist)` — ikisi de SL'i entry'den uzaklaştırır, asla yaklaştırmaz.
+
+**✅ CANLI DOĞRULAMA (2026-08-08):** `MIN_SL_DISTANCE_PCT` (P3-4) + tick tabanlı taban `MIN_SL_DISTANCE_TICKS=4` (2026-08-06 `aac0e3e` öncesi tur) canlıda — NEARUSDT dar SL tekrar üretilmedi, SL/TP VALIDATION reddi görülmedi. KAPANDI.
 
 ---
 
@@ -385,6 +386,12 @@ olduğu için görünürlük arttı, sorunun kendisi değişmedi.
 2. ✅ Stale event cooldown (30sn) — `exit_lifecycle.py`
 3. ✅ GMXUSDT SL 0.15%→0.30% — `config.py` + `entry_manager.py`
 
+**📎 08 AĞU CANLI GÖZLEM (RENDERUSDT 06:33) — mitigasyonlar doğrulandı:**
+- 06:33:16 WS-ORDER FILLED → `SL stale event #1 — pozisyon hala acik, exit iptal` (cooldown devrede)
+- 06:33:19 `koruma eksik (sl=False tp=True) — onariliyor` → SL STOP_MARKET `-2021 immediately trigger` (fiziksel olarak dolu olduğu kanıtı) → `[REPAIR] -2021 — pozisyon zaten dolmus, repair atlaniyor` (P1-15 mitigasyonu + P1-16 tarzı savunma birlikte çalıştı)
+- orphan_sweep TP `1000000157506320` temizlendi; pozisyon 08:49:11 web emriyle kapatıldı (kullanıcı manuel, qty 0.1).
+- **Sonuç:** stale döngüsü doğru kırıldı, çift emir kalıntısı temizlendi, yeni -2021 reject üretilmedi. Mitigasyon aksiyonlarının canlı teyidi olarak kaydedildi.
+
 Kök neden Binance WS teslimat gecikmesi olduğu için saf
 client-side bir "fix" yok; mitigasyonlar stale event sayısını ve süresini
 azaltmayı hedefliyor. Canlı testte doğrulama bekleniyor. P1-14
@@ -474,3 +481,41 @@ P1-6 (entry sizing max_qty kontrolü, ✅ DÜZELTİLDİ) clamp'ın kendisini ekl
 bu madde clamp'ın **cache-bağımlılık açığını** konu alır — P1-6'nın eksik
 tamamlayıcısı. P2-5/P0-5 (-4005 fallback zincirleri) defense-in-depth olarak
 kalmalı.
+
+---
+
+## 🆕 P1-17: Recovery tick_size parity — recovered trade'ler doğru tick ile trailing üretmiyordu (KRİTİK, kapatıldı)
+
+**Severity:** HIGH (P1)
+**Status:** ✅ KAPANDI + CANLI (commit `daaeeb0`, screen 366235.bot, run `paper-20260808-000537`)
+**Date:** 2026-08-08 (keşif + fix + deploy + canlı doğrulama)
+**File:** `src/trading/recovery_manager.py:80`, `src/models.py`, `src/trading/trailing_manager.py`, `src/bot.py`, `src/state_writer.py`
+
+### Kök neden (kullanıcı teyidi)
+
+`recovery_manager.recover_positions` `ActiveTrade(...)`'i **`tick_size` geçirmeden**
+kuruyordu → `models.py` default'u `0.10` sessizce kullanılıyordu → **170/170
+recovered trade** `tick=0.1` ile trailing normalize'u (ROUND_CEILING) her
+iyileşmeyi yutuyordu (`no_better_trail_candidate`, 214/214 trail_skipped).
+
+Matematik kanıtı: ALGO raw `0.088888` → normalize(tick=0.1) `0.1` → `0.1 < 0.09353`
+false → skip; RENDER raw `1.320464` → `1.4` → `1.4 < 1.387` false → skip.
+**Doğru tick ile** (RENDER 0.001 → 1.321 < 1.387 ✓, ALGO 1e-05 → iyileşme ✓) hop üretilir.
+
+Etki yalnızca restart-recovered trade'ler — yeni açılan trade'ler (`_try_entry`)
+doğru tick_size alıyor.
+
+### Fix (kullanıcı direktifi: "fix'leri yerel yap, sunucuya sadece deploy")
+
+1. `recovery_manager.py` — 3 `ActiveTrade(...)` kurulumuna `tick_size=self._rest.get_tick_size(sym)` (try/except → 0.10 fallback + warning); `status=STATUS_ACTIVE`, `trail_count=0` parity; `existing["tick_size"]` tazeleme.
+2. `models.py` — savunmacı default: `tick_size: float | None = None` + `__post_init__` → None ise `log.critical` + 0.10 sentinel (sessiz yanlış default sınıfı kapatıldı).
+3. `trailing_manager.py` — `_fvg_multihop` opsiyonel `tick_size`: hop kararı `_normalize_price` (SL kind) ile normalize birimde; `trail_steps` normalize SL loglar. **Verilmediğinde (backtest `evaluate_trail`) raw davranış birebir korunur.**
+4. `bot.py` — extractor `tick_size=trade.get("tick_size")` geçiriyor.
+5. `state_writer.py` — `active_trade`'e `"tick_size"` eklendi (izleme).
+6. `tests/test_recovery_manager.py` — `TestRecoveredTradeFieldParity` (2 test: yeni recovered trade tam şema; existing trade'de tick_size tazelenir).
+
+### ✅ Canlı doğrulama (2026-08-08)
+
+- **ALGOUSDT short SL kapanış +19.96:** entry 0.08993, initial SL 0.09353 → **trail#1 sl=0.08901/tp=0.08217 UYGULANDI** (tick=1e-05; fix öncesi 0.1'de 0.08901→0.1 normalize olup reddedilirdi). Fiyat SL'yi test edip döndü → STOP_MARKET tetiklendi. `trade_closed` event: `final_sl=0.08901, final_tp=0.08217, trail_count=1, pnl=19.96`.
+- 0 ERROR/CRITICAL/Traceback; 5 WARNING (hepsi RENDER 06:33 zinciri, guard'lar doğru çalıştı).
+- Test: kapsam dosyaları (recovery+trailing+models) tamamı geçti; diğer fail'ler baseline ile birebir (pre-existing).
