@@ -591,18 +591,21 @@ class TrailingManager:
     ) -> TrailScanResult:
         """Backtest (analyzer_v5) trailing adimlarinin birebir kopyasi.
 
-        D Modu (TRAIL_MODE="activation", varsayilan):
-        1. FVG retrace-only onay (fvg_close_confirmed) her zaman aktiftir;
-           continuation onayi kullanilmaz (backtest ile birebir).
-        2. FVG adayi bulunamazsa (updated=False) ve unrealized kar >=
-           TRAIL_ACTIVATION_R_MULT * risk_pts (1.5R) ise ATR-Chase fallback:
-           new_sl = current_price ∓ CONT_BUFFER_MULT * ATR (K=2.0).
-           Esik altinda fallback PASIFTIR — SL/TP yalnizca FVG varsa hareket eder.
+        TRAIL_MODE="retrace" (KAPANIS 2026-08-08, canli default):
+        1. FVG retrace-only onay (fvg_close_confirmed) tek aktiftir;
+           continuation onayi ve ATR-chase fallback KULLANILMAZ.
+        2. FVG yokken SL/TP hareket etmez (saf retrace, kanitlanmis davranis).
         3. TP, SL'deki her degisiklik kadar paralel kayar (PTrail).
 
-        is_placeable: activation/retrace modlarinda backtest ile birebir olarak
-        uygulanmaz (stale kontrolu yok); continuation/atr_chase modlarinda
-        uretilen SL'nin current price'tan uygun tarafta oldugu dogrulanir.
+        DENEYSEL (kullanilmiyor, cfg.TRAIL_MODE ile devre disi):
+        - "activation": FVG adayi bulunamazsa (updated=False) ve unrealized kar
+          >= TRAIL_ACTIVATION_R_MULT * risk_pts ise ATR-Chase fallback.
+        - "continuation"/"atr_chase": fvg_confirm_mode N-bar teyit + genis
+          continuation tamponu. Tam evren taramasinda A/retrace'i geceMEDI.
+
+        is_placeable: retrace modunda backtest ile birebir uygulanmaz (stale
+        kontrolu yok); continuation/atr_chase modlarinda uretilen SL'nin
+        current price'tan uygun tarafta oldugu dogrulanir.
 
         FIX (tick_size): tick_size verildiginde hop karari normalized birimde
         yapilir (compute_trail_candidate ile tek birim — raw vs normalized
@@ -649,6 +652,10 @@ class TrailingManager:
         atr_buffer_continuation = atr_val * cfg.ATR_TRAIL_MULT_CONTINUATION
 
         retrace_only = cfg.TRAIL_MODE in ("retrace", "activation")
+        # NOTE (2026-08-08 kapanis): cfg.TRAIL_MODE="retrace" iken asagidaki
+        # continuation/atr_chase branch'leri (fvg_confirm_mode, DENEYSEL K,
+        # ATR-chase fallback) HIC CALISMAZ — retrace_only her zaman True.
+        # D modu + continuation tam evren taramasinda A/retrace'i gecemedi.
 
         for fvg in fvgs:
             if side == "long" and fvg.direction != "bullish":

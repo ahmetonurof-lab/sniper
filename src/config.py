@@ -529,30 +529,46 @@ EARLY_LONDON_RISK_MULT = 1.5  # 02-08 UTC risk carpani (Altin Oran)
 
 # ── Magic Numbers (Faz 1.2) ────────────────────────────────────
 
-# ── D Modu (Aktivasyonlu ATR-Chase): kalici parametreler ──
-# FVG retrace takibi her zaman aktif; 1.5R esigi yalnizca FVG adayi
-# bulunamadiginda (updated=False) ATR-Chase fallback'i icin kilittir.
-# K: fallback SL tamponu (K*ATR), R: aktivasyon esigi (R * risk_pts).
-TRAIL_MODE = os.environ.get("SNIPER_TRAIL_MODE", "activation")
-CONT_BUFFER_MULT = float(os.environ.get("SNIPER_CONT_BUFFER_MULT", "2.0"))
-TRAIL_ACTIVATION_R_MULT = float(os.environ.get("SNIPER_TRAIL_ACTIVATION_R_MULT", "1.5"))
+# ── Trailing Modu (KAPANIS 2026-08-08) ──
+# KARAR: D modu (activation ATR-chase) + continuation-confirm tam evren
+# backtest'inde A/retrace'i geceMEDI -> geri cekildi. TRAIL_MODE=retrace:
+# yalnizca FVG gap-ici kapanis onayi (eski, kanitlanmis davranis).
+# D-2 parity fixi sonrasi modul sabiti buradan okundugu icin backtest de
+# otomatik senkron olur. Deger ESNEK: SNIPER_TRAIL_MODE env ile override.
+TRAIL_MODE = os.environ.get("SNIPER_TRAIL_MODE", "retrace")
+
+# ── DENEYSEL — KULLANILMIYOR (2026-08-08 kapanis) ──
+# Asagidaki parametreler D modu (activation ATR-chase) ve continuation-confirm
+# deneylerinin kalintisidir. Backtest kapanis notu: K=2.0/R=1.5 ve K/N
+# varyasyonlari tam evren taramasinda A/retrace'i geceMEDI, canlidan geri
+# cekildi (TRAIL_MODE=retrace). DEGERLER SILINMEZ: trailing_manager
+# _fvg_multihop bu sabitlere dogrudan erisir (cfg.X), TRAIL_MODE=retrace iken
+# ilgili branch'lere hic ulasilmaz ama modul yuklemesi calisir. Kaldirma
+# karari verilirse once trailing_manager ve analyzer_v5 (backtest) senkron
+# kaldirilmalidir.
+CONT_BUFFER_MULT = float(
+    os.environ.get("SNIPER_CONT_BUFFER_MULT", "2.0")
+)  # DENEYSEL: activation fallback K
+TRAIL_ACTIVATION_R_MULT = float(
+    os.environ.get("SNIPER_TRAIL_ACTIVATION_R_MULT", "1.5")
+)  # DENEYSEL: activation R esigi
 
 TRAIL_MIN_MOVE_MULT = 0.2
 
 ATR_TRAIL_MULT = float(os.environ.get("SNIPER_ATR_TRAIL_MULT", "0.10"))
 
-# Continuation trailing SL tamponu (far-side hop): retrace tamponundan (ATR_TRAIL_MULT)
-# ayri ve daha genis tutulur — fiyat az once gap sinirini kirdigi icin yakina konan
-# dar tampon (0.1xATR) trend-ici noise'a savunmasiz kalip trade'i erken kapatir.
-# Baskanlik direktifi: baslangic 0.5, replay'de 0.3/0.5/1.0 taramasiyla kesinlesecek.
+# DENEYSEL — KULLANILMIYOR (2026-08-08 kapanis): continuation-confirm geri
+# cekildi (tam evren taramasinda A/retrace'i gecemedi, TRAIL_MODE=retrace).
+# DEGERLER SILINMEZ: trailing_manager _fvg_multihop bunlari dogrudan cfg.X
+# ile okur; TRAIL_MODE=retrace iken continuation branch'ine hic ulasilmaz.
+# Kaldirma karari verilirse trailing_manager + analyzer_v5 (backtest) ile
+# senkron kaldirilmalidir.
 ATR_TRAIL_MULT_CONTINUATION = float(
     os.environ.get("SNIPER_ATR_TRAIL_MULT_CONT", "0.50")
-)
-
-# Continuation onay penceresi: far-side kaparisan ard arda N bar korunmali
-# (sahte kirilim filtresi). Araya gap ici kapanis girerse retrace kazanir.
-# Baskanlik direktifi: baslangic 2, replay'de 1/2/3 taramasiyla kesinlesecek.
-CONTINUATION_CONFIRM_BARS = int(os.environ.get("SNIPER_CONT_CONFIRM_BARS", "2"))
+)  # DENEYSEL: continuation SL tamponu
+CONTINUATION_CONFIRM_BARS = int(
+    os.environ.get("SNIPER_CONT_CONFIRM_BARS", "2")
+)  # DENEYSEL: continuation N-bar teyit
 
 MIN_STOP_DIST_PCT = 0.006
 
