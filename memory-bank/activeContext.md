@@ -1,5 +1,33 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-08 — RECOVERY tick_size FIX DEPLOY EDİLDİ + CANLI DOĞRULAMA + sunucu log incelemesi
+
+### ✅ Deploy (kullanıcı direktifi: "fix'leri yerel yap, sunucuya sadece deploy")
+- Sunucuda `git pull --ff-only` (`b9c2d53..daaeeb0`) + restart → screen **`366235.bot`** PID 366237, venv python, run `paper-20260808-000537`, cwd `/root/sniper/src`, HEAD **`daaeeb0`**. Deploy kaydı: `82b8a41`.
+- Restart sonrası 0 ERROR / 0 CRITICAL / 0 Traceback; `trade_state.json` `_used_sweeps` 10 kayıt, tüm semboller `open:false`.
+
+### 📈 Canlı doğrulama — trailing fix ÇALIŞTI (kök neden kapandı)
+- **ALGOUSDT short SL kapanış +19.96:** entry 0.08993, initial SL 0.09353 → **trail#1 sl=0.08901/tp=0.08217 UYGULANDI** (tick=1e-05, ROUND_CEILING artık iyileşmeyi yutmuyor — fix öncesi tick=0.1'de 0.08901→0.1 dönüp reddedilirdi). Fiyat SL'yi test edip döndü, STOP_MARKET tetiklendi. **Recovery-recovered trade'lerde ilk gerçek trailing güncellemesi = kanıt.**
+- **RENDERUSDT short manuel kapanış 0.00:** web emri `web_SS4TvtEAphlO5BKQHeOh` 08:49:11 FILLED, exit 1.323, qty 0.1 (eski pozisyon).
+- 4 kapanış (ARBUSDT WS_FALLBACK +18.13, ADAUSDT SL -1.50, ALGOUSDT SL +19.96, RENDERUSDT TP 0.00). Açık pozisyon **yok**.
+
+### 🔍 Sunucu log incelemesi (kullanıcı talebi)
+- RENDER anomali (06:33:16): WS-ORDER FILLED → "SL stale event #1" → **koruma eksik (sl=False tp=True)** → -2021 immediately trigger → repair atlandı → orphan_sweep TP `1000000157506320` temizlendi; trailing adayları üretildi ama short SL yerleştirilemez (doğru guard davranışı) → 08:49:11 web emriyle kapanış. Guard'lar doğru çalıştı, aksiyon gerekmedi.
+- `trail_skipped` akışı normal: `no_better_trail_candidate` + `identical_invalid_candidate_suppressed` (dedup çalışıyor).
+- 08:48'de 731 sembol EXCHANGE_INFO tazelemesi (kendi kendini iyileştiren WS yolu) sağlıklı.
+
+### 📊 Karar arka planı (baş mühendis raporu)
+- **Continuation (B) ölü:** K=1.0 N=1/2/3 = -1,207,682/-1,194,755/-1,181,140; 9/9 varyasyon negatif (kaynak: backtest-sniper `reports/trailing_replay_ab_c.md`). A baseline +4,100,540 (PE% 60.9). Canlıya alınmadı.
+- **D modu (ATR-chase activation) canlıda:** K=2.0/R=1.5 (commit `42de7d5`), tarama kaynağı `backtest-sniper/reports/trailing_activation_scan.md`.
+- Baş mühendis raporu: `backtest-sniper/reports/chief_engineer_rapor_2026-08-08.md`.
+
+### ⏭️ Sonraki adım
+1. Baş mühendis raporunun iletimi (push vs doğrudan içerik) — kullanıcıya soruldu, cevap bekleniyor.
+2. ATR-chase replay (K=0.5/1.0/1.5) parametre revizyonu — canlıda K=2.0/R=1.5 aktif olduğu için set kararı baş mühendisle.
+3. Açık izler: `runtime.status` senkronizasyonu (integration_lifecycle 3 fail), entry/order_manager pre-existing kırıklar, ENA pre-entry SL guard, DYDX reconciliation, RENDER orphan/repair zinciri gözlem altında.
+
+---
+
 ## Son İşlem: 2026-08-08 — RECOVERY tick_size PARITY FIX (yerelde yapıldı, deploy bekliyor)
 
 ### 🔴 Kök neden (kullanıcı tarafından teyit edildi)
