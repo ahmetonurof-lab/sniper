@@ -27,6 +27,7 @@ from event_log import log_event
 from models import (
     INCIDENT_POSITION_OPEN_BUT_STATE_MISSING,
     ActiveTrade,
+    STATUS_ACTIVE,
     UNRESTRICTED_STATUSES,
 )
 
@@ -107,6 +108,17 @@ class RecoveryManager:
                 direction = "long" if amt > 0 else "short"
                 entry = float(pos.get("entryPrice", 0))
 
+                # FIX (tick_size): recover edilen trade'ler _try_entry'deki gibi
+                # gerçek tick_size ile kurulmalı. models.ActiveTrade default'u
+                # (0.10) recovery'de hiç set edilmezse kullanılır ve trailing
+                # normalize (ROUND_CEILING) her iyileşmeyi yutar — 170 recovered
+                # trade'de trailing tamamen kilitlendi (bkz. ALGO/RENDER).
+                tick_size = 0.10
+                try:
+                    tick_size = await self._rest.get_tick_size(sym)
+                except Exception:
+                    log.warning("[RECOVER] %s tick_size alinamadi (0.10 fallback)", sym)
+
                 open_orders = await self._rest.get_all_orders(sym)
                 sl_orders = [
                     o
@@ -142,6 +154,7 @@ class RecoveryManager:
                         existing["sl_order_id"] = sl_id
                         existing["tp_order_id"] = tp_id
                         existing["risk_pts"] = risk_pts
+                        existing["tick_size"] = tick_size
                     else:
                         self._active_trades[sym] = ActiveTrade(
                             symbol=sym,
@@ -151,13 +164,16 @@ class RecoveryManager:
                             tp=tp_price,
                             qty=abs(amt),
                             side=direction,
+                            status=STATUS_ACTIVE,
                             trigger_fvg=None,
                             initial_sl=sl_price,
                             initial_tp=tp_price,
                             trailing_count=0,
+                            trail_count=0,
                             risk_pts=risk_pts,
                             is_recovered=True,
                             trail_mode="fvg",
+                            tick_size=tick_size,
                             sl_order_id=sl_id,
                             tp_order_id=tp_id,
                         )
@@ -556,6 +572,7 @@ class RecoveryManager:
                             existing["tp"] = tp
                             existing["sl_order_id"] = ""
                             existing["tp_order_id"] = tp_id
+                            existing["tick_size"] = tick_size
                         else:
                             self._active_trades[sym] = ActiveTrade(
                                 symbol=sym,
@@ -565,12 +582,16 @@ class RecoveryManager:
                                 tp=tp,
                                 qty=abs(amt),
                                 side=direction,
+                                status=STATUS_ACTIVE,
                                 trigger_fvg=None,
                                 initial_sl=sl,
                                 initial_tp=tp,
                                 trailing_count=0,
+                                trail_count=0,
                                 risk_pts=risk_pts,
                                 is_recovered=True,
+                                trail_mode="fvg",
+                                tick_size=tick_size,
                                 sl_order_id="",
                                 tp_order_id=tp_id,
                             )
@@ -579,6 +600,7 @@ class RecoveryManager:
                     if existing:
                         existing["sl_order_id"] = sl_id
                         existing["tp_order_id"] = tp_id
+                        existing["tick_size"] = tick_size
                     else:
                         self._active_trades[sym] = ActiveTrade(
                             symbol=sym,
@@ -588,13 +610,16 @@ class RecoveryManager:
                             tp=tp,
                             qty=abs(amt),
                             side=direction,
+                            status=STATUS_ACTIVE,
                             trigger_fvg=None,
                             initial_sl=sl,
                             initial_tp=tp,
                             trailing_count=0,
+                            trail_count=0,
                             risk_pts=risk_pts,
                             is_recovered=True,
                             trail_mode="fvg",
+                            tick_size=tick_size,
                             sl_order_id=sl_id,
                             tp_order_id=tp_id,
                         )

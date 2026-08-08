@@ -70,6 +70,7 @@ def write_state(
                 "fvg_top": trade.get("fvg_top"),
                 "fvg_bottom": trade.get("fvg_bottom"),
                 "trailing_count": trade.get("trailing_count", 0),
+                "tick_size": trade.get("tick_size"),
                 "upnl": trade.get("upnl"),
                 "status": trade.get("status", ""),
                 "frozen": trade.get("status", "") not in UNRESTRICTED_STATUSES,

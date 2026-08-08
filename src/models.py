@@ -529,7 +529,11 @@ class ActiveTrade:
     upnl: float | None = None
     status: str = ""
     # Trailing fields
-    tick_size: float = 0.10
+    # Savunmacı default: tick_size VERİLMEDEN kurulan ActiveTrade sessizce
+    # 0.10'a düşmesin diye default None tutulur; __post_init__ sentinel +
+    # log.critical basar (bkz. recovery_manager tick_size bug — 170 recovered
+    # trade yanlış 0.10 ile trailing'i kilitledi).
+    tick_size: float | None = None
     trail_count: int = 0
     protection_state: dict[str, Any] = field(default_factory=dict)
     protection_orders: dict[str, Any] = field(default_factory=dict)
@@ -556,6 +560,16 @@ class ActiveTrade:
     pending_exit_reason: str | None = None
 
     # ── Dict uyumluluğu ───────────────────────────────────────
+
+    def __post_init__(self) -> None:
+        if self.tick_size is None:
+            logger.critical(
+                "[MODELS] ActiveTrade(sym=%s) tick_size olmadan kuruldu — "
+                "0.10 sentinel kullanildi. Bu bir BUG isaretidir: kurulum "
+                "yolu tick_size gecirmeli (recovery_manager / _try_entry)",
+                self.symbol,
+            )
+            self.tick_size = 0.10
 
     def __getitem__(self, key: str):
         try:

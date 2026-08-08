@@ -587,6 +587,7 @@ class TrailingManager:
         atr_val: float,
         min_fvg_size: float,
         current_price: Optional[float] = None,
+        tick_size: Optional[float] = None,
     ) -> TrailScanResult:
         """Backtest (analyzer_v5) trailing adimlarinin birebir kopyasi.
 
@@ -602,6 +603,11 @@ class TrailingManager:
         is_placeable: activation/retrace modlarinda backtest ile birebir olarak
         uygulanmaz (stale kontrolu yok); continuation/atr_chase modlarinda
         uretilen SL'nin current price'tan uygun tarafta oldugu dogrulanir.
+
+        FIX (tick_size): tick_size verildiginde hop karari normalized birimde
+        yapilir (compute_trail_candidate ile tek birim — raw vs normalized
+        cift-kontrol tutarsizligi kapanir). Verilmediginde (backtest /
+        evaluate_trail) raw davranis birebir korunur.
         """
         if not bars_15m or len(bars_15m) <= 1:
             return TrailScanResult()
@@ -617,8 +623,23 @@ class TrailingManager:
         )
 
         side = trade["side"]
-        current_sl = trade["sl"]
-        current_tp = trade["tp"]
+        if tick_size is not None and tick_size > 0:
+            _ts = Decimal(str(tick_size))
+
+            def _norm(v: float, kind: str) -> float:
+                return float(
+                    TrailingManager._normalize_price(
+                        Decimal(str(v)), side, kind=kind, tick_size=_ts
+                    )
+                )
+
+        else:
+
+            def _norm(v: float, kind: str) -> float:
+                return float(v)
+
+        current_sl = _norm(trade["sl"], "sl")
+        current_tp = _norm(trade["tp"], "tp")
         risk_pts = abs(trade["initial_sl"] - trade["entry_price"])
         trail_count = trade.get("trailing_count", 0)
         trail_steps = trade.get("trail_steps", [])
@@ -658,14 +679,15 @@ class TrailingManager:
                     new_sl = fvg.top - atr_buffer
                 else:
                     new_sl = fvg.bottom - atr_buffer
+                cmp_sl = _norm(new_sl, "sl")
                 if (
-                    new_sl > current_sl
-                    and (new_sl - current_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
-                    and (not placeable or new_sl < current_price)
+                    cmp_sl > current_sl
+                    and (cmp_sl - current_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
+                    and (not placeable or cmp_sl < current_price)
                 ):
-                    sl_diff = new_sl - current_sl
-                    current_sl = new_sl
-                    current_tp += sl_diff
+                    sl_diff = cmp_sl - current_sl
+                    current_sl = cmp_sl
+                    current_tp = _norm(current_tp + sl_diff, "tp")
                     trail_count += 1
                     hopped = True
             else:
@@ -673,14 +695,15 @@ class TrailingManager:
                     new_sl = fvg.bottom + atr_buffer
                 else:
                     new_sl = fvg.top + atr_buffer
+                cmp_sl = _norm(new_sl, "sl")
                 if (
-                    new_sl < current_sl
-                    and (current_sl - new_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
-                    and (not placeable or new_sl > current_price)
+                    cmp_sl < current_sl
+                    and (current_sl - cmp_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
+                    and (not placeable or cmp_sl > current_price)
                 ):
-                    sl_diff = current_sl - new_sl
-                    current_sl = new_sl
-                    current_tp -= sl_diff
+                    sl_diff = current_sl - cmp_sl
+                    current_sl = cmp_sl
+                    current_tp = _norm(current_tp - sl_diff, "tp")
                     trail_count += 1
                     hopped = True
 
@@ -689,7 +712,7 @@ class TrailingManager:
                 updated = True
                 trail_steps.append(
                     {
-                        "sl": round(new_sl, 6),
+                        "sl": round(current_sl, 6),
                         "tp": round(current_tp, 6),
                         "fvg_top": round(fvg.top, 6),
                         "fvg_bot": round(fvg.bottom, 6),
@@ -715,26 +738,28 @@ class TrailingManager:
                 atr_buffer = atr_val * cfg.CONT_BUFFER_MULT
                 if side == "long":
                     new_sl = current_price - atr_buffer
+                    cmp_sl = _norm(new_sl, "sl")
                     if (
-                        new_sl > current_sl
-                        and (new_sl - current_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
-                        and new_sl < current_price
+                        cmp_sl > current_sl
+                        and (cmp_sl - current_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
+                        and cmp_sl < current_price
                     ):
-                        sl_diff = new_sl - current_sl
-                        current_sl = new_sl
-                        current_tp += sl_diff
+                        sl_diff = cmp_sl - current_sl
+                        current_sl = cmp_sl
+                        current_tp = _norm(current_tp + sl_diff, "tp")
                         trail_count += 1
                         updated = True
                 else:
                     new_sl = current_price + atr_buffer
+                    cmp_sl = _norm(new_sl, "sl")
                     if (
-                        new_sl < current_sl
-                        and (current_sl - new_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
-                        and new_sl > current_price
+                        cmp_sl < current_sl
+                        and (current_sl - cmp_sl) > risk_pts * cfg.TRAIL_MIN_MOVE_MULT
+                        and cmp_sl > current_price
                     ):
-                        sl_diff = current_sl - new_sl
-                        current_sl = new_sl
-                        current_tp -= sl_diff
+                        sl_diff = current_sl - cmp_sl
+                        current_sl = cmp_sl
+                        current_tp = _norm(current_tp - sl_diff, "tp")
                         trail_count += 1
                         updated = True
                 if updated:

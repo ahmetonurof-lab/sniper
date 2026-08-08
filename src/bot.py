@@ -351,6 +351,7 @@ class PaperTrader:
                 atr_val,
                 min_fvg_size,
                 current_price=float(scoped_bars[-1].close),
+                tick_size=trade.get("tick_size"),
             )
             if not res.updated or res.last_bar_index is None:
                 return None

@@ -1,5 +1,32 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-08 — RECOVERY tick_size PARITY FIX (yerelde yapıldı, deploy bekliyor)
+
+### 🔴 Kök neden (kullanıcı tarafından teyit edildi)
+- `recovery_manager.recover_positions` (recovery_manager.py:80) `ActiveTrade(...)`'i **`tick_size` geçirmeden** kuruyordu → `models.py` default'u `0.10` sessizce kullanılıyordu → **170/170 recovered trade** `tick=0.1` ile trailing normalize'u (ROUND_CEILING) her iyileşmeyi yutuyordu (`no_better_trail_candidate`, 214/214 trail_skipped).
+- Matematik kanıt: ALGO raw `0.088888` → normalize(tick=0.1) `0.1` → `0.1 < 0.09353` false → skip; RENDER raw `1.320464` → `1.4` → `1.4 < 1.387` false → skip. **Doğru tick ile** (RENDER 0.001 → 1.321 < 1.387 ✓, ALGO 1e-05 → iyileşme ✓) hop üretilir.
+- Etki yalnızca restart-recovered trade'ler (ALGO/RENDER) — yeni açılan trade'ler (`_try_entry`) doğru tick_size alıyor.
+
+### 🔧 Fix'ler (kullanıcı direktifi: "fix'leri yerel makinede yap, sunucuya sadece deploy ediyoruz")
+1. **`recovery_manager.py`** — 3 `ActiveTrade(...)` kurulumuna (SL/TP mevcut, emergency-close başarısız, SL/TP yeni) `tick_size=self._rest.get_tick_size(sym)` (try/except → 0.10 fallback + warning) eklendi; ayrıca `status=STATUS_ACTIVE`, `trail_count=0` (parity). `existing` güncelleme yollarına `existing["tick_size"] = tick_size` eklendi.
+2. **`models.py`** — savunmacı default (madde 5): `tick_size: float = 0.10` → `tick_size: float | None = None` + `__post_init__` → None ise `log.critical` + 0.10 sentinel. "Sessiz yanlış default" sınıfındaki gelecek eksiklikler artık CRITICAL log basar.
+3. **`trailing_manager.py`** — tek birim karşılaştırma (madde 3): `_fvg_multihop` opsiyonel `tick_size` parametresi aldı; verildiğinde hop kararı `_normalize_price` (SL kind) ile normalize birimde yapılır (long/short + ATR-chase fallback dahil), `trail_steps` loguna normalize SL yazılır. **Verilmediğinde (backtest `evaluate_trail`) raw davranış birebir korunur** — backtest kopyası kırmızı çizgisine dokunulmadı.
+4. **`bot.py`** — `_build_fvg_scan_trail_extractor`: `_fvg_multihop(..., tick_size=trade.get("tick_size"))` geçiyor.
+5. **`state_writer.py`** — `active_trade` bloğuna `"tick_size": trade.get("tick_size")` eklendi (bilerek izleme).
+6. **`tests/test_recovery_manager.py`** — `TestRecoveredTradeFieldParity`: (a) yeni recovered trade tam şema taşır (`tick_size==0.00001`, `status==STATUS_ACTIVE`, `trail_mode=="fvg"`, `trail_count==0`, SL/TP/order-id doğru), (b) existing trade'de `tick_size` tazelenir.
+
+### ✅ Test sonucu (yeni kırık YOK — baseline worktree ile karşılaştırıldı)
+- Kapsam dosyaları: recovery+trailing+models **tamamı geçti**; state_writer 2 fail + test_bot 13 fail **baseline'da da aynı** (HEAD worktree'de kanıtlandı: `sl_status` eski şema, `mark_trade_closed`/`_exit_trade_legacy` yapı değişikliği).
+- Diğer suite'lerdeki fail'ler (entry_manager `get_max_qty` mock await, order_manager `update_trail_orders` davranışı, `runtime.status` senkron, initial_protection yön validasyonu) — **tamamı dokunulmayan dosyaların pre-existing kırıkları**.
+- Tam suite tek koşuda ~63 test sonrası asıldı (nondeterministic ağ testi) — kapsam dosyaları ayrı ayrı tamamlandı.
+
+### ⏭️ Sonraki adım
+1. **Deploy (kullanıcı onayı bekliyor):** sunucuda `git pull` + bot restart → recovery, ALGO/RENDER dahil tüm trade'leri doğru tick_size ile yeniden kurar (RENDER 0.001, ALGO 1e-05).
+2. Restart sonrası doğrulama: `trades_history.jsonl` yeni recovered kayıtlarında gerçek tick_size + `live_state.json` `active_trade.tick_size` + trailing `[TRAIL]` hop logları.
+3. `runtime.status` senkronizasyonu (integration_lifecycle 3 fail) ve diğer pre-existing kırıklar ayrı iz konusu.
+
+---
+
 ## Son İşlem: 2026-08-07 — Continuation-confirm + is_placeable fix CANLI (baş mühendis direktifi)
 
 ### 🔧 Yapılan (commit `b9c2d53`, yerelde testli, deploy edildi)
