@@ -1257,3 +1257,33 @@ if upd:
 - `mark_sweep_consumed()` level-based ID kullanır — bar_index değil.
 - `rsm.reset()` artık `_exit_trade()` sonunda çağrılır, `_try_entry()` içinde değil.
 - Trailing güncellemede eski order id `*_order_id_prev` olarak saklanır, geçiş penceresinde WS fill'leri prev id ile de eşleşebilir.
+
+---
+
+## Son İşlem: 2026-08-09 — TRADE STATUS KİLİTLENMESİ FIX (Prompt 3 — RENDERUSDT -8.92%)
+
+### 🔴 Kök neden
+1. `_on_1m_close` → trailing + check_exit aynı kapıya bağlı (`status in UNRESTRICTED`). Status dışında takılırsa TP/SL kontrolü bir daha çalışmaz.
+2. `update_trail_orders` → protection lifecycle çağrıları try/except dışında → exception durumunda status `TRAIL_REPLACING`'de kalır.
+3. `orchestrate_trail` try/except yok → üst katmanda düzeltme mekanizması yok.
+
+### Fix A — order_manager.py `update_trail_orders` "ikisi başarılı" bloğu
+- SL/TP state güncellemesi + protection lifecycle (`begin_replace_sl/promote_sl`, `begin_replace_tp/promote_tp`) + eski emir iptal + log + status reset → tümü `try` içinde.
+- `except` → `log.critical` + `_fail_and_reset_status()` (status ACTIVE + backoff artır). Yeni emirler borsada açık kalabilir → `reconcile_orphan_orders` süpürüyor (log'da not edildi).
+
+### Fix B — bot.py `_on_1m_close` orchestrate_trail try/except
+- `orchestrate_trail` exception → `log.critical` + `trade["status"] = STATUS_ACTIVE` zorla.
+- Amaç: `check_exit()` (hemen altındaki satır) HER 1m barında çalışsın; TP/SL kontrolü trailing'e bağımlı olmasın.
+
+### Fix C — Watchdog (fail-safe)
+- `_orphan_check_counter % 5` orphan sweep'inde: status ACTIVE/"" dışında + `status_since` 90s'den eski → `log.critical` + ACTIVE'e zorla geri çek.
+- `STATUS_TRAIL_REPLACING` atarken `trade["status_since"] = time.time()` yazılıyor (order_manager.py:159).
+
+### Testler
+- `test_update_trail_orders_protection_exception_resets_status` (Fix A): protection lifecycle exception → status ACTIVE.
+- `test_orchestrate_trail_exception_sets_status_active_and_continues` (Fix B): orchestrate_trail exception → status ACTIVE + check_exit çağrıldı.
+- `test_watchdog_resets_stuck_trail_replacing_after_90s` (Fix C): TRAIL_REPLACING 100s sonra → ACTIVE.
+- **order_manager: tümü geçti / test_bot: 13 pre-existing fail aynı (0 yeni).**
+
+### Dokunulmadı
+- state_writer `sl_order_id_present`/`tp_order_id_present` boolean (backlog).

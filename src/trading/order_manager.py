@@ -306,73 +306,85 @@ class OrderManager:
                     )
             return _fail_and_reset_status()
 
-        # ── 3. İKİSİ DE BAŞARILI — ŞİMDİ ESKİ EMİRLERİ İPTAL ET, STATE'İ YAZ ──
-        trade["sl"] = new_sl
-        if self._protection is not None:
-            self._protection.begin_replace_sl(trade, new_sl_id)
-            self._protection.promote_sl(trade)
-        else:
-            if old_sl_id:
-                hist = trade.get("sl_order_id_history")
-                if not isinstance(hist, list):
-                    hist = []
-                    trade["sl_order_id_history"] = hist
-                hist.append(old_sl_id)
-                trade["sl_order_id_history"] = hist[-5:]
-            trade["sl_order_id"] = new_sl_id
-            trade["sl_order_id_prev"] = old_sl_id
-        if old_sl_id:
-            try:
-                await self._rest.cancel_order(
-                    old_sl_id, sym, reason="trail_update", is_algo=True
-                )
-            except Exception as e:
-                log.warning(
-                    "[CANCEL] %s eski SL iptal hatasi (id=%s): %s", sym, old_sl_id, e
-                )
-
-        if not tp_unchanged:
-            trade["tp"] = new_tp
+        try:
+            # ── 3. İKİSİ DE BAŞARILI — ŞİMDİ ESKİ EMİRLERİ İPTAL ET, STATE'İ YAZ ──
+            trade["sl"] = new_sl
             if self._protection is not None:
-                self._protection.begin_replace_tp(trade, new_tp_id)
-                self._protection.promote_tp(trade)
+                self._protection.begin_replace_sl(trade, new_sl_id)
+                self._protection.promote_sl(trade)
             else:
-                if old_tp_id:
-                    hist = trade.get("tp_order_id_history")
+                if old_sl_id:
+                    hist = trade.get("sl_order_id_history")
                     if not isinstance(hist, list):
                         hist = []
-                        trade["tp_order_id_history"] = hist
-                    hist.append(old_tp_id)
-                    trade["tp_order_id_history"] = hist[-5:]
-                trade["tp_order_id"] = new_tp_id
-                trade["tp_order_id_prev"] = old_tp_id
-            if old_tp_id:
+                        trade["sl_order_id_history"] = hist
+                    hist.append(old_sl_id)
+                    trade["sl_order_id_history"] = hist[-5:]
+                trade["sl_order_id"] = new_sl_id
+                trade["sl_order_id_prev"] = old_sl_id
+            if old_sl_id:
                 try:
                     await self._rest.cancel_order(
-                        old_tp_id, sym, reason="trail_update", is_algo=True
+                        old_sl_id, sym, reason="trail_update", is_algo=True
                     )
                 except Exception as e:
                     log.warning(
-                        "[CANCEL] %s eski TP iptal hatasi (id=%s): %s",
+                        "[CANCEL] %s eski SL iptal hatasi (id=%s): %s",
                         sym,
-                        old_tp_id,
+                        old_sl_id,
                         e,
                     )
 
-        trade["trailing_count"] = new_trail_count
+            if not tp_unchanged:
+                trade["tp"] = new_tp
+                if self._protection is not None:
+                    self._protection.begin_replace_tp(trade, new_tp_id)
+                    self._protection.promote_tp(trade)
+                else:
+                    if old_tp_id:
+                        hist = trade.get("tp_order_id_history")
+                        if not isinstance(hist, list):
+                            hist = []
+                            trade["tp_order_id_history"] = hist
+                        hist.append(old_tp_id)
+                        trade["tp_order_id_history"] = hist[-5:]
+                    trade["tp_order_id"] = new_tp_id
+                    trade["tp_order_id_prev"] = old_tp_id
+                if old_tp_id:
+                    try:
+                        await self._rest.cancel_order(
+                            old_tp_id, sym, reason="trail_update", is_algo=True
+                        )
+                    except Exception as e:
+                        log.warning(
+                            "[CANCEL] %s eski TP iptal hatasi (id=%s): %s",
+                            sym,
+                            old_tp_id,
+                            e,
+                        )
 
-        _logged_tp_id = new_tp_id or trade.get("tp_order_id", "")
-        log.info(
-            "[ORDER] %s trailing guncellendi sl=%.6f (id=%s) tp=%.6f (id=%s)",
-            sym,
-            trade.get("sl", 0.0),
-            new_sl_id,
-            trade.get("tp", 0.0),
-            _logged_tp_id,
-        )
-        self._trail_failures[sym] = 0
-        trade["status"] = STATUS_ACTIVE
-        return True
+            trade["trailing_count"] = new_trail_count
+
+            _logged_tp_id = new_tp_id or trade.get("tp_order_id", "")
+            log.info(
+                "[ORDER] %s trailing guncellendi sl=%.6f (id=%s) tp=%.6f (id=%s)",
+                sym,
+                trade.get("sl", 0.0),
+                new_sl_id,
+                trade.get("tp", 0.0),
+                _logged_tp_id,
+            )
+            self._trail_failures[sym] = 0
+            trade["status"] = STATUS_ACTIVE
+            return True
+        except Exception as e:
+            log.critical(
+                "[TRAIL] %s update_trail_orders exception — borsada emirler acik olabilir, "
+                "state ile borsa uyumsuz — status ACTIVE'e zorla geri cekiliyor: %s",
+                sym,
+                e,
+            )
+            return _fail_and_reset_status()
 
     # ── Canlı doğrulama (WS-FALLBACK guard için) ──────────────
 

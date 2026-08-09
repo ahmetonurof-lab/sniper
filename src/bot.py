@@ -13,6 +13,7 @@ import json
 import math
 import os
 import sys
+import time
 from collections import deque
 from datetime import UTC, datetime, timezone, timedelta
 from decimal import Decimal
@@ -554,6 +555,23 @@ class PaperTrader:
         # ── Orphan sweep (every 5 calls, tüm sembolleri tarar) ──
         if self._orphan_check_counter % 5 == 0:
             await self.recovery_manager.reconcile_orphan_orders()
+            # WATCHDOG: status kilidi kontrolü — TRAIL_REPLACING/EXIT_REQUESTED
+            # gibi restricted status'lar 90s'den uzun süredir devam ediyorsa
+            # ACTIVE'e zorla geri çek (exit kontrolünü tekrar başlat).
+            for _sym, _trade in list(self.active_trades.items()):
+                _status = _trade.get("status", "")
+                if _status not in UNRESTRICTED_STATUSES:
+                    _since = _trade.get("status_since", 0)
+                    if _since and time.time() - _since > 90:
+                        log.critical(
+                            "[WATCHDOG] %s %s status=%s kilitli — ACTIVE'e zorla geri "
+                            "cekiliyor (exit kontrolu %ss suredir calismiyordu)",
+                            _sym,
+                            _trade.get("symbol", _sym),
+                            _status,
+                            int(time.time() - _since),
+                        )
+                        _trade["status"] = STATUS_ACTIVE
 
         # ── Trailing + Exit: yalnizca unrestricted durumda ──
         if trade.get("status") in UNRESTRICTED_STATUSES:
@@ -570,18 +588,28 @@ class PaperTrader:
                     sym
                 )
             bars_15m = self.hub.get_bars(sym, "15m")
+            trail_res = None
             if bars_15m:
-                trail_res = await self.trailing_manager.orchestrate_trail(
-                    trade, bars_15m
-                )
-                if trail_res.action == "updated":
-                    log.info(
-                        "[TRAIL] %s koruma güncellendi: sl=%s tp=%s (reason: %s)",
-                        sym,
-                        trade.get("sl"),
-                        trade.get("tp"),
-                        trail_res.candidate.reason if trail_res.candidate else "?",
+                try:
+                    trail_res = await self.trailing_manager.orchestrate_trail(
+                        trade, bars_15m
                     )
+                    if trail_res and trail_res.action == "updated":
+                        log.info(
+                            "[TRAIL] %s koruma güncellendi: sl=%s tp=%s (reason: %s)",
+                            sym,
+                            trade.get("sl"),
+                            trade.get("tp"),
+                            trail_res.candidate.reason if trail_res.candidate else "?",
+                        )
+                except Exception as e:
+                    log.critical(
+                        "[TRAIL] %s orchestrate_trail exception, status ACTIVE'e "
+                        "zorla geri cekiliyor: %s",
+                        sym,
+                        e,
+                    )
+                    trade["status"] = STATUS_ACTIVE
                 # Not: orchestrate_trail exchange rejection durumunda action="skip" doner,
                 # invalidation durumunda (immediate trigger) local flag set eder.
 

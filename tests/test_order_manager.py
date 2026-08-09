@@ -7,7 +7,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from trading.order_manager import OrderManager
-from models import ActiveTrade
+from models import ActiveTrade, STATUS_ACTIVE
 
 
 # ── Helpers ───────────────────────────────────────────────────────
@@ -1371,3 +1371,34 @@ class TestActiveTradeHistoryFields:
         mock_rest.cancel_order.assert_awaited_once_with("sl_old", "BTCUSDT")
         assert trade["protection_orders"]["sl"]["order_id"] == "sl_new"
         assert trade["sl_order_id"] == "sl_new"
+
+    @pytest.mark.asyncio
+    async def test_update_trail_orders_protection_exception_resets_status(self):
+        """Fix A: protection lifecycle exception durumunda status ACTIVE'e
+        geri cekilmeli — TRAIL_REPLACING kilitlenmesi engellenir."""
+        from unittest.mock import MagicMock, AsyncMock
+
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.estimate_market_price = AsyncMock(return_value=100.0)
+        mock_rest.get_max_qty = AsyncMock(return_value=1000.0)
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_new"})
+        mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_new"})
+        mock_rest.cancel_order = AsyncMock(return_value={})
+
+        _mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _active_trade(
+            side="long",
+            sl=100.0,
+            tp=110.0,
+            sl_order_id="sl_old",
+            tp_order_id="tp_old",
+        )
+
+        mock_protection = MagicMock()
+        mock_protection.begin_replace_sl = MagicMock(side_effect=RuntimeError("boom"))
+        _mgr._protection = mock_protection
+
+        result = await _mgr.update_trail_orders("BTCUSDT", trade, 105.0, 115.0, 1)
+        assert result is False
+        assert trade["status"] == STATUS_ACTIVE

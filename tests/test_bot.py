@@ -4,13 +4,20 @@ Heavy mocking of external dependencies (WS, REST, config, trading).
 """
 
 import asyncio
+import time
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from models import Bar, ActiveTrade, STATUS_REPAIR_REQUIRED
+from models import (
+    Bar,
+    ActiveTrade,
+    STATUS_ACTIVE,
+    STATUS_TRAIL_REPLACING,
+    STATUS_REPAIR_REQUIRED,
+)
 from retrace_state import RetraceState, HTFFVG
 from session import SessionState
 
@@ -924,10 +931,83 @@ class TestOn1mClose:
         # çağrılır ama içeride transition guard skip eder.
         bot.recovery_manager.reconcile_orphan_orders.assert_called_once()
 
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.TrailingManager")
+    def test_orchestrate_trail_exception_sets_status_active_and_continues(
+        self, mock_trail_mgr, mock_cfg, mock_hub_cls, mock_rest_cls
+    ):
+        """Fix B: orchestrate_trail exception firlatirsa status ACTIVE'e
+        zorla geri cekilmeli, check_exit() yine de calismali."""
+        _setup_minimal_cfg(mock_cfg)
+        from bot import PaperTrader
 
-# ═══════════════════════════════════════════════════════════════════
+        bot = PaperTrader(symbols=["BTCUSDT"])
+        bot.recovery_manager.reconcile_orphan_orders = AsyncMock()
+
+        trade = ActiveTrade(
+            symbol="BTCUSDT", side="long", entry_price=50000.0, sl=49000.0, tp=52000.0
+        )
+        trade["status"] = STATUS_ACTIVE
+        bot.active_trades["BTCUSDT"] = trade
+        bot.hub.get_bars.return_value = [_bar(i, 100, 105, 95, 102) for i in range(20)]
+
+        mock_trail_mgr.return_value.orchestrate_trail = AsyncMock(
+            side_effect=RuntimeError("trail boom")
+        )
+        mock_exit = MagicMock()
+        mock_exit.triggered = False
+        mock_trail_mgr.return_value.check_exit.return_value = mock_exit
+
+        bars = [_bar(i, 50010, 50020, 49980, 50015) for i in range(5)]
+        asyncio.run(bot._on_1m_close("BTCUSDT", bars))
+
+        assert trade["status"] == STATUS_ACTIVE
+        mock_trail_mgr.return_value.orchestrate_trail.assert_awaited_once()
+        mock_trail_mgr.return_value.check_exit.assert_called_once()
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.TrailingManager")
+    def test_watchdog_resets_stuck_trail_replacing_after_90s(
+        self, mock_trail_mgr, mock_cfg, mock_hub_cls, mock_rest_cls
+    ):
+        """Fix C: TRAIL_REPLACING statusu 90s'den uzun surduyse watchdog
+        ACTIVE'e zorla geri cekmeli."""
+        _setup_minimal_cfg(mock_cfg)
+        from bot import PaperTrader
+
+        bot = PaperTrader(symbols=["BTCUSDT"])
+        bot.recovery_manager.reconcile_orphan_orders = AsyncMock()
+
+        trade = ActiveTrade(
+            symbol="BTCUSDT", side="long", entry_price=50000.0, sl=49000.0, tp=52000.0
+        )
+        trade["status"] = STATUS_TRAIL_REPLACING
+        trade["status_since"] = time.time() - 100
+        bot.active_trades["BTCUSDT"] = trade
+        bot.hub.get_bars.return_value = [_bar(i, 100, 105, 95, 102) for i in range(20)]
+
+        mock_tr = MagicMock()
+        mock_tr.action = "none"
+        mock_trail_mgr.return_value.orchestrate_trail = AsyncMock(return_value=mock_tr)
+        mock_exit = MagicMock()
+        mock_exit.triggered = False
+        mock_trail_mgr.return_value.check_exit.return_value = mock_exit
+
+        bars = [_bar(i, 50010, 50020, 49980, 50015) for i in range(5)]
+        for _ in range(4):
+            asyncio.run(bot._on_1m_close("BTCUSDT", bars))
+        asyncio.run(bot._on_1m_close("BTCUSDT", bars))
+
+        assert trade["status"] == STATUS_ACTIVE
+
+
+# ═══════════════════════════════════════════════════════════════
 # _exit_trade tests
-# ═══════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════
 
 
 class TestExitTrade:
