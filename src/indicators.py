@@ -71,3 +71,34 @@ def build_atr_from_bars(
         prev_close = bar.close
 
     return atr if atr is not None else 0.0
+
+
+def compute_atr_series(bars: list[Bar], period: int = ATR_PERIOD) -> list[float]:
+    """Bar bazlı ATR serisi (sonnet indicators.compute_atr_series ile birebir).
+
+    bars[i] için ATR → atr_series[i]. Yeterli geçmiş yoksa 0.0.
+    SMMA (Wilder smoothing) seed'i ilk `period` TR'nin ortalamasıdır.
+    Sonnet'teki numba/numpy implementasyonunun saf Python karşılığıdır
+    (canlı venv'de numpy/numba bağımlılığı eklememek için).
+    """
+    n = len(bars)
+    if n < period + 1:
+        return [0.0] * n
+
+    trs = [0.0] * n
+    for i in range(1, n):
+        b, pc = bars[i], bars[i - 1].close
+        trs[i] = max(
+            b.high - b.low,
+            abs(b.high - pc),
+            abs(b.low - pc),
+        )
+
+    smma_vals: list[float] = [sum(trs[1 : period + 1]) / period]
+    for i in range(period + 1, n):
+        smma_vals.append((smma_vals[-1] * (period - 1) + trs[i]) / period)
+
+    atr_series = [0.0] * (period + 1) + smma_vals
+    while len(atr_series) < n:
+        atr_series.append(atr_series[-1])
+    return atr_series[:n]

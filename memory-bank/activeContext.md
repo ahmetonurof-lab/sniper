@@ -1,5 +1,24 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-09 — 4 soruluk kanıt-temelli teyit turu (kod değişikliği YOK)
+
+### Sonuç: 3/4 kodda doğrulandı; canlı davranış SSH olmadan DOĞRULANAMADI
+1. **TRAIL_MODE=retrace doğru mu?** Kod ✅ (`src/config.py:538` default "retrace"; trailing_manager retrace-only, DENEYSEL yollar ulaşılmaz), deploy kaydı ✅ (`deployed.md:5`, commit `695b2a4`, screen 377433.bot, 0 ERROR). Canlı ❌ — SSH reddi.
+2. **P1-15 "08 Ağu RENDER 06:33" tekrarı doğru mu?** Kayıt ✅ (`activeContext.md` 06:33:16 RENDER stale→koruma eksik→-2021→repair atlandı→orphan_sweep; guard'lar doğru çalıştı, aksiyon gerekmedi). Yerel `paper_trade.log`'da `06:33` 4 satır — hepsi 08-06 replay penceresi, canlı değil. Canlı teyit ❌.
+3. **ENA pre-entry SL guard uygulandı mı?** Kod ✅ (`src/bot.py:718-731`, `src/config.py:619` `SL_EPSILON_TICKS=2`; guard sembol-bağımsız → koddan ENA'ya uzanıyor). ENA-spesifik commit/log ❌ — koddan çıkarım.
+4. **DYDX reconciliation uygulandı mı?** Kod ✅ (`src/trading/entry_manager.py:430-489` — mkt_id yok + poz açık → `_emergency_close`; empty_response + poz açık → `_emergency_close`; commit `bc3f3ff`). Canlı olay ❌ — sunucu teyidi yok.
+
+### 🔴 KRİTİK BULGU — yerel snapshot canlı sunucudan DEĞİL
+- `output/paper_trade.log` run_id dağılımı: `paper-20260808-000537` (deploy edilen run) **0 eşleşme**. Mevcut run'lar 08-05/08-06/08-07 replay-test koşuları + `paper-20260808-181527` (sentetik BTCUSDT 50000 verili, `live_state.json`'da REPAIR_REQUIRED/BROKEN sentetik state). Yerel `output/*` canlı davranış kanıtı SAYILMAZ.
+- `events_2026-08-08.jsonl` (203 event): entry 12 / exit 96 / sl_reject 39 / tp_reject 10 / orphan_cleaned 6 / ghost_cleaned 2 / force_close 38; tarih aralığı 02:04→21:16; run_id alanı yok — yerel test/replay event'leri, canlı değil.
+- Canlı teyit engeli: `169.58.41.73` root + iki anahtar da "Permission denied (publickey,password)"; plink "OpenSSH SSH-2 private key" reddi. Geçerli SSH kullanıcısı/anahtarı gerekli.
+
+### ⏭️ Sonraki adım
+1. Kullanıcıdan geçerli SSH kimliği (kullanıcı/anahtar) → sunucuda `git log -1` + run id + TRAIL_MODE env teyidi (3. katman).
+2. Onay gelene kadar 1-4 canlı davranışı "doğrulanamadı" olarak işle.
+
+---
+
 ## Son İşlem: 2026-08-08 — RECOVERY tick_size FIX DEPLOY EDİLDİ + CANLI DOĞRULAMA + sunucu log incelemesi
 
 ### ✅ Deploy (kullanıcı direktifi: "fix'leri yerel yap, sunucuya sadece deploy")

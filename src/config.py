@@ -520,6 +520,26 @@ FVG_SIZE_MAP: dict[str, float] = {
 
 SL_ATR_MULT = 1.5
 
+# ── CHoCH (MSS) sabitleri — sonnet/mss.py (E modu) icin ────────
+# Sonnet nexus'tan gercek degerleriyle tasindi (model uyumu dogrulandi).
+# detect_mss() bu sabitleri config.CHoCH_* olarak okur. Canli/backtest
+# ortak config kullandigi icin burasi tek kaynaktir.
+CHoCH_MIN_BODY_RATIO = 1.0
+CHoCH_ATR_OVERSHOOT = 0.2
+CHoCH_ATR_PERIOD = 14
+CHOCH_MAX_AGE_HOURS = 8
+
+# ── E varyanti (analyzer_v5) — CHoCH yon filtresi ───────────────
+# A  : baseline (CHoCH filtresi yok, mevcut sweep-FVG)
+# E1 : yumusak — destekleyici CHoCH ile ortusen FVG sec; ters CHoCH'u
+#      yok say ve A mantigina dus (engellemez)
+# E2 : sert — destekleyici CHoCH ile ortusen FVG sec; ters CHoCH'ta
+#      trade atlanir (CHOCH_CONTRA)
+ENTRY_VARIANT = "A"
+# CHoCH.level ile FVG bandi ortasi arasi kabul edilen maksimum mesafe
+# (ATR carpani). Band genisligi da toleransa eklenir.
+CHOCH_FVG_OVERLAP_ATR_MULT = 1.0
+
 TP_RR = float(os.environ.get("SNIPER_TP_RR", "1.8"))
 
 FVG_BUFFER_MULT = 0.50
