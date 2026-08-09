@@ -1,4 +1,4 @@
-from snapshot.snapshot import _resolve_fvg_bar_index
+from snapshot.snapshot import _resolve_fvg_bar_index, _reverse_sort_key
 
 
 def _candle(time, open_, high, low, close):
@@ -138,3 +138,23 @@ class TestResolveFvgBarIndex:
         # rel = 1 + (200 - 3) = 198 → out of bounds (len=3)
         # price lookup: candle[1] high=135 >= 106, low=125 <= 108 → return 1
         assert result == 1
+
+
+class TestReverseSortKey:
+    """_reverse_sort_key (9-tümleyen) birim testleri."""
+
+    def test_digit_complement(self):
+        assert _reverse_sort_key("2026-08-09_172021") == "7973-91-90_827978"
+
+    def test_non_digit_chars_preserved(self):
+        assert _reverse_sort_key("a1-2_3") == "a8-7_6"
+
+    def test_later_time_sorts_first(self):
+        early = _reverse_sort_key("2026-07-21_003943")
+        late = _reverse_sort_key("2026-08-09_172021")
+        assert late < early
+
+    def test_same_day_later_hour_sorts_first(self):
+        early = _reverse_sort_key("2026-08-09_003943")
+        late = _reverse_sort_key("2026-08-09_172021")
+        assert late < early

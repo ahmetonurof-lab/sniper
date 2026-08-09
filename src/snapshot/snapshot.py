@@ -128,6 +128,18 @@ def _find_bar(candles: list[dict], price: float, ts_ms: int | None = None) -> in
 # ─────────────────────────────────────────────
 
 
+def _reverse_sort_key(ts_str: str) -> str:
+    """
+    9-tümleyen ters sıralama anahtarı.
+
+    Her rakamı (9 - rakam) ile değiştirir, rakam olmayan karakterleri korur.
+    Böylece dosya adları alfabetik sıralandığında BÜYÜK tarih ÖNCE gelir
+    (VS Code Explorer'da en yeni snapshot en üstte görünür).
+    Örnek: 2026-08-09_172021 -> 7973-91-90_827978
+    """
+    return "".join(str(9 - int(c)) if c.isdigit() else c for c in ts_str)
+
+
 def normalize_trade(trade: dict) -> dict:
     n = dict(trade)
     aliases = {
@@ -222,7 +234,7 @@ def capture_snapshot(
     HTML dosyasını output/charts/ altına kaydeder.
 
     Döndürür:
-        Kaydedilen HTML dosya adı — örn. "BTCUSDT_2026-06-28_072600.html"
+        Kaydedilen HTML dosya adı — örn. "BTCUSDT_7973-91-90_827978_2026-08-09_172021.html"
         Hata durumunda None.
     """
     trade = normalize_trade(trade)
@@ -400,7 +412,8 @@ def capture_snapshot(
         if exit_ts_ms
         else datetime.now(timezone.utc)
     )
-    filename = f"{sym}_{dt.strftime('%Y-%m-%d_%H%M%S')}.html"
+    ts_str = dt.strftime("%Y-%m-%d_%H%M%S")
+    filename = f"{sym}_{_reverse_sort_key(ts_str)}_{ts_str}.html"
     outpath = os.path.join(_SNAPSHOTS_DIR, filename)
 
     try:
