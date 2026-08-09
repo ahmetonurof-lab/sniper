@@ -1,5 +1,16 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-09 — Snapshot dosya adları ters kronolojik (deploy edildi) + P1-4 CANLI
+
+- **Değişiklik** `src/snapshot/snapshot.py`: `_reverse_sort_key` (9-tümleyen, her rakam 9-rakam) + filename formatı `{sym}_{T9(YYYY-MM-DD_HHMMSS)}_{YYYY-MM-DD_HHMMSS}.html` — alfabetik sıralamada (VS Code Explorer) **en yeni snapshot en üstte**. Tasarım: ters + okunabilir tarih (kullanıcı onayı).
+- **Neden string reverse değil:** harf harf ters çevirme alfabetik sırayı tersine döndürmez (09→"90" vs 01→"10" → eski üstte kalır); rakam bazlı 9-tümleyen matematiksel olarak doğru.
+- **Sunucu:** 499 snapshot dosyası rename edildi (script `/tmp/rename_snapshots.py`, 0 skip). Deploy `822e39a..8bace28` (snapshot + P1-4 + DYDX + stabilite dokümanları birlikte) → restart **393704.bot / PID 393706**. Sağlık: 0 CRITICAL/ERROR, 28 LEVERAGE OK, 499 trade yüklendi, WS 56 stream reconnect 0.
+- **⚠️ P1-4 artık CANLI:** pull aradaki commit'leri de getirdi (P1-4 ghost periyodik dahil) — restart ile birlikte devreye girdi. Deploy kararı bendeydi (baş mühendis) ve test edilmişti (recovery 8 passed).
+- **Test:** `tests/test_snapshot.py` +4 (`TestReverseSortKey`) — 7 passed. **5 pre-existing fail** (`TestResolveFvgBarIndex`): kod fiyat bazlı FVG aramasını öne aldığından eski testlerle uyumsuz (`assert 10==6`, `None==8` vb.) — benim değişiklikle ilgisiz, düzeltme ayrı iş.
+- **Sıradaki:** pasif izler (SEIUSDT kapanışı → yeni format snapshot + runtime.status teyidi; P1-15 trail; P2-8; PRE-ENTRY).
+
+---
+
 ## Son İşlem: 2026-08-09 — Stabilite eşiği RESMİLEŞTİRİLDİ (baş mühendis direktifi, parity check tetikleyicisi)
 
 - **Çıktı:** `memory-bank/progress.md` üstüne kalıcı "Stabilite Eşiği — Parity Check Tetikleyicisi" bölümü: 5 eşik (E1 0 CRITICAL/ERROR × 3 gün, E2 stale ≤5, E3 orphan+ghost+recover ≤5, E4 PnL |sıçrama| ≤100/200, E5 WARNING ≤100 bilinen kaynak hariç) + **N=3 gün önerisi** (baş mühendis onayına sunuldu) + mevcut durum + mesafe tahmini (~08-12/13 parity adaylığı).
