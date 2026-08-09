@@ -1,5 +1,18 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-09 — runtime.status KAPSAM RAPORU (MD, kod değişikliği yok)
+
+- **Görev:** TestExitStateTransitions 3 fail'in gerçekte neyi kırdığını çıkar + integration_lifecycle ilişkisi + tek nokta düzeltme önerisi.
+- **Kök neden (doğrulandı):** "state iki yerde tutuluyor" ailesi — flat `ActiveTrade.status` (models.py:530) vs nested `runtime.status` (TradeRuntimeState, models.py:443). `__setitem__` (models.py:584) flat'e yazar, runtime'ı senkronlamaz. `runtime.status` üretimde HİÇ yazılmıyor (hep default ACTIVE); exit_lifecycle.py:21 docstring "TradeRuntimeState... BAĞLANMADI" teyidi.
+- **3 fail:** `trade["status"]=STATUS_X` sonrası `runtime.status.value` ACTIVE'de kalıyor (EXIT_REQUESTED/EXIT_VERIFYING/CLOSED assertion'ları).
+- **integration_lifecycle:** tam dosya 9 passed / 3 failed — fail'ler yalnızca TestExitStateTransitions. P2-4 (runtime.protection) yeşil, sadece status tarafı eksik.
+- **Tek nokta fix önerisi:** `__setitem__`'e status senkronu (`TradeStatus(value)`, ValueError'da atla). Kanıt: üretimde 15 `trade["status"]=` noktasının tamamı bu geçitten geçiyor (bot 2, order_manager 3, exit_lifecycle 9); attribute yazımı yok. state_writer flat'ten türetiyor → etkilenmez; `""` UNRESTRICTED sette → ValueError guard'ı güvenli.
+- **Test fixture notu:** `_trade()` (test_integration_lifecycle.py:68) tick_size'sız ACTIVE kuruyor → savunmacı CRITICAL log kirliliği (fix commit'ine `tick_size` eklenmesi temizler).
+- **Rapor:** `reports/runtime_status_senkronizasyon_kapsam.md` — baş mühendise iletildi.
+- **Sıradaki:** onay sonrası tek commit uygulaması (models.py `__setitem__` + `_trade()` tick_size) → 3 test yeşil.
+
+---
+
 ## Son İşlem: 2026-08-09 — 🔴 tick_size SENTINEL KÖK NEDEN KAPANDI + 🟡 P2-8 dust-close notu
 
 ### Kök neden (baş mühendis direktifi: tüm `ActiveTrade(` kuruluş noktalarını tara)
