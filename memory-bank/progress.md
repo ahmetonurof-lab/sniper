@@ -1,5 +1,33 @@
 # Progress — Sniper Bot
 
+## Stabilite Eşiği — Parity Check Tetikleyicisi (2026-08-09, baş mühendis onayıyla resmileştirildi)
+
+> **Amaç:** "bot stabil" kararını öznel duygudan çıkarıp nesnel eşiklerle tetiklemek. Tüm eşikler aynı anda sağlandığında, son `STABLE_CLEAN` tarihinden itibaren sayılan **3 ardışık temiz gün** tamamlanmışsa → **manuel trade-parity check** başlatılabilir. Kriter ihlal olursa sayaç sıfırlanır, ihlal günü log'da `[STAB]` işaretlenir.
+
+### Eşik Tablosu (2026-08-09 itibariyle mevcut durum ölçümü — dedupe analiz, sunucu logları)
+
+| # | Eşik | Kriter | 08-08 | 08-09 | Durum |
+|---|------|--------|-------|-------|-------|
+| E1 | CRITICAL/ERROR | Ardışık 3 gün: günde **0 CRITICAL + 0 ERROR** | 2 CRITICAL (1× WS_UNMATCHED_REDUCE_ONLY 01:14 ARB, 1× tick sentinel 14:45) | 9 CRITICAL — **7× tick sentinel (01:00-11:15, aa27b6f fix ÖNCESİ)** + 2× APTUSDT ACİL KAPANIŞ (P2-8, 07:25) | 🟡 Deploy 08-09 14:22 sonrası **0 CRITICAL/0 ERROR**; temiz pencere 14:22'de başladı |
+| E2 | Stale | Günlük stale event **≤ 5** (tek haneli) | **1** ✓ | **12** ✗ (RENDER serisi #1-7 + #1-3, APT #1, ATOM #1 — 3 ayrı trade) | 🟡 Seri kaynak (RENDER pozisyonları) kapandı; 08-08 zaten ✓ |
+| E3 | Recovery-orphan | Günlük orphan+ghost+recover olayı **≤ 5** (restart kaynaklı recover hariç) | **4** (2 orphan + 2 recover) ✓ | 2 orphan + 3 ghost + 18 recover (15:22 restart kaynaklı) ≈ **5** ✓ | 🟢 08-06 513/499 kaosundan belirgin düşüş — çok yakın/karşılanıyor |
+| E4 | PnL sıçraması | Günlük \|PnL\| **≤ 100** ve art arda günler farkı **≤ 200** | -1.73 ✓ | -0.78 (kısmi) ✓ | 🟢 Karşılanıyor (son 4 tam gün: -46.33, -1.73, -0.78; tarihsel max \|günlük\| = 237) |
+| E5 | WARNING gürültüsü | Günlük WARNING **≤ 100** (bilinen kaynak hariç) | 5 ✓ | 1242 (914'ü APTUSDT MINNOTIONAL dust spam = P2-8) | 🟡 P2-8 kapanana kadar "bilinen kaynak hariç" ile değerlendirilir |
+
+### N = 3 gün gerekçesi
+- Son hafta deploy sıklığı ~1/gün (08-07 guard, 08-08 recovery tick, 08-09 tick+runtime senkron) — 7 ardışık gün bu tempoda ulaşılamaz, 3 gün = 3 deploy döngüsü, "stabil" için minimum anlamlı pencere.
+- Sayım **son deploy'dan itibaren** yapılır (08-09 14:22 temiz pencere başlangıcı) — fix öncesi critical'ler sayıma girmez.
+
+### Tahmini mesafe (parity check adaylığı)
+- 🟢 E4 karşılanıyor; 🟢 E3 çok yakın; 🟡 E2 önümüzdeki 1-2 günde tek haneliye inmesi bekleniyor (RENDER serisi kapandı); 🟡 E1 belirleyici — deploy sonrası sayım başladı, **~08-12 öğleden sonra** 3. temiz gün doluyor.
+- **Yaklaşık hedef: 08-12/08-13 parity check adaylığı** (E1 + E2 sağlanırsa). E1'i bozacak bilinen risk: 08-08'de görülen **WS_UNMATCHED_REDUCE_ONLY** (P1-7 sınıfı, kaynak araştırılmadı — bugs.md'ye eklendi).
+- P2-8 (APT dust) kapanmazsa E5 yalnızca "bilinen kaynak hariç" ile geçer — bu da parity check'i bloklamaz, not edilir.
+
+### Ölçüm yöntemi (tekrarlanabilir)
+- Kaynak: sunucu `/root/sniper/output/paper_trade.log*` (günlük rotation + .bak yedekler), dedupe (dakika+mesaj), tarih bazlı sayaç: CRITICAL/ERROR/TRACEBACK/WARNING/STALE/ORPHAN/GHOST/RECONCILE/RECOVER.
+- PnL: `trades_history.jsonl` `close_time` → günlük toplam.
+- Restart kaynaklı recover'lar (aynı dakikadaki seri RECOVER) E3 sayımında hariç tutulur.
+
 ## Son İşlem
 
 | Tarih | İşlem | Detay |

@@ -125,6 +125,8 @@
 
 - **📎 ONDOUSDT FIX (nexus-mcp, 2026-07-24):** `user_data_handler.py`'ye REST cross-validation eklendi. WS'ten gelen unmatched reduceOnly FILLED event'inde, `WS_FALLBACK`'e geçmeden önce `get_open_order_ids()` ile SL/TP algo ID'leri sorgulanıyor: SL eksikse → `result="SL"`, TP eksikse → `result="TP"`, ikisi de eksikse → fill result'a göre çözümleme. Bu fix P1-7'deki "kesin harici" vakaların çoğunu aslında genuine SL/TP trigger olarak yeniden sınıflandırabilir.
 
+- **📎 08 AĞU GÖZLEM (WS_UNMATCHED_REDUCE_ONLY tekrarı):** 08-08 01:14:42 `[CRITICAL] WS_UNMATCHED_REDUCE_ONLY ARBUSDT reduceOnly FILLED ID eslesmedi (oid=RHuqr1nPOZgTWw6leYUTaf, beklenen_sl=1000000159580657, beklenen_tp=1000000159580667, onceki_status=ACTIVE) — trade kapatildi, kaynak arastirilmali`. Bu, P1-7 "kesin harici" sınıfıyla aynı olay tipi — 22 Temmuz'daki 9 vakanın kaynağı hâlâ açıkken yeni bir örnek. Tek olay, aksiyon alınmadı; **stabilite eşiği E1'i bozabilecek bilinen risk** (bkz. progress.md Stabilite Eşiği). Kaynak araştırması parity check öncesi önerilir.
+
 ### P1-8: post_entry_check_failed %100 tüm trades — sistematik SL/TP kaybı (2026-07-23 + 25 canlı verisi)
 **Kaynak:** `events_2026-07-23.jsonl` + `paper_trade.log` (24/Jul 7 vaka, 25/Jul 9+ vaka) — SSH + yerel analiz
 - **11/11 post_entry_check_failed** (23/Jul) + **7/7** (24/Jul) + **9+/9+** (25/Jul) — 3 gündür **%100 failure rate**

@@ -1,5 +1,16 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-09 — Stabilite eşiği RESMİLEŞTİRİLDİ (baş mühendis direktifi, parity check tetikleyicisi)
+
+- **Çıktı:** `memory-bank/progress.md` üstüne kalıcı "Stabilite Eşiği — Parity Check Tetikleyicisi" bölümü: 5 eşik (E1 0 CRITICAL/ERROR × 3 gün, E2 stale ≤5, E3 orphan+ghost+recover ≤5, E4 PnL |sıçrama| ≤100/200, E5 WARNING ≤100 bilinen kaynak hariç) + **N=3 gün önerisi** (baş mühendis onayına sunuldu) + mevcut durum + mesafe tahmini (~08-12/13 parity adaylığı).
+- **Veri (dedupe log analizi, sunucu logları):** 08-08: 2 CRITICAL (1× WS_UNMATCHED ARB 01:14 + 1× tick sentinel), stale 1 ✓, orphan+recover 4 ✓, PnL -1.73. 08-09: 9 CRITICAL — 7× tick sentinel (01:00-11:15, aa27b6f fix öncesi) + 2× APTUSDT ACİL KAPANIŞ (P2-8); **deploy 14:22 sonrası 0 CRITICAL/0 ERROR**; stale 12 (RENDER serisi — pozisyonlar kapandı); PnL -0.78. PnL trendi son 4 gün: -46.33 / -1.73 / -0.78 — sıçrama yok.
+- **Yeni gözlem:** 08-08 01:14 WS_UNMATCHED_REDUCE_ONLY (ARBUSDT) — P1-7 "kesin harici" sınıfının yeni örneği, kaynak araştırılmadı; bugs.md'ye 📎 eklendi (E1'i bozabilecek bilinen risk).
+- **Kod değişikliği YOK** (baş mühendis kısıtı: sadece belge).
+- **Karar bekliyor:** N=3 onayı (3 mü 7 mi — 3 önerildi, deploy sıklığı ~1/gün).
+- **Sıradaki:** baş mühendis onayı sonrası commit/push; pasif izlere dönüş (SEIUSDT kapanışı, P1-15 trail, P2-8, PRE-ENTRY).
+
+---
+
 ## Son İşlem: 2026-08-09 — P1-4 ghost pozisyon periyodikleştirme UYGULANDI (baş mühendis direktifi)
 
 - **Fix:** `src/trading/recovery_manager.py:838-842` — `periodic_check_loop()` içine `reconcile_orphan_orders()` yanına `reconcile_ghost_positions()` eklendi (60sn aralık, orphan ile aynı). Restart çağrısı (`bot.py:1265`) korundu → ghost temizliği artık **periyodik + restart**.
