@@ -1,5 +1,21 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-09 — P1-4 ghost pozisyon periyodikleştirme UYGULANDI (baş mühendis direktifi)
+
+- **Fix:** `src/trading/recovery_manager.py:838-842` — `periodic_check_loop()` içine `reconcile_orphan_orders()` yanına `reconcile_ghost_positions()` eklendi (60sn aralık, orphan ile aynı). Restart çağrısı (`bot.py:1265`) korundu → ghost temizliği artık **periyodik + restart**.
+- **Proaktif kontrol (kod öncesi):** ① idempotent — temizlenen state `open=false` olur, sonraki turda elenir (`mark_trade_closed` de idempotent); ② pozisyon açıksa SL/TP kontrolü durum değiştirmez (log-only); ③ aktif trade'ler `sym in _active_trades` ile skip; ④ restart çağrısı senkron + loop `run()` sonunda başlar → çakışma yok; ⑤ `trades_today=0` yalnızca pozisyon-kapalı dalında (canlı trade'te sıfırlama yok); ⑥ SL/TP eksik uyarısı her 60sn tekrarlanır (bilinçli).
+- **Test:** `tests/test_recovery_manager.py` +2 (`TestPeriodicLoopGhostReconcile`): loop'un ghost reconcile çağırdığı + `mark_trade_closed`/`ghost_cleaned` temizleme davranışı. Kanıt: recovery **8 passed**; entry_manager 95, integration_lifecycle 12, models 51 — 0 yeni fail; test_bot 32/13 (13 pre-existing, 0 yeni). Ruff temiz.
+- **Dokunulmadı:** `reconcile_ghost_positions` mantığı (639-729), orphan sweep, `_known_protection_ids`, `_on_1m_close` sayacı.
+- **Sıradaki (pasif izler):** SEIUSDT kapanışında runtime.status canlı teyidi + P2-8 (APT dust-close) + PRE-ENTRY iz — durumları topluca raporlandı (aşağıda).
+
+### Pasif izlerin durumu (baş mühendis talebi üzerine toplu)
+1. **SEIUSDT kapanışında runtime.status canlı teyidi — BEKLİYOR (pasif).** `5fd6f11` deploy edildi; SEIUSDT trade hâlâ açık (restart'ta korundu). Kapanışında `trades_history.jsonl` kaydında flat `status` ile `runtime.status` eşleşmesi kontrol edilecek. Not: state_writer runtime'ı JSON'a yazmıyor (BULGU-05); kontrol trades_history writer üzerinden.
+2. **P2-8 APTUSDT dust-close — AÇIK (düşük öncelik, not).** `place_market_order` boş `{}` → "ACİL KAPANIŞ BAŞARISIZ" → restart'a kalıyor; minNotional altı dust için strateji yok. bugs.md'ye eklendi, fix yok.
+3. **PRE-ENTRY iz — BEKLİYOR (pasif).** Guard canlıda (`5eb2c08`'den beri); ilk ENA/SEI tipi dar-gap sinyalinde `[PRE-ENTRY]` reddi örneği toplanacak. Canlıda henüz gözlemlenmedi.
+4. **P1-15 trailing TETİKLENDİ canlı olayı — BEKLİYOR (pasif).** Retrace koşulları canlıda hâlâ oluşmadı; sıradaki FVG kapanış onaylı trail olayında dashboard/snapshot ile doğrulanacak.
+
+---
+
 ## Son İşlem: 2026-08-09 — DYDX reconcile köşe durumu KAPANDI (baş mühendis onayı, kapsam_4.md)
 
 - **Fix:** `src/trading/entry_manager.py:520` — Blok B koşulu `not mkt_id and actual_qty <= 0` → `not mkt_id and (actual_qty <= 0 or actual_price <= 0)`. Köşe durumu (qty>0 ama price<=0) artık reconcile'a düşüyor; pozisyon açıksa `_emergency_close`.

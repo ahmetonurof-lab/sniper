@@ -834,6 +834,11 @@ class RecoveryManager:
                     # FIX (P1-4): Periyodik orphan sweep — portfolio flat
                     # iken _on_1m_close tetiklenmez, sayac durur.
                     await self.reconcile_orphan_orders()
+                    # FIX (P1-4): Periyodik ghost pozisyon temizligi —
+                    # restart'lar arasinda olusan ghost pozisyonlar da
+                    # fark edilsin (idempotent: temizlenen state open=false
+                    # olur, sonraki turda elenir).
+                    await self.reconcile_ghost_positions()
             except asyncio.CancelledError:
                 break
             except Exception as e:

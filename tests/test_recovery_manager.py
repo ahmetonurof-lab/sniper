@@ -302,3 +302,82 @@ class TestRecoveredTradeFieldParity:
         assert existing["tick_size"] == 0.001
         assert existing["sl"] == 0.09353
         assert existing["sl_order_id"] == "1000000157670490"
+
+
+# ═══════════════════════════════════════════════════════════════
+# P1-4 — reconcile_ghost_positions periyodik hale getirme
+# (restart-only → periyodik + restart)
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestPeriodicLoopGhostReconcile:
+    """P1-4: periodic_check_loop, reconcile_ghost_positions'i de
+    calistirmali (orphan sweep ile ayni 60sn aralikta)."""
+
+    @patch("trading.recovery_manager.cfg")
+    def test_periodic_loop_runs_ghost_reconcile(self, mock_cfg):
+        mock_cfg.BINANCE_API_KEY = "test_key"
+
+        from trading.recovery_manager import RecoveryManager
+
+        rest = MagicMock()
+        rest.get_positions = AsyncMock(return_value=[])
+        rm = RecoveryManager(
+            rest_client=rest,
+            symbols=["BTCUSDT"],
+            cfgs={"BTCUSDT": {"SL_ATR_MULT": 1.5, "TP_RR": 2.0}},
+            states={},
+            active_trades={},
+            pl_callback=_pl_noop,
+            atr_state={},
+        )
+        rm.recover_positions = AsyncMock()
+        rm.reconcile_orphan_orders = AsyncMock()
+        rm.reconcile_ghost_positions = AsyncMock()
+
+        async def fake_sleep(_s):
+            raise asyncio.CancelledError()
+
+        with patch("trading.recovery_manager.asyncio.sleep", fake_sleep):
+            try:
+                asyncio.run(rm.periodic_check_loop())
+            except asyncio.CancelledError:
+                pass
+
+        rm.reconcile_orphan_orders.assert_awaited()
+        rm.reconcile_ghost_positions.assert_awaited()
+
+    @patch("trading.recovery_manager.cfg")
+    def test_ghost_reconcile_cleans_closed_position(self, mock_cfg):
+        """Ghost pozisyon temizligi mantigi degismemeli (P1-4 kapsam kilidi):
+        state open=true + Binance kapali -> mark_trade_closed + ghost_cleaned."""
+        mock_cfg.BINANCE_API_KEY = "test_key"
+
+        from trading.recovery_manager import RecoveryManager
+
+        rest = MagicMock()
+        rest.get_positions = AsyncMock(return_value=[])
+        rest.get_all_orders = AsyncMock(return_value=[])
+        rest.get_order_type = MagicMock(return_value="")
+
+        states = {"BTCUSDT": MagicMock()}
+        rm = RecoveryManager(
+            rest_client=rest,
+            symbols=["BTCUSDT"],
+            cfgs={"BTCUSDT": {"SL_ATR_MULT": 1.5, "TP_RR": 2.0}},
+            states=states,
+            active_trades={},
+            pl_callback=_pl_noop,
+            atr_state={},
+        )
+
+        with patch("state_manager.dump_state") as m_dump, patch(
+            "state_manager.mark_trade_closed"
+        ) as m_close, patch("trading.recovery_manager.log_event") as m_event:
+            m_dump.return_value = {"BTCUSDT": {"open": True, "count": 1}}
+            asyncio.run(rm.reconcile_ghost_positions())
+
+        m_close.assert_called_once_with("BTCUSDT")
+        m_event.assert_called_once_with("ghost_cleaned", "BTCUSDT")
+        assert states["BTCUSDT"].trades_today == 0
+        rest.get_positions.assert_awaited_once()
