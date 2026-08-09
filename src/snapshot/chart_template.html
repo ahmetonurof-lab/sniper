@@ -365,6 +365,29 @@ function drawOverlays(retryCount) {
     ctx.restore();
   }
 
+  // ── Yardımcı: belirli bar aralığında dolu bant (etiketsiz) ─────────
+  function rangedBand(priceHigh, priceLow, fromBar, toBar, fillColor, strokeColor) {
+    const yH = priceToY(priceHigh);
+    const yL = priceToY(priceLow);
+    if (yH == null || yL == null) return;
+    const xA = timeToX(DATA.candles[Math.max(0, fromBar)].time);
+    const xB = timeToX(DATA.candles[Math.min(DATA.candles.length - 1, toBar)].time);
+    if (xA == null || xB == null) return;
+    const top    = Math.min(yH, yL);
+    const bottom = Math.max(yH, yL);
+    ctx.save();
+    ctx.fillStyle   = fillColor;
+    ctx.globalAlpha = 1;
+    ctx.fillRect(xA, top, xB - xA, bottom - top);
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth   = 1.5;
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.moveTo(xA, yH); ctx.lineTo(xB, yH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(xA, yL); ctx.lineTo(xB, yL); ctx.stroke();
+    ctx.restore();
+  }
+
   // ════════════════════════════════════════════════════════════════
   // 1. CBDR BAND
   // ════════════════════════════════════════════════════════════════
@@ -376,15 +399,23 @@ function drawOverlays(retryCount) {
   // ════════════════════════════════════════════════════════════════
   // 2. FVG BAND
   // ════════════════════════════════════════════════════════════════
+  const FVG_BAR_SPAN = 12; // kutunun entryBar'dan sonra kaç mum daha uzayacağı
   if (DATA.fvgTop != null && DATA.fvgBottom != null) {
-    const isBull   = DATA.fvgDirection === 'bullish';
-    const fvgFill  = isBull ? 'rgba(63,185,80,0.12)' : 'rgba(255,166,87,0.12)';
-    const fvgStroke= isBull ? 'rgba(63,185,80,0.9)'  : 'rgba(255,166,87,0.9)';
-    band(DATA.fvgTop, DATA.fvgBottom, fvgFill, fvgStroke);
+    const isBull    = DATA.fvgDirection === 'bullish';
+    const fvgFill   = isBull ? 'rgba(63,185,80,0.22)' : 'rgba(255,166,87,0.22)';
+    const fvgStroke = isBull ? 'rgba(63,185,80,0.9)'  : 'rgba(255,166,87,0.9)';
 
-    // CE — Consequent Encroachment (orta nokta)
+    const fvgFromBar = DATA.fvgBarIndex != null
+      ? Math.max(0, DATA.fvgBarIndex - 1)
+      : (DATA.entryBar ?? 0);
+    const fvgToBar = (DATA.entryBar ?? fvgFromBar) + FVG_BAR_SPAN;
+
+    rangedBand(DATA.fvgTop, DATA.fvgBottom, fvgFromBar, fvgToBar, fvgFill, fvgStroke);
+
+    // CE — Consequent Encroachment (orta nokta), artık sadece kutu genişliğinde
     const ce = (DATA.fvgTop + DATA.fvgBottom) / 2;
-    hLine(ce, isBull ? 'rgba(63,185,80,0.4)' : 'rgba(255,166,87,0.4)', 1, [4,4]);
+    rangedHLine(ce, fvgFromBar, fvgToBar,
+      isBull ? 'rgba(63,185,80,0.4)' : 'rgba(255,166,87,0.4)', 1, [4,4]);
   }
 
   // ════════════════════════════════════════════════════════════════
