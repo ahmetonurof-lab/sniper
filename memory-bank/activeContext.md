@@ -1,5 +1,17 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-09 — runtime.status SENKRONU UYGULANDI (baş mühendis onayı, kapsam_1.md)
+
+- **Onay:** baş mühendis planı onayladı; "except ValueError: pass'i sessiz bırakma — en azından log.debug ile iz bırak" (bot.py:983 dersi) direktifi verdi.
+- **Fix 1:** `src/models.py __setitem__` (584-592): `setattr` sonrası `key == "status"` ise `runtime.status = TradeStatus(value)`; `ValueError`'da `logger.debug` (sessiz pass YOK). Enum 9 değerin tamamını kapsıyor (329-338, BROKEN_MANUAL_INTERVENTION_REQUIRED dahil) → tüm üretim değerleri çevrilebilir; `""`/bilinmeyen → debug + runtime ACTIVE'de kalır.
+- **Fix 2:** `tests/test_integration_lifecycle.py _trade()` (64, 77): `tick_size=0.001` → CRITICAL log kirliliği temizlendi.
+- **Kanıt:** TestExitStateTransitions **3 passed** (FFF→PASS); integration_lifecycle tamamı **12/0** (önce 9/3); test_models **51 passed**; test_bot **32 passed / 13 failed** (13 pre-existing, 0 yeni); test_recovery_manager **6 passed**. Baseline birebir.
+- **Dokunulmadı:** state_writer.py, order_manager._sync_runtime_protection (kapsam dışı direktifi).
+- **Nüks kontrolü:** P2-4 (runtime.protection) yeşil; PENDING muafiyeti korundu; sentinel davranışı değişmedi.
+- **Sıradaki:** P2-8 (APTUSDT dust-close) + PRE-ENTRY canlı iz + kullanıcıya deploy kararı (aa27b6f tick_size fix henüz sunucuda değil).
+
+---
+
 ## Son İşlem: 2026-08-09 — runtime.status KAPSAM RAPORU (MD, kod değişikliği yok)
 
 - **Görev:** TestExitStateTransitions 3 fail'in gerçekte neyi kırdığını çıkar + integration_lifecycle ilişkisi + tek nokta düzeltme önerisi.

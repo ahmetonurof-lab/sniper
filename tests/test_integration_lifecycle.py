@@ -63,6 +63,7 @@ def _trade(**kw):
         trail_steps=[],
         entry_bar_index=0,
         exit_bar=50,
+        tick_size=0.001,
     )
     base.update(kw)
     t = ActiveTrade(
@@ -73,6 +74,7 @@ def _trade(**kw):
         tp=base["tp"],
         qty=base["qty"],
         status=base.get("status", "ACTIVE"),
+        tick_size=base.get("tick_size", 0.001),
     )
     t["sl_order_id"] = base.get("sl_order_id", "")
     t["tp_order_id"] = base.get("tp_order_id", "")

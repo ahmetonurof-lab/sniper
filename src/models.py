@@ -583,6 +583,15 @@ class ActiveTrade:
 
     def __setitem__(self, key: str, value) -> None:
         setattr(self, key, value)
+        if key == "status":
+            try:
+                self.runtime.status = TradeStatus(value)
+            except ValueError:
+                logger.debug(
+                    "[MODELS] status %r TradeStatus'a cevrilemedi — "
+                    "runtime.status senkronu atlandi",
+                    value,
+                )
 
     def get(self, key: str, default=None):
         return getattr(self, key, default)
