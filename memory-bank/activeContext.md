@@ -1,5 +1,29 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-09 — CANLI KATMAN-3 TEYİDİ (SSH erişimiyle, kod değişikliği YOK)
+
+### Giriş: SSH çözüldü
+- Kullanıcı root + şifre verdi; `plink -hostkey SHA256:up718ORLAn+hTH+VBKw1v4e1awNqnG1fO9CTWrKoZNg` ile bağlantı sağlandı (hostkey cache'li değildi → fingerprint ile kabul). Bir önceki turdaki "canlı teyit engeli: SSH reddi" KALDIRILDI.
+
+### Katman-1 (hash) ✅
+- Sunucu HEAD `6e99c9b` (docs: D modu kapanış + deployed kaydı) = repo HEAD → deploy `695b2a4` + memory-bank commit canlıda. Screen **377433.bot**, PID **377435** (`/root/sniper/venv/bin/python3 bot.py`), Aug08'den beri kesintisiz. (Gözlem kuralı: dashboard + snapshot + log; canlı gözlem 01:00-04:00 UTC arası.)
+
+### Katman-2/3 (canlı davranış) — "D modu yok" KANITLANDI; "trailing tetiklenme olayı" hâlâ bekliyor
+- **Bugünkü trade'ler (snapshot `trades_history.jsonl` + event log `paper_trade.log`):**
+  - RENDERUSDT #521: short entry 1.319 → SL 1.324, **-9.55**, close 23:44 UTC, `trail_steps=[]` (trailing tetiklenmedi).
+  - RENDERUSDT #522: short entry 1.321 → SL 1.32599681, **-8.92**, close 00:11 UTC, `trail_steps=[]`, `trail_count=0`.
+  - ONDOUSDT #515: **AÇIK** — 01:15 UTC entry short @ 0.35200, sl=0.35458 tp=0.34764 qty=4441; 04:00 UTC itibarıyla hâlâ açık, upnl +6.22, `trailing_count=0`, koruma PLACED/OK. 15m bar kapanışları: 0.3527→0.3522→0.3517→0.3520→0.3518→**0.3488** (03:15)→0.3493→0.3500→0.3504.
+- **Trail davranışı (event log):** 289× `trail_skipped`, reason **HEPSİ `no_better_trail_candidate`**; `trail_executed`/`trail_updated` = **0**. ONDO'da her 15m bar'da retrace taraması yapıldı, FVG kapanış onaylı daha iyi kandidat oluşmadı → SL/TP güncellenmedi (retrace beklenen davranış).
+- **D modu branch kontrolü:** `TRAIL_ACTIVATION`/`atr_chase`/`CONTINUATION_CONFIRM` canlı log'da **0 eşleşme** → activation/ATR-chase yolları canlıda HİÇ çalışmıyor.
+- **Diğer event dağılımı (deploy sonrası run `paper-20260808-182107`):** entry_filled 3, trade_closed 2, sl_placed/tp_placed 3'er, protection_validated/normalized 3'er, entry_qty_ready 3, initial_sl_calculated 6, direction_validation_ok 3.
+
+### Sonuç
+- Katman-1 ✅ + Katman-2 ✅ + Katman-3 "D modu davranışı yok" kısmı ✅ → **D modu kaldırma 3. katmanı pratikte kapandı** (retrace-only canlıda kanıtlandı).
+- ⏳ Tek eksik: "trailing TETİKLENDİ" canlı olayı (retrace koşulları bugün oluşmadı). Bu iz açık kalır ama pasif bekleyişte — sıradaki pozisyon + FVG kapanış onaylı trail olayında dashboard/snapshot ile doğrulanacak.
+- Gözlem kuralı uygulandı: sonuçlar `trades_history.jsonl` (snapshot) + `live_state.json` (dashboard) + `paper_trade.log` (event log) üçlüsüyle kaynaklandı; anlık tail yorumu yapılmadı.
+
+---
+
 ## Son İşlem: 2026-08-09 — 4 soruluk kanıt-temelli teyit turu (kod değişikliği YOK)
 
 ### Sonuç: 3/4 kodda doğrulandı; canlı davranış SSH olmadan DOĞRULANAMADI
