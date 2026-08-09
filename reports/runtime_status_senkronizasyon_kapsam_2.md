@@ -84,11 +84,11 @@ def __setitem__(self, key: str, value) -> None:
 ## 6. Commit + Push
 
 ```
-Commit hash: e0580b3 ... (docs)  →  sonraki kod commit'i aşağıda
+Commit hash: 5fd6f11  fix(models): runtime.status senkronu (__setitem__) - TestExitStateTransitions 3 fail yesil, 12/0
 ```
 
-- **Kod + test + memory-bank:** tek commit (hash push sonrası eklenecek)
-- **Push:** origin/main → doğrulandı
+- **Kapsanan dosyalar:** `src/models.py`, `tests/test_integration_lifecycle.py`, `memory-bank/activeContext.md`, `memory-bank/progress.md`, bu rapor
+- **Push:** `e0580b3..5fd6f11 main -> main` — doğrulandı
 
 ---
 
