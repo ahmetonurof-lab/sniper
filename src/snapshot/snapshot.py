@@ -130,14 +130,22 @@ def _find_bar(candles: list[dict], price: float, ts_ms: int | None = None) -> in
 
 def _reverse_sort_key(ts_str: str) -> str:
     """
-    9-tümleyen ters sıralama anahtarı.
+    Reverse-chronological sort anahtarı: timestamp'i TERS ÇEVİR.
 
-    Her rakamı (9 - rakam) ile değiştirir, rakam olmayan karakterleri korur.
-    Böylece dosya adları alfabetik sıralandığında BÜYÜK tarih ÖNCE gelir
+    Rakam olmayan karakterleri çıkar, kalan digit stringini TERS ÇEVİR.
+    Böylece dosya adları alfabetik sıralandığında BÜYÜK tarih/saat ÖNCE gelir
     (VS Code Explorer'da en yeni snapshot en üstte görünür).
-    Örnek: 2026-08-09_172021 -> 7973-91-90_827978
+
+    Çalışma prensibi:
+      TERS(TS_newest) < TERS(TS_older)  →  alfabetik sıralamada newest ÖNCE gelir.
+
+    Örnek:
+      2026-08-10_001500 → digits=20260810001500 → reversed=00510080602
+      2026-08-09_223308 → digits=202608090223308 → reversed=80332209080602
+      Alfabetik: 0051... < 8033... → 10 Ağustos önce, 09 Ağustos sonra ✓
     """
-    return "".join(str(9 - int(c)) if c.isdigit() else c for c in ts_str)
+    digits = "".join(c for c in ts_str if c.isdigit())
+    return digits[::-1]
 
 
 def normalize_trade(trade: dict) -> dict:
@@ -413,7 +421,7 @@ def capture_snapshot(
         else datetime.now(timezone.utc)
     )
     ts_str = dt.strftime("%Y-%m-%d_%H%M%S")
-    filename = f"{sym}_{_reverse_sort_key(ts_str)}_{ts_str}.html"
+    filename = f"{_reverse_sort_key(ts_str)}_{sym}_{ts_str}.html"
     outpath = os.path.join(_SNAPSHOTS_DIR, filename)
 
     try:
