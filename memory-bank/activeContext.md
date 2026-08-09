@@ -1,5 +1,15 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-09 — DYDX reconcile köşe durumu KAPANDI (baş mühendis onayı, kapsam_4.md)
+
+- **Fix:** `src/trading/entry_manager.py:520` — Blok B koşulu `not mkt_id and actual_qty <= 0` → `not mkt_id and (actual_qty <= 0 or actual_price <= 0)`. Köşe durumu (qty>0 ama price<=0) artık reconcile'a düşüyor; pozisyon açıksa `_emergency_close`.
+- **Çakışma kontrolü (proaktif):** Blok A (`qty>0 AND price>0`) vs yeni Blok B (`qty<=0 OR price<=0`) mantıksal olarak karşılıklı dışlayıcı — çakışma yok, sıra değişmedi.
+- **Test:** `tests/test_entry_manager.py` +1 `test_market_qty_no_price_pos_open_emergency_close` (executedQty var, avgPrice/quote yok → parse_market_fill=(qty,0,0), poz açık → SELL emergency close). Kanıt: 3 reconcile testi **3 passed / 92 deselected**; test_entry_manager tamamı **95 passed / 0 failed**; integration_lifecycle+models+recovery **69 passed**; test_bot **13 failed / 32 passed** (13 pre-existing, 0 yeni).
+- **Dokunulmadı:** Blok A/C, `_emergency_close` fail senaryosu (baş mühendis: ayrı büyük konu, ileride).
+- **Sıradaki:** P1-4 (ghost temizliğini periyodikleştirme — baş mühendis) + SEIUSDT kapanışında runtime.status canlı teyidi + P2-8 + PRE-ENTRY iz.
+
+---
+
 ## Son İşlem: 2026-08-09 — DYDX reconciliation KAPSAM RAPORU (kod değişikliği YOK)
 
 - **Nedir:** 08-02 canlı olay (DYDXUSDT entry'de HTTP 408) → bc3f3ff fix'i (08-03): `entry_manager.execute_live_entry()` içinde **MARKET empty_response reconcile guard** (mkt_id yok + qty<=0 + poz açık → `_emergency_close`).

@@ -1049,6 +1049,34 @@ class TestExecuteLiveEntry:
         assert close_side == "SELL"  # long girdi → SELL ile kapat
 
     @pytest.mark.asyncio
+    async def test_market_qty_no_price_pos_open_emergency_close(self):
+        """Köşe durumu: fill qty var ama avgPrice/quote yok (executedQty geldi,
+        avgPrice/cumQuote gelmedi) → parse_market_fill=(qty, 0, 0), orderId de yok.
+        Pozisyon aslında açılmışsa emergency close ile kapatılmalı — Blok A
+        (price>0 şartı) ve eski Blok B (qty<=0 şartı) bu durumu kaçırıyordu."""
+        mock_rest = await self._entry_mock_base()
+        mock_rest.place_market_order = AsyncMock(return_value={"executedQty": "0.5"})
+        mock_rest.get_positions = AsyncMock(
+            return_value=[{"symbol": "BTCUSDT", "positionAmt": "0.5"}]
+        )
+        # emergency close market emri (opposite side)
+        mock_rest.place_market_order.side_effect = [
+            {"executedQty": "0.5"},  # entry denemesi — qty var, price yok
+            {"orderId": 999},  # emergency close
+        ]
+
+        mgr = EntryManager(rest_client=mock_rest, is_live=True)
+        result = await mgr.execute_live_entry("BTCUSDT", "long", 0.5, 100.0, 110.0)
+
+        assert result.success is False
+        assert "pozisyon acik" in result.error
+        assert "pozisyon guvenle kapatildi" in result.error
+        # entry + emergency close = 2 market emri
+        assert mock_rest.place_market_order.call_count == 2
+        close_side = mock_rest.place_market_order.call_args.args[1]
+        assert close_side == "SELL"  # long girdi → SELL ile kapat
+
+    @pytest.mark.asyncio
     async def test_sl_order_failure_triggers_emergency_close(self):
         mock_rest = await self._entry_mock_base()
         mock_rest.place_market_order = AsyncMock(

@@ -517,7 +517,7 @@ class EntryManager:
                     success=False, error=f"MARKET RECONCILE BASARISIZ — {e}"
                 )
 
-        if not mkt_id and actual_qty <= 0:
+        if not mkt_id and (actual_qty <= 0 or actual_price <= 0):
             try:
                 positions = await self._rest.get_positions()
                 for p in positions:
