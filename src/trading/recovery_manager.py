@@ -78,6 +78,46 @@ class RecoveryManager:
 
     # ── Pozisyon kurtarma ──────────────────────────────────────
 
+    async def _dedupe_protection_orders(
+        self, sym: str, sl_orders: list[dict], tp_orders: list[dict]
+    ) -> tuple[list[dict], list[dict]]:
+        """Borsada ayni pozisyon icin birikmis fazla SL/TP emirlerini iptal
+        eder, en yenisini dondurur (DOGEUSDT cift emir kazasi fix'i).
+        recover_positions'da protection_orders doldurulmadan ONCE calisir —
+        "hangi cifti tutacagiz" karari stale ID'lerle karismasin."""
+
+        def _newest(orders: list[dict]) -> dict:
+            def _oid(o: dict) -> int:
+                try:
+                    return int(extract_order_id(o) or 0)
+                except (TypeError, ValueError):
+                    return 0
+
+            return max(orders, key=_oid)
+
+        async def _cancel_except(orders: list[dict], keep: dict) -> None:
+            keep_id = str(extract_order_id(keep) or "")
+            for o in orders:
+                oid = str(extract_order_id(o) or "")
+                if oid and oid != keep_id:
+                    try:
+                        await self._rest.cancel_order(oid, sym)
+                        log.info("[RECOVER] %s fazla koruma emri iptal: %s", sym, oid)
+                    except Exception as e:
+                        log.warning(
+                            "[RECOVER] %s koruma emri iptal hatasi %s: %s", sym, oid, e
+                        )
+
+        sl_keep = sl_orders
+        tp_keep = tp_orders
+        if len(sl_orders) > 1:
+            sl_keep = [_newest(sl_orders)]
+            await _cancel_except(sl_orders, sl_keep[0])
+        if len(tp_orders) > 1:
+            tp_keep = [_newest(tp_orders)]
+            await _cancel_except(tp_orders, tp_keep[0])
+        return sl_keep, tp_keep
+
     async def recover_positions(self, quiet: bool = False) -> None:
         """Binance'deki açık pozisyonları tara, SL/TP varsa envantere al,
         yoksa yeni koruma emri kur.
@@ -143,16 +183,39 @@ class RecoveryManager:
 
                 existing = self._active_trades.get(sym)
                 if sl_orders and tp_orders:
+                    # Fix C: dedupe ONCE protection_orders'a dokunulur —
+                    # fazla (cift) SL/TP emirleri en yeni kalacak sekilde
+                    # iptal edilir, sonra state'e yazilir.
+                    sl_orders, tp_orders = await self._dedupe_protection_orders(
+                        sym, sl_orders, tp_orders
+                    )
                     sl_price = self._rest.get_order_price(sl_orders[0])
                     tp_price = self._rest.get_order_price(tp_orders[0])
                     risk_pts = abs(entry - sl_price)
                     sl_id = extract_order_id(sl_orders[0])
                     tp_id = extract_order_id(tp_orders[0])
+                    # Fix B: protection_orders gercek borsa tipi ile doldurulur.
+                    # Daha once sadece flat sl_order_id/tp_order_id yaziliyordu;
+                    # restore sonrasi trail replace_protection eski emri
+                    # protection_orders'tan bulamayip iptal edemiyordu.
+                    protection_orders = {
+                        "sl": {
+                            "order_id": str(sl_id),
+                            "stop_price": float(sl_price),
+                            "type": self._rest.get_order_type(sl_orders[0]),
+                        },
+                        "tp": {
+                            "order_id": str(tp_id),
+                            "stop_price": float(tp_price),
+                            "type": self._rest.get_order_type(tp_orders[0]),
+                        },
+                    }
                     if existing:
                         existing["sl"] = sl_price
                         existing["tp"] = tp_price
                         existing["sl_order_id"] = sl_id
                         existing["tp_order_id"] = tp_id
+                        existing["protection_orders"] = protection_orders
                         existing["risk_pts"] = risk_pts
                         existing["tick_size"] = tick_size
                     else:
@@ -176,6 +239,7 @@ class RecoveryManager:
                             tick_size=tick_size,
                             sl_order_id=sl_id,
                             tp_order_id=tp_id,
+                            protection_orders=protection_orders,
                         )
                     if not quiet:
                         self._pl(

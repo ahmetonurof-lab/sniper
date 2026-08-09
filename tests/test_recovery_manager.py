@@ -267,6 +267,10 @@ class TestRecoveredTradeFieldParity:
         assert t.tp == 0.08669
         assert t.sl_order_id == "1000000157670490"
         assert t.tp_order_id == "1000000157670494"
+        assert t.protection_orders["sl"]["order_id"] == "1000000157670490"
+        assert t.protection_orders["sl"]["type"] == "STOP_MARKET"
+        assert t.protection_orders["tp"]["order_id"] == "1000000157670494"
+        assert t.protection_orders["tp"]["type"] == "TAKE_PROFIT_MARKET"
 
     @patch("trading.recovery_manager.cfg")
     def test_existing_trade_tick_size_refreshed(self, mock_cfg):
@@ -381,3 +385,143 @@ class TestPeriodicLoopGhostReconcile:
         m_event.assert_called_once_with("ghost_cleaned", "BTCUSDT")
         assert states["BTCUSDT"].trades_today == 0
         rest.get_positions.assert_awaited_once()
+
+
+# ═══════════════════════════════════════════════════════════════
+# recover_positions — DOGEUSDT çift emir kazası (Fix B + C)
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestRecoverPositionsProtectionDedupe:
+    """Restore sirasinda borsada ayni pozisyon icin 2 SL + 2 TP birikmisse:
+    - Fix C: en yeni cift tutulur, fazlalar iptal edilir (dedupe, state yazimindan ONCE).
+    - Fix B: protection_orders gercek borsa tipi ile doldurulur."""
+
+    def _make_rest(self):
+        rest = MagicMock()
+        rest.get_positions = AsyncMock(
+            return_value=[
+                {
+                    "symbol": "DOGEUSDT",
+                    "positionAmt": "26770",
+                    "entryPrice": "0.07037",
+                }
+            ]
+        )
+        rest.get_all_orders = AsyncMock(
+            return_value=[
+                {
+                    "symbol": "DOGEUSDT",
+                    "type": "STOP_MARKET",
+                    "orderId": 1000000161372927,
+                    "stopPrice": "0.070140",
+                    "reduceOnly": True,
+                },
+                {
+                    "symbol": "DOGEUSDT",
+                    "type": "STOP_MARKET",
+                    "orderId": 1000000161375000,
+                    "stopPrice": "0.070240",
+                    "reduceOnly": True,
+                },
+                {
+                    "symbol": "DOGEUSDT",
+                    "type": "TAKE_PROFIT_MARKET",
+                    "orderId": 1000000161372934,
+                    "stopPrice": "0.070770",
+                    "reduceOnly": True,
+                },
+                {
+                    "symbol": "DOGEUSDT",
+                    "type": "TAKE_PROFIT_MARKET",
+                    "orderId": 1000000161375100,
+                    "stopPrice": "0.070870",
+                    "reduceOnly": True,
+                },
+            ]
+        )
+        rest.get_order_type = MagicMock(side_effect=lambda o: o.get("type", ""))
+        rest.get_order_price = MagicMock(
+            side_effect=lambda o: float(o.get("stopPrice", 0))
+        )
+        rest.get_tick_size = AsyncMock(return_value=0.00001)
+        rest.cancel_order = AsyncMock(return_value={})
+        return rest
+
+    @patch("trading.recovery_manager.cfg")
+    def test_recover_dedupes_duplicate_sl_tp_and_fills_protection_orders(
+        self, mock_cfg
+    ):
+        mock_cfg.BINANCE_API_KEY = "test_key"
+
+        from trading.recovery_manager import RecoveryManager
+
+        rest = self._make_rest()
+        active_trades = {}
+        rm = RecoveryManager(
+            rest_client=rest,
+            symbols=["DOGEUSDT"],
+            cfgs={"DOGEUSDT": {"SL_ATR_MULT": 1.5, "TP_RR": 2.0}},
+            states={},
+            active_trades=active_trades,
+            pl_callback=_pl_noop,
+            atr_state={"DOGEUSDT": 0.0001},
+        )
+
+        asyncio.run(rm.recover_positions())
+
+        t = active_trades["DOGEUSDT"]
+        assert t.sl_order_id == "1000000161375000"
+        assert t.tp_order_id == "1000000161375100"
+
+        cancel_ids = {c.args[0] for c in rest.cancel_order.call_args_list}
+        assert cancel_ids == {"1000000161372927", "1000000161372934"}
+
+        assert t.protection_orders["sl"]["order_id"] == "1000000161375000"
+        assert t.protection_orders["sl"]["type"] == "STOP_MARKET"
+        assert t.protection_orders["sl"]["stop_price"] == 0.07024
+        assert t.protection_orders["tp"]["order_id"] == "1000000161375100"
+        assert t.protection_orders["tp"]["type"] == "TAKE_PROFIT_MARKET"
+        assert t.protection_orders["tp"]["stop_price"] == 0.07087
+
+    @patch("trading.recovery_manager.cfg")
+    def test_recover_existing_trade_gets_protection_orders(self, mock_cfg):
+        """Mevcut trade restore edilirken protection_orders flat ID'lerle
+        birlikte guncellenir — trail sonrasi replace iptal bulabilsin."""
+        mock_cfg.BINANCE_API_KEY = "test_key"
+
+        from trading.recovery_manager import RecoveryManager
+
+        rest = self._make_rest()
+        existing = ActiveTrade(
+            symbol="DOGEUSDT",
+            side="long",
+            status=STATUS_ACTIVE,
+            entry_bar_index=0,
+            entry_price=0.07037,
+            sl=0.07014,
+            tp=0.07077,
+            qty=26770,
+            initial_sl=0.07014,
+            initial_tp=0.07077,
+            trailing_count=0,
+        )
+        active_trades = {"DOGEUSDT": existing}
+        rm = RecoveryManager(
+            rest_client=rest,
+            symbols=["DOGEUSDT"],
+            cfgs={"DOGEUSDT": {"SL_ATR_MULT": 1.5, "TP_RR": 2.0}},
+            states={},
+            active_trades=active_trades,
+            pl_callback=_pl_noop,
+            atr_state={"DOGEUSDT": 0.0001},
+        )
+
+        asyncio.run(rm.recover_positions())
+
+        assert existing["sl_order_id"] == "1000000161375000"
+        assert existing["tp_order_id"] == "1000000161375100"
+        assert existing["protection_orders"]["sl"]["order_id"] == "1000000161375000"
+        assert existing["protection_orders"]["sl"]["type"] == "STOP_MARKET"
+        assert existing["protection_orders"]["tp"]["order_id"] == "1000000161375100"
+        assert existing["protection_orders"]["tp"]["type"] == "TAKE_PROFIT_MARKET"

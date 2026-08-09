@@ -1331,3 +1331,43 @@ class TestActiveTradeHistoryFields:
         assert hist is not None
         assert isinstance(hist, list)
         assert len(hist) >= 1
+
+    @pytest.mark.asyncio
+    async def test_replace_one_cancels_flat_order_id_fallback(self):
+        """DOGEUSDT cift emir fix'i (Fix A): restore sonrasi protection_orders
+        bos dict, sadece flat sl_order_id dolu. _replace_one eski emri flat
+        ID'den bulup iptal etmeli — cancel adimi sessizce atlanmamali."""
+        from decimal import Decimal
+
+        from trading.order_manager import OrderManager
+
+        mock_rest = MagicMock()
+        mock_rest.apply_price_precision = AsyncMock(side_effect=lambda sym, p: p)
+        mock_rest.estimate_market_price = AsyncMock(return_value=100.0)
+        mock_rest.get_max_qty = AsyncMock(return_value=1000.0)
+        mock_rest.place_stop_order = AsyncMock(return_value={"algoId": "sl_new"})
+        mock_rest.place_tp_order = AsyncMock(return_value={"algoId": "tp_new"})
+        mock_rest.cancel_order = AsyncMock(return_value={})
+
+        _mgr = OrderManager(rest_client=mock_rest, is_live=True)
+        trade = _active_trade(
+            side="long",
+            sl=100.0,
+            tp=110.0,
+            sl_order_id="sl_old",
+            tp_order_id="tp_old",
+        )
+        trade["protection_orders"] = {}
+
+        changed = await _mgr._replace_one(
+            trade=trade,
+            protection_orders=trade.get("protection_orders", {}),
+            kind="sl",
+            trigger_price=Decimal("103.0"),
+            tick_size=Decimal("0.01"),
+        )
+
+        assert changed is True
+        mock_rest.cancel_order.assert_awaited_once_with("sl_old", "BTCUSDT")
+        assert trade["protection_orders"]["sl"]["order_id"] == "sl_new"
+        assert trade["sl_order_id"] == "sl_new"

@@ -1151,6 +1151,11 @@ class OrderManager:
         normalized = self._normalize_trigger_price(trigger_price, side, kind, tick_size)
 
         existing = protection_orders.get(kind)
+        if not existing or not existing.get("order_id"):
+            flat_key = "sl_order_id" if kind == "sl" else "tp_order_id"
+            flat_id = trade.get(flat_key)
+            if flat_id:
+                existing = {"order_id": str(flat_id), "stop_price": None}
         existing_stop = None
         if existing and existing.get("stop_price") is not None:
             existing_stop = Decimal(str(existing["stop_price"]))
