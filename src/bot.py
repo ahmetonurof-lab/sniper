@@ -715,31 +715,34 @@ class PaperTrader:
             rsm.reset()
             return
 
-        # ── 1b. PRE-ENTRY SL-eps guard (SEIUSDT direction-fail döngüsü fix) ──
-        # SL/TP, entry fiyatına borsa "immediately trigger" epsilon'undan (2 tick)
-        # yakınsa sinyal BAŞTAN reddedilir — pozisyon hiç açılmaz, gereksiz
-        # MARKET emri + fill-sonrası acil kapanma trafiği (fee/slippage) olmaz.
+        # ── 1b. PRE-ENTRY SL-eps guard (tüm semboller, tek genel kural) ──
+        # SL/TP'nin (a) giriş fiyatına ve (b) FVG sınırına (long: fvg.bottom,
+        # short: fvg.top) borsa "immediately trigger" epsilon'undan
+        # (SL_EPSILON_TICKS) yakınsaması durumunda sinyal BAŞTAN reddedilir —
+        # pozisyon hiç açılmaz, gereksiz MARKET emri + fill-sonrası acil
+        # kapanma trafiği (fee/slippage) olmaz. SEI/ENA gibi sembole özel
+        # koşul YOKTUR; kural tüm semboller için EntryManager'da ortaktır.
         # tick_size bilinemiyorsa (0.0) epsilon hesaplanamaz, guard atlanır
         # (fill-sonrası validate_protection_with_actual_fill yine devrededir).
-        if tick_size > 0:
-            valid_dir, dir_msg = EntryManager.validate_protection_with_actual_fill(
+        valid_dir, dir_msg = EntryManager.validate_pre_entry_protection(
+            side,
+            entry_price,
+            sl,
+            tp,
+            tick_size,
+            trigger_fvg=fvg,
+            epsilon_ticks=cfg.SL_EPSILON_TICKS,
+        )
+        if not valid_dir:
+            log.warning(
+                "[PRE-ENTRY] %s %s — SL/TP eps icinde, sinyal reddedildi: %s",
+                sym,
                 side,
-                entry_price,
-                sl,
-                tp,
-                Decimal(str(tick_size)),
-                epsilon_ticks=cfg.SL_EPSILON_TICKS,
+                dir_msg,
             )
-            if not valid_dir:
-                log.warning(
-                    "[PRE-ENTRY] %s %s — SL/TP eps icinde, sinyal reddedildi: %s",
-                    sym,
-                    side,
-                    dir_msg,
-                )
-                rsm.reset()
-                ss.sweep_confirmed = False
-                return
+            rsm.reset()
+            ss.sweep_confirmed = False
+            return
 
         # Entry öncesi taze availableBalance (position sizing için)
         if cfg.BINANCE_API_KEY:

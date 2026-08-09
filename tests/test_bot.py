@@ -426,6 +426,7 @@ class TestTryEntry:
         mock_entry_mgr.calculate_sl_tp.return_value = (100.0, 118.0)
         mock_entry_mgr.calculate_qty.return_value = 0.0
         mock_entry_mgr.validate_risk.return_value = (True, "")
+        mock_entry_mgr.validate_pre_entry_protection.return_value = (True, "")
 
         from bot import PaperTrader
 
@@ -463,15 +464,16 @@ class TestTryEntry:
     def test_pre_entry_sl_eps_guard_rejects_before_order(
         self, mock_entry_mgr, mock_log, mock_cfg, mock_hub_cls, mock_rest_cls
     ):
-        """SEIUSDT direction-fail fix: SL/TP entry fiyatına eps'ten yakınsa
-        sinyal pre-entry reddedilir — MARKET emri gönderilmez, pozisyon hiç
-        açılmaz, acil kapanma trafiği (fee/slippage) oluşmaz."""
+        """PRE-ENTRY guard regresyon: SL/TP eps yakınsa sinyal pre-entry
+        reddedilir — MARKET emri gönderilmez, pozisyon hiç açılmaz, acil
+        kapanma trafiği (fee/slippage) oluşmaz. Genel kural (validate_pre_entry_protection)
+        SEI/ENA dahil tüm semboller için tek noktada uygulanır."""
         _setup_minimal_cfg(mock_cfg)
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_entry_mgr.calculate_sl_tp.return_value = (100.0, 118.0)
         mock_entry_mgr.calculate_qty.return_value = 1.0
         mock_entry_mgr.validate_risk.return_value = (True, "")
-        mock_entry_mgr.validate_protection_with_actual_fill.return_value = (
+        mock_entry_mgr.validate_pre_entry_protection.return_value = (
             False,
             "SL=100.0 >= actual_fill=109.0 - eps=0.0002",
         )
@@ -510,8 +512,197 @@ class TestTryEntry:
         assert "BTCUSDT" not in bot.active_trades
         assert rsm.state == RetraceState.IDLE
         assert ss.sweep_confirmed is False
-        mock_entry_mgr.validate_protection_with_actual_fill.assert_called_once()
+        mock_entry_mgr.validate_pre_entry_protection.assert_called_once()
         mock_entry_mgr.return_value.execute_live_entry.assert_not_called()
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    def test_pre_entry_fvg_clearance_guard_rejects_ena(
+        self, mock_cfg, mock_hub_cls, mock_rest_cls
+    ):
+        """ENAUSDT regresyon (08-06 18:00 direction-fail): FVG üst sınırı ile
+        SL arası mesafe eps'in (2 tick) altında → sinyal pre-entry reddedilir.
+        tick=0.001, eps=0.002; SL=FVG.top+0.0018 → 0.0018 < 0.002. Eski guard
+        (entry-eps) bunu yakalayamazdı: SL entry'ye 4+ tick uzakta. Genel kural
+        FVG sınırı bazlı kontrolle yakalar — MARKET emri gönderilmez."""
+        _setup_minimal_cfg(mock_cfg)
+
+        from bot import PaperTrader
+
+        bot = PaperTrader(symbols=["ENAUSDT"])
+        bot.rest.get_tick_size = AsyncMock(return_value=0.001)
+        bot._live = True
+        bot.entry_manager.execute_live_entry = AsyncMock()
+        rsm = bot.rsms["ENAUSDT"]
+        ss = bot.states["ENAUSDT"]
+
+        rsm.state = RetraceState.TRIGGER_READY
+        rsm.direction = "bearish"
+        rsm.trigger_fvg = HTFFVG(
+            top=0.600, bottom=0.590, direction="bearish", bar_index=5
+        )
+        ss.london_high = 0.650
+        ss.london_low = 0.570
+
+        current = _bar(20, 0.596, 0.600, 0.590, 0.592)
+        asyncio.run(
+            bot._try_entry(
+                sym="ENAUSDT",
+                current=current,
+                atr_val=0.004,
+                rsm=rsm,
+                ss=ss,
+                sweep_dir="bearish",
+                sl_atr=1.5,
+                tp_rr=2.0,
+                fvg_buf=0.3,
+                min_fvg=0.5,
+            )
+        )
+        assert "ENAUSDT" not in bot.active_trades
+        assert rsm.state == RetraceState.IDLE
+        assert ss.sweep_confirmed is False
+        bot.entry_manager.execute_live_entry.assert_not_awaited()
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    def test_pre_entry_fvg_clearance_guard_rejects_sei(
+        self, mock_cfg, mock_hub_cls, mock_rest_cls
+    ):
+        """SEIUSDT regresyon (08-06 direction-fail döngüsü): tick=0.0001,
+        eps=0.0002. apply_min_sl_distance SL'yi entry'den 4 tick uzağa (0.0415)
+        iter ama SL FVG.top'a (0.0414) sadece 1 tick uzakta → genel kural reddeder."""
+        _setup_minimal_cfg(mock_cfg)
+
+        from bot import PaperTrader
+
+        bot = PaperTrader(symbols=["SEIUSDT"])
+        bot.rest.get_tick_size = AsyncMock(return_value=0.0001)
+        bot._live = True
+        bot.entry_manager.execute_live_entry = AsyncMock()
+        rsm = bot.rsms["SEIUSDT"]
+        ss = bot.states["SEIUSDT"]
+
+        rsm.state = RetraceState.TRIGGER_READY
+        rsm.direction = "bearish"
+        rsm.trigger_fvg = HTFFVG(
+            top=0.0414, bottom=0.0410, direction="bearish", bar_index=5
+        )
+        ss.london_high = 0.0450
+        ss.london_low = 0.0390
+
+        current = _bar(20, 0.0415, 0.0416, 0.0408, 0.0411)
+        asyncio.run(
+            bot._try_entry(
+                sym="SEIUSDT",
+                current=current,
+                atr_val=0.0001,
+                rsm=rsm,
+                ss=ss,
+                sweep_dir="bearish",
+                sl_atr=1.5,
+                tp_rr=2.0,
+                fvg_buf=0.3,
+                min_fvg=0.5,
+            )
+        )
+        assert "SEIUSDT" not in bot.active_trades
+        assert rsm.state == RetraceState.IDLE
+        assert ss.sweep_confirmed is False
+        bot.entry_manager.execute_live_entry.assert_not_awaited()
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    def test_pre_entry_fvg_clearance_guard_rejects_ena_long(
+        self, mock_cfg, mock_hub_cls, mock_rest_cls
+    ):
+        """Long taraf: SL, FVG.bottom'a eps'ten yakın (0.0018 < 0.002) → red."""
+        _setup_minimal_cfg(mock_cfg)
+
+        from bot import PaperTrader
+
+        bot = PaperTrader(symbols=["ENAUSDT"])
+        bot.rest.get_tick_size = AsyncMock(return_value=0.001)
+        bot._live = True
+        bot.entry_manager.execute_live_entry = AsyncMock()
+        rsm = bot.rsms["ENAUSDT"]
+        ss = bot.states["ENAUSDT"]
+
+        rsm.state = RetraceState.TRIGGER_READY
+        rsm.direction = "bullish"
+        rsm.trigger_fvg = HTFFVG(
+            top=0.600, bottom=0.590, direction="bullish", bar_index=5
+        )
+        ss.london_high = 0.650
+        ss.london_low = 0.570
+
+        current = _bar(20, 0.594, 0.600, 0.592, 0.598)
+        asyncio.run(
+            bot._try_entry(
+                sym="ENAUSDT",
+                current=current,
+                atr_val=0.004,
+                rsm=rsm,
+                ss=ss,
+                sweep_dir="bullish",
+                sl_atr=1.5,
+                tp_rr=2.0,
+                fvg_buf=0.3,
+                min_fvg=0.5,
+            )
+        )
+        assert "ENAUSDT" not in bot.active_trades
+        assert rsm.state == RetraceState.IDLE
+        assert ss.sweep_confirmed is False
+        bot.entry_manager.execute_live_entry.assert_not_awaited()
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    def test_pre_entry_fvg_clearance_guard_passes_when_buffer_ok(
+        self, mock_cfg, mock_hub_cls, mock_rest_cls
+    ):
+        """Genel kural fazla reddetmez: FVG buffer'ı eps'in üzerindeyse (2.5 tick
+        ≥ 2 tick) aynı sembolde giriş normal şekilde açılır."""
+        _setup_minimal_cfg(mock_cfg)
+
+        from bot import PaperTrader
+
+        bot = PaperTrader(symbols=["ENAUSDT"])
+        bot.rest.get_tick_size = AsyncMock(return_value=0.001)
+        rsm = bot.rsms["ENAUSDT"]
+        ss = bot.states["ENAUSDT"]
+
+        rsm.state = RetraceState.TRIGGER_READY
+        rsm.direction = "bearish"
+        rsm.trigger_fvg = HTFFVG(
+            top=0.600, bottom=0.590, direction="bearish", bar_index=5
+        )
+        ss.london_high = 0.650
+        ss.london_low = 0.570
+
+        current = _bar(20, 0.596, 0.600, 0.590, 0.592)
+        asyncio.run(
+            bot._try_entry(
+                sym="ENAUSDT",
+                current=current,
+                atr_val=0.006,
+                rsm=rsm,
+                ss=ss,
+                sweep_dir="bearish",
+                sl_atr=1.5,
+                tp_rr=2.0,
+                fvg_buf=0.3,
+                min_fvg=0.5,
+            )
+        )
+        assert "ENAUSDT" in bot.active_trades
+        trade = bot.active_trades["ENAUSDT"]
+        assert trade.side == "short"
+        assert trade.entry_price == 0.592
 
     @patch("bot.BinanceRESTClient")
     @patch("bot.BinanceWSHub")
@@ -528,6 +719,7 @@ class TestTryEntry:
         mock_entry_mgr.calculate_sl_tp.return_value = (100.0, 118.0)
         mock_entry_mgr.calculate_qty.return_value = 1.0
         mock_entry_mgr.validate_risk.return_value = (True, "")
+        mock_entry_mgr.validate_pre_entry_protection.return_value = (True, "")
         exec_result = AsyncMock()
         exec_result.return_value = SimpleNamespace(
             success=False,

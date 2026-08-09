@@ -707,6 +707,138 @@ class TestValidateProtectionWithActualFill:
 
 
 # ═══════════════════════════════════════════════════════════════════
+# validate_pre_entry_protection tests (GENEL pre-entry guard)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestValidatePreEntryProtection:
+    """Tek genel kural: SL, FVG sınırına (long: fvg.bottom, short: fvg.top)
+    tick-bazlı epsilon'dan yakınsa sinyal reddedilir — sembole özel koşul yok."""
+
+    TICK = Decimal("0.01")
+
+    def test_long_fvg_clearance_reject_ena_ticks(self):
+        """ENA senaryosu (tick=0.001, eps=2 tick=0.002): SL, FVG.bottom'a
+        0.0015 mesafede (< eps) → reddedilir. OLD guard (entry-eps) bunu
+        yakalayamazdı çünkü SL entry'ye 0.0098 (≈10 tick) uzakta."""
+        fvg = _mock_fvg(top=0.600, bottom=0.590)
+        ok, msg = EntryManager.validate_pre_entry_protection(
+            "long",
+            entry_price=0.592,
+            sl=0.5885,
+            tp=0.612,
+            tick_size=0.001,
+            trigger_fvg=fvg,
+            epsilon_ticks=2,
+        )
+        assert ok is False
+        assert "FVG.bottom" in msg
+
+    def test_short_fvg_clearance_reject_ena_ticks(self):
+        """ENA senaryosu (tick=0.001, eps=2 tick=0.002): short SL, FVG.top'a
+        0.0018 mesafede (< eps) → reddedilir."""
+        fvg = _mock_fvg(top=0.600, bottom=0.590)
+        ok, msg = EntryManager.validate_pre_entry_protection(
+            "short",
+            entry_price=0.592,
+            sl=0.6018,
+            tp=0.5724,
+            tick_size=0.001,
+            trigger_fvg=fvg,
+            epsilon_ticks=2,
+        )
+        assert ok is False
+        assert "FVG.top" in msg
+
+    def test_short_fvg_clearance_pass_when_buffer_above_eps(self):
+        """SL, FVG.top'a 3 tick (0.003) mesafede ≥ eps (0.002) → geçer."""
+        fvg = _mock_fvg(top=0.600, bottom=0.590)
+        ok, msg = EntryManager.validate_pre_entry_protection(
+            "short",
+            entry_price=0.592,
+            sl=0.603,
+            tp=0.5724,
+            tick_size=0.001,
+            trigger_fvg=fvg,
+            epsilon_ticks=2,
+        )
+        assert ok is True
+        assert msg == ""
+
+    def test_long_fvg_clearance_pass_when_buffer_above_eps(self):
+        fvg = _mock_fvg(top=0.600, bottom=0.590)
+        ok, msg = EntryManager.validate_pre_entry_protection(
+            "long",
+            entry_price=0.592,
+            sl=0.587,
+            tp=0.612,
+            tick_size=0.001,
+            trigger_fvg=fvg,
+            epsilon_ticks=2,
+        )
+        assert ok is True
+        assert msg == ""
+
+    def test_entry_price_eps_reject_preserved(self):
+        """Eski guard davranışı korunur: SL, giriş fiyatına eps'ten yakınsa
+        FVG clearance geniş olsa bile reddedilir."""
+        fvg = _mock_fvg(top=105.0, bottom=103.0)
+        ok, msg = EntryManager.validate_pre_entry_protection(
+            "long",
+            entry_price=100.0,
+            sl=99.99,
+            tp=102.0,
+            tick_size=self.TICK,
+            trigger_fvg=fvg,
+            epsilon_ticks=2,
+        )
+        assert ok is False
+        assert "SL" in msg
+
+    def test_no_fvg_ok(self):
+        ok, msg = EntryManager.validate_pre_entry_protection(
+            "long",
+            entry_price=100.0,
+            sl=99.8,
+            tp=102.0,
+            tick_size=self.TICK,
+            epsilon_ticks=2,
+        )
+        assert ok is True
+        assert msg == ""
+
+    def test_tick_zero_skips_all_checks(self):
+        """tick_size bilinmiyorsa epsilon hesaplanamaz — guard atlanır."""
+        fvg = _mock_fvg(top=105.0, bottom=103.0)
+        ok, msg = EntryManager.validate_pre_entry_protection(
+            "long",
+            entry_price=100.0,
+            sl=99.99,
+            tp=100.01,
+            tick_size=0.0,
+            trigger_fvg=fvg,
+            epsilon_ticks=2,
+        )
+        assert ok is True
+        assert msg == ""
+
+    def test_clearance_exactly_epsilon_passes(self):
+        """Sınır: clearance == eps (2 tick) ise geçer (yalnızca altı reddedilir)."""
+        fvg = _mock_fvg(top=0.600, bottom=0.590)
+        ok, msg = EntryManager.validate_pre_entry_protection(
+            "short",
+            entry_price=0.592,
+            sl=0.602,
+            tp=0.5724,
+            tick_size=0.001,
+            trigger_fvg=fvg,
+            epsilon_ticks=2,
+        )
+        assert ok is True
+        assert msg == ""
+
+
+# ═══════════════════════════════════════════════════════════════════
 # _emergency_close tests
 # ═══════════════════════════════════════════════════════════════════
 

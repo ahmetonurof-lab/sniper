@@ -1,5 +1,32 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-09 — ENA/tüm-sembol PRE-ENTRY SL GUARD genellemesi (tek genel kural)
+
+### Görev (baş mühendis direktifi)
+- "FVG sınırı ile SL arası mesafe eps'in altında mı" kontrolü giriş validasyonuna TEK YERDEN taşınsın — SEI/ENA'ya özel koşul yok, tüm semboller için tek genel kural.
+- ⚠️ İlk turda direktifi yanlışlıkla Agent Manager oturumuna pasladım (kullanıcı: "3. ajana pasladın?"). Kullanıcı uyarısıyla oturum durduruldu (`ses_01d1460b7ffe4Y2Y3oS4VIiiOA`), görev bana devredilip tamamlandı. Agent Manager = Kilo'nun görünür izole paralel oturum özelliği; "ajan" dediği kişi benim.
+
+### Uygulama
+- `src/trading/entry_manager.py:287-343` — yeni `EntryManager.validate_pre_entry_protection(side, entry_price, sl, tp, tick_size, trigger_fvg, epsilon_ticks)`:
+  1. SL/TP vs giriş fiyatı epsilon kontrolü (eski `validate_protection_with_actual_fill` davranışı korundu).
+  2. **SL vs FVG sınırı:** long `clearance = fvg.bottom - sl`, short `clearance = sl - fvg.top`; `clearance < eps` → sinyal reddi. FVG yok/geçersizse atlanır.
+  - `tick_size <= 0` ise her iki kontrol atlanır (fill-sonrası `validate_protection_with_actual_fill` güvenlik ağı duruyor).
+- `src/bot.py:718-745` — pre-entry guard artık sembol-bağımsız `validate_pre_entry_protection(..., trigger_fvg=fvg, epsilon_ticks=cfg.SL_EPSILON_TICKS)` çağırıyor; eski `tick_size > 0` sarmalayıcısı fonksiyona taşındı; yorum "SEIUSDT fix" → "tüm semboller, tek genel kural".
+- Not: kod + testlerin çoğu Agent Manager'daki ajan tarafından commit edilmeden yazılmıştı (durdurduğumda çalışma ağacındaydı); ben doğruladım ve eksik mock güncellemelerini tamamladım.
+
+### ENA senaryosu (guard'ın yakaladığı vaka)
+- ENA tick=0.001, eps=2 tick=0.002. SL, FVG.bottom'a (long) / FVG.top'a (short) 0.0015-0.0018 mesafede → artık PRE-ENTRY'de reddedilir. Eski guard (sadece entry-eps) bunu yakalayamazdı çünkü SL, entry'ye ~10 tick (0.0098) uzaktaydı — kök neden "SL, FVG sınırına anında-tetiklenecek kadar yakın" idi.
+
+### Doğrulama
+- `TestValidatePreEntryProtection` 9 yeni test (ENA long/short red, geçer buffer, eski davranış korunumu, no-fvg, tick=0 atlama, clearance==eps sınır durumu) + 3 bot testi mock güncellemesi.
+- entry_manager+bot: **125 passed / 13 fail**; integration (v2+lifecycle): **57 passed / 9 fail** — fail'ler git-stash HEAD baseline ile BİREBİR aynı (0 yeni fail; exit-lifecycle wiring + TestExitStateTransitions + TestEntryProtection pre-existing kırıkları).
+- Ruff temiz; vulture/mypy yeni uyarı/hata yok. Tam suite tek koşuda ağ/WS testinde 10 dk'da asılıyor → kapsam dosyaları ayrı koşuldu.
+
+### Sonraki adım
+- Deploy kararı kullanıcıda: commit main'de; sunucuya `git pull --ff-only` + restart (screen `377433.bot`). Deploy sonrası canlı gözlem: ilk FVG-çapalı sinyalde `[PRE-ENTRY]` reddi veya normal SL kurulumu.
+
+---
+
 ## Son İşlem: 2026-08-09 — CANLI KATMAN-3 TEYİDİ (SSH erişimiyle, kod değişikliği YOK)
 
 ### Giriş: SSH çözüldü

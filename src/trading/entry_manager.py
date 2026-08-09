@@ -283,6 +283,65 @@ class EntryManager:
                 return False, f"TP={tp} >= actual_fill={actual_fill} - eps={epsilon}"
         return True, ""
 
+    @staticmethod
+    def validate_pre_entry_protection(
+        side: str,
+        entry_price: float,
+        sl: float,
+        tp: float,
+        tick_size: float = 0.0,
+        trigger_fvg: "FVG | None" = None,
+        epsilon_ticks: int = 2,
+    ) -> tuple[bool, str]:
+        """GENEL pre-entry SL/TP validasyonu — tüm semboller için tek nokta.
+
+        Entry pipeline'ında MARKET emri atılmadan önce iki kontrolü birlikte
+        uygular (SEI/ENA gibi sembole özel koşul YOKTUR):
+
+        1. SL/TP, giriş fiyatına exchange "immediately trigger" epsilon'undan
+           (epsilon_ticks x tick) yakınsa reddet (eski guard davranışı).
+        2. SL, FVG sınırına (long: fvg.bottom, short: fvg.top) epsilon'dan
+           yakınsa reddet — FVG-çapalı SL'de buffer epsilon'un altına düşen
+           sinyaller fill sonrası [SL_TP_VALIDATION] direction-fail üretip
+           gereksiz acil kapanma trafiğine yol açar.
+
+        tick_size <= 0 ise epsilon hesaplanamaz; her iki kontrol de atlanır
+        (fill sonrası validate_protection_with_actual_fill yine devrededir).
+        """
+        if tick_size <= 0:
+            return True, ""
+
+        tick_dec = Decimal(str(tick_size))
+        eps = float(tick_dec) * epsilon_ticks
+
+        ok, msg = EntryManager.validate_protection_with_actual_fill(
+            side,
+            entry_price,
+            sl,
+            tp,
+            tick_dec,
+            epsilon_ticks=epsilon_ticks,
+        )
+        if not ok:
+            return False, msg
+
+        if trigger_fvg is not None and EntryManager._fvg_height_valid(trigger_fvg):
+            if side == "long":
+                clearance = trigger_fvg.bottom - sl
+                if clearance < eps:
+                    return False, (
+                        f"SL={sl} FVG.bottom={trigger_fvg.bottom}'e "
+                        f"{clearance:.8f} mesafede (< eps={eps})"
+                    )
+            else:
+                clearance = sl - trigger_fvg.top
+                if clearance < eps:
+                    return False, (
+                        f"SL={sl} FVG.top={trigger_fvg.top}'a "
+                        f"{clearance:.8f} mesafede (< eps={eps})"
+                    )
+        return True, ""
+
     async def _emergency_close(
         self, sym: str, mkt_side: str, qty: float, reason: str
     ) -> EntryExecutionResult:
