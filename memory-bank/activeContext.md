@@ -1,5 +1,30 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-09 — GUARD DEPLOY EDİLDİ (3 katmanlı doğrulama) + canlı log incelemesi
+
+### ✅ Deploy — commit `5eb2c08` (kullanıcı onayı: "Deploy — evet, yap. Düşük riskli: sadece pre-entry validasyona yeni red koşulu")
+1. **Katman-1 (hash):** sunucu `git pull --ff-only` → `6e99c9b..5eb2c08` fast-forward; HEAD `5eb2c08` = kullanıcının beklediği hash. ✅
+2. **Katman-2 (kod):** deploy edilen dosyalarda guard mevcut — `src/bot.py:727` `EntryManager.validate_pre_entry_protection(...)` çağrısı, `src/trading/entry_manager.py:287` tanım, `src/config.py:639` `SL_EPSILON_TICKS = 2`. ✅
+3. **Katman-3 (canlı davranış):** restart sonrası 28 sembol INIT + WS 56 stream + USER_DATA bağlı, **0 ERROR/CRITICAL/Traceback**. `[PRE-ENTRY]` reddi henüz gözlemlenmedi — ilk dar-gap (ENA/SEI tipi) sinyalinde bekleniyor (pasif izleme açık).
+
+### 🔧 Restart sırasında düzeltilen engel
+- İlk restart denemesi `screen -dmS bot ./venv/bin/python3 bot.py` → **`can't open file '/root/sniper/bot.py'`** — cwd yanlıştı. Bot `/root/sniper/src/` içinde çalışıyor (eski screen cwd'sini hatırlıyordu, yeni screen'i kullanıcı açtığında cwd geçilmediği için sıfırlandı).
+- Doğru: `cd /root/sniper/src && TERM=xterm screen -dmS bot /root/sniper/venv/bin/python3 bot.py` → screen **390682.bot**, PID 390683.
+
+### 🔍 Deploy öncesi canlı log incelemesi (trade/event/history — anormal durum taraması)
+- **SEIUSDT-555 hâlâ AÇIK** (short, entry 0.04150, SL 0.0420): trailing her dakika `trail_skipped | no_better_trail_candidate` (normal; SL entry'den 5 tick uzakta — eski guard'ın yakalayamadığı ama reddetmediği aralık; yeni FVG guard'ı bundan sonraki benzer sinyallerde devrede).
+- **APTUSDT dust pozisyonu (qty 0.1):** 07:25 UTC'de recovery `ACIL KAPANIS BASARISIZ -- MANUEL MUDAHALE GEREKLI` (`place_market_order` boş dict `{}` döndü). Restart'ta `[GHOST] APTUSDT pozisyon kapali, state temizlendi` → borsada kapanmış, risk geçti. Not: dust pozisyonu minNotional yüzünden korumasızdı (her dakika 4× `[MINNOTIONAL] ... qty=0.1 < min_notional=5.00` WARNING + `trail_skipped no_protection_update_required`).
+- **6× CRITICAL `[MODELS] ActiveTrade(sym=) tick_size olmadan kuruldu — 0.10 sentinel kullanildi` (bugün 01:00–11:15):** recovery fix'i (08-08) deploy edilmiş olmasına rağmen bu uyarılar bugün de üretildi → recovery akışında hâlâ tick_size'siz ActiveTrade kurulumu yapan EN AZ BİR YOL var (belki farklı bir kurulum sitesi). Ayrı iz olarak açık.
+- Bugünkü kapanışlar (events/history): ONDO TP +17.54, APT TP +2.67, ATOM SL -12.07, RENDER #521 SL -9.55, RENDER #522 SL -8.92, TIA SL -12.14, ALGO SL +19.96 (recovered, trailing uygulandı), ARB WS_FALLBACK +18.13, ADA SL -1.50. Balance 4964.35.
+- 9 ERROR/CRITICAL (son 20000 satır) = yukarıdaki 6 sentinel + 2 APT recovery + 1 (tam listelendi); hepsi eski run'a ait, yeni run'da 0.
+
+### Sonraki adım
+- Pasif izleme: ilk ENA/SEI tipi dar-gap sinyalinde `[PRE-ENTRY]` reddi örneği topla (log + events ile kaynakla).
+- Kullanıcının sıradaki işi: **runtime.status senkronizasyonu** (TestExitStateTransitions 3 fail + integration_lifecycle).
+- Açık iz: recovery akışındaki tick_size sentinel CRITICAL'ları (6× bugün) — recovery_manager'da kaçırılan kurulum yolu.
+
+---
+
 ## Son İşlem: 2026-08-09 — ENA/tüm-sembol PRE-ENTRY SL GUARD genellemesi (tek genel kural)
 
 ### Görev (baş mühendis direktifi)
