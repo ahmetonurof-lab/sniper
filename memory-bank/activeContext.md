@@ -1,5 +1,15 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-09 — DEPLOY: aa27b6f + 5fd6f11 (baş mühendis onayı, kapsam_3.md direktifi)
+
+- **Pull:** `5eb2c08..822e39a` fast-forward (HEAD 822e39a; kod içerenler aa27b6f + 5fd6f11, aradakiler docs). Kod katmanı: `models.py:591` logger.debug senkronu, `models.py:638` PendingLock symbol.
+- **Restart:** SIGINT 390683 → graceful kapanış (~16s). **İlk `screen -dmS` denemesi bot'u başlatmadı** (süreç yok, "No Sockets"); `;` zincirli + `2>&1` yeniden denemede **391750.bot** (PID 391752) ile başladı. Ön planda timeout testi bot'un sağlıklı olduğunu gösterdi (LEVERAGE 28/28 tamamlandı).
+- **Canlı (katman 3):** `tick_size olmadan` CRITICAL = **0** (önceki deploy'da 6× idi — sentinel fix doğrulandı); CRITICAL/ERROR yok; WS bağlı; SEIUSDT açık trade restart'ta korundu (tick_size 0.0001, status ACTIVE — recovery reconcile yolu yeni `__post_init__`'i tetiklemedi).
+- **runtime.status tarihsel kanıt:** `output/trades_history.jsonl` son kayıtları flat `"status": "CLOSED"` + `runtime=TradeRuntimeState(status=<TradeStatus.ACTIVE>)` — fix ÖNCESİ uyumsuzluk birebir kayıtlı. Yeni kapanışta (SEIUSDT) senkron kontrolü = **pasif iz** (state_writer runtime'ı JSON'a yazmıyor, BULGU-05; trades_history writer'ı yazıyor).
+- **Sıradaki:** DYDX reconciliation kapsamı (baş mühendis: kapsam raporu, kod değişikliği yok) + P2-8 + PRE-ENTRY iz.
+
+---
+
 ## Son İşlem: 2026-08-09 — runtime.status SENKRONU UYGULANDI (baş mühendis onayı, kapsam_1.md)
 
 - **Onay:** baş mühendis planı onayladı; "except ValueError: pass'i sessiz bırakma — en azından log.debug ile iz bırak" (bot.py:983 dersi) direktifi verdi.
