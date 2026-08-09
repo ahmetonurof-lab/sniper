@@ -1,5 +1,16 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-09 — DYDX reconciliation KAPSAM RAPORU (kod değişikliği YOK)
+
+- **Nedir:** 08-02 canlı olay (DYDXUSDT entry'de HTTP 408) → bc3f3ff fix'i (08-03): `entry_manager.execute_live_entry()` içinde **MARKET empty_response reconcile guard** (mkt_id yok + qty<=0 + poz açık → `_emergency_close`).
+- **Kapsam matrisi:** Blok A (489, orderId yok+qty/price var — eski), Blok B (520-548, empty_response — bc3f3ff), Blok C (550-581, geçikmeli fill denemesi + MARKET BASARISIZ). `parse_market_fill({})→(0,0,0)` doğrulandı (238-240); `_emergency_close` reduce_only karşı taraf emri (345-402).
+- **Testler:** test_entry_manager `-k "empty_response or market_order_failure"` → **2 passed / 92 deselected**.
+- **Kapsam boşlukları (not, fix yok):** ① canlı teyit yok (fix sonrası DYDX'te yeni 408 görülmedi); ② **köşe durumu** `not mkt_id and qty>0 and price<=0` → Blok A/B ikisi de çalışmaz, pozisyon açık kalabilir (tek nokta fix adayı: Blok B koşulunu `qty<=0 or price<=0` yapmak — bu turda DEĞİŞTİRİLMEDİ); ③ `_emergency_close` fail → pozisyon korumasız, recover_positions 60sn'de korur ama kapatmaz.
+- **Rapor:** `reports/dydx_reconciliation_kapsam.md`.
+- **Sıradaki:** kullanıcı kararı (köşe durumu fix'i yapılsın mı) + P2-8 + PRE-ENTRY iz + SEIUSDT kapanışında runtime.status canlı teyidi.
+
+---
+
 ## Son İşlem: 2026-08-09 — DEPLOY: aa27b6f + 5fd6f11 (baş mühendis onayı, kapsam_3.md direktifi)
 
 - **Pull:** `5eb2c08..822e39a` fast-forward (HEAD 822e39a; kod içerenler aa27b6f + 5fd6f11, aradakiler docs). Kod katmanı: `models.py:591` logger.debug senkronu, `models.py:638` PendingLock symbol.
