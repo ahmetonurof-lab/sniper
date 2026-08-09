@@ -1387,6 +1387,13 @@ class TestPendingLock:
         # After context exit without commit, PENDING is removed
         assert "BTCUSDT" not in active
 
+    def test_pending_placeholder_has_symbol(self):
+        from models import PendingLock
+
+        active = {}
+        with PendingLock(active, "BTCUSDT") as _lock:
+            assert active["BTCUSDT"].symbol == "BTCUSDT"
+
     def test_commit_preserves_pending(self):
         from models import PendingLock
 

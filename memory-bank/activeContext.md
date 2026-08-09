@@ -1,5 +1,29 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-09 — 🔴 tick_size SENTINEL KÖK NEDEN KAPANDI + 🟡 P2-8 dust-close notu
+
+### Kök neden (baş mühendis direktifi: tüm `ActiveTrade(` kuruluş noktalarını tara)
+- `grep -rn "ActiveTrade("` → 7 eşleşme: recovery_manager 3 (159/577/605 — daaeeb0 ile **zaten fix'li**, hepsi `tick_size=tick_size` geçiriyor), bot.py:986 (geçiriyor ama 979-984 eski sessiz 0.10 default + `except: pass` deseni), models.py:567 (log'un kendisi), models.py:615 (docstring), **models.py:625 → SUÇLU**.
+- **`PendingLock.__enter__` (models.py:625):** `ActiveTrade(status="PENDING")` — **symbol de tick_size de geçmiyor** → `__post_init__` CRITICAL'ı `sym=` **boş sembolle** patlatıyor. Log'daki 6× `[MODELS] ActiveTrade(sym=) ...` (01:00-11:15) bunun birebir çıktısı — her `_try_entry` giriş denemesinde 1 CRITICAL. "recovery dışında en az bir yol" = PENDING placeholder yolu.
+
+### Fix (3 düzenleme)
+1. `models.py __post_init__`: `status != "PENDING"` ise CRITICAL logla — PENDING placeholder'lar bilinçli olarak eksik kurulur (geçici kilit işareti, gerçek trade değil); sentinel yine kurulur (tick_size asla None kalmaz). **Gerçek trade kuruluşları (STATUS_ACTIVE) hâlâ gürültülü patlar** — savunma korundu.
+2. `models.py PendingLock.__enter__`: `symbol=self._sym` geçiyor — placeholder doğru sembolle kurulur (boş `sym=` log şifresi de çözüldü).
+3. `bot.py:983`: sessiz `except: pass` → `log.warning("[TRY_ENTRY] %s tick_size alinamadi (0.10 fallback)", sym)` — recovery deseniyle (warning'li fallback) tutarlı.
+
+### Test
+- test_models 2 yeni (`test_pending_placeholder_does_not_trigger_tick_size_critical` caplog ile; `test_real_trade_without_tick_size_still_triggers_critical` — savunma korunduğu kanıtı) + test_bot 1 yeni (`test_pending_placeholder_has_symbol`).
+- Yeni + recovery suite: **13 passed / 0 failed**. Fail seti pre-existing 13/13 (test_bot eski refactor testleri: `mark_trade_closed`/`_stage`/`MIN_FVG_SIZE` — exit-lifecycle refactor sonrası bayat; baseline ile birebir, 0 yeni fail).
+
+### 🟡 P2-8 (not, fix yok — baş mühendis direktifi)
+- APTUSDT dust-close gap bugs.md'ye eklendi: `place_market_order` boş `{}` → "ACİL KAPANIŞ BAŞARISIZ" loglanıp restart'a kalıyor; minNotional altı dust için strateji yok. Sadece kayıt, düşük öncelik.
+
+### Sonraki adım (kullanıcı sırası)
+- **runtime.status senkronizasyonu** (TestExitStateTransitions 3 fail + integration_lifecycle) — tick_size işi kapandığı için artık sırada.
+- Pasif izleme sürüyor: ilk ENA/SEI tipi dar-gap sinyalinde `[PRE-ENTRY]` reddi örneği + yeni run'da `tick_size sentinel` üretilmediği doğrulaması.
+
+---
+
 ## Son İşlem: 2026-08-09 — GUARD DEPLOY EDİLDİ (3 katmanlı doğrulama) + canlı log incelemesi
 
 ### ✅ Deploy — commit `5eb2c08` (kullanıcı onayı: "Deploy — evet, yap. Düşük riskli: sadece pre-entry validasyona yeni red koşulu")

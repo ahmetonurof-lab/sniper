@@ -563,12 +563,16 @@ class ActiveTrade:
 
     def __post_init__(self) -> None:
         if self.tick_size is None:
-            logger.critical(
-                "[MODELS] ActiveTrade(sym=%s) tick_size olmadan kuruldu — "
-                "0.10 sentinel kullanildi. Bu bir BUG isaretidir: kurulum "
-                "yolu tick_size gecirmeli (recovery_manager / _try_entry)",
-                self.symbol,
-            )
+            if self.status != "PENDING":
+                # PENDING placeholder'lar bilinçli olarak tick_size'sız kurulur
+                # (PendingLock.__enter__ — geçici kilit işareti, gerçek trade
+                # değil). Gerçek kuruluş yolları tick_size geçirmeli.
+                logger.critical(
+                    "[MODELS] ActiveTrade(sym=%s) tick_size olmadan kuruldu — "
+                    "0.10 sentinel kullanildi. Bu bir BUG isaretidir: kurulum "
+                    "yolu tick_size gecirmeli (recovery_manager / _try_entry)",
+                    self.symbol,
+                )
             self.tick_size = 0.10
 
     def __getitem__(self, key: str):
@@ -622,7 +626,7 @@ class PendingLock:
         self._committed = False
 
     def __enter__(self):
-        self._active_trades[self._sym] = ActiveTrade(status="PENDING")
+        self._active_trades[self._sym] = ActiveTrade(symbol=self._sym, status="PENDING")
         self._committed = False
         return self
 

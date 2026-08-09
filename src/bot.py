@@ -981,7 +981,7 @@ class PaperTrader:
             try:
                 tick_size = await self.rest.get_tick_size(sym)
             except Exception:
-                pass
+                log.warning("[TRY_ENTRY] %s tick_size alinamadi (0.10 fallback)", sym)
 
         self.active_trades[sym] = ActiveTrade(
             symbol=sym,

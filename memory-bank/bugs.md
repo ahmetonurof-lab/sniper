@@ -19,6 +19,7 @@
 | **P1-8** | 📎 | POST_ENTRY check %100 başarısız — iki kök neden tespit edildi | KÖK NEDEN AYRIMINDA (08-06: restart sonrası 9/9 sanity check OK — muhtemelen kapandı, resmi kapanma baş mühendis onayına bağlı) |
 | **P3-3** | 🐛 | except Exception yaygın | HÂLÂ GEÇERLİ |
 | **🆕 P1-17** | ✅ | Recovery tick_size parity — recovered trade'ler tick_size'sız kuruluyordu (models default 0.10), trailing normalize tüm iyileşmeleri yutuyordu | KAPANDI + CANLI (daaeeb0, ALGO trail#1 +19.96) |
+| **🆕 P2-8** | 🐛 | `place_market_order` boş `{}` → "ACİL KAPANIŞ BAŞARISIZ" loglanıp restart'a kalıyor; dust-close için strateji yok (APTUSDT 08-09 07:25 UTC canlı) | DÜŞÜK (not) |
 
 ---
 
@@ -520,3 +521,32 @@ doğru tick_size alıyor.
 - **ALGOUSDT short SL kapanış +19.96:** entry 0.08993, initial SL 0.09353 → **trail#1 sl=0.08901/tp=0.08217 UYGULANDI** (tick=1e-05; fix öncesi 0.1'de 0.08901→0.1 normalize olup reddedilirdi). Fiyat SL'yi test edip döndü → STOP_MARKET tetiklendi. `trade_closed` event: `final_sl=0.08901, final_tp=0.08217, trail_count=1, pnl=19.96`.
 - 0 ERROR/CRITICAL/Traceback; 5 WARNING (hepsi RENDER 06:33 zinciri, guard'lar doğru çalıştı).
 - Test: kapsam dosyaları (recovery+trailing+models) tamamı geçti; diğer fail'ler baseline ile birebir (pre-existing).
+
+---
+
+## 🟡 P2-8: `place_market_order` boş `{}` → dust-close stratejisi yok (DÜŞÜK ÖNCELİK, not)
+
+**Severity:** LOW (P2)
+**Status:** 🐛 açık — sadece not düşüldü, fix yok (baş mühendis direktifi: "acil değil ama bugs.md'ye eklensin")
+**Date:** 2026-08-09 (canlı gözlem)
+**File:** `src/trading/recovery_manager.py` (~satır 550-563, ACIL KAPANIS BASARISIZ yolu)
+
+### Gözlem (08-09 07:25 UTC, APTUSDT dust pozisyon qty=0.1)
+
+`place_market_order` **boş `{}`** döndü (exception atmadı) → recovery
+`[RECOVER] APTUSDT ACIL KAPANIS BASARISIZ -- MANUEL MUDAHALE GEREKLI: place_market_order bos dict ({}) dondu`
+loglayıp pozisyonu korumasız `active_trades`'e bıraktı. Sonraki restart'ta
+`[GHOST] APTUSDT pozisyon kapali, state temizlendi` ile kurtarıldı.
+
+### Gap
+
+- **Kök şüphe:** minNotional altındaki dust (qty=0.1, `[MINNOTIONAL] qty=0.1 < min_notional=5.00`, dakikada 4×)
+  için borsa emri reddediyor; kod bunu anlamlı hataya çevirip farklı strateji
+  (daha küçük dust-temizleme, en azından net alarm) üretmiyor — boş dict →
+  "manuel müdahale gerekli" logu.
+- **Risk:** restart olmasaydı pozisyon korumasız kalmaya devam ederdi.
+- **Önerilen yön (gelecek iş):** boş `{}` dönüşünü gerçek bir hata türü olarak
+  ele al (minNotional kontrolü öncesi büyüklük doğrulaması / dust-temizleme
+  alternatifi / escalation alarmı).
+- **Kısmi koruma zaten var:** `reconcile_ghost_positions()` restart'ta bu sınıfı
+  yakalıyor; periyodik çalışmıyor (bkz. P1-4).

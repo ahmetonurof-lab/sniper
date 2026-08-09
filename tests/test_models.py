@@ -333,3 +333,26 @@ class TestActiveTrade:
         assert t.trail_mode == "fvg"
         assert t.trail_level_extractor is None
         assert t.is_recovered is False
+
+    def test_pending_placeholder_does_not_trigger_tick_size_critical(self, caplog):
+        import logging
+
+        from models import ActiveTrade
+
+        with caplog.at_level(logging.CRITICAL):
+            t = ActiveTrade(symbol="BTCUSDT", status="PENDING")
+        assert "tick_size olmadan kuruldu" not in caplog.text
+        assert t.tick_size == 0.10
+        assert t.symbol == "BTCUSDT"
+
+    def test_real_trade_without_tick_size_still_triggers_critical(self, caplog):
+        import logging
+
+        from models import ActiveTrade
+
+        with caplog.at_level(logging.CRITICAL):
+            t = ActiveTrade(
+                symbol="BTCUSDT", side="long", entry_price=100.0, sl=95.0, tp=110.0
+            )
+        assert "tick_size olmadan kuruldu" in caplog.text
+        assert t.tick_size == 0.10
