@@ -87,7 +87,7 @@ Deploy ile ilgili kanıtlar memory-bank'a işlendi:
 - `memory-bank/activeContext.md` + `memory-bank/progress.md` güncellendi
 - Bu rapor: `reports/deploy_tick_runtime_teslim.md`
 
-Commit/push hash'i: (son turda eklenecek)
+Commit/push hash'i: **`bfaaada`** (`822e39a..bfaaada main -> main`)
 
 ---
 
