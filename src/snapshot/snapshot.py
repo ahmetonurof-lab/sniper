@@ -9,6 +9,7 @@ Düzeltmeler (v3):
   5. Price scale: sweep/FVG/CBDR dahil tüm seviyeleri kapsayan padding
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -38,7 +39,7 @@ _FETCH_LIMIT = 160
 # ─────────────────────────────────────────────
 
 
-def _fetch_ohlc(sym: str, anchor_ms: int) -> list[dict] | None:
+async def _fetch_ohlc(sym: str, anchor_ms: int) -> list[dict] | None:
     """
     anchor_ms: trade entry veya exit timestamp (ms).
     anchor'dan geriye doğru _FETCH_LIMIT bar, ileriye PAD_BARS bar çeker.
@@ -46,7 +47,8 @@ def _fetch_ohlc(sym: str, anchor_ms: int) -> list[dict] | None:
     """
     end_ms = anchor_ms + _PAD_BARS * _INTERVAL_MS
     try:
-        r = requests.get(
+        r = await asyncio.to_thread(
+            requests.get,
             _BINANCE_BASE,
             params={
                 "symbol": sym,
@@ -254,7 +256,7 @@ def _resolve_fvg_bar_index(
     return 0
 
 
-def capture_snapshot(
+async def capture_snapshot(
     sym: str,
     trade: dict,
     pnl: float | None = None,
@@ -284,7 +286,7 @@ def capture_snapshot(
     anchor_ms = entry_ts_ms or exit_ts_ms or 0
 
     # FIX #1: anchor_ms ile endTime'lı fetch
-    candles = _fetch_ohlc(sym, anchor_ms)
+    candles = await _fetch_ohlc(sym, anchor_ms)
     if not candles:
         return None
 

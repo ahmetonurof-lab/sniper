@@ -768,7 +768,7 @@ class ExitLifecycleService:
             )
 
         try:
-            snap = capture_snapshot(sym, trade, pnl, self._states[sym])
+            snap = await capture_snapshot(sym, trade, pnl, self._states[sym])
             if snap:
                 trade["snapshot_file"] = snap
         except Exception:
