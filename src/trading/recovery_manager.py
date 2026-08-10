@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from threading import RLock
 from typing import TYPE_CHECKING
 
 import config as cfg
@@ -65,6 +66,7 @@ class RecoveryManager:
         order_manager=None,
         atr_state: dict | None = None,
         protection_service: "ProtectionLifecycleService | None" = None,
+        exit_locks: dict | None = None,
     ):
         self._rest = rest_client
         self._symbols = symbols
@@ -75,7 +77,9 @@ class RecoveryManager:
         self._order_manager = order_manager
         self._atr_state = atr_state or {}
         self._protection = protection_service
+        self._exit_locks = exit_locks if exit_locks is not None else {}
         self._ghost_fail_count = 0
+        self._orphan_fail_count = 0
 
     # ── Pozisyon kurtarma ──────────────────────────────────────
 
@@ -211,55 +215,56 @@ class RecoveryManager:
                             "type": self._rest.get_order_type(tp_orders[0]),
                         },
                     }
-                    if existing:
-                        existing["sl"] = sl_price
-                        existing["tp"] = tp_price
-                        existing["sl_order_id"] = sl_id
-                        existing["tp_order_id"] = tp_id
-                        existing["protection_orders"] = protection_orders
-                        existing["risk_pts"] = risk_pts
-                        existing["tick_size"] = tick_size
-                        # A1-01 Fix: Sync runtime.protection for existing trade
-                        if self._order_manager:
-                            self._order_manager._sync_runtime_protection(
-                                existing, "sl_current", sl_id, sl_price
+                    with self._exit_locks.setdefault(sym, RLock()):
+                        if existing:
+                            existing["sl"] = sl_price
+                            existing["tp"] = tp_price
+                            existing["sl_order_id"] = sl_id
+                            existing["tp_order_id"] = tp_id
+                            existing["protection_orders"] = protection_orders
+                            existing["risk_pts"] = risk_pts
+                            existing["tick_size"] = tick_size
+                            # A1-01 Fix: Sync runtime.protection for existing trade
+                            if self._order_manager:
+                                self._order_manager._sync_runtime_protection(
+                                    existing, "sl_current", sl_id, sl_price
+                                )
+                                self._order_manager._sync_runtime_protection(
+                                    existing, "tp_current", tp_id, tp_price
+                                )
+                        else:
+                            new_trade = ActiveTrade(
+                                symbol=sym,
+                                entry_bar_index=0,
+                                entry_price=entry,
+                                entry_timestamp=int(time.time() * 1000),
+                                sl=sl_price,
+                                tp=tp_price,
+                                qty=abs(amt),
+                                side=direction,
+                                status=STATUS_ACTIVE,
+                                trigger_fvg=None,
+                                initial_sl=sl_price,
+                                initial_tp=tp_price,
+                                trailing_count=0,
+                                trail_count=0,
+                                risk_pts=risk_pts,
+                                is_recovered=True,
+                                trail_mode="fvg",
+                                tick_size=tick_size,
+                                sl_order_id=sl_id,
+                                tp_order_id=tp_id,
+                                protection_orders=protection_orders,
                             )
-                            self._order_manager._sync_runtime_protection(
-                                existing, "tp_current", tp_id, tp_price
-                            )
-                    else:
-                        new_trade = ActiveTrade(
-                            symbol=sym,
-                            entry_bar_index=0,
-                            entry_price=entry,
-                            entry_timestamp=int(time.time() * 1000),
-                            sl=sl_price,
-                            tp=tp_price,
-                            qty=abs(amt),
-                            side=direction,
-                            status=STATUS_ACTIVE,
-                            trigger_fvg=None,
-                            initial_sl=sl_price,
-                            initial_tp=tp_price,
-                            trailing_count=0,
-                            trail_count=0,
-                            risk_pts=risk_pts,
-                            is_recovered=True,
-                            trail_mode="fvg",
-                            tick_size=tick_size,
-                            sl_order_id=sl_id,
-                            tp_order_id=tp_id,
-                            protection_orders=protection_orders,
-                        )
-                        self._active_trades[sym] = new_trade
-                        # A1-01 Fix: Sync runtime.protection for new trade
-                        if self._order_manager:
-                            self._order_manager._sync_runtime_protection(
-                                new_trade, "sl_current", sl_id, sl_price
-                            )
-                            self._order_manager._sync_runtime_protection(
-                                new_trade, "tp_current", tp_id, tp_price
-                            )
+                            self._active_trades[sym] = new_trade
+                            # A1-01 Fix: Sync runtime.protection for new trade
+                            if self._order_manager:
+                                self._order_manager._sync_runtime_protection(
+                                    new_trade, "sl_current", sl_id, sl_price
+                                )
+                                self._order_manager._sync_runtime_protection(
+                                    new_trade, "tp_current", tp_id, tp_price
+                                )
                     if not quiet:
                         self._pl(
                             sym,
@@ -700,16 +705,61 @@ class RecoveryManager:
                                 "recover_emergency_close_failed",
                                 f"\U0001f6a8\U0001f6a8 {sym}: ACIL KAPANIS BASARISIZ -- HEMEN MANUEL KONTROL ET: {reason}",
                             )
+                        with self._exit_locks.setdefault(sym, RLock()):
+                            if existing:
+                                existing["sl"] = sl
+                                existing["tp"] = tp
+                                existing["sl_order_id"] = ""
+                                existing["tp_order_id"] = tp_id
+                                existing["tick_size"] = tick_size
+                                if self._order_manager:
+                                    self._order_manager._sync_runtime_protection(
+                                        existing, "sl_current", "", sl
+                                    )
+                                    self._order_manager._sync_runtime_protection(
+                                        existing, "tp_current", tp_id, tp
+                                    )
+                            else:
+                                new_trade = ActiveTrade(
+                                    symbol=sym,
+                                    entry_bar_index=0,
+                                    entry_price=entry,
+                                    entry_timestamp=int(time.time() * 1000),
+                                    sl=sl,
+                                    tp=tp,
+                                    qty=abs(amt),
+                                    side=direction,
+                                    status=STATUS_ACTIVE,
+                                    trigger_fvg=None,
+                                    initial_sl=sl,
+                                    initial_tp=tp,
+                                    trailing_count=0,
+                                    trail_count=0,
+                                    risk_pts=risk_pts,
+                                    is_recovered=True,
+                                    trail_mode="fvg",
+                                    tick_size=tick_size,
+                                    sl_order_id="",
+                                    tp_order_id=tp_id,
+                                )
+                                self._active_trades[sym] = new_trade
+                                if self._order_manager:
+                                    self._order_manager._sync_runtime_protection(
+                                        new_trade, "sl_current", "", sl
+                                    )
+                                    self._order_manager._sync_runtime_protection(
+                                        new_trade, "tp_current", tp_id, tp
+                                    )
+                        continue
+
+                    with self._exit_locks.setdefault(sym, RLock()):
                         if existing:
-                            existing["sl"] = sl
-                            existing["tp"] = tp
-                            existing["sl_order_id"] = ""
+                            existing["sl_order_id"] = sl_id
                             existing["tp_order_id"] = tp_id
                             existing["tick_size"] = tick_size
-                            # A1-01 Fix: Sync runtime.protection for existing trade
                             if self._order_manager:
                                 self._order_manager._sync_runtime_protection(
-                                    existing, "sl_current", "", sl
+                                    existing, "sl_current", sl_id, sl
                                 )
                                 self._order_manager._sync_runtime_protection(
                                     existing, "tp_current", tp_id, tp
@@ -734,62 +784,17 @@ class RecoveryManager:
                                 is_recovered=True,
                                 trail_mode="fvg",
                                 tick_size=tick_size,
-                                sl_order_id="",
+                                sl_order_id=sl_id,
                                 tp_order_id=tp_id,
                             )
                             self._active_trades[sym] = new_trade
-                            # A1-01 Fix: Sync runtime.protection for new trade
                             if self._order_manager:
                                 self._order_manager._sync_runtime_protection(
-                                    new_trade, "sl_current", "", sl
+                                    new_trade, "sl_current", sl_id, sl
                                 )
                                 self._order_manager._sync_runtime_protection(
                                     new_trade, "tp_current", tp_id, tp
                                 )
-                        continue
-
-                    if existing:
-                        existing["sl_order_id"] = sl_id
-                        existing["tp_order_id"] = tp_id
-                        existing["tick_size"] = tick_size
-                        if self._order_manager:
-                            self._order_manager._sync_runtime_protection(
-                                existing, "sl_current", sl_id, sl
-                            )
-                            self._order_manager._sync_runtime_protection(
-                                existing, "tp_current", tp_id, tp
-                            )
-                    else:
-                        new_trade = ActiveTrade(
-                            symbol=sym,
-                            entry_bar_index=0,
-                            entry_price=entry,
-                            entry_timestamp=int(time.time() * 1000),
-                            sl=sl,
-                            tp=tp,
-                            qty=abs(amt),
-                            side=direction,
-                            status=STATUS_ACTIVE,
-                            trigger_fvg=None,
-                            initial_sl=sl,
-                            initial_tp=tp,
-                            trailing_count=0,
-                            trail_count=0,
-                            risk_pts=risk_pts,
-                            is_recovered=True,
-                            trail_mode="fvg",
-                            tick_size=tick_size,
-                            sl_order_id=sl_id,
-                            tp_order_id=tp_id,
-                        )
-                        self._active_trades[sym] = new_trade
-                        if self._order_manager:
-                            self._order_manager._sync_runtime_protection(
-                                new_trade, "sl_current", sl_id, sl
-                            )
-                            self._order_manager._sync_runtime_protection(
-                                new_trade, "tp_current", tp_id, tp
-                            )
                     protection_note = "" if tp_id else " (TP kurulamadi, sadece SL var)"
                     if not quiet:
                         self._pl(
@@ -971,7 +976,16 @@ class RecoveryManager:
             known_ids = self._known_protection_ids()
             try:
                 orders = await self._rest.get_all_orders(sym)
-            except Exception:
+            except Exception as e:
+                self._orphan_fail_count += 1
+                log.error("[ORPHAN] %s sorgu hatasi, sembol atlandi: %s", sym, e)
+                if self._orphan_fail_count >= 5:
+                    log_event(
+                        "orphan_check_persistently_failing",
+                        "SYSTEM",
+                        error=str(e),
+                    )
+                    self._orphan_fail_count = 0
                 continue
             for o in orders:
                 oid = str(o.get("orderId") or o.get("algoId") or "")

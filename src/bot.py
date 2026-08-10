@@ -304,6 +304,7 @@ class PaperTrader:
             order_manager=self.order_manager,
             atr_state=self._atr_state,
             protection_service=self.protection_service,
+            exit_locks=self._exit_locks,
         )
 
         for sym in self.symbols:
