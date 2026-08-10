@@ -43,6 +43,7 @@ import logging
 import os
 import time
 from typing import Any, Callable
+from dataclasses import asdict
 
 import config as cfg  # noqa: F401  (tests patch trading.exit_lifecycle.cfg)
 from event_log import log_event
@@ -159,6 +160,13 @@ class ExitLifecycleService:
         trade_key = f"{sym}_{_trade_id_key}"
         lock = self._exit_locks.setdefault(trade_key, asyncio.Lock())
         async with lock:
+            if trade.get("_exit_committed"):
+                log.warning(
+                    "[EXIT] %s idempotency guard: _exit_committed=True — tekrar engellendi",
+                    sym,
+                )
+                return False
+            trade["_exit_committed"] = True
             # ── Idempotency guard (P0-1): benzersiz trade anahtari bazli ──
             _exit_reason = trade.get("result", "")
             if _exit_reason:
@@ -187,6 +195,7 @@ class ExitLifecycleService:
                         _exit_result,
                         e,
                     )
+                    trade["_exit_committed"] = False
                     return False
 
                 if position_open:
@@ -251,6 +260,7 @@ class ExitLifecycleService:
                         trade["pending_exit_timestamp"] = None
                         trade["result"] = None
                         trade["status"] = STATUS_ACTIVE
+                        trade["_exit_committed"] = False
                         return False
 
                     # P1-15: stale cooldown — tekrarlı stale döngüsü kontrolü
@@ -277,6 +287,7 @@ class ExitLifecycleService:
                         trade["pending_exit_timestamp"] = None
                         trade["result"] = None
                         trade["status"] = STATUS_ACTIVE
+                        trade["_exit_committed"] = False
                         return False
 
                     self._stale_cooldown[sym] = _now
@@ -349,6 +360,7 @@ class ExitLifecycleService:
                     trade["pending_exit_timestamp"] = None
                     trade["result"] = None
                     trade["status"] = STATUS_ACTIVE
+                    trade["_exit_committed"] = False
                     return False
 
             # Patch Set 4 (WS normalization) — tek konsolide blok (BUG-11)
@@ -381,6 +393,7 @@ class ExitLifecycleService:
             if self._is_live and not _exit_already_closed:
                 pos_closed = await self._submit_and_verify_market_close(sym, trade)
                 if not pos_closed:
+                    trade["_exit_committed"] = False
                     return False
 
             result = await self._commit_confirmed_exit(sym, trade, exit_timestamp)
@@ -761,18 +774,16 @@ class ExitLifecycleService:
         except Exception:
             log.warning("[SNAPSHOT] %s snapshot alinamadi", sym)
 
-        record = {
-            **trade,
-            "sym": sym,
-            "pnl": pnl,
-            "exit_bar": trade.get("exit_bar", 0),
-            "close_time": exit_timestamp,
-        }
+        record = asdict(trade)
+        record["sym"] = sym
+        record["pnl"] = pnl
+        record["exit_bar"] = trade.get("exit_bar", 0)
+        record["close_time"] = exit_timestamp
         self._trades.append(record)
         try:
             trades_file = os.path.join(self._output_dir, "trades_history.jsonl")
             with open(trades_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
         except Exception:
             log.warning("[TRADES] %s jsonl yazma hatasi", sym)
         mark_trade_closed(sym)

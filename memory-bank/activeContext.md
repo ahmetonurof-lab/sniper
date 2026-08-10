@@ -1,5 +1,18 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-10 — 4 KRİTİK BULGU FIX UYGULANDI (baş mühendis direktifi: gizli-bug-audit-raporu-2026-08-10.md)
+
+- **Kapsam:** A1-01, A1-02, A3-01, A4-01, A4-04 (A2-01/A2-02 kök ailesi A4-04 ile birleştirildi).
+- **A1-01 (runtime.protection senkronizasyonu):** `recovery_manager.py`'deki 3 `existing[...]` güncelleme bloğu (213-218, 645-647, 683-685) ve 3 `ActiveTrade(...)` kurulum noktası (222-252, 649-674, 687-714) hepsine `self._order_manager._sync_runtime_protection(...)` çağrısı eklendi. Üç yol (SL/TP mevcut, acil kapanış başarısız, SL/TP yeni kurulum) da runtime.protection.sl_current/tp_current korunuyor.
+- **A1-02 (runtime JSON serileştirmesi):** `exit_lifecycle.py:764-775` `**trade` yerine `asdict(trade)` kullanılıyor; `default=str` kaldırıldı. `TradeRuntimeState`/`ProtectionState`/`ProtectionRef` artık dict olarak kaydediliyor, runtime verisi kaybolmuyor.
+- **A3-01 (WS/bar-close exit race):** `bot.py:_on_1m_close` ve `user_data_handler.py:_on_order_update_normalized` + legacy handler'daki tüm `pending_exit_*`/`result` mutation'ları `async with self._exit_locks[trade_key]` ile korundu. `exit_lifecycle.py:execute()`'ye atomik `_exit_committed` bayrağı eklendi; stale/exception early-return yollarında reset ediliyor. `UserDataHandler` artık `exit_locks` DI ile alıyor; `bot.py`'den `self._exit_locks` iletilen aynı nesne kullanılıyor.
+- **A4-01 (ghost temizliği sessizce yutuluyor):** `reconcile_ghost_positions()` except bloğuna `log.error("[GHOST] state okunamadi...")` eklendi. `_ghost_fail_count` sayaçları eklendi; 5 ardışık hatada `log_event("ghost_check_persistently_failing", ...)` tetikleniyor.
+- **A4-04 (place_market_order/stop/tp boş {} dönüyor):** `bot_binance.py`'deki tüm `return {}` yerine `{"_error": True, "_error_code": ..., "_raw": ...}` dönüyor. `recovery_manager.py:555` ve `entry_manager.py:480`'de `_error` varsa `get_positions()` ile pozisyon durumu doğrulanıyor; kapalıysa EXECUTION_CONFIRMED olarak kabul ediliyor, açıksa force-close deniyor.
+- **Doğrulama:** recovery_manager 10/10, exit_lifecycle+user_data_handler 75/75, bot_binance 80/80, entry_manager 95/95 geçti. Pre-existing 2 fail (`test_sl_matched_pending_promoted_to_confirmed`, `test_ws_fallback_promotion_still_works`) — `_exit_trade_legacy` kaldırılmasından kaynaklanan eski test kırıkları, bu turla ilgisiz.
+- **Sıradaki:** baş mühendis onayı sonrası commit/push + canlı deploy (sunucu `git pull --ff-only` + restart).
+
+---
+
 ## Son İşlem: 2026-08-10 — A6 Backtest-Live Parity Denetçisi (araştırma modu, kod değişikliği YOK)
 
 - **Kapsam:** D-2 (trailing/entry kopya kod) senkron denetimi — canlı (`trailing_manager.py`+`bot.py`), BT-1 (`backtest-sniper/analyzer_v5.py`), BT-2 (`simulate.py`) üçlü karşılaştırma. Kanıt protokolü uygulandı: KOD İZİ / TEST KANITI / VERİ KANITI; kanıtlanamayanlar HİPOTEZ listesinde.

@@ -767,7 +767,11 @@ class BinanceRESTClient:
         valid_qty = await self.validate_min_amount(symbol, rounded_qty)
         if valid_qty <= 0:
             log.warning("[MARKET] %s qty=%.8f minQty altinda, iptal", symbol, qty)
-            return {}
+            return {
+                "_error": True,
+                "_error_code": "MIN_QTY",
+                "_raw": f"qty={qty} minQty altinda",
+            }
 
         # MIN_NOTIONAL kontrolü entry_manager._bump_to_min_notional() tarafından
         # yapılıyor. Burada tekrar kontrol etmek farklı anlık fiyat nedeniyle
@@ -777,7 +781,11 @@ class BinanceRESTClient:
         qty_str = f"{valid_qty:.{decimals}f}".rstrip("0").rstrip(".")
         if not qty_str or qty_str == "0":
             log.warning("[MARKET] %s qty format hatasi: %s", symbol, qty_str)
-            return {}
+            return {
+                "_error": True,
+                "_error_code": "QTY_FORMAT",
+                "_raw": f"qty format hatasi: {qty_str}",
+            }
 
         params = {
             "symbol": symbol,
@@ -793,7 +801,11 @@ class BinanceRESTClient:
         r = await self.post("/fapi/v1/order", params)
         if r.is_err:
             log.warning("[MARKET] %s MARKET hatasi: %s", symbol, r.error)
-            return {}
+            return {
+                "_error": True,
+                "_error_code": self._parse_error_code(r.error),
+                "_raw": r.error,
+            }
         result = r.value
         if result.get("orderId") or result.get("id"):
             result["_status"] = "EXECUTION_CONFIRMED"
@@ -882,13 +894,21 @@ class BinanceRESTClient:
         valid_qty = await self.validate_min_amount(symbol, rounded_qty)
         if valid_qty <= 0:
             log.warning("[SL] %s qty=%.8f minQty altinda, iptal", symbol, qty)
-            return {}
+            return {
+                "_error": True,
+                "_error_code": "MIN_QTY",
+                "_raw": f"qty={qty} minQty altinda",
+            }
 
         rounded_price = await self.apply_price_precision(symbol, stop_price)
         valid_qty = await self.validate_min_notional(symbol, valid_qty, rounded_price)
         if valid_qty <= 0:
             log.warning("[SL] %s qty=%.8f minNotional altinda, iptal", symbol, qty)
-            return {}
+            return {
+                "_error": True,
+                "_error_code": "MIN_NOTIONAL",
+                "_raw": f"qty={qty} minNotional altinda",
+            }
         decimals = max(_get_precision_places(step), 8)
         qty_str = f"{valid_qty:.{decimals}f}".rstrip("0").rstrip(".")
 
@@ -978,13 +998,21 @@ class BinanceRESTClient:
         valid_qty = await self.validate_min_amount(symbol, rounded_qty)
         if valid_qty <= 0:
             log.warning("[TP] %s qty=%.8f minQty altinda, iptal", symbol, qty)
-            return {}
+            return {
+                "_error": True,
+                "_error_code": "MIN_QTY",
+                "_raw": f"qty={qty} minQty altinda",
+            }
 
         rounded_price = await self.apply_price_precision(symbol, stop_price)
         valid_qty = await self.validate_min_notional(symbol, valid_qty, rounded_price)
         if valid_qty <= 0:
             log.warning("[TP] %s qty=%.8f minNotional altinda, iptal", symbol, qty)
-            return {}
+            return {
+                "_error": True,
+                "_error_code": "MIN_NOTIONAL",
+                "_raw": f"qty={qty} minNotional altinda",
+            }
         decimals = max(_get_precision_places(step), 8)
         qty_str = f"{valid_qty:.{decimals}f}".rstrip("0").rstrip(".")
 
@@ -1183,12 +1211,20 @@ class BinanceRESTClient:
             forced = await self.place_force_close_order(symbol, mkt_side, pos_side)
             if forced:
                 return {"_status": "EXECUTION_CONFIRMED", "closePosition": True}
-            return {}
+            return {
+                "_error": True,
+                "_error_code": "CLOSE_POSITION_FAILED",
+                "_raw": "closePosition fallback failed",
+            }
 
         decimals = max(_get_precision_places(step), 8)
         qty_str = f"{valid_qty:.{decimals}f}".rstrip("0").rstrip(".")
         if not qty_str or qty_str == "0":
-            return {}
+            return {
+                "_error": True,
+                "_error_code": "QTY_FORMAT",
+                "_raw": f"qty format hatasi: {qty_str}",
+            }
 
         params = {
             "symbol": symbol,
@@ -1205,7 +1241,11 @@ class BinanceRESTClient:
         r = await self._emergency_post("/fapi/v1/order", params)
         if r.is_err:
             log.warning("[EMERGENCY] %s MARKET hata (CB bypass): %s", symbol, r.error)
-            return {}
+            return {
+                "_error": True,
+                "_error_code": self._parse_error_code(r.error),
+                "_raw": r.error,
+            }
         result = r.value
         if result.get("orderId") or result.get("id"):
             result["_status"] = "EXECUTION_CONFIRMED"

@@ -270,3 +270,11 @@
 | BTC WR/DD | %62.4 / %2.0 |
 | LINK WR/DD | %38.3 / %19.1 |
 | DOT WR/DD | %55.9 / %16.4 |
+
+---
+
+## Son İşlem: 2026-08-10 — 4 KRİTİK BULGU FIX (baş mühendis direktifi: gizli-bug-audit-raporu-2026-08-10.md)
+
+| Tarih | İşlem | Detay |
+|-------|-------|-------|
+| 2026-08-10 | **A1-01 + A1-02 + A3-01 + A4-01 + A4-04** | **A1-01 (runtime.protection senkronizasyonu):** `recovery_manager.py` 3 `existing[...]` bloğu (213-218, 645-647, 683-685) + 3 `ActiveTrade(...)` kurulumu (222-252, 649-674, 687-714) hepsine `self._order_manager._sync_runtime_protection(...)` eklendi. **A1-02 (runtime JSON serileştirmesi):** `exit_lifecycle.py:764-775` `**trade` → `asdict(trade)` + `default=str` kaldırıldı → `TradeRuntimeState`/`ProtectionState`/`ProtectionRef` dict olarak kaydediliyor. **A3-01 (WS/bar-close exit race):** `bot.py:_on_1m_close` + `user_data_handler.py:_on_order_update_normalized` + legacy handler'daki tüm `pending_exit_*`/`result` mutation'ları `async with self._exit_locks[trade_key]` ile korundu. `exit_lifecycle.py:execute()`'ye atomik `_exit_committed` bayrağı eklendi; stale/exception early-return yollarında reset ediliyor. `UserDataHandler` artık `exit_locks` DI ile alıyor; `bot.py`'den `self._exit_locks` iletilen aynı nesne. **A4-01 (ghost temizliği sessizce yutuluyor):** `reconcile_ghost_positions()` except → `log.error("[GHOST] state okunamadi...")` + `_ghost_fail_count` sayaç; 5 ardışık hata → `log_event("ghost_check_persistently_failing", ...)`. **A4-04 (place_market_order/stop/tp boş {} dönüyor):** `bot_binance.py` tüm `return {}` → `{"_error": True, "_error_code": ..., "_raw": ...}`. `recovery_manager.py:555` + `entry_manager.py:480` `_error` varsa `get_positions()` doğrulaması; kapalıysa EXECUTION_CONFIRMED, açıksa force-close. **Test sonucu:** recovery_manager 10/10, exit_lifecycle+user_data_handler 75/75, bot_binance 80/80, entry_manager 95/95. Pre-existing 2 fail (test_user_data_handler `_exit_trade_legacy` kırıkları, 0 yeni). **Sıradaki:** commit/push + canlı deploy (sunucu `git pull --ff-only` + restart). |

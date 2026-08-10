@@ -75,6 +75,7 @@ class RecoveryManager:
         self._order_manager = order_manager
         self._atr_state = atr_state or {}
         self._protection = protection_service
+        self._ghost_fail_count = 0
 
     # ── Pozisyon kurtarma ──────────────────────────────────────
 
@@ -218,14 +219,19 @@ class RecoveryManager:
                         existing["protection_orders"] = protection_orders
                         existing["risk_pts"] = risk_pts
                         existing["tick_size"] = tick_size
+                        # A1-01 Fix: Sync runtime.protection for existing trade
+                        if self._order_manager:
+                            self._order_manager._sync_runtime_protection(
+                                existing, "sl_current", sl_id, sl_price
+                            )
+                            self._order_manager._sync_runtime_protection(
+                                existing, "tp_current", tp_id, tp_price
+                            )
                     else:
-                        self._active_trades[sym] = ActiveTrade(
+                        new_trade = ActiveTrade(
                             symbol=sym,
                             entry_bar_index=0,
                             entry_price=entry,
-                            # Yaklaşık: restore anı — gerçek fill zamanı açık
-                            # emirlerden (get_all_orders) alınamıyor (filled
-                            # MARKET emri listede yok).
                             entry_timestamp=int(time.time() * 1000),
                             sl=sl_price,
                             tp=tp_price,
@@ -245,6 +251,15 @@ class RecoveryManager:
                             tp_order_id=tp_id,
                             protection_orders=protection_orders,
                         )
+                        self._active_trades[sym] = new_trade
+                        # A1-01 Fix: Sync runtime.protection for new trade
+                        if self._order_manager:
+                            self._order_manager._sync_runtime_protection(
+                                new_trade, "sl_current", sl_id, sl_price
+                            )
+                            self._order_manager._sync_runtime_protection(
+                                new_trade, "tp_current", tp_id, tp_price
+                            )
                     if not quiet:
                         self._pl(
                             sym,
@@ -546,25 +561,48 @@ class RecoveryManager:
                             close_error = str(e)
 
                         if not close_result or not close_result.get("orderId"):
-                            # market order basarisizsa closePosition ile dene
-                            log.warning(
-                                "[RECOVER] %s market close basarisiz, closePosition deneniyor...",
-                                sym,
-                            )
+                            # A4-04 Fix: verify position status before marking as failed
                             try:
-                                # force close zaten _emergency_post kullanir (CB bypass)
-                                forced = await self._rest.place_force_close_order(
-                                    sym, close_side, direction
+                                positions = await self._rest.get_positions()
+                                pos = next(
+                                    (p for p in positions if p["symbol"] == sym), None
                                 )
-                                if forced:
+                                if pos and float(pos.get("positionAmt", 0)) == 0:
                                     log.info(
-                                        "[RECOVER] %s closePosition kabul edildi (CB bypass)",
+                                        "[RECOVER] %s market close basarili (positionAmt=0)",
                                         sym,
                                     )
-                                    close_result = {"closePosition": True}
-                            except Exception as e2:
-                                close_error = (
-                                    f"{close_error or ''} + closePosition: {e2}"
+                                    close_result = {
+                                        "_status": "EXECUTION_CONFIRMED",
+                                        "orderId": "verified",
+                                    }
+                                else:
+                                    log.warning(
+                                        "[RECOVER] %s market close basarisiz, closePosition deneniyor...",
+                                        sym,
+                                    )
+                                    try:
+                                        # force close zaten _emergency_post kullanir (CB bypass)
+                                        forced = (
+                                            await self._rest.place_force_close_order(
+                                                sym, close_side, direction
+                                            )
+                                        )
+                                        if forced:
+                                            log.info(
+                                                "[RECOVER] %s closePosition kabul edildi (CB bypass)",
+                                                sym,
+                                            )
+                                            close_result = {"closePosition": True}
+                                    except Exception as e2:
+                                        close_error = (
+                                            f"{close_error or ''} + closePosition: {e2}"
+                                        )
+                            except Exception as e:
+                                log.warning(
+                                    "[RECOVER] %s market close dogrulama hatasi: %s",
+                                    sym,
+                                    e,
                                 )
 
                         if close_result:
@@ -641,13 +679,19 @@ class RecoveryManager:
                             existing["sl_order_id"] = ""
                             existing["tp_order_id"] = tp_id
                             existing["tick_size"] = tick_size
+                            # A1-01 Fix: Sync runtime.protection for existing trade
+                            if self._order_manager:
+                                self._order_manager._sync_runtime_protection(
+                                    existing, "sl_current", "", sl
+                                )
+                                self._order_manager._sync_runtime_protection(
+                                    existing, "tp_current", tp_id, tp
+                                )
                         else:
-                            self._active_trades[sym] = ActiveTrade(
+                            new_trade = ActiveTrade(
                                 symbol=sym,
                                 entry_bar_index=0,
                                 entry_price=entry,
-                                # Yaklaşık: restore anı — gerçek fill zamanı
-                                # borsadan alınamadı.
                                 entry_timestamp=int(time.time() * 1000),
                                 sl=sl,
                                 tp=tp,
@@ -666,19 +710,33 @@ class RecoveryManager:
                                 sl_order_id="",
                                 tp_order_id=tp_id,
                             )
+                            self._active_trades[sym] = new_trade
+                            # A1-01 Fix: Sync runtime.protection for new trade
+                            if self._order_manager:
+                                self._order_manager._sync_runtime_protection(
+                                    new_trade, "sl_current", "", sl
+                                )
+                                self._order_manager._sync_runtime_protection(
+                                    new_trade, "tp_current", tp_id, tp
+                                )
                         continue
 
                     if existing:
                         existing["sl_order_id"] = sl_id
                         existing["tp_order_id"] = tp_id
                         existing["tick_size"] = tick_size
+                        if self._order_manager:
+                            self._order_manager._sync_runtime_protection(
+                                existing, "sl_current", sl_id, sl
+                            )
+                            self._order_manager._sync_runtime_protection(
+                                existing, "tp_current", tp_id, tp
+                            )
                     else:
-                        self._active_trades[sym] = ActiveTrade(
+                        new_trade = ActiveTrade(
                             symbol=sym,
                             entry_bar_index=0,
                             entry_price=entry,
-                            # Yaklaşık: restore anı — gerçek fill zamanı
-                            # borsadan alınamadı.
                             entry_timestamp=int(time.time() * 1000),
                             sl=sl,
                             tp=tp,
@@ -697,6 +755,14 @@ class RecoveryManager:
                             sl_order_id=sl_id,
                             tp_order_id=tp_id,
                         )
+                        self._active_trades[sym] = new_trade
+                        if self._order_manager:
+                            self._order_manager._sync_runtime_protection(
+                                new_trade, "sl_current", sl_id, sl
+                            )
+                            self._order_manager._sync_runtime_protection(
+                                new_trade, "tp_current", tp_id, tp
+                            )
                     protection_note = "" if tp_id else " (TP kurulamadi, sadece SL var)"
                     if not quiet:
                         self._pl(
@@ -719,7 +785,15 @@ class RecoveryManager:
 
         try:
             state = dump_state()
-        except Exception:
+            self._ghost_fail_count = 0
+        except Exception as e:
+            self._ghost_fail_count += 1
+            log.error(
+                "[GHOST] state okunamadi, ghost temizligi bu turda atlandi: %s", e
+            )
+            if self._ghost_fail_count >= 5:
+                log_event("ghost_check_persistently_failing", "SYSTEM", error=str(e))
+                self._ghost_fail_count = 0
             return
 
         for sym, s in list(state.items()):

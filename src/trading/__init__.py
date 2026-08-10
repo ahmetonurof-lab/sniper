@@ -18,7 +18,10 @@ from trading.order_manager import OrderManager
 from trading.recovery_manager import RecoveryManager  # Faz 5.1
 from trading.console_reporter import ConsoleReporter  # Faz 1.3
 from trading.user_data_handler import UserDataHandler  # Faz 6.3
-from trading.exit_lifecycle import ExitLifecycleService  # Patch Set 2
+from trading.exit_lifecycle import (
+    ExitLifecycleService,
+    _trade_identity_key,
+)  # Patch Set 2
 from trading.protection_lifecycle import (  # Patch Set 3
     ProtectionLifecycleService,
     ProtectionCheckResult,
@@ -39,6 +42,7 @@ __all__ = [
     "ConsoleReporter",
     "UserDataHandler",
     "ExitLifecycleService",
+    "_trade_identity_key",
     "ProtectionLifecycleService",
     "ProtectionCheckResult",
     "CleanupPlan",

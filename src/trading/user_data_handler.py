@@ -15,12 +15,14 @@ pending_exit_* alanlarına yazar, _exit_trade() promote eder.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from typing import Any, Callable
 
 import config as cfg
 from event_log import log_event
+from trading.exit_lifecycle import _trade_identity_key
 from models import (
     NormalizedOrderEvent,
     UNRESTRICTED_STATUSES,
@@ -165,12 +167,14 @@ class UserDataHandler:
         wallet_callback: Callable[[float], None],
         order_manager: Any,
         exit_callback: Callable[..., Any],
+        exit_locks: dict[str, asyncio.Lock] | None = None,
     ):
         self._active_trades = active_trades
         self._pl = pl_callback
         self._set_wallet = wallet_callback
         self._order_manager = order_manager
         self._exit_trade = exit_callback
+        self._exit_locks = exit_locks or {}
 
     def register(self, hub: Any) -> None:
         """hub.on_user_data() ile ORDER_TRADE_UPDATE ve ACCOUNT_UPDATE
@@ -199,6 +203,7 @@ class UserDataHandler:
         _set_wallet = self._set_wallet
         _order_manager = self._order_manager
         _exit_trade = self._exit_trade
+        _exit_locks = self._exit_locks
 
         # ── Normalized handler (Patch Set 4) ─────────────────
 
@@ -243,13 +248,18 @@ class UserDataHandler:
                         # FIX (Patch Set 4): confirmed alanlara DEGIL,
                         # pending_exit_* alanlarina yaz. _exit_trade
                         # dogrularsa promote eder.
-                        trade["pending_exit_price"] = price
-                        trade["pending_exit_qty"] = cum_qty
-                        trade["pending_exit_order_id"] = oid_c or oid_i
-                        trade["pending_exit_timestamp"] = evt.ts_ms
-                        trade["result"] = result
-                        if cum_quote > 0:
-                            trade["exit_quote_qty"] = cum_quote
+                        # FIX (A3-01): lock al → oku → mutate et → commit
+                        _trade_id_key = _trade_identity_key(trade)
+                        trade_key = f"{sym}_{_trade_id_key}"
+                        lock = _exit_locks.setdefault(trade_key, asyncio.Lock())
+                        async with lock:
+                            trade["pending_exit_price"] = price
+                            trade["pending_exit_qty"] = cum_qty
+                            trade["pending_exit_order_id"] = oid_c or oid_i
+                            trade["pending_exit_timestamp"] = evt.ts_ms
+                            trade["result"] = result
+                            if cum_quote > 0:
+                                trade["exit_quote_qty"] = cum_quote
                         await _exit_trade(
                             sym, trade, evt.ts_ms or int(time.time() * 1000)
                         )
@@ -311,13 +321,17 @@ class UserDataHandler:
                                     "filled_confirm",
                                     f"\u2705 REST CROSS-CHECK: {result} tetiklendi @ {price} ({result})",
                                 )
-                                trade["pending_exit_price"] = price
-                                trade["pending_exit_qty"] = cum_qty
-                                trade["pending_exit_order_id"] = oid
-                                trade["pending_exit_timestamp"] = evt.ts_ms
-                                trade["result"] = result
-                                if cum_quote > 0:
-                                    trade["exit_quote_qty"] = cum_quote
+                                _trade_id_key = _trade_identity_key(trade)
+                                trade_key = f"{sym}_{_trade_id_key}"
+                                lock = _exit_locks.setdefault(trade_key, asyncio.Lock())
+                                async with lock:
+                                    trade["pending_exit_price"] = price
+                                    trade["pending_exit_qty"] = cum_qty
+                                    trade["pending_exit_order_id"] = oid
+                                    trade["pending_exit_timestamp"] = evt.ts_ms
+                                    trade["result"] = result
+                                    if cum_quote > 0:
+                                        trade["exit_quote_qty"] = cum_quote
                                 await _exit_trade(
                                     sym, trade, evt.ts_ms or int(time.time() * 1000)
                                 )
@@ -327,18 +341,18 @@ class UserDataHandler:
                                 trade["pending_exit_reason"] = (
                                     INCIDENT_WS_UNMATCHED_REDUCE_ONLY
                                 )
-                                trade["pending_exit_price"] = price
-                                if cum_qty > 0:
-                                    trade["pending_exit_qty"] = cum_qty
-                                if cum_quote > 0:
-                                    trade["exit_quote_qty"] = cum_quote
-                                trade["pending_exit_order_id"] = oid
-                                trade["pending_exit_timestamp"] = evt.ts_ms
-                                trade["result"] = "WS_FALLBACK"
-                                # NOT: status snapshot _exit_trade cagrilmadan
-                                # ONCE alinmali — _exit_trade basariliysa trade
-                                # STATUS_CLOSED'a gecip active_trades'ten pop'lanir,
-                                # sonradan okumaya calisirsak kaybolur.
+                                _trade_id_key = _trade_identity_key(trade)
+                                trade_key = f"{sym}_{_trade_id_key}"
+                                lock = _exit_locks.setdefault(trade_key, asyncio.Lock())
+                                async with lock:
+                                    trade["pending_exit_price"] = price
+                                    if cum_qty > 0:
+                                        trade["pending_exit_qty"] = cum_qty
+                                    if cum_quote > 0:
+                                        trade["exit_quote_qty"] = cum_quote
+                                    trade["pending_exit_order_id"] = oid
+                                    trade["pending_exit_timestamp"] = evt.ts_ms
+                                    trade["result"] = "WS_FALLBACK"
                                 _status_snapshot = trade.get("status", "")
                                 await _exit_trade(
                                     sym, trade, evt.ts_ms or int(time.time() * 1000)
@@ -472,15 +486,19 @@ class UserDataHandler:
                             f"\u2705 BINANCE CONFIRMED: pozisyon kapatildi @ {price} ({result})",
                         )
                         if sym in _active_trades:
-                            trade["exit_price"] = price
-                            trade["exit_actual_price"] = price
-                            if cum_qty > 0:
-                                trade["exit_actual_qty"] = cum_qty
-                            if cum_quote > 0:
-                                trade["exit_quote_qty"] = cum_quote
-                            trade["exit_order_id"] = oid
-                            trade["exit_timestamp"] = int(time.time() * 1000)
-                            trade["result"] = result
+                            _trade_id_key = _trade_identity_key(trade)
+                            trade_key = f"{sym}_{_trade_id_key}"
+                            lock = _exit_locks.setdefault(trade_key, asyncio.Lock())
+                            async with lock:
+                                trade["exit_price"] = price
+                                trade["exit_actual_price"] = price
+                                if cum_qty > 0:
+                                    trade["exit_actual_qty"] = cum_qty
+                                if cum_quote > 0:
+                                    trade["exit_quote_qty"] = cum_quote
+                                trade["exit_order_id"] = oid
+                                trade["exit_timestamp"] = int(time.time() * 1000)
+                                trade["result"] = result
                             await _exit_trade(sym, trade, int(time.time() * 1000))
                             _active_trades.pop(sym, None)
                     else:
@@ -531,15 +549,19 @@ class UserDataHandler:
                                     "filled_confirm",
                                     f"\u2705 REST CROSS-CHECK: {result} tetiklendi @ {price} ({result})",
                                 )
-                                trade["pending_exit_price"] = price
-                                trade["pending_exit_qty"] = cum_qty
-                                trade["pending_exit_order_id"] = oid
-                                trade["pending_exit_timestamp"] = int(
-                                    time.time() * 1000
-                                )
-                                trade["result"] = result
-                                if cum_quote > 0:
-                                    trade["exit_quote_qty"] = cum_quote
+                                _trade_id_key = _trade_identity_key(trade)
+                                trade_key = f"{sym}_{_trade_id_key}"
+                                lock = _exit_locks.setdefault(trade_key, asyncio.Lock())
+                                async with lock:
+                                    trade["pending_exit_price"] = price
+                                    trade["pending_exit_qty"] = cum_qty
+                                    trade["pending_exit_order_id"] = oid
+                                    trade["pending_exit_timestamp"] = int(
+                                        time.time() * 1000
+                                    )
+                                    trade["result"] = result
+                                    if cum_quote > 0:
+                                        trade["exit_quote_qty"] = cum_quote
                                 await _exit_trade(sym, trade, int(time.time() * 1000))
                                 _active_trades.pop(sym, None)
                                 return
@@ -547,16 +569,20 @@ class UserDataHandler:
                                 trade["pending_exit_reason"] = (
                                     INCIDENT_WS_UNMATCHED_REDUCE_ONLY
                                 )
-                                trade["pending_exit_price"] = price
-                                if cum_qty > 0:
-                                    trade["pending_exit_qty"] = cum_qty
-                                if cum_quote > 0:
-                                    trade["exit_quote_qty"] = cum_quote
-                                trade["pending_exit_order_id"] = oid
-                                trade["pending_exit_timestamp"] = int(
-                                    time.time() * 1000
-                                )
-                                trade["result"] = "WS_FALLBACK"
+                                _trade_id_key = _trade_identity_key(trade)
+                                trade_key = f"{sym}_{_trade_id_key}"
+                                lock = _exit_locks.setdefault(trade_key, asyncio.Lock())
+                                async with lock:
+                                    trade["pending_exit_price"] = price
+                                    if cum_qty > 0:
+                                        trade["pending_exit_qty"] = cum_qty
+                                    if cum_quote > 0:
+                                        trade["exit_quote_qty"] = cum_quote
+                                    trade["pending_exit_order_id"] = oid
+                                    trade["pending_exit_timestamp"] = int(
+                                        time.time() * 1000
+                                    )
+                                    trade["result"] = "WS_FALLBACK"
                                 _status_snapshot = trade.get("status", "")
                                 await _exit_trade(sym, trade, int(time.time() * 1000))
                                 _active_trades.pop(sym, None)

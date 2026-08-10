@@ -70,6 +70,7 @@ from trading import (
     UserDataHandler,
     ExitLifecycleService,
     ProtectionLifecycleService,
+    _trade_identity_key,
 )
 from trading.trailing_manager import TrailingConfig, TrailLevel
 from websocket import BinanceWSHub
@@ -623,11 +624,15 @@ class PaperTrader:
             )
             exit_decision = self.trailing_manager.check_exit(current, trade)
             if exit_decision.triggered:
-                trade["status"] = STATUS_EXIT_REQUESTED
-                trade["pending_exit_price"] = exit_decision.exit_price
-                trade["exit_bar"] = current.index
-                trade["exit_timestamp"] = current.timestamp
-                trade["result"] = exit_decision.result
+                _trade_id_key = _trade_identity_key(trade)
+                trade_key = f"{sym}_{_trade_id_key}"
+                lock = self._exit_locks.setdefault(trade_key, asyncio.Lock())
+                async with lock:
+                    trade["status"] = STATUS_EXIT_REQUESTED
+                    trade["pending_exit_price"] = exit_decision.exit_price
+                    trade["exit_bar"] = current.index
+                    trade["exit_timestamp"] = current.timestamp
+                    trade["result"] = exit_decision.result
                 await self._exit_trade(sym, trade, current.timestamp)
                 return
 
@@ -1309,6 +1314,7 @@ class PaperTrader:
                         wallet_callback=lambda v: setattr(self, "_wallet_balance", v),
                         order_manager=self.order_manager,
                         exit_callback=self._exit_trade,
+                        exit_locks=self._exit_locks,
                     )
                     udh.register(self.hub)
                     asyncio.create_task(self.hub._listen_key_refresh_loop(self.rest))

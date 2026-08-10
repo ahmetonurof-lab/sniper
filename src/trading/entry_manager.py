@@ -486,6 +486,35 @@ class EntryManager:
         actual_qty, actual_price, quote_qty = self.parse_market_fill(mkt_resp)
         mkt_id = extract_order_id(mkt_resp)
 
+        # A4-04 Fix: verify position status if order returned an error dict
+        if mkt_resp.get("_error"):
+            try:
+                positions = await self._rest.get_positions()
+                for p in positions:
+                    if p["symbol"] == sym:
+                        pos_amt = abs(float(p.get("positionAmt", 0)))
+                        if pos_amt > 0:
+                            close_result = await self._emergency_close(
+                                sym,
+                                mkt_side,
+                                pos_amt,
+                                f"MARKET hata (_error_code={mkt_resp.get('_error_code')}) ama pozisyon acik — reconcile",
+                            )
+                            close_note = (
+                                "pozisyon guvenle kapatildi"
+                                if close_result.success
+                                else f"ACIL KAPATMA DA BASARISIZ — {close_result.error}"
+                            )
+                            return EntryExecutionResult(
+                                success=False,
+                                error=(
+                                    f"MARKET hata (_error_code={mkt_resp.get('_error_code')}) "
+                                    f"ama pozisyon acik — {close_note}"
+                                ),
+                            )
+            except Exception as e:
+                log.critical("[ENTRY] %s market error dogrulama hatasi: %s", sym, e)
+
         if not mkt_id and actual_qty > 0 and actual_price > 0:
             try:
                 positions = await self._rest.get_positions()
