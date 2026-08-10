@@ -830,8 +830,12 @@ class BinanceRESTClient:
                         if o.get("origType", "").upper() == "MARKET":
                             o["_status"] = "EXECUTION_CONFIRMED"
                             return o
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning(
+                    "[MARKET] %s demo API open orders sorgusu hatasi: %s",
+                    symbol,
+                    e,
+                )
         log.warning(
             "[MARKET] %s POST OK fakat orderId bulunamadi — demo API gecikmesi. resp=%s",
             symbol,
@@ -950,8 +954,12 @@ class BinanceRESTClient:
                     == "STOP_MARKET"
                 ):
                     return o
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning(
+                "[SL] %s demo API open orders sorgusu hatasi: %s",
+                symbol,
+                e,
+            )
         return result
 
     async def place_tp_order(
@@ -1056,8 +1064,12 @@ class BinanceRESTClient:
                     == "TAKE_PROFIT_MARKET"
                 ):
                     return o
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning(
+                "[TP] %s demo API open orders sorgusu hatasi: %s",
+                symbol,
+                e,
+            )
         return result
 
     async def cancel_order(
