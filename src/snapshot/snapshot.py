@@ -130,22 +130,19 @@ def _find_bar(candles: list[dict], price: float, ts_ms: int | None = None) -> in
 
 def _reverse_sort_key(ts_str: str) -> str:
     """
-    Reverse-chronological sort anahtarı: timestamp'i TERS ÇEVİR.
+    Reverse-chronological sort anahtarı: her rakamı 9'dan çıkar.
 
-    Rakam olmayan karakterleri çıkar, kalan digit stringini TERS ÇEVİR.
+    Rakam olmayan karakterleri korur, her rakamı (9 - rakam) ile değiştirir.
     Böylece dosya adları alfabetik sıralandığında BÜYÜK tarih/saat ÖNCE gelir
     (VS Code Explorer'da en yeni snapshot en üstte görünür).
 
-    Çalışma prensibi:
-      TERS(TS_newest) < TERS(TS_older)  →  alfabetik sıralamada newest ÖNCE gelir.
-
     Örnek:
-      2026-08-10_001500 → digits=20260810001500 → reversed=00510080602
-      2026-08-09_223308 → digits=202608090223308 → reversed=80332209080602
-      Alfabetik: 0051... < 8033... → 10 Ağustos önce, 09 Ağustos sonra ✓
+      2026-08-09_223308 -> 7973-91-90_827978
+      2026-08-10_001500 -> 7973-91-90_001500 -> 7973-91-90_998499
+      Alfabetik: 7973-91-90_001500 (10 Ağustos) < 7973-91-90_827978 (09 Ağustos)
+      Sonuç: 10 Ağustos en üstte, en eski en altta.
     """
-    digits = "".join(c for c in ts_str if c.isdigit())
-    return digits[::-1]
+    return "".join(str(9 - int(c)) if c.isdigit() else c for c in ts_str)
 
 
 def normalize_trade(trade: dict) -> dict:
