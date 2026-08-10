@@ -45,6 +45,10 @@ class MaxQtyUnavailableError(Exception):
     """
 
 
+BINANCE_ERROR_MIN_NOTIONAL = "-4164"
+BINANCE_ERROR_MAX_QTY = "-4005"
+
+
 # ─────────────────────────────────────────────────────────────────
 # Precision yardımcıları (sonnet exchange.py'den)
 # ─────────────────────────────────────────────────────────────────
@@ -903,12 +907,14 @@ class BinanceRESTClient:
         rounded_price = await self.apply_price_precision(symbol, stop_price)
         valid_qty = await self.validate_min_notional(symbol, valid_qty, rounded_price)
         if valid_qty <= 0:
-            log.warning("[SL] %s qty=%.8f minNotional altinda, iptal", symbol, qty)
-            return {
-                "_error": True,
-                "_error_code": "MIN_NOTIONAL",
-                "_raw": f"qty={qty} minNotional altinda",
-            }
+            log.warning(
+                "[SL] %s qty=%.8f minNotional altinda, closePosition deneniyor...",
+                symbol,
+                qty,
+            )
+            return await self.place_stop_order(
+                symbol, side, 0, stop_price, client_id=client_id, close_position=True
+            )
         decimals = max(_get_precision_places(step), 8)
         qty_str = f"{valid_qty:.{decimals}f}".rstrip("0").rstrip(".")
 
@@ -1007,12 +1013,14 @@ class BinanceRESTClient:
         rounded_price = await self.apply_price_precision(symbol, stop_price)
         valid_qty = await self.validate_min_notional(symbol, valid_qty, rounded_price)
         if valid_qty <= 0:
-            log.warning("[TP] %s qty=%.8f minNotional altinda, iptal", symbol, qty)
-            return {
-                "_error": True,
-                "_error_code": "MIN_NOTIONAL",
-                "_raw": f"qty={qty} minNotional altinda",
-            }
+            log.warning(
+                "[TP] %s qty=%.8f minNotional altinda, closePosition deneniyor...",
+                symbol,
+                qty,
+            )
+            return await self.place_tp_order(
+                symbol, side, 0, stop_price, client_id=client_id, close_position=True
+            )
         decimals = max(_get_precision_places(step), 8)
         qty_str = f"{valid_qty:.{decimals}f}".rstrip("0").rstrip(".")
 
@@ -1240,10 +1248,26 @@ class BinanceRESTClient:
         # _emergency_post circuit breaker'ı atlar
         r = await self._emergency_post("/fapi/v1/order", params)
         if r.is_err:
+            error_code = self._parse_error_code(r.error)
+            if error_code == BINANCE_ERROR_MIN_NOTIONAL:
+                log.warning(
+                    "[EMERGENCY] %s MIN_NOTIONAL hatasi, closePosition deneniyor...",
+                    symbol,
+                )
+                mkt_side = side.upper()
+                pos_side = "long" if side.upper() == "SELL" else "short"
+                forced = await self.place_force_close_order(symbol, mkt_side, pos_side)
+                if forced:
+                    return {"_status": "EXECUTION_CONFIRMED", "closePosition": True}
+                return {
+                    "_error": True,
+                    "_error_code": "CLOSE_POSITION_FAILED",
+                    "_raw": "closePosition fallback failed after MIN_NOTIONAL",
+                }
             log.warning("[EMERGENCY] %s MARKET hata (CB bypass): %s", symbol, r.error)
             return {
                 "_error": True,
-                "_error_code": self._parse_error_code(r.error),
+                "_error_code": error_code,
                 "_raw": r.error,
             }
         result = r.value

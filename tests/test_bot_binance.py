@@ -19,6 +19,7 @@ from bot_binance import (
     _round_to_tick,
 )
 from bot_infra import CircuitBreaker, RetryConfig, _RateLimiter
+from models import Result
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1010,3 +1011,68 @@ class TestPlaceMarketOrderPriority:
         )
         assert result.get("_status") == "EXECUTION_CONFIRMED"
         client.place_force_close_order.assert_called_once()
+
+    def test_falls_back_to_force_close_on_min_notional(self, client):
+        """MIN_NOTIONAL hatasinda force close denenmeli."""
+
+        async def mock_estimate(symbol):
+            return 100.0
+
+        async def mock_precision(symbol, price):
+            return price
+
+        client.estimate_market_price = mock_estimate
+        client.apply_price_precision = mock_precision
+        client.validate_min_amount = AsyncMock(return_value=1.0)
+        client.get_step_size = AsyncMock(return_value=0.001)
+
+        client._emergency_post = AsyncMock(
+            return_value=Result.fail('HTTP 400: {"code":-4164,"msg":"MIN_NOTIONAL"}')
+        )
+        client.place_force_close_order = AsyncMock(return_value=True)
+
+        result = asyncio.run(
+            client.place_market_order_priority("BTCUSDT", "SELL", 0.0001)
+        )
+        assert result.get("_status") == "EXECUTION_CONFIRMED"
+        client.place_force_close_order.assert_called_once()
+
+
+class TestPlaceStopOrderMinNotional:
+    """place_stop_order minNotional fallback → closePosition=True"""
+
+    def test_min_notional_falls_back_to_close_position(self, client):
+        client.validate_min_amount = AsyncMock(return_value=1.0)
+        client.validate_min_notional = AsyncMock(return_value=0.0)
+        client.apply_price_precision = AsyncMock(return_value=105.0)
+        client.get_step_size = AsyncMock(return_value=0.001)
+
+        async def mock_post(url, data, headers):
+            assert "closePosition=true" in data
+            assert "quantity" not in data
+            return _mock_response(200, {"algoId": "sl_close_minnotional"})
+
+        _inject_session(client, post_fn=mock_post)
+
+        result = asyncio.run(client.place_stop_order("APTUSDT", "SELL", 0.1, 105.0))
+        assert result.get("algoId") == "sl_close_minnotional"
+
+
+class TestPlaceTPOrderMinNotional:
+    """place_tp_order minNotional fallback → closePosition=True"""
+
+    def test_min_notional_falls_back_to_close_position(self, client):
+        client.validate_min_amount = AsyncMock(return_value=1.0)
+        client.validate_min_notional = AsyncMock(return_value=0.0)
+        client.apply_price_precision = AsyncMock(return_value=115.0)
+        client.get_step_size = AsyncMock(return_value=0.001)
+
+        async def mock_post(url, data, headers):
+            assert "closePosition=true" in data
+            assert "quantity" not in data
+            return _mock_response(200, {"algoId": "tp_close_minnotional"})
+
+        _inject_session(client, post_fn=mock_post)
+
+        result = asyncio.run(client.place_tp_order("APTUSDT", "SELL", 0.1, 115.0))
+        assert result.get("algoId") == "tp_close_minnotional"

@@ -1,5 +1,20 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-11 — A4-05 + A4-08 YÜKSEK bulgular fix uygulandı (baş mühendis direktifi: yuksek-bug-fix-direktifi-2026-08-11.md)
+
+- **A4-05 (recovery SL/TP yerleştirme tek try'da yutuluyor):** `recovery_manager.py:380-542` tek try bloğu SL ve TP yerleştirme için ayrı try/except'lere bölündü. Her birinin kendi except'i kendi `sl_id`/`tp_id`'sini `""` bırakıyor. SL exception'da `if not sl_id:` acil kapanış dalına düşüyor; TP exception'da `tp_id=""` ile devam ediyor (TP eksikliği kritik değil, `protection_note` mekanizması işaretliyor).
+- **A4-08 (acil kapanış retry/escalation yok):** `recovery_manager.py:558-664` acil kapanış başarısız olduğunda 1 sn backoff'lu retry eklendi (`await asyncio.sleep(1.0)` + tekrar `place_market_order_priority`). Mevcut `log.critical` + `self._pl(...)` korundu, dış alarm sistemi eklenmedi (kapsam dışı). Pozisyonu korumasız `active_trades`'e ekleme davranışı değişmedi.
+- **Test:** `test_recovery_manager.py` +4 yeni test:
+  1. `test_sl_place_exception_triggers_emergency_close` — SL exception → acil kapanış tetiklenir.
+  2. `test_tp_place_exception_adds_trade_with_sl_only` — TP exception → pozisyon SL'li ama TP'siz active_trades'e girer.
+  3. `test_emergency_close_retry_succeeds_on_second_attempt` — ilk deneme başarısız, retry sonra başarılı → active_trades'e eklenmez.
+  4. Mevcut `test_position_stays_when_both_close_methods_fail` hâlâ geçiyor.
+- **Doğrulama:** recovery_manager **16 passed / 0 failed**; test_bot_binance **80 passed / 0 failed**. Pre-existing 2 fail (`test_sl_matched_pending_promoted_to_confirmed`, `test_ws_fallback_promotion_still_works`) dışında hiçbir kırık test yok.
+- **Commit:** `e1565c7` — `fix: A4-05+A4-08 recovery SL/TP try ayrımı + emergency close retry`.
+- **Sıradaki:** Sıra 3 (A2-01+A2-02 MIN_NOTIONAL dust pozisyon), Sıra 4 (A3-02 lock'suz active_trades yazımı), Sıra 5-7 (A3-03, A4-02, A4-03), Sıra 8-9 (backtest-sniper A6-01/A6-02 — A6-02 için mimari karar bekliyor).
+
+---
+
 ## Son İşlem: 2026-08-11 — RECOVER_EMERGENCY_CLOSE CONTINUE BUG FIX (baş mühendis direktifi)
 
 - **Kök neden:** `recover_positions` içindeki `if close_result:` bloğunda `continue` yanlışlıkla `if tp_id:` içindeki `except` bloğunun içindeydi. Bu durumda:
