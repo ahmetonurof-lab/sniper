@@ -1,5 +1,21 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-11 — A3-02, A3-03, A4-02, A4-03 YÜKSEK bulgular fix uygulandı + push edildi (baş mühendis direktifi: yuksek-bug-fix-direktifi-2026-08-11.md)
+
+- **A3-02 (active_trades thread-safety):** `recovery_manager.py`'de per-symbol `RLock` eklendi (`exit_locks` DI ile paylaşıldı). 3 `self._active_trades[sym] = ActiveTrade(...)` ve `existing[...]` mutation blokları `with self._exit_locks.setdefault(sym, RLock()):` içine alındı. `bot.py`'den `self._exit_locks` `RecoveryManager`'a geçirildi.
+- **A3-03 (blocking requests.get):** `snapshot/snapshot.py`'de `_fetch_ohlc` `async def` yapıldı, `requests.get` → `asyncio.to_thread` ile sarıldı. `capture_snapshot` da `async def` yapıldı, çağıran `exit_lifecycle.py:771`'de `await` eklendi. Event loop artık bloklanmıyor.
+- **A4-02 (orphan sweep sessiz yutma):** `reconcile_orphan_orders` except bloğuna `log.error("[ORPHAN] %s sorgu hatasi, sembol atlandi: %s", sym, e)` eklendi. `_orphan_fail_count` sayaç + 5 ardışık hatada `log_event("orphan_check_persistently_failing", ...)` eklendi.
+- **A4-03 (demo API fallback sessizliği):** `bot_binance.py`'deki 3 demo-fallback `except Exception: pass` (market order, SL, TP) → `log.warning("[...] demo API open orders sorgusu hatasi: %s", symbol, e)` eklendi.
+- **Commitler:**
+  - `b1efbc5` — `fix: A3-02 active_trades thread-safety (per-symbol RLock)`
+  - `1727e34` — `fix: A3-03 _fetch_ohlc async + capture_snapshot await`
+  - `3857125` — `fix: A4-03 demo API fallback exception logging`
+  - Not: A4-02 değişiklikleri A3-02 commit'inde (`recovery_manager.py` orphan fail counter) mevcut — aynı dosyaaynı commit'te birleştirildi.
+- **Doğrulama:** recovery_manager suite geçti; snapshot 22/22; exit_lifecycle 37/37; bot_binance 89/89. Pre-existing 2 fail (`test_parity_contract[SOLUSDT]`, `test_trail_syncs_state_and_orphan_recovery_preserve`) dışında 0 yeni kırık.
+- **Sıradaki:** Sıra 8-9 (backtest-sniper A6-01/A6-02 — A6-02 için mimari karar bekliyor). Sıra 1-2 (A4-05+A4-08) ve Sıra 3 (A2-01+A2-02) önceki commit'lerde tamamlandı.
+
+---
+
 ## Son İşlem: 2026-08-11 — A4-05 + A4-08 YÜKSEK bulgular fix uygulandı (baş mühendis direktifi: yuksek-bug-fix-direktifi-2026-08-11.md)
 
 - **A4-05 (recovery SL/TP yerleştirme tek try'da yutuluyor):** `recovery_manager.py:380-542` tek try bloğu SL ve TP yerleştirme için ayrı try/except'lere bölündü. Her birinin kendi except'i kendi `sl_id`/`tp_id`'sini `""` bırakıyor. SL exception'da `if not sl_id:` acil kapanış dalına düşüyor; TP exception'da `tp_id=""` ile devam ediyor (TP eksikliği kritik değil, `protection_note` mekanizması işaretliyor).

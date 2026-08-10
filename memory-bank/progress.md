@@ -1,5 +1,16 @@
 # Progress — Sniper Bot
 
+## 2026-08-11 — A3-02, A3-03, A4-02, A4-03 YÜKSEK bulgular tamamlandı + push edildi
+
+- **A3-02:** `recovery_manager.py` per-symbol `RLock` ile `active_trades` yazımı thread-safe. `bot.py`'den `exit_locks` DI ile geçirildi. Commit `b1efbc5`.
+- **A3-03:** `snapshot.py` `_fetch_ohlc` async + `asyncio.to_thread`, `capture_snapshot` async. `exit_lifecycle.py` await eklendi. Commit `1727e34`.
+- **A4-02:** `reconcile_orphan_orders` except → `log.error` + `_orphan_fail_count` + 5'te `log_event`. (A3-02 commit'inde `recovery_manager.py` ile birlikte.)
+- **A4-03:** `bot_binance.py` 3 demo-fallback `except Exception: pass` → `log.warning`. Commit `3857125`.
+- **Test:** snapshot 22/22, exit_lifecycle 37/37, bot_binance 89/89, recovery_manager 16/16. Pre-existing 2 fail dışında 0 yeni kırık.
+- **Kalan:** Sıra 8-9 (backtest-sniper A6-01/A6-02). Sıra 1-2 (A4-05+A4-08) ve Sıra 3 (A2-01+A2-02) önceki commit'lerde tamamlandı.
+
+---
+
 ## Stabilite Eşiği — Parity Check Tetikleyicisi (2026-08-09, baş mühendis onayıyla resmileştirildi)
 
 > **Amaç:** "bot stabil" kararını öznel duygudan çıkarıp nesnel eşiklerle tetiklemek. Tüm eşikler aynı anda sağlandığında, son `STABLE_CLEAN` tarihinden itibaren sayılan **3 ardışık temiz gün** tamamlanmışsa → **manuel trade-parity check** başlatılabilir. Kriter ihlal olursa sayaç sıfırlanır, ihlal günü log'da `[STAB]` işaretlenir.
