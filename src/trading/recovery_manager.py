@@ -380,11 +380,12 @@ class RecoveryManager:
                     sl_id = ""
                     tp_id = ""
                     if cfg.BINANCE_API_KEY:
-                        try:
-                            sl_side = "SELL" if direction == "long" else "BUY"
-                            rounded_sl = await self._rest.apply_price_precision(sym, sl)
-                            rounded_tp = await self._rest.apply_price_precision(sym, tp)
+                        sl_side = "SELL" if direction == "long" else "BUY"
+                        rounded_sl = await self._rest.apply_price_precision(sym, sl)
+                        rounded_tp = await self._rest.apply_price_precision(sym, tp)
 
+                        # ── SL yerleştirme ──
+                        try:
                             sl_resp = await self._rest.place_stop_order(
                                 sym, sl_side, abs(amt), rounded_sl
                             )
@@ -447,89 +448,92 @@ class RecoveryManager:
                                         sym,
                                         e2,
                                     )
-
-                            # ── TP -4005 kontrolü ──
-                            if not tp_id:
-                                tp_resp = await self._rest.place_tp_order(
-                                    sym, sl_side, abs(amt), rounded_tp
-                                )
-                                tp_id = extract_order_id(tp_resp)
-
-                                if not tp_id and _is_max_qty_error(tp_resp):
-                                    log.warning(
-                                        "[RECOVER] %s TP -4005 (max qty=%.4f), closePosition deneniyor...",
-                                        sym,
-                                        abs(amt),
-                                    )
-                                    _, tp_id = await _try_close_position_sl_tp(
-                                        sym, direction, 0, rounded_tp
-                                    )
-                                    if not tp_id:
-                                        log.warning(
-                                            "[RECOVER] %s TP closePosition basarisiz, parcali deneniyor...",
-                                            sym,
-                                        )
-                                        _, tp_id = await _try_split_qty_sl_tp(
-                                            sym, direction, 0, rounded_tp, abs(amt)
-                                        )
-
-                                elif not tp_id:
-                                    # Fiyat kaynaklı: mevcut fiyata gore yeni TP dene
-                                    log.warning(
-                                        "[RECOVER] %s TP basarisiz (tp=%.4f), mevcut fiyata gore yeniden hesaplaniyor...",
-                                        sym,
-                                        tp,
-                                    )
-                                    try:
-                                        cur_px = await self._rest.estimate_market_price(
-                                            sym
-                                        )
-                                        if direction == "long":
-                                            new_tp = (
-                                                await self._rest.apply_price_precision(
-                                                    sym,
-                                                    max(rounded_tp, cur_px * 1.01),
-                                                )
-                                            )
-                                        else:
-                                            new_tp = (
-                                                await self._rest.apply_price_precision(
-                                                    sym,
-                                                    min(rounded_tp, cur_px * 0.99),
-                                                )
-                                            )
-                                        tp_resp2 = await self._rest.place_tp_order(
-                                            sym, sl_side, abs(amt), new_tp
-                                        )
-                                        tp_id2 = extract_order_id(tp_resp2)
-                                        if tp_id2:
-                                            tp_id = tp_id2
-                                            tp = new_tp
-                                            log.info(
-                                                "[RECOVER] %s TP yeniden denendi: tp=%.4f -> id=%s",
-                                                sym,
-                                                new_tp,
-                                                tp_id,
-                                            )
-                                    except Exception as e2:
-                                        log.warning(
-                                            "[RECOVER] %s TP yeniden deneme de basarisiz: %s",
-                                            sym,
-                                            e2,
-                                        )
-
-                            log.info(
-                                "[RECOVER] %s icin Binance uzerinde SL/TP emirleri olusturuldu (sl_id=%s, tp_id=%s)",
-                                sym,
-                                sl_id,
-                                tp_id,
-                            )
                         except Exception as e:
                             log.warning(
-                                "[RECOVER] %s icin Binance koruma emri yerlestirme hatasi: %s",
+                                "[RECOVER] %s SL yerlestirme hatasi: %s",
                                 sym,
                                 e,
                             )
+                            sl_id = ""
+
+                        # ── TP yerleştirme ──
+                        try:
+                            tp_resp = await self._rest.place_tp_order(
+                                sym, sl_side, abs(amt), rounded_tp
+                            )
+                            tp_id = extract_order_id(tp_resp)
+
+                            # ── TP -4005 kontrolü ──
+                            if not tp_id and _is_max_qty_error(tp_resp):
+                                log.warning(
+                                    "[RECOVER] %s TP -4005 (max qty=%.4f), closePosition deneniyor...",
+                                    sym,
+                                    abs(amt),
+                                )
+                                _, tp_id = await _try_close_position_sl_tp(
+                                    sym, direction, 0, rounded_tp
+                                )
+                                if not tp_id:
+                                    log.warning(
+                                        "[RECOVER] %s TP closePosition basarisiz, parcali deneniyor...",
+                                        sym,
+                                    )
+                                    _, tp_id = await _try_split_qty_sl_tp(
+                                        sym, direction, 0, rounded_tp, abs(amt)
+                                    )
+
+                            elif not tp_id:
+                                # Fiyat kaynaklı: mevcut fiyata gore yeni TP dene
+                                log.warning(
+                                    "[RECOVER] %s TP basarisiz (tp=%.4f), mevcut fiyata gore yeniden hesaplaniyor...",
+                                    sym,
+                                    tp,
+                                )
+                                try:
+                                    cur_px = await self._rest.estimate_market_price(sym)
+                                    if direction == "long":
+                                        new_tp = await self._rest.apply_price_precision(
+                                            sym,
+                                            max(rounded_tp, cur_px * 1.01),
+                                        )
+                                    else:
+                                        new_tp = await self._rest.apply_price_precision(
+                                            sym,
+                                            min(rounded_tp, cur_px * 0.99),
+                                        )
+                                    tp_resp2 = await self._rest.place_tp_order(
+                                        sym, sl_side, abs(amt), new_tp
+                                    )
+                                    tp_id2 = extract_order_id(tp_resp2)
+                                    if tp_id2:
+                                        tp_id = tp_id2
+                                        tp = new_tp
+                                        log.info(
+                                            "[RECOVER] %s TP yeniden denendi: tp=%.4f -> id=%s",
+                                            sym,
+                                            new_tp,
+                                            tp_id,
+                                        )
+                                except Exception as e2:
+                                    log.warning(
+                                        "[RECOVER] %s TP yeniden deneme de basarisiz: %s",
+                                        sym,
+                                        e2,
+                                    )
+                        except Exception as e:
+                            log.warning(
+                                "[RECOVER] %s TP yerlestirme hatasi: %s",
+                                sym,
+                                e,
+                            )
+                            tp_id = ""
+
+                        log.info(
+                            "[RECOVER] %s icin Binance uzerinde SL/TP emirleri olusturuldu (sl_id=%s, tp_id=%s)",
+                            sym,
+                            sl_id,
+                            tp_id,
+                        )
 
                     if not sl_id:
                         # SL hicbir sekilde kurulamadi. Pozisyonu "korumali" gibi
@@ -601,6 +605,29 @@ class RecoveryManager:
                             except Exception as e:
                                 log.warning(
                                     "[RECOVER] %s market close dogrulama hatasi: %s",
+                                    sym,
+                                    e,
+                                )
+
+                        if not close_result:
+                            log.warning(
+                                "[RECOVER] %s acil kapanis basarisiz, 1sn bekleyerek tekrar deneniyor...",
+                                sym,
+                            )
+                            try:
+                                await asyncio.sleep(1.0)
+                                close_result = await self._rest.place_market_order_priority(
+                                    sym,
+                                    close_side,
+                                    abs(amt),
+                                    reduce_only=True,
+                                    client_order_id=f"recover-{sym.lower()}-{int(time.time() * 1000)}",
+                                )
+                                close_error = None
+                            except Exception as e:
+                                close_error = str(e)
+                                log.warning(
+                                    "[RECOVER] %s acil kapanis retry de basarisiz: %s",
                                     sym,
                                     e,
                                 )
