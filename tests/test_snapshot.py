@@ -17,12 +17,51 @@ def _candles_16():
     ]
 
 
+def _candles_low_16():
+    """16 adet FVG zonunun (106-108) ALTINDA kalan mum. index 0-15.
+
+    Fiyat bazlı arama (Yöntem 1) bu dizide hiçbir mum bulamaz — böylece
+    offset matematiği (Yöntem 2/3) ve sanity guard izole test edilir.
+    """
+    return [
+        _candle(1000000 + i * 900, 60 + i, 65 + i, 55 + i, 62 + i) for i in range(16)
+    ]
+
+
+def _candles_pyth():
+    """PYTHUSDT senaryosu: 30 mum, FVG zonu [0.04234, 0.0424], entry_bar=22.
+
+    Zonla çakışan TEK mum index 25 — fiyatın zona ilk gerçek dönüşü entry'den
+    SONRA olur (eski geriye-doğru arama bunu asla bulamıyordu).
+    """
+    candles = []
+    for i in range(30):
+        ts = 20000000 + i * 900
+        if i == 25:
+            candles.append(_candle(ts, 0.0445, 0.0450, 0.0422, 0.0430))
+        elif i < 25:
+            base = 0.0480 - i * 0.0001
+            candles.append(
+                _candle(ts, base, base + 0.0004, base - 0.0004, base + 0.0001)
+            )
+        else:
+            base = 0.0440 + (i - 26) * 0.0002
+            candles.append(
+                _candle(ts, base, base + 0.0004, base - 0.0004, base + 0.0001)
+            )
+    return candles
+
+
 class TestResolveFvgBarIndex:
     """_resolve_fvg_bar_index birim testleri."""
 
     def test_trigger_fvg_object_with_valid_entry_bar_index(self):
-        """trigger_fvg objesi bar_index taşır, entry_bar_index geçerli >0."""
-        candles = _candles_16()
+        """trigger_fvg objesi bar_index taşır, entry_bar_index geçerli >0.
+
+        Mumlar zonla (106-108) çakışmadığından Yöntem 1 boş döner; offset
+        matematiği devreye girer ve sanity guard sonucu makul bulup kabul eder.
+        """
+        candles = _candles_low_16()
 
         # entry_bar=10 (rel), fvg objesi bar_index=8, entry_bar_index=12 (abs)
         class FakeFVG:
@@ -40,7 +79,7 @@ class TestResolveFvgBarIndex:
 
     def test_trade_fvg_bar_index_with_valid_entry_bar_index(self):
         """trigger_fvg yok, trade dict fvg_bar_index taşır."""
-        candles = _candles_16()
+        candles = _candles_low_16()
         result = _resolve_fvg_bar_index(
             candles,
             entry_bar=10,
@@ -84,8 +123,8 @@ class TestResolveFvgBarIndex:
         )
         assert result == 0  # max(0, 1 - 2) = 0
 
-    def test_no_data_falls_to_heuristic(self):
-        """Ne abs index ne fvg_top/bottom varsa heuristic kullan."""
+    def test_no_fvg_data_returns_none(self):
+        """FVG verisi hiç yoksa marker atanmaz (None)."""
         candles = _candles_16()
         result = _resolve_fvg_bar_index(
             candles,
@@ -95,23 +134,23 @@ class TestResolveFvgBarIndex:
             fvg_top=None,
             fvg_bottom=None,
         )
-        assert result == 8  # max(0, 10 - 2) = 8
+        assert result is None
 
     def test_entry_bar_less_than_2_returns_0(self):
         """entry_bar < 2 iken heuristic 0 döndürür."""
-        candles = _candles_16()
+        candles = [{"time": 1, "open": 50, "high": 55, "low": 45, "close": 52}]
         result = _resolve_fvg_bar_index(
             candles,
             entry_bar=1,
             fvg_obj=None,
             trade={},
-            fvg_top=None,
-            fvg_bottom=None,
+            fvg_top=108,
+            fvg_bottom=106,
         )
         assert result == 0
 
-    def test_all_none_returns_0(self):
-        """Tümü None/hedefsiz → 0."""
+    def test_all_none_returns_none(self):
+        """Tümü None/hedefsiz → None (marker yok)."""
         candles = []
         result = _resolve_fvg_bar_index(
             candles,
@@ -121,7 +160,7 @@ class TestResolveFvgBarIndex:
             fvg_top=None,
             fvg_bottom=None,
         )
-        assert result == 0
+        assert result is None
 
     def test_conversion_out_of_bounds_falls_to_price_lookup(self):
         """Absolute conversion bounds dışı kalırsa fiyat bazlı bulmaya düş."""
@@ -141,8 +180,75 @@ class TestResolveFvgBarIndex:
             fvg_bottom=106,
         )
         # rel = 1 + (200 - 3) = 198 → out of bounds (len=3)
-        # price lookup: candle[1] high=135 >= 106, low=125 <= 108 → return 1
+        # price lookup: candle[1] high=135 >= 106, low=107 <= 108 → return 1
         assert result == 1
+
+    def test_pythusdt_price_returns_to_zone_after_entry(self):
+        """PYTHUSDT: zona ilk gerçek dokunuş entry'den sonra (bar 25).
+
+        Restart sonrası abs indeksler geçersiz — yeni arama TÜM candles'ta
+        zonla çakışan barı bulur ve entry'ye en yakınını (25) döndürür.
+        """
+        candles = _candles_pyth()
+        result = _resolve_fvg_bar_index(
+            candles,
+            entry_bar=22,
+            fvg_obj=None,
+            trade={"fvg_bar_index": 999, "entry_bar_index": 0},
+            fvg_top=0.0424,
+            fvg_bottom=0.04234,
+        )
+        assert result == 25
+        # Dönen index GERÇEKTEN top/bottom ile çakışan bir mum olmalı
+        c = candles[result]
+        assert c["low"] <= 0.0424 and c["high"] >= 0.04234
+
+    def test_price_match_prefers_nearest_to_entry(self):
+        """Hem entry öncesi hem sonrası çakışma varsa entry'ye EN YAKIN seçilir."""
+        candles = _candles_pyth()
+        # bar 20'yi de zona çek — entry(22)'ye bar 25'ten daha yakın
+        candles[20] = {**candles[20], "low": 0.0423}
+        result = _resolve_fvg_bar_index(
+            candles,
+            entry_bar=22,
+            fvg_obj=None,
+            trade={"fvg_bar_index": 999, "entry_bar_index": 0},
+            fvg_top=0.0424,
+            fvg_bottom=0.04234,
+        )
+        assert result == 20
+
+    def test_offset_math_sane_result_accepted_regression(self):
+        """Restart yok, offset doğru ve sonuç makul — eski davranış korunur."""
+        candles = _candles_low_16()
+        result = _resolve_fvg_bar_index(
+            candles,
+            entry_bar=10,
+            fvg_obj=None,
+            trade={"fvg_bar_index": 132, "entry_bar_index": 135},
+            fvg_top=108,
+            fvg_bottom=106,
+        )
+        assert result == 7  # 10 + (132 - 135) = 7
+
+    def test_offset_math_unreasonable_falls_to_heuristic(self):
+        """Offset sonucu bounds içinde ama zonla alakasız → sanity guard reddeder.
+
+        rel mumu FVG zonunun ortasından bar_range*8'den fazla uzaksa kabul
+        edilmez ve heuristic'e (entry-2) düşülür.
+        """
+        candles = _candles_16()  # fiyatlar 95-120
+        result = _resolve_fvg_bar_index(
+            candles,
+            entry_bar=10,
+            fvg_obj=None,
+            trade={"fvg_bar_index": 8, "entry_bar_index": 12},
+            fvg_top=300,
+            fvg_bottom=298,
+        )
+        # rel = 10 + (8 - 12) = 6; candle[6] high=111 low=101, zon ortası 299
+        # dist = 188 > 10*8=80 → reddedilir → heuristic: 10 - 2 = 8
+        assert result == 8
 
 
 class TestReverseSortKey:

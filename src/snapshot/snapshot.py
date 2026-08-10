@@ -188,6 +188,14 @@ def _resolve_fvg_bar_index(
     NOT: Fiyat bazlı arama (1) restart sonrası bar indeksleri sıfırlansa bile
     doğru çalışır. Bar offset (2-3) sadece aynı bars_15m array'i kullanılırken
     geçerlidir — restart sonrası indeksler anlamsızlaşır.
+
+    (1) yalnızca entry'den GERİYE değil TÜM candles'ta arar ve entry_bar'a en
+    yakın eşleşmeyi seçer: FVG mantıken entry'den önce oluşur ama fiyatın zona
+    dönüşü entry'den SONRA da olabilir (PYTHUSDT: entry=22, ilk dokunuş bar 25).
+    (2-3) sonucuna sanity guard eklenir: offset matematiği restart sonrası
+    anlamsızlaşırsa üretilen index fiyat zonundan makul ölçüde uzak olur
+    (chart_template.html'deki consistency check ile AYNI formül, dist >
+    bar_range * 8) — bu durumda sonuç kabul edilmez ve heuristic'e (4) düşülür.
     """
     # FIX: FVG verisi hiç yoksa varsayılan bar atama, doğrudan None dön.
     has_fvg = (
@@ -199,14 +207,21 @@ def _resolve_fvg_bar_index(
     if not has_fvg:
         return None
 
+    # 1. Fiyat bazlı arama — tüm candles'ta zonla çakışan, entry_bar'a EN YAKIN mum
     if fvg_top is not None and fvg_bottom is not None:
         lo = min(fvg_top, fvg_bottom)
         hi = max(fvg_top, fvg_bottom)
-        search_start = entry_bar if entry_bar is not None else len(candles) - 1
-        for i in range(min(search_start, len(candles) - 1), -1, -1):
-            c = candles[i]
+        ref = entry_bar if entry_bar is not None else 0
+        best_idx: int | None = None
+        best_dist = float("inf")
+        for i, c in enumerate(candles):
             if c["high"] >= lo and c["low"] <= hi:
-                return i
+                dist = abs(i - ref)
+                if dist < best_dist:
+                    best_dist = dist
+                    best_idx = i
+        if best_idx is not None:
+            return best_idx
 
     # 2. trigger_fvg objesinin bar_index'inden dene
     abs_fvg_bar = None
@@ -220,9 +235,20 @@ def _resolve_fvg_bar_index(
         if entry_bar_idx_abs is not None and entry_bar_idx_abs > 0:
             rel = entry_bar + (abs_fvg_bar - entry_bar_idx_abs)
             if 0 <= rel < len(candles):
-                return rel
+                # Sanity guard: rel mumu FVG zonuna makul ölçüde yakın değilse
+                # offset matematiği restart sonrası anlamsızlaşmıştır — kabul
+                # etme, heuristic'e (4) düş.
+                if fvg_top is not None and fvg_bottom is not None:
+                    c = candles[rel]
+                    bar_range = abs(c["high"] - c["low"])
+                    fvg_mid = (fvg_top + fvg_bottom) / 2
+                    dist = min(abs(c["high"] - fvg_mid), abs(c["low"] - fvg_mid))
+                    if bar_range > 0 and dist <= bar_range * 8:
+                        return rel
+                else:
+                    return rel
 
-    # 3. Varsayılan heuristic
+    # 4. Varsayılan heuristic
     if entry_bar >= 2:
         return max(0, entry_bar - 2)
     return 0

@@ -1,5 +1,19 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-10 — FVG marker index FIX #2 uygulandı (baş mühendis direktifi: fvg-marker-index-fix-directive.md)
+
+- **Kök neden:** `_resolve_fvg_bar_index` Yöntem 1 (fiyat bazlı) sadece entry_bar'dan GERİYE doğru tarıyordu; FVG zonu displacement mumuyla çakışmadığı ve fiyatın zona dönüşü entry'den SONRA olduğu için (PYTHUSDT: entry=22, ilk dokunuş bar 25) hiç eşleşme bulamıyordu → Yöntem 2/3 offset matematiğine düşülüyor, restart sonrası anlamsızlaşan indekslerle YANLIŞ bar işaretleniyordu.
+- **Fix (2 parça):**
+  - **A)** Yöntem 1 artık TÜM candles'ta arıyor, entry_bar'a EN YAKIN eşleşmeyi seçiyor (önce de sonra da olabilir; eşit uzaklıkta önceki kazanır — Python ilk bulunanı tutar). `ref = entry_bar if entry_bar is not None else 0`; `best_dist` ile O(n) tek geçiş. Restart-proof ve PYTHUSDT senaryosunu çözüyor.
+  - **B)** Yöntem 2/3 offset sonucuna **sanity guard** eklendi: `rel` bounds içindeyse `bar_range = |high-low|`, `fvg_mid = (top+bottom)/2`, `dist = min(|high-mid|, |low-mid|)`; `bar_range > 0 and dist <= bar_range*8` değilse **kabul edilmez, heuristic'e (4) düşülür** — chart_template.html satır 66-89'daki "FVG consistency check" ile AYNI formül. `fvg_top`/`fvg_bottom` yoksa guard atlanır (eski davranış: bounds içinde rel kabul).
+- **Test (22 passed, 0 failed — test_snapshot):**
+  - 5 pre-existing fail **düzeltildi** (yeni mantığa uyarlandı): test 1-2 `_candles_low_16` (zonla çakışmayan mumlar) ile offset yolu izole test ediliyor; `test_no_data_falls_to_heuristic`→`test_no_fvg_data_returns_none` (has_fvg=False → None, kodun mevcut bilinçli davranışı); `test_entry_bar_less_than_2_returns_0` fvg_top/bottom verip heuristic edge'ini koruyor; `test_all_none_returns_0`→`test_all_none_returns_none`.
+  - **Yeni 4 test:** `test_pythusdt_price_returns_to_zone_after_entry` (direktifteki senaryo: fvgTop=0.0424, fvgBottom=0.04234, entryBar=22, 30 mumluk `_candles_pyth`, zonla çakışan tek mum bar 25 → sonuç 25 + `c["low"]<=0.0424 and c["high"]>=0.04234` doğrulaması), `test_price_match_prefers_nearest_to_entry` (bar 20 zonuna çekilince 20 döner — en yakın seçimi), `test_offset_math_sane_result_accepted_regression` (restart yok, offset doğru: rel=7 kabul — eski davranış korundu), `test_offset_math_unreasonable_falls_to_heuristic` (rel=6 ama zon ortası 299'a uzak → dist 188 > 80 → heuristic 8).
+- **Doğrulama:** test_snapshot **22 passed / 0 failed** (önceki: 13 passed / 5 failed). Tam suite: test_bot 13 fail + test_state_writer 2 + test_event_log 1 + test_user_data_handler 2 = **18 pre-existing** (hepsi bayat refactor testleri: `mark_trade_closed`/`_exit_trade_legacy` yok, `sl_status` değerleri değişmiş, event_log format farklı) — git stash baseline ile birebir, **0 yeni fail**. py_compile + ruff (check/format) temiz. Canlı trade mantığına dokunulmadı — sadece snapshot/analiz doğruluğu (direktif: DÜŞÜK-ORTA öncelik, deploy onayı gerekmez).
+- **Sıradaki:** deploy (sunucu `git pull --ff-only` + restart) istenirse; PYTHUSDT gibi eski snapshot'lar YENİ fonksiyonla yeniden üretilirse FVG marker'ı artık gerçek zona oturur.
+
+---
+
 ## Son İşlem: 2026-08-10 — ActiveTrade entry_timestamp FIX uygulandı (baş mühendis direktifi: entry-timestamp-fix-directive.md)
 
 - **Kök neden:** `ActiveTrade`'de `entry_timestamp` alanı hiç yoktu → snapshot `_find_bar` her zaman fiyat bazlı fallback'e düşüyordu → aynı fiyatın geçmişte başka bir barda da görüldüğü durumda (ONDOUSDT 0.352, gerçek giriş 08-08 22:15 ama entryBar 08-07 11:00 = 36 saat erken) yanlış bar seçiliyordu.
