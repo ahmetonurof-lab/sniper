@@ -1,5 +1,21 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-11 — RECOVER_EMERGENCY_CLOSE CONTINUE BUG FIX (baş mühendis direktifi)
+
+- **Kök neden:** `recover_positions` içindeki `if close_result:` bloğunda `continue` yanlışlıkla `if tp_id:` içindeki `except` bloğunun içindeydi. Bu durumda:
+  - `close_result` truthy + `tp_id` boş → `continue` çalışmıyor, alt bloktan "ACIL KAPANIS BASARISIZ" kritik logu atılıyor ve trade `active_trades`'e tekrar ekleniyor.
+  - `close_result` truthy + `tp_id` var + TP cancel başarılı → `continue` çalışmıyor, aynı şekilde yanlış log + re-add.
+  - Sadece TP cancel exception fırlattığında `continue` çalışıyordu.
+- **Fix:** `continue` ifadesini `if close_result:` bloğunun en sonuna, `if tp_id:` bloğundan bağımsız taşındı. Artık acil kapanış başarılı olduğu her durumda (TP cancel başarılı/başarısız/farketmeksizin) döngü devam ediyor, trade tekrar eklenmiyor.
+- **Test:** 3 yeni regresyon testi eklendi:
+  1. `test_emergency_close_success_without_tp_skips_critical_log` — `tp_id` boş, close_result truthy.
+  2. `test_emergency_close_success_with_tp_cancel_skips_critical_log` — `tp_id` var, cancel başarılı.
+  3. `test_emergency_close_success_with_tp_cancel_failure_skips_critical_log` — `tp_id` var, cancel başarısız.
+- **Doğrulama:** recovery_manager test suite **13 passed / 0 failed**.
+- **Not:** Bu bug A4-04 fix'i ile ilişkili — pozisyon doğrulama başarısı artıkca bu bug'ın tetiklenme sıklığı da artıyordu.
+
+---
+
 ## Son İşlem: 2026-08-10 — 4 KRİTİK BULGU FIX UYGULANDI (baş mühendis direktifi: gizli-bug-audit-raporu-2026-08-10.md)
 
 - **Kapsam:** A1-01, A1-02, A3-01, A4-01, A4-04 (A2-01/A2-02 kök ailesi A4-04 ile birleştirildi).

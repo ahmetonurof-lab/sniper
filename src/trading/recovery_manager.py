@@ -651,7 +651,7 @@ class RecoveryManager:
                                                     "recovery_tp_cancel_failed",
                                                     f"TP cancel retry failed: {e2}",
                                                 )
-                                    continue
+                            continue
 
                         # place_market_order basarisiz: ya exception atti ya da
                         # {} dondu (minQty/minNotional/POST hatasi -- exception

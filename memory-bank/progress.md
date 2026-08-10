@@ -273,6 +273,12 @@
 
 ---
 
+## Son İşlem: 2026-08-11 — RECOVER_EMERGENCY_CLOSE CONTINUE BUG FIX (baş mühendis direktifi)
+
+| Tarih | İşlem | Detail |
+|-------|-------|--------|
+| 2026-08-11 | **recover_emergency_close continue yanlış konum** | `recovery_manager.py` `if close_result:` bloğunda `continue` `if tp_id:` içindeki `except` içindeydi → acil kapanış başarılı + tp cancel başarılı/boş olan en yaygın senaryoda "ACIL KAPANIS BASARISIZ" kritik logu atılıyor, trade `active_trades`'e tekrar ekleniyordu. **Fix:** `continue` `if close_result:` en sonuna taşındı. **Test:** 3 yeni regresyon (tp_id boş, tp cancel başarılı, tp cancel başarısız). recovery_manager **13 passed / 0 failed**. |
+
 ## Son İşlem: 2026-08-10 — 4 KRİTİK BULGU FIX (baş mühendis direktifi: gizli-bug-audit-raporu-2026-08-10.md)
 
 | Tarih | İşlem | Detay |

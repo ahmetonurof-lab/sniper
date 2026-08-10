@@ -189,6 +189,153 @@ class TestRecoverPositionsCloseFallback:
 
         assert "BTCUSDT" in active_trades
 
+    @patch("trading.recovery_manager.cfg")
+    def test_emergency_close_success_without_tp_skips_critical_log(self, mock_cfg):
+        """close_result truthy + tp_id bos -> continue ile kritik log atlanir,
+        active_trades'e eklenmez (A4-04 ikincil bug)."""
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_cfg.RECOVERY_SL_FALLBACK_PCT = 0.01
+
+        from trading.recovery_manager import RecoveryManager
+
+        rest = MagicMock()
+        rest.get_positions = AsyncMock(
+            return_value=[
+                {
+                    "symbol": "BTCUSDT",
+                    "positionAmt": "0.1",
+                    "entryPrice": "50000",
+                }
+            ]
+        )
+        rest.get_all_orders = AsyncMock(return_value=[])
+        rest.get_order_type = MagicMock(return_value="")
+        rest.get_order_price = MagicMock(return_value=0.0)
+        rest.apply_price_precision = AsyncMock(return_value=49000.0)
+        rest.place_stop_order = AsyncMock(return_value={})
+        rest.place_tp_order = AsyncMock(return_value={})
+        rest.place_market_order_priority = AsyncMock(
+            return_value={"orderId": 123, "_status": "EXECUTION_CONFIRMED"}
+        )
+        rest.place_force_close_order = AsyncMock(return_value=True)
+        rest.get_tick_size = AsyncMock(return_value=0.00001)
+
+        active_trades = {}
+        rm = RecoveryManager(
+            rest_client=rest,
+            symbols=["BTCUSDT"],
+            cfgs={"BTCUSDT": {"SL_ATR_MULT": 1.5, "TP_RR": 2.0}},
+            states={},
+            active_trades=active_trades,
+            pl_callback=_pl_noop,
+            atr_state={"BTCUSDT": 100.0},
+        )
+
+        asyncio.run(rm.recover_positions())
+
+        assert "BTCUSDT" not in active_trades
+        rest.place_force_close_order.assert_not_called()
+
+    @patch("trading.recovery_manager.cfg")
+    def test_emergency_close_success_with_tp_cancel_skips_critical_log(self, mock_cfg):
+        """close_result truthy + tp_id var + cancel basarili -> continue,
+        active_trades'e eklenmez."""
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_cfg.RECOVERY_SL_FALLBACK_PCT = 0.01
+
+        from trading.recovery_manager import RecoveryManager
+
+        rest = MagicMock()
+        rest.get_positions = AsyncMock(
+            return_value=[
+                {
+                    "symbol": "BTCUSDT",
+                    "positionAmt": "0.1",
+                    "entryPrice": "50000",
+                }
+            ]
+        )
+        rest.get_all_orders = AsyncMock(return_value=[])
+        rest.get_order_type = MagicMock(return_value="")
+        rest.get_order_price = MagicMock(return_value=0.0)
+        rest.apply_price_precision = AsyncMock(return_value=49000.0)
+        rest.place_stop_order = AsyncMock(return_value={})
+        rest.place_tp_order = AsyncMock(return_value={"orderId": 456})
+        rest.place_market_order_priority = AsyncMock(
+            return_value={"orderId": 123, "_status": "EXECUTION_CONFIRMED"}
+        )
+        rest.cancel_order = AsyncMock(return_value=True)
+        rest.place_force_close_order = AsyncMock(return_value=True)
+        rest.get_tick_size = AsyncMock(return_value=0.00001)
+
+        active_trades = {}
+        rm = RecoveryManager(
+            rest_client=rest,
+            symbols=["BTCUSDT"],
+            cfgs={"BTCUSDT": {"SL_ATR_MULT": 1.5, "TP_RR": 2.0}},
+            states={},
+            active_trades=active_trades,
+            pl_callback=_pl_noop,
+            atr_state={"BTCUSDT": 100.0},
+        )
+
+        asyncio.run(rm.recover_positions())
+
+        assert "BTCUSDT" not in active_trades
+        rest.cancel_order.assert_called_once_with(
+            "456", "BTCUSDT", reason="recover_emergency_close", is_algo=True
+        )
+
+    @patch("trading.recovery_manager.cfg")
+    def test_emergency_close_success_with_tp_cancel_failure_skips_critical_log(
+        self, mock_cfg
+    ):
+        """close_result truthy + tp_id var + cancel basarisiz -> continue,
+        active_trades'e eklenmez (kritik log atlanir)."""
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_cfg.RECOVERY_SL_FALLBACK_PCT = 0.01
+
+        from trading.recovery_manager import RecoveryManager
+
+        rest = MagicMock()
+        rest.get_positions = AsyncMock(
+            return_value=[
+                {
+                    "symbol": "BTCUSDT",
+                    "positionAmt": "0.1",
+                    "entryPrice": "50000",
+                }
+            ]
+        )
+        rest.get_all_orders = AsyncMock(return_value=[])
+        rest.get_order_type = MagicMock(return_value="")
+        rest.get_order_price = MagicMock(return_value=0.0)
+        rest.apply_price_precision = AsyncMock(return_value=49000.0)
+        rest.place_stop_order = AsyncMock(return_value={})
+        rest.place_tp_order = AsyncMock(return_value={"orderId": 456})
+        rest.place_market_order_priority = AsyncMock(
+            return_value={"orderId": 123, "_status": "EXECUTION_CONFIRMED"}
+        )
+        rest.cancel_order = AsyncMock(side_effect=Exception("cancel failed"))
+        rest.place_force_close_order = AsyncMock(return_value=True)
+        rest.get_tick_size = AsyncMock(return_value=0.00001)
+
+        active_trades = {}
+        rm = RecoveryManager(
+            rest_client=rest,
+            symbols=["BTCUSDT"],
+            cfgs={"BTCUSDT": {"SL_ATR_MULT": 1.5, "TP_RR": 2.0}},
+            states={},
+            active_trades=active_trades,
+            pl_callback=_pl_noop,
+            atr_state={"BTCUSDT": 100.0},
+        )
+
+        asyncio.run(rm.recover_positions())
+
+        assert "BTCUSDT" not in active_trades
+        rest.cancel_order.assert_awaited()
+
 
 # ═══════════════════════════════════════════════════════════════
 # FIX (tick_size): recovery, _try_entry ile aynı ActiveTrade şemasını
