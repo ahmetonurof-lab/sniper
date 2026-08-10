@@ -1,5 +1,20 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-10 — ActiveTrade entry_timestamp FIX uygulandı (baş mühendis direktifi: entry-timestamp-fix-directive.md)
+
+- **Kök neden:** `ActiveTrade`'de `entry_timestamp` alanı hiç yoktu → snapshot `_find_bar` her zaman fiyat bazlı fallback'e düşüyordu → aynı fiyatın geçmişte başka bir barda da görüldüğü durumda (ONDOUSDT 0.352, gerçek giriş 08-08 22:15 ama entryBar 08-07 11:00 = 36 saat erken) yanlış bar seçiliyordu.
+- **Fix (3 parça):**
+  - `src/models.py` — `ActiveTrade.entry_timestamp: int = 0` eklendi (`exit_timestamp` yanına).
+  - `src/bot.py:1020` — `ActiveTrade(...)` oluşturmada `entry_timestamp=int(time.time() * 1000)` (fill onayı sonrası an — entry_bar_index ile tutarlı; `time` zaten import'lu).
+  - `src/trading/recovery_manager.py` — 3 `ActiveTrade(...)` noktasına (222, 641, 669) `entry_timestamp=int(time.time() * 1000)` + yorum: restore anı, yaklaşık — gerçek fill zamanı `get_all_orders`'tan alınamıyor (açık emirler yalnızca, filled MARKET emri listede yok; positions endpoint'te entry-time yok).
+- **Serileştirme:** `dict(trade)` → `{**trade}` (exit_lifecycle jsonl writer) yeni alanı otomatik taşıyor (`__dataclass_fields__`/`__getitem__` üzerinden) — ek alias gerekmedi, testle kanıtlandı.
+- **Test (8 yeni, hepsi geçti):** test_models 2 (`entry_timestamp` default 0 + set/attr/dict round-trip), test_snapshot 5 (`_find_bar` ONDOUSDT senaryosu: aynı fiyat iki barda → ts yokken index 0 (bug), ts varken index 2 (doğru); ts'siz fiyat fallback; ts eşleşmezse fiyat fallback; eşleşme yoksa son bar; `normalize_trade` passthrough + yoksa 0), test_bot 1 (`_try_entry` sonrası `entry_timestamp > 0` ve now±10s).
+- **Doğrulama:** kapsam testleri **26 passed / 0 failed**; tam suite 18 fail = **5 pre-existing (TestResolveFvgBarIndex — kod fiyat bazlı FVG aramasını öne aldı, eski testler uyumsuz) + 13 pre-existing (test_bot bayat refactor testleri)** — git stash baseline ile birebir, **0 yeni fail**. py_compile temiz.
+- **Not:** fix SADECE yeni açılacak trade'leri düzeltir — geçmiş/açık trade kayıtlarında entry_timestamp yok, ONDOUSDT gibi eski snapshot'lar hâlâ yanlış bar gösterebilir (retroaktif düzeltme direktifte istenmedi). Deploy: commit/push bu turun kapanış protokolünde (baş mühendis onayı varsayıldı — risk düşük, default 0 geriye dönük uyumlu).
+- **Sıradaki:** deploy kararı kullanıcıda (sunucu `git pull --ff-only` + restart) + pasif izler (SEIUSDT kapanışı, P1-15, P2-8, PRE-ENTRY).
+
+---
+
 ## Son İşlem: 2026-08-09 — Snapshot dosya adları ters kronolojik (deploy edildi) + P1-4 CANLI
 
 - **Değişiklik** `src/snapshot/snapshot.py`: `_reverse_sort_key` (9-tümleyen, her rakam 9-rakam) + filename formatı `{sym}_{T9(YYYY-MM-DD_HHMMSS)}_{YYYY-MM-DD_HHMMSS}.html` — alfabetik sıralamada (VS Code Explorer) **en yeni snapshot en üstte**. Tasarım: ters + okunabilir tarih (kullanıcı onayı).

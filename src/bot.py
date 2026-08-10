@@ -1017,6 +1017,7 @@ class PaperTrader:
             status=STATUS_ACTIVE,
             entry_price=entry_price,
             entry_bar_index=current.index,
+            entry_timestamp=int(time.time() * 1000),
             sl=sl,
             tp=tp,
             qty=qty,

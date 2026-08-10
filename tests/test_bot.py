@@ -379,6 +379,9 @@ class TestTryEntry:
         trade = bot.active_trades["BTCUSDT"]
         assert trade.side == "long"
         assert trade.entry_price == 109.0
+        # entry_timestamp fill anına yakın olmalı (snapshot bar tespiti için)
+        assert trade.entry_timestamp > 0
+        assert abs(int(time.time() * 1000) - trade.entry_timestamp) < 10_000
 
     @patch("bot.BinanceRESTClient")
     @patch("bot.BinanceWSHub")

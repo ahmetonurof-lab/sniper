@@ -516,6 +516,10 @@ class ActiveTrade:
     # Runtime-only (exit sırasında doldurulur):
     exit_price: float | None = None
     exit_bar: int | None = None
+    # Entry fill anı (ms) — snapshot entry bar tespiti için zaman bazlı
+    # eşleşme; exit_timestamp'in simetriği. 0 ise snapshot fiyat bazlı
+    # fallback'e düşer (yanlış bar seçebilir — bkz. ONDOUSDT post-mortem).
+    entry_timestamp: int = 0
     exit_timestamp: int = 0
     result: str | None = None
     trigger_fvg: object | None = None

@@ -356,3 +356,31 @@ class TestActiveTrade:
             )
         assert "tick_size olmadan kuruldu" in caplog.text
         assert t.tick_size == 0.10
+
+    def test_entry_timestamp_defaults_to_zero(self):
+        """Geriye dönük uyumluluk: eski kurulumlarda entry_timestamp 0 olur."""
+        from models import ActiveTrade
+
+        t = ActiveTrade(symbol="BTCUSDT", status="PENDING")
+        assert t.entry_timestamp == 0
+
+    def test_entry_timestamp_set_and_roundtrips_through_dict(self):
+        """Set edilen entry_timestamp attr + dict erişiminde korunur.
+
+        trades_history.jsonl'a yazan kayıt (dict(trade)) bu alanı otomatik
+        taşır — ayrı alias gerekmez.
+        """
+        from models import ActiveTrade
+
+        t = ActiveTrade(
+            symbol="BTCUSDT",
+            side="long",
+            entry_price=100.0,
+            sl=95.0,
+            tp=110.0,
+            entry_timestamp=1786000000000,
+        )
+        assert t.entry_timestamp == 1786000000000
+        assert t["entry_timestamp"] == 1786000000000
+        assert dict(t)["entry_timestamp"] == 1786000000000
+        assert "entry_timestamp" in dict(t).keys()

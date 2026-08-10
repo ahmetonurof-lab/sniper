@@ -223,6 +223,10 @@ class RecoveryManager:
                             symbol=sym,
                             entry_bar_index=0,
                             entry_price=entry,
+                            # Yaklaşık: restore anı — gerçek fill zamanı açık
+                            # emirlerden (get_all_orders) alınamıyor (filled
+                            # MARKET emri listede yok).
+                            entry_timestamp=int(time.time() * 1000),
                             sl=sl_price,
                             tp=tp_price,
                             qty=abs(amt),
@@ -642,6 +646,9 @@ class RecoveryManager:
                                 symbol=sym,
                                 entry_bar_index=0,
                                 entry_price=entry,
+                                # Yaklaşık: restore anı — gerçek fill zamanı
+                                # borsadan alınamadı.
+                                entry_timestamp=int(time.time() * 1000),
                                 sl=sl,
                                 tp=tp,
                                 qty=abs(amt),
@@ -670,6 +677,9 @@ class RecoveryManager:
                             symbol=sym,
                             entry_bar_index=0,
                             entry_price=entry,
+                            # Yaklaşık: restore anı — gerçek fill zamanı
+                            # borsadan alınamadı.
+                            entry_timestamp=int(time.time() * 1000),
                             sl=sl,
                             tp=tp,
                             qty=abs(amt),
