@@ -1,5 +1,23 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-10 — A6 Backtest-Live Parity Denetçisi (araştırma modu, kod değişikliği YOK)
+
+- **Kapsam:** D-2 (trailing/entry kopya kod) senkron denetimi — canlı (`trailing_manager.py`+`bot.py`), BT-1 (`backtest-sniper/analyzer_v5.py`), BT-2 (`simulate.py`) üçlü karşılaştırma. Kanıt protokolü uygulandı: KOD İZİ / TEST KANITI / VERİ KANITI; kanıtlanamayanlar HİPOTEZ listesinde.
+- **Yöntem notu:** MCP graf index'i bu repo için kullanışsız (yalnızca index.json düğümleri) → kullanıcı fallback kuralı gereği grep/findstr/read tabanlı satır satır karşılaştırma. `parity_check.py --check` sistem pythonuyla (venv yok) çalıştırıldı → **PARITE_OK** (kapsamı dar: 2 fonksiyon çifti + config sabitleri).
+- **Yeni bulgular (bugs.md A6 bölümü, tam tablo orada):**
+  - **A6-01 HIGH:** `analyzer_v5.py:418-423` sweep'i TÜKETMİYOR (`bar_index=None` → `is_sweep_used` dedup devre dışı; `sweep_confirmed` hiç `False`'a atanmıyor) — canlı `signal_engine.py:78-93` (2026-08-06 SEIUSDT fix) backtest'e taşınmamış → tek sweep çoklu giriş denemesi.
+  - **A6-02 HIGH:** entry çapası — canlı `bot.py:671` `current.close` vs her iki backtest `next_bar.open` (kasıtlı look-ahead karşıtı, uzlaştırılmamış).
+  - **A6-03 MEDIUM:** `MIN_SL_DISTANCE_TICKS/PCT` + pre-entry SL-eps guard yalnızca canlıda (`entry_manager.py:223-235,287-343`) — backtest'te yok (bilinen açık, progress.md 08-06 notu).
+  - **A6-04 MEDIUM:** tick_size normalizasyonu yalnızca canlı trailing'de (`trailing_manager.py:629-645`) — backtest'ler raw float.
+  - **A6-05 LOW:** D-2 Fark 4 AÇIK — `simulate.py:385` `+1`/bar vs canlı+analyzer per-hop.
+  - **A6-06 LOW:** D-2 Fark 3 — guard yalnızca canlıda, kapalı-bar verisinde etkisiz.
+  - **A6-07 LOW:** ENTRY_VARIANT E1/E2 dalı yalnızca backtest'te; canlıda karşılığı yok (config "A" iken ölü, latent drift riski).
+- **Kapananlar:** Fark 1 (PARITE_OK teyidi), Fark 2 (iki tarafta da is_closed yok, AST-identik), Fark 5 (session filter tek kaynak — analyzer_v5/simulate canlı `session_router` import ediyor; analyzer_v5:47 yerel SESSION_HOURS ölü sabit). TP_FIXED config'te yok → False → TP-shift paritesi doğrulandı.
+- **Bilinen bayat fail'ler değişmedi:** 18 pre-existing (test_bot 13 + test_state_writer 2 + test_event_log 1 + test_user_data_handler 2) — bu tur kod değişikliği olmadığından test koşulmadı.
+- **Sıradaki (karar bekliyor):** A6-01/A6-02 için fix kararları (sweep tüketimini analyzer_v5'e taşı; entry çapasını uzlaştır) baş mühendise sunulacak. A6-03 zaten bilinen açık. Bu tur SADECE rapor — commit/push kapanış protokolü.
+
+---
+
 ## Son İşlem: 2026-08-10 — FVG marker index FIX #2 uygulandı (baş mühendis direktifi: fvg-marker-index-fix-directive.md)
 
 - **Kök neden:** `_resolve_fvg_bar_index` Yöntem 1 (fiyat bazlı) sadece entry_bar'dan GERİYE doğru tarıyordu; FVG zonu displacement mumuyla çakışmadığı ve fiyatın zona dönüşü entry'den SONRA olduğu için (PYTHUSDT: entry=22, ilk dokunuş bar 25) hiç eşleşme bulamıyordu → Yöntem 2/3 offset matematiğine düşülüyor, restart sonrası anlamsızlaşan indekslerle YANLIŞ bar işaretleniyordu.
