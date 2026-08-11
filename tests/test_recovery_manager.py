@@ -9,6 +9,7 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from models import STATUS_ACTIVE, ActiveTrade
+from trading.exit_lifecycle import _trade_identity_key
 
 
 def _pl_noop(*args, **kwargs):
@@ -806,3 +807,95 @@ class TestRecoverPositionsProtectionDedupe:
         assert existing["protection_orders"]["sl"]["type"] == "STOP_MARKET"
         assert existing["protection_orders"]["tp"]["order_id"] == "1000000161375100"
         assert existing["protection_orders"]["tp"]["type"] == "TAKE_PROFIT_MARKET"
+
+    @patch("trading.recovery_manager.cfg")
+    def test_new_trade_lock_key_matches_exit_lifecycle(self, mock_cfg):
+        """P0-1 kilit uyumlulugu (yeni trade dali): recovery'nin aktif trade'e
+        yazdigi trade icin urettigi lock key, exit_lifecycle/bot.py'nin AYNI trade
+        objesi uzerinde uretecegi key ile birebir ayni olmali ve ayni asyncio.Lock
+        nesnesine karsilik gelmeli. Eski kod sym bazli RLock kullaniyordu — exit
+        tarafi {sym}_{trade_id} bazli asyncio.Lock kullandigi icin iki taraf hic
+        cakismiyordu (her ikisi de 'kilitli' gorunup gercekte farkli kilitlerdeydi)."""
+        mock_cfg.BINANCE_API_KEY = "test_key"
+
+        from trading.recovery_manager import RecoveryManager
+
+        rest = self._make_rest()
+        exit_locks = {}
+        active_trades = {}
+        rm = RecoveryManager(
+            rest_client=rest,
+            symbols=["DOGEUSDT"],
+            cfgs={"DOGEUSDT": {"SL_ATR_MULT": 1.5, "TP_RR": 2.0}},
+            states={},
+            active_trades=active_trades,
+            pl_callback=_pl_noop,
+            atr_state={"DOGEUSDT": 0.0001},
+            exit_locks=exit_locks,
+        )
+
+        asyncio.run(rm.recover_positions())
+
+        t = active_trades["DOGEUSDT"]
+        assert isinstance(t, ActiveTrade)
+        # exit_lifecycle.execute() / bot.py ile birebir ayni formül:
+        expected_key = f"DOGEUSDT_{_trade_identity_key(t)}"
+        assert set(exit_locks.keys()) == {expected_key}
+
+        # exit tarafi ayni trade objesiyle setdefault yaparsa AYNI kilidi alir.
+        async def _parity_check():
+            lock = exit_locks.setdefault(expected_key, asyncio.Lock())
+            return lock is exit_locks[expected_key], isinstance(lock, asyncio.Lock)
+
+        same_lock, is_async_lock = asyncio.run(_parity_check())
+        assert is_async_lock
+        assert same_lock
+
+    @patch("trading.recovery_manager.cfg")
+    def test_existing_trade_lock_key_matches_exit_lifecycle(self, mock_cfg):
+        """P0-1 kilit uyumlulugu (existing dali): recovery mevcut trade'i restore
+        ederken ayni trade objesi uzerinden key uretmeli — exit_lifecycle/bot.py
+        o trade'i sonlandirirken ayni kilide kilitlenmeli."""
+        mock_cfg.BINANCE_API_KEY = "test_key"
+
+        from trading.recovery_manager import RecoveryManager
+
+        rest = self._make_rest()
+        existing = ActiveTrade(
+            symbol="DOGEUSDT",
+            side="long",
+            status=STATUS_ACTIVE,
+            entry_bar_index=0,
+            entry_price=0.07037,
+            sl=0.07014,
+            tp=0.07077,
+            qty=26770,
+            initial_sl=0.07014,
+            initial_tp=0.07077,
+            trailing_count=0,
+        )
+        exit_locks = {}
+        active_trades = {"DOGEUSDT": existing}
+        rm = RecoveryManager(
+            rest_client=rest,
+            symbols=["DOGEUSDT"],
+            cfgs={"DOGEUSDT": {"SL_ATR_MULT": 1.5, "TP_RR": 2.0}},
+            states={},
+            active_trades=active_trades,
+            pl_callback=_pl_noop,
+            atr_state={"DOGEUSDT": 0.0001},
+            exit_locks=exit_locks,
+        )
+
+        asyncio.run(rm.recover_positions())
+
+        # recovery'nin kilitledigi key, exit tarafinin ayni objeyle üretecegi key.
+        expected_key = f"DOGEUSDT_{_trade_identity_key(active_trades['DOGEUSDT'])}"
+        assert set(exit_locks.keys()) == {expected_key}
+        assert isinstance(exit_locks[expected_key], asyncio.Lock)
+
+        async def _parity_check():
+            lock = exit_locks.setdefault(expected_key, asyncio.Lock())
+            return lock is exit_locks[expected_key]
+
+        assert asyncio.run(_parity_check())

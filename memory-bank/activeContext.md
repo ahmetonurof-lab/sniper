@@ -1,5 +1,16 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-11 — EXIT/RECOVERY LOCK KEY PARİTESİ FIX (baş mühendis direktifi, b3f6761 üstüne)
+
+- **Sorun:** `recovery_manager.py` 3 mutation bloğunda `with self._exit_locks.setdefault(sym, RLock()):` (sym bazlı threading.RLock) kullanıyordu. exit_lifecycle/bot.py/user_data_handler ise `{sym}_{_trade_identity_key(trade)}` bazlı `asyncio.Lock` kullanıyor → **iki taraf hiç çakışmıyordu** (her ikisi de "kilitli" görünüp gerçekte farklı kilitlerdeydi). Recovery ve exit aynı anda aynı trade'e dokunduğunda çift emir/koruma yarışı korunmuyordu.
+- **Fix:** `recovery_manager.py` — `from threading import RLock` import'u kaldırıldı; `from trading.exit_lifecycle import _trade_identity_key` eklendi. 3 site × 2 dal (existing update / yeni trade) artık `async with self._exit_locks.setdefault(f"{sym}_{_trade_identity_key(trade)}", asyncio.Lock()):`. Yeni trade dallarında key, `ActiveTrade` TAM kurulduktan (entry_timestamp set) SONRA `_trade_identity_key(new_trade)` ile hesaplanıyor → active_trades'e yazılan aynı nesne üzerinden exit tarafının üreteceği key ile birebir aynı.
+- **Test (regresyon, ilk kez):** `tests/test_recovery_manager.py` +2 — `test_new_trade_lock_key_matches_exit_lifecycle` + `test_existing_trade_lock_key_matches_exit_lifecycle`: recovery'nin exit_locks'a koyduğu tek key'in `f"{sym}_{_trade_identity_key(stored_trade)}"` olduğunu ve aynı key'le `setdefault` yapan exit tarafının AYNI `asyncio.Lock` nesnesini aldığını doğrular (set eşitliği + `is` kontrolü).
+- **Doğrulama:** test_recovery_manager **18/18** (16 eski + 2 yeni), test_exit_lifecycle **37/37**, importlar OK (`bot`, `trading.recovery_manager`, `trading.exit_lifecycle`). Pre-existing fail seti değişmedi.
+- **Commit:** bu commit — `fix: recovery exit_locks trade-key paritesi (RLock -> asyncio.Lock, _trade_identity_key)`.
+- **Sıradaki:** deploy sunucuda `git pull --ff-only` + restart (b3f6761 ile aynı pencerede). Sonra Sıra 8-9 (backtest-sniper A6-01/A6-02).
+
+---
+
 ## Son İşlem: 2026-08-11 — ÇİFT SL/TP KAZASI KÖK NEDEN KAPANDI (DOTUSDT canlı kanıtı, is_algo fallback fix)
 
 - **Canlı kanıt (sunucu log analizi, `/root/sniper/output/paper_trade.log`):** DOTUSDT-518 short entry 05:15 (SL id=1000000163326245 @0.8206, TP id=1000000163326249 @0.7854 — ikisi de `/fapi/v1/algoOrder` ile açılmış **algo/conditional** emir). 09:45 trail güncellemesinde (`trail#1 sl=0.8051 tp=0.7699`) eski SL/TP iptali **"zaten yok (ok)"** döndü → eski emirler borsada KALDI, yenileri açıldı → **4 açık emir** (2×SL + 2×TP, kullanıcının Binance ekran görüntüsüyle birebir). Recovery `_dedupe_protection_orders` 13 kez (09:45:10→09:59:04) aynı ID'leri "fazla koruma emri" olarak iptal etmeyi denedi, hepsi aynı "zaten yok" bug'ına takıldı.

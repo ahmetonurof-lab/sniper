@@ -18,7 +18,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from threading import RLock
 from typing import TYPE_CHECKING
 
 import config as cfg
@@ -31,6 +30,7 @@ from models import (
     STATUS_ACTIVE,
     UNRESTRICTED_STATUSES,
 )
+from trading.exit_lifecycle import _trade_identity_key
 
 if TYPE_CHECKING:
     from trading.protection_lifecycle import ProtectionLifecycleService
@@ -217,8 +217,11 @@ class RecoveryManager:
                             "type": self._rest.get_order_type(tp_orders[0]),
                         },
                     }
-                    with self._exit_locks.setdefault(sym, RLock()):
-                        if existing:
+                    if existing:
+                        trade_key = f"{sym}_{_trade_identity_key(existing)}"
+                        async with self._exit_locks.setdefault(
+                            trade_key, asyncio.Lock()
+                        ):
                             existing["sl"] = sl_price
                             existing["tp"] = tp_price
                             existing["sl_order_id"] = sl_id
@@ -234,30 +237,34 @@ class RecoveryManager:
                                 self._order_manager._sync_runtime_protection(
                                     existing, "tp_current", tp_id, tp_price
                                 )
-                        else:
-                            new_trade = ActiveTrade(
-                                symbol=sym,
-                                entry_bar_index=0,
-                                entry_price=entry,
-                                entry_timestamp=int(time.time() * 1000),
-                                sl=sl_price,
-                                tp=tp_price,
-                                qty=abs(amt),
-                                side=direction,
-                                status=STATUS_ACTIVE,
-                                trigger_fvg=None,
-                                initial_sl=sl_price,
-                                initial_tp=tp_price,
-                                trailing_count=0,
-                                trail_count=0,
-                                risk_pts=risk_pts,
-                                is_recovered=True,
-                                trail_mode="fvg",
-                                tick_size=tick_size,
-                                sl_order_id=sl_id,
-                                tp_order_id=tp_id,
-                                protection_orders=protection_orders,
-                            )
+                    else:
+                        new_trade = ActiveTrade(
+                            symbol=sym,
+                            entry_bar_index=0,
+                            entry_price=entry,
+                            entry_timestamp=int(time.time() * 1000),
+                            sl=sl_price,
+                            tp=tp_price,
+                            qty=abs(amt),
+                            side=direction,
+                            status=STATUS_ACTIVE,
+                            trigger_fvg=None,
+                            initial_sl=sl_price,
+                            initial_tp=tp_price,
+                            trailing_count=0,
+                            trail_count=0,
+                            risk_pts=risk_pts,
+                            is_recovered=True,
+                            trail_mode="fvg",
+                            tick_size=tick_size,
+                            sl_order_id=sl_id,
+                            tp_order_id=tp_id,
+                            protection_orders=protection_orders,
+                        )
+                        trade_key = f"{sym}_{_trade_identity_key(new_trade)}"
+                        async with self._exit_locks.setdefault(
+                            trade_key, asyncio.Lock()
+                        ):
                             self._active_trades[sym] = new_trade
                             # A1-01 Fix: Sync runtime.protection for new trade
                             if self._order_manager:
@@ -707,8 +714,11 @@ class RecoveryManager:
                                 "recover_emergency_close_failed",
                                 f"\U0001f6a8\U0001f6a8 {sym}: ACIL KAPANIS BASARISIZ -- HEMEN MANUEL KONTROL ET: {reason}",
                             )
-                        with self._exit_locks.setdefault(sym, RLock()):
-                            if existing:
+                        if existing:
+                            trade_key = f"{sym}_{_trade_identity_key(existing)}"
+                            async with self._exit_locks.setdefault(
+                                trade_key, asyncio.Lock()
+                            ):
                                 existing["sl"] = sl
                                 existing["tp"] = tp
                                 existing["sl_order_id"] = ""
@@ -721,51 +731,6 @@ class RecoveryManager:
                                     self._order_manager._sync_runtime_protection(
                                         existing, "tp_current", tp_id, tp
                                     )
-                            else:
-                                new_trade = ActiveTrade(
-                                    symbol=sym,
-                                    entry_bar_index=0,
-                                    entry_price=entry,
-                                    entry_timestamp=int(time.time() * 1000),
-                                    sl=sl,
-                                    tp=tp,
-                                    qty=abs(amt),
-                                    side=direction,
-                                    status=STATUS_ACTIVE,
-                                    trigger_fvg=None,
-                                    initial_sl=sl,
-                                    initial_tp=tp,
-                                    trailing_count=0,
-                                    trail_count=0,
-                                    risk_pts=risk_pts,
-                                    is_recovered=True,
-                                    trail_mode="fvg",
-                                    tick_size=tick_size,
-                                    sl_order_id="",
-                                    tp_order_id=tp_id,
-                                )
-                                self._active_trades[sym] = new_trade
-                                if self._order_manager:
-                                    self._order_manager._sync_runtime_protection(
-                                        new_trade, "sl_current", "", sl
-                                    )
-                                    self._order_manager._sync_runtime_protection(
-                                        new_trade, "tp_current", tp_id, tp
-                                    )
-                        continue
-
-                    with self._exit_locks.setdefault(sym, RLock()):
-                        if existing:
-                            existing["sl_order_id"] = sl_id
-                            existing["tp_order_id"] = tp_id
-                            existing["tick_size"] = tick_size
-                            if self._order_manager:
-                                self._order_manager._sync_runtime_protection(
-                                    existing, "sl_current", sl_id, sl
-                                )
-                                self._order_manager._sync_runtime_protection(
-                                    existing, "tp_current", tp_id, tp
-                                )
                         else:
                             new_trade = ActiveTrade(
                                 symbol=sym,
@@ -786,9 +751,65 @@ class RecoveryManager:
                                 is_recovered=True,
                                 trail_mode="fvg",
                                 tick_size=tick_size,
-                                sl_order_id=sl_id,
+                                sl_order_id="",
                                 tp_order_id=tp_id,
                             )
+                            trade_key = f"{sym}_{_trade_identity_key(new_trade)}"
+                            async with self._exit_locks.setdefault(
+                                trade_key, asyncio.Lock()
+                            ):
+                                self._active_trades[sym] = new_trade
+                                if self._order_manager:
+                                    self._order_manager._sync_runtime_protection(
+                                        new_trade, "sl_current", "", sl
+                                    )
+                                    self._order_manager._sync_runtime_protection(
+                                        new_trade, "tp_current", tp_id, tp
+                                    )
+                        continue
+
+                    if existing:
+                        trade_key = f"{sym}_{_trade_identity_key(existing)}"
+                        async with self._exit_locks.setdefault(
+                            trade_key, asyncio.Lock()
+                        ):
+                            existing["sl_order_id"] = sl_id
+                            existing["tp_order_id"] = tp_id
+                            existing["tick_size"] = tick_size
+                            if self._order_manager:
+                                self._order_manager._sync_runtime_protection(
+                                    existing, "sl_current", sl_id, sl
+                                )
+                                self._order_manager._sync_runtime_protection(
+                                    existing, "tp_current", tp_id, tp
+                                )
+                    else:
+                        new_trade = ActiveTrade(
+                            symbol=sym,
+                            entry_bar_index=0,
+                            entry_price=entry,
+                            entry_timestamp=int(time.time() * 1000),
+                            sl=sl,
+                            tp=tp,
+                            qty=abs(amt),
+                            side=direction,
+                            status=STATUS_ACTIVE,
+                            trigger_fvg=None,
+                            initial_sl=sl,
+                            initial_tp=tp,
+                            trailing_count=0,
+                            trail_count=0,
+                            risk_pts=risk_pts,
+                            is_recovered=True,
+                            trail_mode="fvg",
+                            tick_size=tick_size,
+                            sl_order_id=sl_id,
+                            tp_order_id=tp_id,
+                        )
+                        trade_key = f"{sym}_{_trade_identity_key(new_trade)}"
+                        async with self._exit_locks.setdefault(
+                            trade_key, asyncio.Lock()
+                        ):
                             self._active_trades[sym] = new_trade
                             if self._order_manager:
                                 self._order_manager._sync_runtime_protection(
