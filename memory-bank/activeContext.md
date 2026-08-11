@@ -1,5 +1,22 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-12 — Sweep/FVG log tutarlılığı: RSM tek kaynak (RENDER/DYDX log farkı)
+
+- **Reis'in bulgusu:** Aynı durumdaki iki coin farklı log basıyor — RENDERUSDT: `SWEEP: DETECTED | BEARISH` + `FVG ARANIYOR...`; DYDXUSDT: `SWEEP: DETECTED | BULLISH` ama **FVG satırı hiç yok**. Reis "muhtemelen ikisini farklı modüller yazıyor" dedi — **haklıydı**.
+- **Kök neden (doğrulandı):** İki farklı state kaynağı + iki farklı okuma noktası:
+  - `display_sweep_status` (bot.py:438) → **`ss.sweep_confirmed`** — `check_sweep`'in latch'lediği SessionState bayrağı (session.py:391 sadece `not sweep_confirmed` iken çalışır; bir kez set edilince kilitlenir, her bar koşul tutsa bile tekrar set edilmez).
+  - `display_fvg_status` (bot.py:447) → **`rsm.state_name`** (RetraceStateMachine).
+  - **Sıra sorunu:** sweep display'i `progress_rsm`'den ÖNCE basılıyordu. RSM IDLE ise yeni sweep temiz tüketilir (on_sweep → SWEEP_DETECTED → ARANIYOR) — RENDER. Ama RSM zaten eski bir sweep'i işliyorsa (SWEEP_DETECTED), yeni latch'lenen sweep tüketilemez (on_sweep yalnızca IDLE'dan çalışır); progress eski sweep'i bu bar kapanışıyla invalidate eder → RSM IDLE → FVG satırı basılmaz — DYDX. Sweep satırı (latch) ile FVG satırı (RSM) aynı bar içinde çelişiyordu.
+- **Karar:** İki satır da **progress SONRASI RSM state'ini** okusun — tek kaynak.
+- **Ne yapıldı:**
+  - `bot.py`: `progress_rsm` çağrısı `display_sweep_status`'tan ÖNCEYE alındı; `display_sweep_status`'a `rsm` parametresi eklendi.
+  - `console_reporter.display_sweep_status(sym, ss, rsm, ...)`: artık `rsm.state_name`'e dayanıyor — RSM `SWEEP_DETECTED`/`TRIGGER_READY` → `SWEEP: DETECTED`; RSM `BIAS_LOCKED` → `SWEEP: TAMAMLANDI`; RSM IDLE + latch'li `sweep_confirmed` → `SWEEP: DETECTED` (dedup); RSM IDLE + bias → `TAMAMLANDI`; IDLE + NEUTRAL → `BEKLENIYOR`; DEAD → `DEAD`.
+- **Doğrulama:** test_console_reporter 10 (yeni: RSM SWEEP_DETECTED/TRIGGER_READY/BIAS_LOCKED dalları); core 70; hepsi geçti. test_bot captured stdout: IDLE'da FVG satırı yok + sweep BEKLENIYOR (tutarlı). test_bot/test_session hataları bilinen bayat fail seti.
+- **Commit:** bu commit — `fix: sweep/fvg log tutarli — RSM tek kaynak (RENDER/DYDX celiskisi) + progress oncesi display`.
+- **Sıradaki:** paper gözlem — aynı durumdaki coinler artık aynı log kombinasyonunu basmalı (SWEEP DETECTED ⇒ FVG ARANIYOR/HAZIR; IDLE ⇒ TAMAMLANDI/BEKLENIYOR + FVG satırı yok).
+
+---
+
 ## Son İşlem: 2026-08-12 — FVG geçerlilik parity + sweep/FVG log düzeltmeleri (baş mühendis direktifi)
 
 - **İnceleme bulgusu (Reis'in sorusu):** Backtest FVG'yi canlıyla aynı `detect_fvgs` ile bulur; geçersiz FVG'yi **far-side close** kuralıyla eler (`get_fvg_status` → INVALIDATED → `FVG_SWEPT`, analyzer_v5.py:135-155/514-519). "İğne atmış" FVG elenmez (o entry sinyali — ACTIVE_ENTRY_ZONE). Canlı da aynı kuralı tetikleme anında uygular (`body_broke_fvg`, retrace_state.py:304-306). **Gerçek tek fark:** canlı `bot.py:484` `fvg_is_alive` kontrolü `bars_15m[:-1]` ile **giriş (mevcut) barını hariç tutuyordu**; backtest `get_fvg_status(cur)` ile mevcut barı kontrol ediyor. Yani canlı, seçimden sonra giriş barının kendisi far-side kapanırsa kaçırıyordu.

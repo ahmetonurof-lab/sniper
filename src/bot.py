@@ -429,19 +429,21 @@ class PaperTrader:
         # ── Session/CBDR status display → ConsoleReporter (Faz 6.2) ──
         self.reporter.display_session_status(sym, session, hour, dt.minute, ss)
 
-        # ── Sweep status display → ConsoleReporter (Faz 6.2) ──
-        # Not: display_sweep_status artik entry kapisi degil; sadece durum gosterimi.
-        # Yeni on_sweep() yalnizca SignalEngine.progress_rsm icinde ss.sweep_confirmed
-        # kosulu ile baslatilir (backtest analyzer_v5.py:266 ile aynı). Mevcut
-        # SWEEP_DETECTED state'i ise her 15m barinda on_sweep_confirmed ile
-        # invalidation kontrolunden gecer (analyzer_v5.py:273-274 ile aynı).
-        self.reporter.display_sweep_status(sym, ss, hour, dt.minute)
-
         rsm = self.rsms[sym]
         engine = self.signal_engines[sym]
 
         # ── Blok 8: RSM state progression → SignalEngine (her bar) ──
+        # NOT: sweep display'den ONCE cagrilir. Sweep/FVG satirlari progress
+        # SONRASI RSM state'ini okur — boylece "SWEEP: DETECTED" ile FVG satiri
+        # asla celismez (DYDXUSDT logu: latched ss.sweep_confirmed vs RSM
+        # state'i farki kaynagi; sweep display'i latch'i progress oncesi
+        # okuyordu, FVG satiri progress sonrasi RSM'i).
         engine.progress_rsm(bars_15m, current, ss, atr_val, sym)
+
+        # ── Sweep status display → ConsoleReporter (Faz 6.2) ──
+        # RSM state'ine dayanir (ss.sweep_confirmed latch'ine degil) — FVG
+        # satiri ile tutarli olmasi icin.
+        self.reporter.display_sweep_status(sym, ss, rsm, hour, dt.minute)
 
         # ── Blok 9: FVG/Wick durum yazdırma → ConsoleReporter (Faz 6.2) ──
         self.reporter.display_fvg_status(

@@ -1,5 +1,14 @@
 # Progress — Sniper Bot
 
+## 2026-08-12 — Sweep/FVG log tutarlılığı: RSM tek kaynak (RENDER/DYDX log farkı)
+
+- **Bulgu (Reis):** RENDERUSDT (SWEEP DETECTED + FVG ARANIYOR) vs DYDXUSDT (SWEEP DETECTED, FVG satırı yok) — aynı durum, farklı loglar. Doğrulandı: iki farklı modül/state — sweep `ss.sweep_confirmed` (latch, check_sweep), FVG `rsm.state_name`. Sweep display'i progress'ten ÖNCE okuyordu; RSM eski sweep işlerken yeni latch tüketilemedi, progress eski sweep'i invalidate etti → RSM IDLE → FVG satırı yok, sweep satırı hâlâ DETECTED.
+- **Fix:** bot.py'de progress_rsm display'lerden önce; display_sweep_status'a rsm parametresi; RSM state'ine dayanan dallar (SWEEP_DETECTED/TRIGGER_READY → DETECTED; BIAS_LOCKED → TAMAMLANDI; IDLE+latch → DETECTED; IDLE+bias → TAMAMLANDI; IDLE+NEUTRAL → BEKLENIYOR; DEAD).
+- **Test:** test_console_reporter 10, core 70 geçti. test_bot captured stdout tutarlı.
+- **Commit:** `fix: sweep/fvg log tutarli — RSM tek kaynak (RENDER/DYDX celiskisi) + progress oncesi display`.
+
+---
+
 ## 2026-08-12 — FVG geçerlilik parity + sweep/FVG log düzeltmeleri
 
 - **Bulgu:** Backtest FVG'yi `detect_fvgs` ile bulur, geçersiz FVG'yi far-side close kuralıyla eler (`get_fvg_status` INVALIDATED → `FVG_SWEPT`); "iğne atmış" FVG elenmez (o entry). Canlı aynı kuralı tetikleme anında uygular (`body_broke_fvg`). Tek gerçek fark: canlı `bot.py:484 fvg_is_alive` `bars_15m[:-1]` ile giriş barını hariç tutuyordu; backtest `get_fvg_status(cur)` mevcut barı da kontrol ediyor.

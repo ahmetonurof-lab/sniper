@@ -127,19 +127,77 @@ class ConsoleReporter:
         return "DEFAULT"
 
     def display_sweep_status(
-        self, sym: str, ss: "SessionState", hour: int, minute: int
+        self,
+        sym: str,
+        ss: "SessionState",
+        rsm: "RetraceStateMachine",
+        hour: int,
+        minute: int,
     ) -> str:
-        """Sweep durum display. 'DETECTED' | 'BEKLENIYOR' | 'DEAD' döndürür.
+        """Sweep durum display. RSM state'ine dayanir (ss latch'ine degil).
+
+        RSM SWEEP_DETECTED/TRIGGER_READY -> "DETECTED"
+        RSM BIAS_LOCKED               -> "TAMAMLANDI" (bias kilitli, FVG bekleniyor)
+        RSM IDLE + ss.sweep_confirmed -> "DETECTED" (bekleyen latch'li sweep)
+        RSM IDLE + bias belirlenmis   -> "TAMAMLANDI" (sweep olmus, tüketilmis)
+        RSM IDLE + bias yok           -> "BEKLENIYOR"
+        range DEAD                    -> "DEAD"
 
         Returns:
-            "detected" — sweep bulundu, sinyal akışına devam
-            "waiting"  — sweep bekleniyor, return (retrade kaldirildi)
-            "dead"     — CBDR/ASIA dead, return
+            "detected" — sweep bulundu/isleniyor
+            "waiting"  — sweep bekleniyor
+            "dead"     — CBDR/ASIA dead
         """
         from session import DailyBias
 
         ts = f"{hour:02d}:{minute:02d}"
+        st = rsm.state_name
 
+        # RSM bir sweep'i isliyorsa / trigger hazirsa -> DETECTED
+        if st in ("SWEEP_DETECTED", "TRIGGER_READY"):
+            sd = rsm.direction or ss.sweep_direction or "bullish"
+            sl = rsm.sweep_level or ss.sweep_level or 0.0
+            si = "\U0001f7e9" if sd == "bullish" else "\U0001f7e5"
+            self.emit(
+                sym,
+                "st_swp",
+                f"\U0001f7e9 SWEEP: DETECTED | {si}{sd.upper()} | [{sl:.2f}]"
+                f" | CBDR: [{ss.cbdr_body_low:.4f}-{ss.cbdr_body_high:.4f}]",
+                force=True,
+            )
+            return "detected"
+
+        # RSM bias kilitli ise sweep zaten olmus — TAMAMLANDI, FVG bekleniyor
+        if st == "BIAS_LOCKED":
+            d = "LONG" if rsm.direction == "bullish" else "SHORT"
+            c = "\U0001f7e9" if d == "LONG" else "\U0001f7e5"
+            rt = ss.range_type if ss.range_type in ("CBDR", "ASIA") else "CBDR"
+            cbdr_pct = (
+                ((ss.cbdr_body_high - ss.cbdr_body_low) / ss.cbdr_body_low * 100)
+                if ss.cbdr_body_low > 0
+                else 0
+            )
+            self.emit(
+                sym,
+                "st_swp",
+                f"\u2705 SWEEP: TAMAMLANDI | {c}{d} bias | {rt}: "
+                f"[{ss.cbdr_body_low:.4f}-{ss.cbdr_body_high:.4f}]"
+                f" | (%{cbdr_pct:.2f}) | FVG bekleniyor | {ts}",
+                force=True,
+            )
+            return "detected"
+
+        # Sweep yok — CBDR/ASIA dead
+        if ss.range_type == "DEAD":
+            self.emit(
+                sym,
+                "st_swp",
+                f"\U0001f480 CBDR/ASIA DEAD \u2014 sweep aranm\u0131yor | {ts}",
+                force=True,
+            )
+            return "dead"
+
+        # RSM IDLE: bekleyen latch'li sweep (on_sweep dedup senaryosu)
         if ss.sweep_confirmed:
             sd = ss.sweep_direction or "bullish"
             sl = ss.sweep_level or 0.0
@@ -153,19 +211,8 @@ class ConsoleReporter:
             )
             return "detected"
 
-        # Sweep yok
-        if ss.range_type == "DEAD":
-            self.emit(
-                sym,
-                "st_swp",
-                f"\U0001f480 CBDR/ASIA DEAD \u2014 sweep aranm\u0131yor | {ts}",
-                force=True,
-            )
-            return "dead"
-
-        # Bias belirlenmis ise CBDR sweep zaten OLMUSTUR (BSL/SSL supuruldu).
-        # sweep_confirmed bayragi tüketildi (False) ama yeni sweep GEREKMEZ —
-        # bot bias yönündeki FVG'yi bekliyor. "BEKLENIYOR" yazmak yanlis.
+        # RSM IDLE: bias belirlenmis ise sweep zaten olmus/tüketilmis —
+        # "BEKLENIYOR" yanlis. Bot bias yönündeki FVG'yi bekliyor.
         if ss.daily_bias != DailyBias.NEUTRAL:
             d = "LONG" if ss.daily_bias == DailyBias.BULLISH else "SHORT"
             c = "\U0001f7e9" if d == "LONG" else "\U0001f7e5"
