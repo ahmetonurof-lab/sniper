@@ -1121,14 +1121,14 @@ class BinanceRESTClient:
                 )
                 return True
             err = r.error
-            if _check_unknown(err):
-                log.info(
-                    "🧹 İPTAL | %s orderId=%s zaten yok (ok)",
-                    symbol.ljust(12),
-                    order_id,
-                )
-                return True
-            # Algo endpoint'ini dene
+            # P-NEXUS (cift SL/TP kazasi): Koruma emirleri (SL/TP) her zaman
+            # /fapi/v1/algoOrder (algoType=CONDITIONAL) ile acilir. Regular
+            # endpoint (/fapi/v1/order) onlari GOREMEZ ve her zaman -2011
+            # dondurur. Eski kod -2011'i "zaten yok" sanip algo endpoint'ini
+            # denemeden cikiyordu -> eski emirler borsada kalirken yenileri
+            # aciliyor, ayni sembolde cift SL/TP birikiyordu (DOTUSDT kazasi).
+            # Once algo endpoint'ini dene; o da basarisizsa emir gercekten
+            # yoktur.
             params2 = f"symbol={symbol}&algoId={order_id}"
             r2 = await self.delete("/fapi/v1/algoOrder", params2)
             if r2.is_ok:
@@ -1137,6 +1137,13 @@ class BinanceRESTClient:
                     symbol.ljust(12),
                     order_id,
                     reason,
+                )
+                return True
+            if _check_unknown(err):
+                log.info(
+                    "🧹 İPTAL | %s orderId=%s zaten yok (ok)",
+                    symbol.ljust(12),
+                    order_id,
                 )
                 return True
             log.warning(

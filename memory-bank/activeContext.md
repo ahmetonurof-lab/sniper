@@ -1,5 +1,21 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-11 — ÇİFT SL/TP KAZASI KÖK NEDEN KAPANDI (DOTUSDT canlı kanıtı, is_algo fallback fix)
+
+- **Canlı kanıt (sunucu log analizi, `/root/sniper/output/paper_trade.log`):** DOTUSDT-518 short entry 05:15 (SL id=1000000163326245 @0.8206, TP id=1000000163326249 @0.7854 — ikisi de `/fapi/v1/algoOrder` ile açılmış **algo/conditional** emir). 09:45 trail güncellemesinde (`trail#1 sl=0.8051 tp=0.7699`) eski SL/TP iptali **"zaten yok (ok)"** döndü → eski emirler borsada KALDI, yenileri açıldı → **4 açık emir** (2×SL + 2×TP, kullanıcının Binance ekran görüntüsüyle birebir). Recovery `_dedupe_protection_orders` 13 kez (09:45:10→09:59:04) aynı ID'leri "fazla koruma emri" olarak iptal etmeyi denedi, hepsi aynı "zaten yok" bug'ına takıldı.
+- **Kök neden:** `cancel_order()` `is_algo=False` iken `DELETE /fapi/v1/order?orderId=...` çağırır. **Algo emirler regular endpoint'te GÖRÜNMEZ — her zaman -2011 "Unknown order" döner.** Eski kod -2011'i `_check_unknown` ile yakalayıp "zaten yok (ok)" diye TRUE dönüyor, `/fapi/v1/algoOrder` fallback'ini HİÇ denemiyordu → eski koruma emirleri hiç iptal edilmiyordu.
+- **Kanıt (aynı log):** 10:00:15 trade SL ile kapanınca `exit_close` yolu `is_algo=True` ile AYNI ID'leri **başarıyla** iptal etti ("İPTAL (algo) ... reason=exit_close") — algo endpoint çalışıyor, sorun çağrı tarafındaydı.
+- **Fix (3 parça):**
+  1. `src/bot_binance.py cancel_order` — non-algo dalda `_check_unknown` short-circuit'i KALDIRILDI; -2011 dahil her regular-endpoint hatasında ÖNCE `/fapi/v1/algoOrder` deneniyor, o da -2011 verirse ancak "zaten yok (ok)". DOGEUSDT fix'ini (f1a84b9) pratikte devre dışı bırakan nokta buydu.
+  2. `src/trading/order_manager.py:1178` `_replace_one` — eski koruma emri iptali artık `reason="trail_replace", is_algo=True` (trail-replace yolunun 09:45:02/03 iptalleri buradaydı).
+  3. `src/trading/recovery_manager.py:109` `_cancel_except` (dedupe) — `reason="dedupe_extra", is_algo=True`.
+- **Test:** `test_bot_binance.py` +2 (`test_cancel_regular_2011_falls_back_to_algo_endpoint` — regular -2011 + algo 200 → True + 2 çağrı; `test_cancel_algo_order_direct` — is_algo=True tek çağrı); `test_order_manager.py` `test_replace_one_cancels_flat_order_id_fallback` yeni imzaya güncellendi.
+- **Doğrulama:** test_bot_binance 85/85, order_manager 57/57, recovery_manager 16/16, exit_lifecycle 37/37. Pre-existing fail'ler değişmedi (parity: SOLUSDT/BNBUSDT/AVAXUSDT + `test_trail_syncs_state_and_orphan_recovery_preserve`).
+- **Commit:** `[bu commit]` — `fix: cift SL/TP kazasi — cancel_order is_algo fallback (DOTUSDT kanitli)`.
+- **Sıradaki:** Sıra 8-9 (backtest-sniper A6-01/A6-02). Deploy sunucuda `git pull --ff-only` + restart (canlıda şu an çift emir riski devam ediyordu).
+
+---
+
 ## Son İşlem: 2026-08-11 — A3-02, A3-03, A4-02, A4-03 YÜKSEK bulgular fix uygulandı + push edildi (baş mühendis direktifi: yuksek-bug-fix-direktifi-2026-08-11.md)
 
 - **A3-02 (active_trades thread-safety):** `recovery_manager.py`'de per-symbol `RLock` eklendi (`exit_locks` DI ile paylaşıldı). 3 `self._active_trades[sym] = ActiveTrade(...)` ve `existing[...]` mutation blokları `with self._exit_locks.setdefault(sym, RLock()):` içine alındı. `bot.py`'den `self._exit_locks` `RecoveryManager`'a geçirildi.

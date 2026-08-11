@@ -1175,7 +1175,12 @@ class OrderManager:
             return False
 
         if existing and existing.get("order_id"):
-            await self._rest.cancel_order(existing["order_id"], symbol)
+            await self._rest.cancel_order(
+                existing["order_id"],
+                symbol,
+                reason="trail_replace",
+                is_algo=True,
+            )
 
         exit_side = "SELL" if side == "long" else "BUY"
 

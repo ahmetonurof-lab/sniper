@@ -106,7 +106,9 @@ class RecoveryManager:
                 oid = str(extract_order_id(o) or "")
                 if oid and oid != keep_id:
                     try:
-                        await self._rest.cancel_order(oid, sym)
+                        await self._rest.cancel_order(
+                            oid, sym, reason="dedupe_extra", is_algo=True
+                        )
                         log.info("[RECOVER] %s fazla koruma emri iptal: %s", sym, oid)
                     except Exception as e:
                         log.warning(

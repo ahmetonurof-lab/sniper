@@ -1368,7 +1368,9 @@ class TestActiveTradeHistoryFields:
         )
 
         assert changed is True
-        mock_rest.cancel_order.assert_awaited_once_with("sl_old", "BTCUSDT")
+        mock_rest.cancel_order.assert_awaited_once_with(
+            "sl_old", "BTCUSDT", reason="trail_replace", is_algo=True
+        )
         assert trade["protection_orders"]["sl"]["order_id"] == "sl_new"
         assert trade["sl_order_id"] == "sl_new"
 

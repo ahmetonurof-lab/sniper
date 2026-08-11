@@ -659,6 +659,46 @@ class TestCancelOrder:
         result = asyncio.run(client.cancel_order("999", "BTCUSDT"))
         assert result is True  # "zaten yok" durumu başarılı sayılır
 
+    def test_cancel_regular_2011_falls_back_to_algo_endpoint(self, client):
+        """Regular endpoint -2011 döndürürse emir "yok" sayılıp ÇIKILMAMALI —
+        SL/TP emirleri /fapi/v1/algoOrder ile açıldığı için regular endpoint
+        onları her zaman -2011 ile reddeder. Algo endpoint denenmeli (DOTUSDT
+        çift SL/TP kazası kök nedeni)."""
+
+        calls = []
+
+        async def mock_delete(url, headers):
+            calls.append(url)
+            if "algoOrder" in url:
+                return _mock_response(200, {"algoId": "A999"})
+            return _mock_response(400, {"code": -2011, "msg": "Unknown order"})
+
+        _inject_session(client, delete_fn=mock_delete)
+
+        result = asyncio.run(client.cancel_order("A999", "DOTUSDT"))
+        assert result is True
+        assert len(calls) == 2
+        assert "/fapi/v1/order" in calls[0]
+        assert "/fapi/v1/algoOrder" in calls[1]
+
+    def test_cancel_algo_order_direct(self, client):
+        """is_algo=True → doğrudan algo endpoint'e gider, tek çağrı."""
+
+        calls = []
+
+        async def mock_delete(url, headers):
+            calls.append(url)
+            return _mock_response(200, {"algoId": "A999"})
+
+        _inject_session(client, delete_fn=mock_delete)
+
+        result = asyncio.run(
+            client.cancel_order("A999", "DOTUSDT", reason="test", is_algo=True)
+        )
+        assert result is True
+        assert len(calls) == 1
+        assert "/fapi/v1/algoOrder" in calls[0]
+
     def test_cancel_real_error_returns_false(self, client):
         async def mock_delete(url, headers):
             return _mock_response(500, {"msg": "Internal error"})
