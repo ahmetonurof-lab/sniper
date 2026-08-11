@@ -11,7 +11,7 @@
   3. `src/trading/recovery_manager.py:109` `_cancel_except` (dedupe) — `reason="dedupe_extra", is_algo=True`.
 - **Test:** `test_bot_binance.py` +2 (`test_cancel_regular_2011_falls_back_to_algo_endpoint` — regular -2011 + algo 200 → True + 2 çağrı; `test_cancel_algo_order_direct` — is_algo=True tek çağrı); `test_order_manager.py` `test_replace_one_cancels_flat_order_id_fallback` yeni imzaya güncellendi.
 - **Doğrulama:** test_bot_binance 85/85, order_manager 57/57, recovery_manager 16/16, exit_lifecycle 37/37. Pre-existing fail'ler değişmedi (parity: SOLUSDT/BNBUSDT/AVAXUSDT + `test_trail_syncs_state_and_orphan_recovery_preserve`).
-- **Commit:** `[bu commit]` — `fix: cift SL/TP kazasi — cancel_order is_algo fallback (DOTUSDT kanitli)`.
+- **Commit:** `b3f6761` — `fix: cift SL/TP kazasi — cancel_order is_algo fallback (DOTUSDT kanitli)`.
 - **Sıradaki:** Sıra 8-9 (backtest-sniper A6-01/A6-02). Deploy sunucuda `git pull --ff-only` + restart (canlıda şu an çift emir riski devam ediyordu).
 
 ---

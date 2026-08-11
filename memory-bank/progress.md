@@ -7,7 +7,7 @@
 - **Fix:** ① `bot_binance.py cancel_order` — -2011 dahil regular hatasında ÖNCE `/fapi/v1/algoOrder` deneniyor; ② `order_manager.py:1178` `_replace_one` `is_algo=True` + `reason="trail_replace"`; ③ `recovery_manager.py:109` dedupe `is_algo=True` + `reason="dedupe_extra"`.
 - **Test:** +2 (bot_binance: regular-2011→algo fallback, algo direct tek çağrı), 1 güncellendi (order_manager replace imzası). bot_binance 85/85, order_manager 57/57, recovery 16/16, exit_lifecycle 37/37.
 - **Pre-existing fail'ler değişmedi:** parity SOLUSDT/BNBUSDT/AVAXUSDT + `test_trail_syncs_state_and_orphan_recovery_preserve`.
-- **Commit:** `[bu commit]` — `fix: cift SL/TP kazasi — cancel_order is_algo fallback (DOTUSDT kanitli)`.
+- **Commit:** `b3f6761` — `fix: cift SL/TP kazasi — cancel_order is_algo fallback (DOTUSDT kanitli)`.
 - **Sıradaki:** Sıra 8-9 (backtest-sniper A6-01/A6-02). Deploy: sunucu `git pull --ff-only` + restart.
 
 ---
