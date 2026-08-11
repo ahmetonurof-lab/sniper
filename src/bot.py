@@ -481,8 +481,13 @@ class PaperTrader:
         if result.decision == "TRIGGER":
             tf = rsm.trigger_fvg
             if tf is not None:
+                # Backtest parity: analyzer_v5 get_fvg_status(cur) ile ayni —
+                # MEVCUT (kapali, giris) bar dahil tum barlar far-side kapanisi
+                # FVG'yi gecersiz kilarsa (FVG_SWEPT) entry iptal. bars_15m'in
+                # tamamini (mevcut bar dahil) gecir: giris barinin kapanisi FVG
+                # far-side kirarsa backtest gibi girme.
                 if not fvg_is_alive(
-                    tf.direction, tf.top, tf.bottom, tf.bar_index, bars_15m[:-1]
+                    tf.direction, tf.top, tf.bottom, tf.bar_index, bars_15m
                 ):
                     log.info(
                         "[FVG-FILTER] %s FVG bar=%d dokunulmus veya invalid — canli degil (iptal)",

@@ -93,7 +93,11 @@ class ConsoleReporter:
 
         # CBDR type emoji
         cbdr_type = self._cbdr_label(ss.cbdr_start, ss.cbdr_end)
-        cbdr_emojis = {"ASIA_RANGE": "\U0001f534", "DEFAULT": "\U0001f535", "REAL_CBDR": "\u26aa"}
+        cbdr_emojis = {
+            "ASIA_RANGE": "\U0001f534",
+            "DEFAULT": "\U0001f535",
+            "REAL_CBDR": "\u26aa",
+        }
         ses_emoji = cbdr_emojis.get(cbdr_type, "\U0001f7e9")
 
         ts = f"{hour:02d}:{minute:02d}"
@@ -159,13 +163,29 @@ class ConsoleReporter:
             )
             return "dead"
 
-        # Bekleniyor
-        bstr = ""
+        # Bias belirlenmis ise CBDR sweep zaten OLMUSTUR (BSL/SSL supuruldu).
+        # sweep_confirmed bayragi tüketildi (False) ama yeni sweep GEREKMEZ —
+        # bot bias yönündeki FVG'yi bekliyor. "BEKLENIYOR" yazmak yanlis.
         if ss.daily_bias != DailyBias.NEUTRAL:
             d = "LONG" if ss.daily_bias == DailyBias.BULLISH else "SHORT"
             c = "\U0001f7e9" if d == "LONG" else "\U0001f7e5"
-            bstr = f" | BIAS: {c}{d}"
+            rt = ss.range_type if ss.range_type in ("CBDR", "ASIA") else "CBDR"
+            cbdr_pct = (
+                ((ss.cbdr_body_high - ss.cbdr_body_low) / ss.cbdr_body_low * 100)
+                if ss.cbdr_body_low > 0
+                else 0
+            )
+            self.emit(
+                sym,
+                "st_swp",
+                f"\u2705 SWEEP: TAMAMLANDI | {c}{d} bias | {rt}: "
+                f"[{ss.cbdr_body_low:.4f}-{ss.cbdr_body_high:.4f}]"
+                f" | (%{cbdr_pct:.2f}) | FVG bekleniyor | {ts}",
+                force=True,
+            )
+            return "detected"
 
+        # Sweep yok — gercekten bekleniyor (bias henuz belirlenmedi)
         rt = ss.range_type if ss.range_type in ("CBDR", "ASIA") else "CBDR"
         cbdr_pct = (
             ((ss.cbdr_body_high - ss.cbdr_body_low) / ss.cbdr_body_low * 100)
@@ -175,7 +195,7 @@ class ConsoleReporter:
         self.emit(
             sym,
             "st_swp",
-            f"\U0001f7e8 SWEEP: BEKLENIYOR{bstr} | {rt}: [{ss.cbdr_body_low:.4f}-{ss.cbdr_body_high:.4f}]"
+            f"\U0001f7e8 SWEEP: BEKLENIYOR | {rt}: [{ss.cbdr_body_low:.4f}-{ss.cbdr_body_high:.4f}]"
             f" | (%{cbdr_pct:.2f}) | {ts}",
             force=True,
         )
@@ -210,7 +230,7 @@ class ConsoleReporter:
                 f" | \u27a1\ufe0f ENTRY BEKLENIYOR",
                 force=True,
             )
-        elif rsm.state_name == "SWEEP_DETECTED":
+        elif rsm.state_name in ("SWEEP_DETECTED", "BIAS_LOCKED"):
             self.emit(
                 sym,
                 "st_fvg",
@@ -219,10 +239,7 @@ class ConsoleReporter:
             )
             self.clear_state(sym, "st_wck")
         else:
-            self.emit(
-                sym,
-                "st_fvg",
-                f"\U0001f7e8 FVG_SCAN | MIN_SIZE: {min_fvg:.6f} | FVG BULUNAMADI",
-                force=True,
-            )
+            # IDLE — sweep henuz yok, FVG taramasi sirasi gelmedi.
+            # "FVG BULUNAMADI" basma (sweep olmadan tarama yapilmaz).
+            self.clear_state(sym, "st_fvg")
             self.clear_state(sym, "st_wck")

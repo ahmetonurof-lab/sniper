@@ -1,5 +1,16 @@
 # Progress — Sniper Bot
 
+## 2026-08-12 — FVG geçerlilik parity + sweep/FVG log düzeltmeleri
+
+- **Bulgu:** Backtest FVG'yi `detect_fvgs` ile bulur, geçersiz FVG'yi far-side close kuralıyla eler (`get_fvg_status` INVALIDATED → `FVG_SWEPT`); "iğne atmış" FVG elenmez (o entry). Canlı aynı kuralı tetikleme anında uygular (`body_broke_fvg`). Tek gerçek fark: canlı `bot.py:484 fvg_is_alive` `bars_15m[:-1]` ile giriş barını hariç tutuyordu; backtest `get_fvg_status(cur)` mevcut barı da kontrol ediyor.
+- **Fix A:** `bot.py:484` `fvg_is_alive` → `bars_15m` (giriş barı dahil) — giriş barı kapanışı FVG far-side kırarsa entry iptal + reset (backtest FVG_SWEPT paritesi).
+- **Fix B1:** `display_sweep_status` — `daily_bias != NEUTRAL` → `SWEEP: TAMAMLANDI + bias + FVG bekleniyor` (BEKLENIYOR değil); yalnızca NEUTRAL → BEKLENIYOR.
+- **Fix B2:** `display_fvg_status` — IDLE iken FVG_SCAN logu basmaz (satır temizlenir); SWEEP_DETECTED+BIAS_LOCKED → ARANIYOR; TRIGGER_READY → HAZIR.
+- **Test:** yeni `tests/test_console_reporter.py` (7). Affected suite 107/107 + 7/7; test_snapshot 24/24. Pre-existing fail seti değişmedi.
+- **Commit:** `fix: FVG gecerlilik parity (giris bari dahil) + sweep/FVG log duzeltmeleri (TAMAMLANDI / IDLE sessiz)`.
+
+---
+
 ## 2026-08-11 — SNAPSHOT FVG bandı renk düzeltmesi + smoke test
 
 - **İnceleme bulgusu:** Direktif FVG kutusu+CE'yi "çizilmiyorsa ekle" diyordu; ikisi de `chart_template.html`'de ZATEN vardı (rangedBand + rangedHLine(ce); marker 214-222). Grafik motoru **TradingView lightweight-charts JS (HTML)**, matplotlib değil. FVG verileri trade dict'inde (`fvg_top/fvg_bottom/fvg_direction/fvg_bar_index`) mevcut (models.ActiveTrade 526-529, _try_entry bot.py 1038-1041/1058-1061).

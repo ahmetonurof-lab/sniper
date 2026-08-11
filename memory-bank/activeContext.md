@@ -1,5 +1,20 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-12 — FVG geçerlilik parity + sweep/FVG log düzeltmeleri (baş mühendis direktifi)
+
+- **İnceleme bulgusu (Reis'in sorusu):** Backtest FVG'yi canlıyla aynı `detect_fvgs` ile bulur; geçersiz FVG'yi **far-side close** kuralıyla eler (`get_fvg_status` → INVALIDATED → `FVG_SWEPT`, analyzer_v5.py:135-155/514-519). "İğne atmış" FVG elenmez (o entry sinyali — ACTIVE_ENTRY_ZONE). Canlı da aynı kuralı tetikleme anında uygular (`body_broke_fvg`, retrace_state.py:304-306). **Gerçek tek fark:** canlı `bot.py:484` `fvg_is_alive` kontrolü `bars_15m[:-1]` ile **giriş (mevcut) barını hariç tutuyordu**; backtest `get_fvg_status(cur)` ile mevcut barı kontrol ediyor. Yani canlı, seçimden sonra giriş barının kendisi far-side kapanırsa kaçırıyordu.
+- **Karar:** Per-bar re-check zaten büyük ölçüde vardı (fvg_is_alive) — eksik tek nokta giriş barıydı. Kapatıldı + iki log düzeltmesi.
+- **Ne yapıldı:**
+  - **Fix A (parity):** `bot.py:484` `fvg_is_alive(...)` çağrısı `bars_15m[:-1]` → `bars_15m` (giriş barı dahil). Giriş barının kapanışı FVG far-side kırarsa (FVG_SWEPT) backtest gibi entry iptal + `rsm.reset()`. `_try_entry` `entry_price=current.close` olduğu için mevcut bar kontrolü anlamlı.
+  - **Fix B1 (sweep log):** `console_reporter.display_sweep_status` — `daily_bias != NEUTRAL` iken (sweep zaten olmuş, flag tüketilmiş) artık `🟢 SWEEP: TAMAMLANDI | 🟩LONG bias | ... FVG bekleniyor` yazar, **BEKLENIYOR değil**. Yalnızca `daily_bias == NEUTRAL` (gerçek bekleme) → `SWEEP: BEKLENIYOR`. (ARBUSDT'nin yanlış "BEKLENIYOR" logu düzeldi.)
+  - **Fix B2 (FVG_SCAN log):** `display_fvg_status` — RSM **IDLE** iken (henüz sweep yok) artık `FVG BULUNAMADI` basmıyor, satırı temizliyor (tarama sırası gelmemiş). `SWEEP_DETECTED` **ve** `BIAS_LOCKED` → `FVG ARANIYOR...`; `TRIGGER_READY` → `HAZIR`. (UNIUSDT'nin "sweep beklerken FVG telaşı" logu düzeldi.)
+- **Reis'in sorduğu:** "CBDR bias belirlenmiş modda sweep ne yazacak?" → **`SWEEP: TAMAMLANDI` + bias + FVG bekleniyor**. BEKLENIYOR yalnızca bias henüz yokken.
+- **Doğrulama:** test_signal_engine+retrace_state+snapshot+exit_lifecycle **107/107**; yeni test_console_reporter **7/7**; test_snapshot 24/24. Pre-existing fail seti DEĞİŞMEDİ (test_bot bayat 13, test_session TestCheckCbdrSweep 2). IDLE'da FVG_SCAN basılmadığı captured stdout'da doğrulandı.
+- **Commit:** bu commit — `fix: FVG gecerlilik parity (giris bari dahil) + sweep/FVG log duzeltmeleri (TAMAMLANDI / IDLE sessiz)`.
+- **Sıradaki:** canlı(paper) gözlem — bias belirlenmiş günlerde log "SWEEP: TAMAMLANDI" göstermeli; FVG taraması yalnızca sweep/FVG sırasında.
+
+---
+
 ## Son İşlem: 2026-08-11 — SNAPSHOT FVG bandı renk düzeltmesi + smoke test (baş mühendis direktifi)
 
 - **Kapsam netleştirme (Reis kararı — soruldu):** Direktif FVG kutusu + CE çizgisini "çizilmiyorsa ekle" diye koşullandırıyordu; incelemede bunların ZATEN `chart_template.html`'de çizildiği görüldü (satır 400-419: `rangedBand` + `rangedHLine(ce,...)`; marker 214-222). Grafik motoru matplotlib/mplfinance değil — **TradingView lightweight-charts JS (HTML template)**; `capture_snapshot` Python'da hiç çizim yapmıyor, payload (`fvgTop/fvgBottom/fvgDirection/fvgBarIndex`) ile template'e veriyor. Bu alanlar `models.ActiveTrade` (526-529) + `_try_entry` (bot.py 1038-1041, 1058-1061) tarafından set ediliyor.
