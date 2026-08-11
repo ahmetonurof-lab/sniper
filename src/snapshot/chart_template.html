@@ -402,8 +402,8 @@ function drawOverlays(retryCount) {
   const FVG_BAR_SPAN = 12; // kutunun entryBar'dan sonra kaç mum daha uzayacağı
   if (DATA.fvgTop != null && DATA.fvgBottom != null) {
     const isBull    = DATA.fvgDirection === 'bullish';
-    const fvgFill   = isBull ? 'rgba(63,185,80,0.22)' : 'rgba(255,166,87,0.22)';
-    const fvgStroke = isBull ? 'rgba(63,185,80,0.9)'  : 'rgba(255,166,87,0.9)';
+    const fvgFill   = isBull ? 'rgba(63,185,80,0.22)' : 'rgba(248,81,73,0.22)';
+    const fvgStroke = isBull ? 'rgba(63,185,80,0.9)'  : 'rgba(248,81,73,0.9)';
 
     const fvgFromBar = DATA.fvgBarIndex != null
       ? Math.max(0, DATA.fvgBarIndex - 1)
@@ -415,7 +415,7 @@ function drawOverlays(retryCount) {
     // CE — Consequent Encroachment (orta nokta), artık sadece kutu genişliğinde
     const ce = (DATA.fvgTop + DATA.fvgBottom) / 2;
     rangedHLine(ce, fvgFromBar, fvgToBar,
-      isBull ? 'rgba(63,185,80,0.4)' : 'rgba(255,166,87,0.4)', 1, [4,4]);
+      isBull ? 'rgba(63,185,80,0.4)' : 'rgba(248,81,73,0.4)', 1, [4,4]);
   }
 
   // ════════════════════════════════════════════════════════════════

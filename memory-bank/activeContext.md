@@ -1,5 +1,18 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-11 — SNAPSHOT FVG bandı renk düzeltmesi + smoke test (baş mühendis direktifi)
+
+- **Kapsam netleştirme (Reis kararı — soruldu):** Direktif FVG kutusu + CE çizgisini "çizilmiyorsa ekle" diye koşullandırıyordu; incelemede bunların ZATEN `chart_template.html`'de çizildiği görüldü (satır 400-419: `rangedBand` + `rangedHLine(ce,...)`; marker 214-222). Grafik motoru matplotlib/mplfinance değil — **TradingView lightweight-charts JS (HTML template)**; `capture_snapshot` Python'da hiç çizim yapmıyor, payload (`fvgTop/fvgBottom/fvgDirection/fvgBarIndex`) ile template'e veriyor. Bu alanlar `models.ActiveTrade` (526-529) + `_try_entry` (bot.py 1038-1041, 1058-1061) tarafından set ediliyor.
+- **Karar:** "Renk düzelt + smoke test" seçildi (kutu uzantısı entry+12'de kaldı, tüm-FVG kapsamı dışı — yalnızca tetikleyici FVG, direktif zaten öyle netleşmişti).
+- **Ne yapıldı:**
+  - `chart_template.html` — FVG band fill/stroke + CE çizgisi bearish **turuncu → kırmızı** `rgba(248,81,73,...)` (SL rengiyle tutarlı); bullish yeşil `rgba(63,185,80,...)` kaldı. FVG circle marker'ı (#ffa657) minimal kapsam gereği dokunulmadı.
+  - `tests/test_snapshot.py` +2 smoke test (`TestCaptureSnapshot`): `_fetch_ohlc` async mock'lanır, `_TEMPLATE_PATH`/`_SNAPSHOTS_DIR` tmp_path'e çekilir. (1) FVG alanları dolu trade → dosya üretir, payload'da fvgTop/fvgBottom var; (2) FVG verisi YOK (eski/recovered) → kutu atlanır, dosya yine üretilir (crash yok).
+- **Doğrulama:** `test_snapshot.py` **24/24** (22 eski + 2 yeni). `_resolve_fvg_bar_index` dokunulmadı → `TestResolveFvgBarIndex` etkilenmedi. Ruff check+format temiz.
+- **Commit:** bu commit — `fix: snapshot FVG band bearish renk kirmizi + capture_snapshot smoke testleri`.
+- **Sıradaki:** canlı(paper) gözlem; gerçek trade snapshot'ında bearish FVG kutusunun kırmızı render edildiği doğrulanacak (görsel).
+
+---
+
 ## Son İşlem: 2026-08-11 — BİAS KİLİT MODU (BIAS_LOCKED state) uygulandı (baş mühendis kararı, paper-trade)
 
 - **Karar notu (kayıt):** Bu değişikliği ben (Kilo) uyguladım. Reis'e şunların olabileceği konusunda açıkça uyardım:

@@ -1,7 +1,10 @@
+import asyncio
+
 from snapshot.snapshot import (
     _find_bar,
     _resolve_fvg_bar_index,
     _reverse_sort_key,
+    capture_snapshot,
     normalize_trade,
 )
 
@@ -335,3 +338,63 @@ class TestNormalizeTrade:
         trade = {"entry_price": 0.352, "sl": 0.3546, "tp": 0.3473}
         n = normalize_trade(trade)
         assert n.get("entry_timestamp", 0) == 0
+
+
+class TestCaptureSnapshot:
+    """capture_snapshot smoke testleri — ağ/şablon mock'lanır, dosya üretimi doğrulanır."""
+
+    @staticmethod
+    def _patch(tmp_path, monkeypatch, fake_fetch):
+        monkeypatch.setattr("snapshot.snapshot._fetch_ohlc", fake_fetch)
+        template = tmp_path / "chart_template.html"
+        template.write_text("__DATA__", encoding="utf-8")
+        out_dir = tmp_path / "charts"
+        monkeypatch.setattr("snapshot.snapshot._TEMPLATE_PATH", str(template))
+        monkeypatch.setattr("snapshot.snapshot._SNAPSHOTS_DIR", str(out_dir))
+        return out_dir
+
+    def test_fvg_fields_dont_crash_and_produce_file(self, tmp_path, monkeypatch):
+        """FVG alanları dolu trade — capture_snapshot hata vermeden dosya üretir."""
+
+        async def fake_fetch(sym, anchor_ms):
+            return _candles_16()
+
+        out_dir = self._patch(tmp_path, monkeypatch, fake_fetch)
+        trade = {
+            "entry_price": 110.0,
+            "sl": 108.0,
+            "tp": 115.0,
+            "side": "long",
+            "timestamp": 1000000,
+            "exit_timestamp": 2000000,
+            "fvg_top": 112.0,
+            "fvg_bottom": 109.0,
+            "fvg_direction": "bullish",
+            "fvg_bar_index": 3,
+        }
+        filename = asyncio.run(capture_snapshot("TESTUSDT", trade))
+        assert filename is not None
+        out = out_dir / filename
+        assert out.exists()
+        html = out.read_text(encoding="utf-8")
+        assert '"fvgTop": 112.0' in html
+        assert '"fvgBottom": 109.0' in html
+
+    def test_missing_fvg_fields_skip_box_without_crash(self, tmp_path, monkeypatch):
+        """Eski/recovered trade (FVG verisi yok) — kutu atlanır, dosya yine üretilir."""
+
+        async def fake_fetch(sym, anchor_ms):
+            return _candles_16()
+
+        out_dir = self._patch(tmp_path, monkeypatch, fake_fetch)
+        trade = {
+            "entry_price": 110.0,
+            "sl": 108.0,
+            "tp": 115.0,
+            "side": "long",
+            "timestamp": 1000000,
+            "exit_timestamp": 2000000,
+        }
+        filename = asyncio.run(capture_snapshot("TESTUSDT", trade))
+        assert filename is not None
+        assert (out_dir / filename).exists()

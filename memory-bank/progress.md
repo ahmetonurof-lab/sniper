@@ -1,5 +1,15 @@
 # Progress — Sniper Bot
 
+## 2026-08-11 — SNAPSHOT FVG bandı renk düzeltmesi + smoke test
+
+- **İnceleme bulgusu:** Direktif FVG kutusu+CE'yi "çizilmiyorsa ekle" diyordu; ikisi de `chart_template.html`'de ZATEN vardı (rangedBand + rangedHLine(ce); marker 214-222). Grafik motoru **TradingView lightweight-charts JS (HTML)**, matplotlib değil. FVG verileri trade dict'inde (`fvg_top/fvg_bottom/fvg_direction/fvg_bar_index`) mevcut (models.ActiveTrade 526-529, _try_entry bot.py 1038-1041/1058-1061).
+- **Karar (soruldu):** "Renk düzelt + smoke test". Kutu uzantısı entry+12 kaldı; tüm-FVG kapsamı dışı (yalnızca tetikleyici FVG).
+- **Değişiklik:** `chart_template.html` — FVG band fill/stroke + CE çizgisi bearish turuncu→**kırmızı** `rgba(248,81,73,...)` (SL ile aynı), bullish yeşil kaldı; marker dokunulmadı. `tests/test_snapshot.py` +2 `TestCaptureSnapshot` smoke (`_fetch_ohlc` async mock + tmp_path template/snapshot dir): FVG dolu trade dosya üretir & fvgTop/Bottom payload'da; FVG'siz trade kutu atlar ama dosya yine üretir.
+- **Doğrulama:** `test_snapshot.py` **24/24**; TestResolveFvgBarIndex etkilenmedi; Ruff check+format temiz.
+- **Commit:** `fix: snapshot FVG band bearish renk kirmizi + capture_snapshot smoke testleri`.
+
+---
+
 ## 2026-08-11 — BİAS KİLİT MODU (BIAS_LOCKED) — baş mühendis kararı (paper-trade)
 
 - **Karar notu:** Değişikliği ben (Kilo) uyguladım, commit bu kayıt. Reis'e uyarı yaptım: (1) ters piyasada kilit yönünde ardışık stop-loss zinciri riski, (2) canlı↔backtest parity kırılması (offline backtest bunu yansıtmaz), (3) same-FVG tekrarı için `_locked_from_bar` guard'ı şart, (4) exit yolunda davranış değişikliği (her kapanışta kilit korunur). Reis "telaş yok, paper-trade / canlıda backtest yapıyoruz" diyerek onayladı.
