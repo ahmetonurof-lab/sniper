@@ -520,9 +520,65 @@ class TestTryEntry:
             )
         )
         assert "BTCUSDT" not in bot.active_trades
-        assert rsm.state == RetraceState.IDLE
+        assert rsm.state == RetraceState.BIAS_LOCKED
+        assert rsm.bias_locked is True
+        assert rsm.locked_direction == "bullish"
         assert ss.sweep_confirmed is False
         mock_entry_mgr.validate_pre_entry_protection.assert_called_once()
+        mock_entry_mgr.return_value.execute_live_entry.assert_not_called()
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.EntryManager")
+    def test_risk_reject_locks_bias(
+        self, mock_entry_mgr, mock_cfg, mock_hub_cls, mock_rest_cls
+    ):
+        """Grup 2 (Sonnet direktifi): risk dogrulama hatasi o spesifik FVG'nin
+        geometrisiyle ilgili — reset yerine lock_bias() -> bias kilitli kalir,
+        sonraki taze FVG denenir."""
+        _setup_minimal_cfg(mock_cfg)
+        mock_entry_mgr.calculate_sl_tp.return_value = (100.0, 118.0)
+        mock_entry_mgr.calculate_qty.return_value = 1.0
+        mock_entry_mgr.validate_risk.return_value = (
+            False,
+            "risk_dist min_risk_dist altinda",
+        )
+        mock_entry_mgr.validate_pre_entry_protection.return_value = (True, "")
+
+        from bot import PaperTrader
+
+        bot = PaperTrader(symbols=["BTCUSDT"])
+        rsm = bot.rsms["BTCUSDT"]
+        ss = bot.states["BTCUSDT"]
+
+        rsm.state = RetraceState.TRIGGER_READY
+        rsm.direction = "bullish"
+        rsm.trigger_fvg = HTFFVG(
+            top=105.0, bottom=103.0, direction="bullish", bar_index=5
+        )
+        ss.london_high = 110.0
+        ss.london_low = 95.0
+
+        current = _bar(20, 108, 110, 106, 109)
+        asyncio.run(
+            bot._try_entry(
+                sym="BTCUSDT",
+                current=current,
+                atr_val=3.0,
+                rsm=rsm,
+                ss=ss,
+                sweep_dir="bullish",
+                sl_atr=1.5,
+                tp_rr=2.0,
+                fvg_buf=0.3,
+                min_fvg=0.5,
+            )
+        )
+        assert "BTCUSDT" not in bot.active_trades
+        assert rsm.state == RetraceState.BIAS_LOCKED
+        assert rsm.locked_direction == "bullish"
+        assert rsm._locked_from_bar == current.index
         mock_entry_mgr.return_value.execute_live_entry.assert_not_called()
 
     @patch("bot.BinanceRESTClient")

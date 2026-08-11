@@ -753,7 +753,7 @@ class PaperTrader:
         valid, err_msg = EntryManager.validate_risk(risk_dist, atr_val)
         if not valid:
             log.warning("[ENTRY] %s %s — trade atlandı", sym, err_msg)
-            rsm.reset()
+            rsm.lock_bias(bar_index=current.index)
             return
 
         # ── 1b. PRE-ENTRY SL-eps guard (tüm semboller, tek genel kural) ──
@@ -781,7 +781,7 @@ class PaperTrader:
                 side,
                 dir_msg,
             )
-            rsm.reset()
+            rsm.lock_bias(bar_index=current.index)
             ss.sweep_confirmed = False
             return
 
