@@ -432,7 +432,7 @@ class ExitLifecycleService:
                 mkt_side,
                 trade["qty"],
                 reduce_only=True,
-                client_order_id=f"exit-{sym.lower()}-{int(time.time()*1000)}",
+                client_order_id=f"exit-{sym.lower()}-{int(time.time() * 1000)}",
             )
         except Exception as e:
             log.warning("[EXIT] %s reduceOnly market HATASI (devam): %s", sym, e)
@@ -795,7 +795,13 @@ class ExitLifecycleService:
                 mark_sweep_consumed(rsm.direction, rsm.sweep_level)
             except Exception as e:
                 log.warning("[EXIT] %s sweep consumption mark hatasi: %s", sym, e)
-        rsm.reset()
+        # ── Bias Kilit Modu: exit sonrasi RSM'yi IDLE'a alma, kilitle ──
+        # Entry'de lock_bias() ile kilitlenen yon korunur (bar_index None -> mevcut
+        # _locked_from_bar guard'i aynen kalir). Boylece trade kapandiktan sonra
+        # ayni yonde taze bir FVG, yeni sweep beklemeden yeniden giris uretebilir.
+        # Eger rsm.direction None ise lock_bias() erken doner (IDLE'da kalir).
+        if rsm is not None:
+            rsm.lock_bias()
 
         # P0-1 idempotency log: benzersiz trade anahtari bazli
         _trade_id = _trade_identity_key(trade)

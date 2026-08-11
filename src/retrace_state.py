@@ -20,6 +20,7 @@ class RetraceState(Enum):
     IDLE = auto()
     SWEEP_DETECTED = auto()
     TRIGGER_READY = auto()
+    BIAS_LOCKED = auto()
 
 
 class HTFFVG:
@@ -66,10 +67,19 @@ class RetraceStateMachine:
         self.trigger_fvg: HTFFVG | None = None
         self._max_wick_ratio = max_wick_ratio
         self._pending_sweep_id: str | None = None
+        self._locked_from_bar: int | None = None
 
     @property
     def state_name(self) -> str:
         return self.state.name
+
+    @property
+    def bias_locked(self) -> bool:
+        return self.state == RetraceState.BIAS_LOCKED
+
+    @property
+    def locked_direction(self) -> Literal["bullish", "bearish"] | None:
+        return self.direction if self.state == RetraceState.BIAS_LOCKED else None
 
     def can_trigger(self) -> bool:
         return self.state == RetraceState.TRIGGER_READY
@@ -90,6 +100,94 @@ class RetraceStateMachine:
         self.sweep_level = None
         self.trigger_fvg = None
         self._pending_sweep_id = None
+        self._locked_from_bar = None
+
+    def lock_bias(self, bar_index: int | None = None):
+        """Bias kilit moduna gec: yon korunur, yeni sweep beklemeden FVG re-entry.
+
+        State -> BIAS_LOCKED. Sweep verileri temizlenir (kilit zaten bir sweep
+        sonrasi entry'den gelir). _locked_from_bar korunur: on_bias_fvg yalnizca
+        kilit noktasi SONRASI olusan FVG'lerin tekrar tetiklenmesine izin verir
+        (aynı FVG'nin donguye girerek tekrar tekrar entry yapmasi engellenir).
+        """
+        if self.direction is None:
+            return
+        self.state = RetraceState.BIAS_LOCKED
+        self.sweep_level = None
+        self.trigger_fvg = None
+        self._pending_sweep_id = None
+        if bar_index is not None:
+            self._locked_from_bar = bar_index
+        logger.info(
+            f"[RST] BIAS_LOCKED | dir={self.direction} from_bar={self._locked_from_bar}"
+        )
+
+    def on_bias_fvg(
+        self,
+        bars_15m: list[Bar],
+        current: Bar,
+        atr_val: float = 0.0,
+        symbol: str = "",
+    ):
+        """BIAS_LOCKED'de: kilit yonunde TAZE FVG'nin wick rejection'i -> TRIGGER_READY.
+
+        Sweep gerektirmez (bias kilidi zaten aktif). Ayni FVG'nin tekrar
+        tetiklenmesini onlemek icin FVG, kilit noktasi (_locked_from_bar) SONRASI
+        olusmus ve current bar'dan ONCE olmali.
+        """
+        if self.state != RetraceState.BIAS_LOCKED:
+            return
+
+        import config as _cfg
+
+        min_mult = _cfg.FVG_SIZE_MAP.get(symbol, _cfg.FVG_MIN_SIZE_ATR_MULT)
+        min_fvg_size = max(atr_val * min_mult, 1e-8)
+
+        htf_fvgs = scan_htf_fvgs(
+            bars_15m,
+            lookback=100,
+            min_fvg_size=min_fvg_size,
+            max_wick_ratio=self._max_wick_ratio,
+        )
+        if not htf_fvgs:
+            return
+
+        for fvg in reversed(htf_fvgs):
+            if fvg.direction != self.direction:
+                continue
+            if (
+                self._locked_from_bar is not None
+                and fvg.bar_index <= self._locked_from_bar
+            ):
+                # Kilit oncesi FVG — ayni sinyal tekrar tetiklenmesin
+                logger.info(
+                    f"[RST] BIAS_FVG reject=stale | dir={self.direction} "
+                    f"fvg_bar={fvg.bar_index} <= locked_from={self._locked_from_bar}"
+                )
+                continue
+            if fvg.bar_index >= current.index:
+                # Henuz olusmamis / current bar sonrasi
+                continue
+
+            if self.direction == "bullish":
+                wick_touched = current.low <= fvg.top
+                body_broke_down = current.close < fvg.bottom
+            else:
+                wick_touched = current.high >= fvg.bottom
+                body_broke_down = current.close > fvg.top
+
+            if not wick_touched:
+                continue
+            if body_broke_down:
+                continue
+
+            logger.info(
+                f"[RST] BIAS_FVG ACCEPT=trigger_ready | dir={self.direction} "
+                f"fvg=[{fvg.bottom:.2f}-{fvg.top:.2f}] bar={fvg.bar_index}"
+            )
+            self.state = RetraceState.TRIGGER_READY
+            self.trigger_fvg = fvg
+            return
 
     def on_sweep(
         self,

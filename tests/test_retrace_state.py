@@ -330,6 +330,103 @@ class TestCanTrigger:
         assert rsm.can_trigger() is True
 
 
+# ═══════════════════════════════════════════════════════════════════
+# Bias Kilit Modu (BIAS_LOCKED + on_bias_fvg)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestBiasLock:
+    def test_lock_bias_sets_bias_locked_and_keeps_direction(self):
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0)
+        rsm.state = RetraceState.TRIGGER_READY
+        rsm.trigger_fvg = HTFFVG(110.0, 105.0, "bullish", 5)
+
+        rsm.lock_bias(bar_index=5)
+        assert rsm.state == RetraceState.BIAS_LOCKED
+        assert rsm.bias_locked is True
+        assert rsm.locked_direction == "bullish"
+        # Sweep verileri temizlendi, yon + kilit noktasi korunuyor
+        assert rsm.sweep_level is None
+        assert rsm.trigger_fvg is None
+        assert rsm._locked_from_bar == 5
+
+    def test_lock_bias_noop_without_direction(self):
+        rsm = RetraceStateMachine()
+        rsm.lock_bias(bar_index=3)
+        assert rsm.state == RetraceState.IDLE
+        assert rsm.bias_locked is False
+
+    def test_lock_bias_preserves_guard_when_no_bar_index(self):
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bearish", 95.0)
+        rsm.lock_bias(bar_index=7)
+        # Exit-cagrisi gibi bar_index=None -> mevcut guard korunur
+        rsm.lock_bias()
+        assert rsm._locked_from_bar == 7
+
+    def test_reset_clears_bias_lock(self):
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0)
+        rsm.lock_bias(bar_index=5)
+        rsm.reset()
+        assert rsm.state == RetraceState.IDLE
+        assert rsm.bias_locked is False
+        assert rsm.locked_direction is None
+        assert rsm._locked_from_bar is None
+
+    def test_on_bias_fvg_ignored_when_not_locked(self):
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0)
+        bars = _make_bars_with_gap("bullish", gap_index=10, base=100.0)
+        current = _bar(20, 106, 108, 100, 107)
+        rsm.on_bias_fvg(bars, current)
+        assert rsm.state != RetraceState.TRIGGER_READY
+
+    def test_on_bias_fvg_requires_fresh_fvg_after_lock_point(self):
+        """Kilit oncesi FVG (from_bar=12) tekrar tetiklenmemeli."""
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0)
+        rsm.lock_bias(bar_index=12)
+        bars = _make_bars_with_gap("bullish", gap_index=10, base=100.0)  # FVG ~10
+        current = _bar(15, 108, 110, 100, 109)
+        rsm.on_bias_fvg(bars, current)
+        # locked_from_bar=12 >= fvg.bar_index(~10) -> stale, trigger yok
+        assert rsm.state == RetraceState.BIAS_LOCKED
+
+    def test_on_bias_fvg_triggers_on_fresh_fvg(self):
+        """Kilit sonrasi yeni FVG + wick rejection -> TRIGGER_READY."""
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0)
+        rsm.lock_bias(bar_index=0)
+        # Bar 2'de bullish FVG, current bar 4 wick ile dokunur
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 103, 105, 102, 104),
+            _bar(2, 106, 110, 105, 108),  # bullish FVG [103,105]
+            _bar(3, 108, 112, 107, 110),
+            _bar(4, 110, 113, 104, 112),  # current: wick 104 <= top 105, body 112 > 105
+        ]
+        rsm.on_bias_fvg(bars, bars[4])
+        assert rsm.state == RetraceState.TRIGGER_READY
+        assert rsm.trigger_fvg is not None
+        assert rsm.trigger_fvg.direction == "bullish"
+
+    def test_on_bias_fvg_body_break_does_not_trigger(self):
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0)
+        rsm.lock_bias(bar_index=0)
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 103, 105, 102, 104),
+            _bar(2, 106, 110, 105, 108),  # bullish FVG [103,105]
+            _bar(3, 108, 112, 107, 110),
+            _bar(4, 110, 113, 100, 101),  # body 101 < bottom 103 -> broke down
+        ]
+        rsm.on_bias_fvg(bars, bars[4])
+        assert rsm.state == RetraceState.BIAS_LOCKED
+
+
 class TestReset:
     def test_reset_clears_all_fields(self):
         rsm = RetraceStateMachine()

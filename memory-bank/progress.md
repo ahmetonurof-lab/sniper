@@ -1,5 +1,15 @@
 # Progress — Sniper Bot
 
+## 2026-08-11 — BİAS KİLİT MODU (BIAS_LOCKED) — baş mühendis kararı (paper-trade)
+
+- **Karar notu:** Değişikliği ben (Kilo) uyguladım, commit bu kayıt. Reis'e uyarı yaptım: (1) ters piyasada kilit yönünde ardışık stop-loss zinciri riski, (2) canlı↔backtest parity kırılması (offline backtest bunu yansıtmaz), (3) same-FVG tekrarı için `_locked_from_bar` guard'ı şart, (4) exit yolunda davranış değişikliği (her kapanışta kilit korunur). Reis "telaş yok, paper-trade / canlıda backtest yapıyoruz" diyerek onayladı.
+- **Implementasyon:** `retrace_state.py` `BIAS_LOCKED` + `lock_bias(bar_index=None)` + `on_bias_fvg()` (kilit yönünde taze FVG wick rejection → TRIGGER_READY, sweep gerektirmez) + `bias_locked`/`locked_direction`. `signal_engine.py progress_rsm` BIAS_LOCKED bloğu (bias ters/NEUTRAL → reset). `bot.py _try_entry` entry sonrası `lock_bias(current.index)`. `exit_lifecycle.py` kapanışta `lock_bias()`.
+- **Koruma:** `_locked_from_bar` — yalnızca kilit noktası SONRASI oluşan FVG tetikleyebilir; aynı FVG run-away re-entry engellenir. Bias flip/NEUTRAL (yeni CBDR günü) kiliti kaldırır.
+- **Test:** `tests/test_signal_engine.py` (yeni 6) + `tests/test_retrace_state.py` TestBiasLock (7) = retrace+signal **46/46**; exit_lifecycle **60/60**; backtest-sniper `test_cbdr_sweep.py` **4/4** (parity bozulmadı). Ruff temiz; pre-commit hook'ları geçti (mypy repo'da regex nedeniyle skip). Pre-existing fail seti değişmedi.
+- **Commit:** `feat: bias kilit modu (BIAS_LOCKED) - lock_bias/on_bias_fvg, entry+exit sonrasi kilit (paper-trade, canli-backtest)`.
+
+---
+
 ## 2026-08-11 — EXIT/RECOVERY LOCK KEY PARİTESİ FIX (b3f6761 üstüne, aynı deploy penceresi)
 
 - **Sorun:** `recovery_manager.py` mutation blokları `with self._exit_locks.setdefault(sym, RLock()):` (sym bazlı threading.RLock) kullanıyordu; exit_lifecycle/bot.py/user_data_handler ise `{sym}_{_trade_identity_key(trade)}` bazlı `asyncio.Lock` → iki taraf HİÇ çakışmıyordu (ikisi de "kilitli" görünüp farklı kilitlerdeydi). Recovery/exit eşzamanlı dokunuşunda koruma yarışı çözümsüz kalıyordu.

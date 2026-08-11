@@ -92,6 +92,24 @@ class SignalEngine:
             if self.rsm.state_name == "IDLE":
                 ss.sweep_confirmed = False
 
+        if self.rsm.state_name == "BIAS_LOCKED":
+            db = ss.daily_bias
+            locked_dir = self.rsm.direction
+            bias_conflict = (
+                (locked_dir == "bullish" and db == DailyBias.BEARISH)
+                or (locked_dir == "bearish" and db == DailyBias.BULLISH)
+                or db == DailyBias.NEUTRAL
+            )
+            if bias_conflict:
+                # Bias tersine dondu veya nötr (yeni CBDR gunu) -> kiliti kaldir,
+                # yeni sweep bekle. Kilit yonune ters duşen FVG'lerle
+                # surdurulebilir kayip zincirini onler.
+                self.rsm.reset()
+            else:
+                # Bias hala kilit yonunu destekliyor -> taze FVG wick rejection'i
+                # ile yeniden TRIGGER_READY olmaya calis (yeni sweep gerekmez).
+                self.rsm.on_bias_fvg(bars_15m, current, atr_val, symbol)
+
         ss.fvg_ready = self.rsm.state_name == "TRIGGER_READY"
 
     # ── Blok 10: Trigger check + filtreler ─────────────────────

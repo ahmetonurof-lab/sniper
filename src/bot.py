@@ -1063,7 +1063,11 @@ class PaperTrader:
         )
         mark_trade_opened(sym, entry_price)
         ss.trades_today += 1
-        rsm.reset()
+        # Bias Kilit Modu: entry sonrasi IDLE'a donme — yon korunur, kilitlenir.
+        # Kapanis (exit) sonrasi ayni yonde taze bir FVG, yeni sweep beklemeden
+        # tekrar TRIGGER_READY olabilir (on_bias_fvg). Bias tersine donerse /
+        # nötrlesirse signal_engine BIAS_LOCKED'i resetler.
+        rsm.lock_bias(bar_index=current.index)
 
     async def _exit_trade(self, sym, trade, exit_timestamp: int):
         """P0-1: tum exit'ler ExitLifecycleService.execute() uzerinden."""

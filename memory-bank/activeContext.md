@@ -1,5 +1,25 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-11 — BİAS KİLİT MODU (BIAS_LOCKED state) uygulandı (baş mühendis kararı, paper-trade)
+
+- **Karar notu (kayıt):** Bu değişikliği ben (Kilo) uyguladım. Reis'e şunların olabileceği konusunda açıkça uyardım:
+  1. **Overtrade / kayıp zinciri riski:** Kilit yönü tutulduğu sürece, ters fiyat hareketinde (ör. bullish kilit + düşen fiyat) aynı yönde FVG'lerle ARDIŞIK STOP-LOSS ticareti üretebilir → aynı gün içinde tek yönlü bir dizi kayıp (SEIUSDT senaryosu). Bias tersine dönmediği sürece durdurucu sadece yeni CBDR günü/bias flip'tir.
+  2. **Canlı↔backtest parity KIRILIR:** Bu özellik yalnızca canlı(paper) akışta (bot.py + signal_engine.py) çalışır. `backtest-sniper`'ın `analyzer_v5.py`'si entry sonrası `lock_bias()` çağırmaz → offline backtest bu davranışı YANSITMAZ, sonuçlar canlıdan sapar. (Reis: "canlıda backtest yapıyoruz" — bilinçli kabul.)
+  3. **Same-FVG tekrarı koruması:** `_locked_from_bar` guard'ı olmasaydı aynı FVG her bar tekrar tetiklenir, run-away re-entry oluşurdu. Guard eklendi (yalnızca kilit noktası SONRASI oluşan FVG).
+  4. **Exit yolunda davranış değişikliği:** `exit_lifecycle` artık her kapanışta `rsm.reset()` yerine `rsm.lock_bias()` çağırıyor → her trade kapanışından sonra yeniden giriş kapısı açık. Bu, recovery/manual-close yollarını da etkiler.
+- **Reis'in kararı:** Yukarıdaki uyarılara rağmen "telaş edilecek bir durum yok, paper-trade yapıyoruz / canlıda backtest yapıyoruz" diyerek uygulanmasını onayladı. Karar Reis'in, uygulama bana ait.
+- **Ne yapıldı (BIAS_LOCKED):**
+  - `retrace_state.py`: `RetraceState.BIAS_LOCKED` eklendi; `lock_bias(bar_index=None)` (yön korunur, sweep verileri temizlenir, `_locked_from_bar` set/korunur); `on_bias_fvg()` (kilit yönünde TAZE FVG wick rejection → TRIGGER_READY, sweep gerekmez); `bias_locked`/`locked_direction` property'leri.
+  - `signal_engine.py progress_rsm`: BIAS_LOCKED bloğu — bias tersine/NEUTRAL dönerse `reset()` (kiliti kaldır), aksi halde `on_bias_fvg()`.
+  - `bot.py _try_entry`: başarılı entry sonrası `rsm.reset()` → `rsm.lock_bias(bar_index=current.index)`.
+  - `exit_lifecycle.py`: kapanışta `rsm.reset()` → `rsm.lock_bias()` (guard korunur).
+  - Test: `tests/test_signal_engine.py` (yeni, 6 test), `tests/test_retrace_state.py` (+7 TestBiasLock).
+- **Doğrulama:** test_retrace_state + test_signal_engine **46/46**; test_exit_lifecycle **60/60**; backtest-sniper `test_cbdr_sweep.py` **4/4** (parity bozulmadı). Ruff check+format temiz; pre-commit tüm hook'lar geçti (mypy bu repo'da regex nedeniyle skip). Pre-existing fail seti değişmedi (test_session 2, test_bot/initial_protection/integration_lifecycle bayat testler).
+- **Commit:** bu commit — `feat: bias kilit modu (BIAS_LOCKED) - lock_bias/on_bias_fvg, entry+exit sonrasi kilit (paper-trade, canli-backtest)`.
+- **Sıradaki:** canlı(paper) gözlem; kilit yönünde ardışık kayıp görülürse `bias_conflict` guard'ına ek durdurucu (ör. günlük max loss) eklenmesi değerlendirilecek.
+
+---
+
 ## Son İşlem: 2026-08-11 — EXIT/RECOVERY LOCK KEY PARİTESİ FIX (baş mühendis direktifi, b3f6761 üstüne)
 
 - **Sorun:** `recovery_manager.py` 3 mutation bloğunda `with self._exit_locks.setdefault(sym, RLock()):` (sym bazlı threading.RLock) kullanıyordu. exit_lifecycle/bot.py/user_data_handler ise `{sym}_{_trade_identity_key(trade)}` bazlı `asyncio.Lock` kullanıyor → **iki taraf hiç çakışmıyordu** (her ikisi de "kilitli" görünüp gerçekte farklı kilitlerdeydi). Recovery ve exit aynı anda aynı trade'e dokunduğunda çift emir/koruma yarışı korunmuyordu.
