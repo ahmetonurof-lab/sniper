@@ -1,5 +1,17 @@
 # Progress — Sniper Bot
 
+## 2026-08-12 — trail_steps dedup bypass fix (LDOUSDT 100+ tekrar kayıt)
+
+- **Bulgu (Reis):** `_fvg_multihop` içinde `trail_steps.append()` dedup fingerprint kontrolünden ÖNCE çalışıyor. Aday reddedilse bile trail_steps'e kayıt ekleniyor; sonraki bar'da aynı FVG yeniden bulunup tekrar ekleniyor → 100+ birebir aynı kayıt.
+- **Kök neden:** `_on_1m_close → orchestrate_trail → compute_trail_candidate → _fvg_multihop` zincirinde `_fvg_multihop` trade state'ini mutate ediyor (`trail_steps.append` + `trail_count` local var). orchestrate_trail içindeki dedup/placeability/replace_protection kontrolleri sonra geliyor.
+- **Fix:** `_fvg_multihop`dan `trail_steps.append()` ve `log.info` kaldırıldı (2 yer: normal FVG hop + ATR-chase fallback). `orchestrate_trail` içinde candidate başarıyla uygulandığı noktada (`changed=True`) `trail_steps.append()` eklendi — `trade["trail_count"] += 1` ile aynı atomik blokta.
+- **Backtest paritesi:** `analyzer_v5.py` değişmedi — zaten `trail_steps` kullanmıyor, `trailing_count` sadece `upd=True` olduğunda artıyor. Canlı ile simetri korundu.
+- **Test:** `tests/test_trailing_manager.py` 70/70 geçti. Trail-integration testleri geçti.
+- **Commit:** `fix: trail_steps append'ini _fvg_multihop'dan orchestrate_trail'e taşı`.
+- **Push:** `https://github.com/ahmetonurof-lab/sniper.git` main branch (`05b12e5`).
+
+---
+
 ## 2026-08-12 — Sweep/FVG log tutarlılığı: RSM tek kaynak (RENDER/DYDX log farkı)
 
 - **Bulgu (Reis):** RENDERUSDT (SWEEP DETECTED + FVG ARANIYOR) vs DYDXUSDT (SWEEP DETECTED, FVG satırı yok) — aynı durum, farklı loglar. Doğrulandı: iki farklı modül/state — sweep `ss.sweep_confirmed` (latch, check_sweep), FVG `rsm.state_name`. Sweep display'i progress'ten ÖNCE okuyordu; RSM eski sweep işlerken yeni latch tüketilemedi, progress eski sweep'i invalidate etti → RSM IDLE → FVG satırı yok, sweep satırı hâlâ DETECTED.

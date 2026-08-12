@@ -24,6 +24,18 @@
 
 ---
 
+## Son İşlem: 2026-08-12 — trail_steps dedup bypass (LDOUSDT 100+ tekrar kayıt)
+
+- **Bulgu (Reis):** `_fvg_multihop` içinde `trail_steps.append()` dedup fingerprint kontrolünden ÖNCE çalışıyor. Aday reddedilse (placeability, ImmediateTriggerError, `changed=False`) bile trail_steps'e kayıt ekleniyor; sonraki bar'da aynı FVG yeniden bulunup tekrar ekleniyor. `last_invalid_fingerprint` sadece borsaya tekrar emir gönderilmesini engelliyor, trail_steps'e zaten yazılmış tekrarı engellemiyor.
+- **Kök neden:** `_on_1m_close → orchestrate_trail → compute_trail_candidate → _fvg_multihop` zincirinde `_fvg_multihop` trade state'ini mutate ediyor (`trail_steps.append` + `trail_count` local var). orchestrate_trail içindeki dedup/placeability/replace_protection kontrolleri sonra geliyor → reddedilen adaylar trail_steps'e kalıyor.
+- **Fix:** `_fvg_multihop`dan `trail_steps.append()` ve `log.info` kaldırıldı (2 yer: normal FVG hop + ATR-chase fallback). `orchestrate_trail` içinde candidate başarıyla uygulandığı noktada (`changed=True`, `replace_protection` başarılı) `trail_steps.append()` eklendi — `trade["trail_count"] += 1` ile aynı atomik blokta.
+- **Backtest paritesi:** `analyzer_v5.py` değişmedi — zaten `trail_steps` kullanmıyor, `trailing_count` sadece `upd=True` olduğunda artıyor. Canlı ile simetri korundu.
+- **Test:** `tests/test_trailing_manager.py` 70/70 geçti. Trail-integration testleri geçti.
+- **Commit:** `fix: trail_steps append'ini _fvg_multihop'dan orchestrate_trail'e taşı`.
+- **Push:** `https://github.com/ahmetonurof-lab/sniper.git` main branch.
+
+---
+
 ## Son İşlem: 2026-08-12 — FVG geçerlilik parity + sweep/FVG log düzeltmeleri (baş mühendis direktifi)
 
 - **İnceleme bulgusu (Reis'in sorusu):** Backtest FVG'yi canlıyla aynı `detect_fvgs` ile bulur; geçersiz FVG'yi **far-side close** kuralıyla eler (`get_fvg_status` → INVALIDATED → `FVG_SWEPT`, analyzer_v5.py:135-155/514-519). "İğne atmış" FVG elenmez (o entry sinyali — ACTIVE_ENTRY_ZONE). Canlı da aynı kuralı tetikleme anında uygular (`body_broke_fvg`, retrace_state.py:304-306). **Gerçek tek fark:** canlı `bot.py:484` `fvg_is_alive` kontrolü `bars_15m[:-1]` ile **giriş (mevcut) barını hariç tutuyordu**; backtest `get_fvg_status(cur)` ile mevcut barı kontrol ediyor. Yani canlı, seçimden sonra giriş barının kendisi far-side kapanırsa kaçırıyordu.
