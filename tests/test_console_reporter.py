@@ -87,28 +87,36 @@ class TestSweepStatus:
 
 
 class TestFvgStatus:
-    def test_idle_prints_no_fvg_line(self, capsys):
-        """IDLE (sweep yok) — FVG_SCAN logu basilmaz."""
+    def test_idle_no_bias_prints_no_fvg_line(self, capsys):
+        """IDLE + NEUTRAL bias (sweep yok) — FVG_SCAN logu basilmaz."""
         r = ConsoleReporter()
-        r.display_fvg_status("BTCUSDT", _RSM("IDLE"), 0.000330, 0.080)
+        r.display_fvg_status("BTCUSDT", _RSM("IDLE"), _SS(), 0.000330, 0.080)
         out = capsys.readouterr().out
         assert "FVG_SCAN" not in out
 
+    def test_idle_with_bias_prints_araniyor(self, capsys):
+        """IDLE + daily_bias belirlenmis (sweep tamamlandi) — FVG ARANIYOR."""
+        r = ConsoleReporter()
+        ss = _SS(sweep_confirmed=False, daily_bias=DailyBias.BULLISH)
+        r.display_fvg_status("BTCUSDT", _RSM("IDLE"), ss, 0.000330, 0.080)
+        out = capsys.readouterr().out
+        assert "FVG ARANIYOR" in out
+
     def test_sweep_detected_prints_araniyor(self, capsys):
         r = ConsoleReporter()
-        r.display_fvg_status("BTCUSDT", _RSM("SWEEP_DETECTED"), 0.000330, 0.080)
+        r.display_fvg_status("BTCUSDT", _RSM("SWEEP_DETECTED"), _SS(), 0.000330, 0.080)
         out = capsys.readouterr().out
         assert "FVG ARANIYOR" in out
 
     def test_bias_locked_prints_araniyor(self, capsys):
         r = ConsoleReporter()
-        r.display_fvg_status("BTCUSDT", _RSM("BIAS_LOCKED"), 0.000330, 0.080)
+        r.display_fvg_status("BTCUSDT", _RSM("BIAS_LOCKED"), _SS(), 0.000330, 0.080)
         out = capsys.readouterr().out
         assert "FVG ARANIYOR" in out
 
     def test_trigger_ready_prints_hazir(self, capsys):
         r = ConsoleReporter()
         rsm = _RSM("TRIGGER_READY", _FVG(0.0795, 0.0800))
-        r.display_fvg_status("BTCUSDT", rsm, 0.000330, 0.080)
+        r.display_fvg_status("BTCUSDT", rsm, _SS(), 0.000330, 0.080)
         out = capsys.readouterr().out
         assert "HAZIR" in out

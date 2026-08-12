@@ -1,6 +1,15 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: 2026-08-12 — FVG-sınır clearance kontrolü fill sonrası eksik (entry_manager parity)
+## Son İşlem: 2026-08-12 — sweep TAMAMLANDI sonrası FVG ARANIYOR logu eksik (console_reporter)
+
+- **Bulgu:** `display_sweep_status` "✅ SWEEP: TAMAMLANDI | ... | FVG bekleniyor" bastıktan sonra (sweep completed, `daily_bias != NEUTRAL`, RSM IDLE) `display_fvg_status` RSM IDLE olduğu için `else` dalına düşüyor, FVG satırını **temizliyor (clear_state)** — "FVG ARANIYOR..." asla basılmıyor. Yani sweep tamamlandı ama FVG aranıyor mesajı çıkmaz.
+- **Kök neden:** `display_fvg_status` `ss` (SessionState) parametresi almıyordu; IDLE branch sadece "sweep yok, tarama gelmedi" diye varsayıp temizliyordu. Sweep completed (daily_bias != NEUTRAL) + RSM IDLE durumunu ayırt edemiyordu.
+- **Fix:** `display_fvg_status` signature'a `ss: "SessionState"` eklendi. `else` (IDLE) dali: `ss.daily_bias == NEUTRAL` → clear (sweep yok); `else` → "FVG ARANIYOR..." emit. `bot.py:449` call site `display_fvg_status(sym, rsm, ss, ...)` güncellendi. `test_console_reporter.py` +1 test (`test_idle_with_bias_prints_araniyor`), mevcut testler `ss`/`_SS()` argumani ile güncellendi.
+- **Test:** 11/11 geçti. test_bot 13 fail TAMAMEN pre-existing (`mark_trade_closed`/`_stage`/`MIN_FVG_SIZE` — bayat). test_trailing_manager 70/70.
+- **Commit:** `fix: sweep tamamlandi sonrasi FVG ARANIYOR logu (idle+bias case)`.
+- **Push:** `https://github.com/ahmetonurof-lab/sniper.git` main branch.
+
+---
 
 - **Bulgu (Kilo):** `validate_protection_with_actual_fill` fill sonrası yalnızca `entry_price` vs SL/TP epsilon kontrolü yapıyor; `validate_pre_entry_protection`'un FVG-sınır clearance kontrolü (SL, `trigger_fvg.bottom/top`'a eps'ten yakın mı?) burada hiç tekrar çalışmıyor. Ancak `execute_live_entry` SL'yi `actual_fill` (gerçek fiyat) ile yeniden hesaplıyor — slippage/gap sonucu yeni SL FVG sınırına daha yakın düşebilir; bu tam olarak pre-entry guard'ın önlemek için var olduğu direction-fail senaryosu ama kontrol hiç çalışmadığı için geçiliyor.
 - **Fix:** `validate_protection_with_actual_fill`'e `trigger_fvg` parametresi eklendi; FVG clearance kontrolü (`_fvg_height_valid` + `tick_size > 0` guard'ı) `validate_pre_entry_protection`'ın aynı mantığıyla entry sonrasına da uygulandı. `execute_live_entry` (bot.py:767 çağrısı) `trigger_fvg=trigger_fvg` geçiriyor.

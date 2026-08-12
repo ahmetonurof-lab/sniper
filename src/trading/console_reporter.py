@@ -254,13 +254,16 @@ class ConsoleReporter:
         self,
         sym: str,
         rsm: "RetraceStateMachine",
+        ss: "SessionState",
         min_fvg: float,
         current_close: float,
     ) -> None:
         """FVG durum display: HAZIR / ARANIYOR / BULUNAMADI.
 
-        Yan etki: SWEEP_DETECTED ve diğer durumlarda st_wck temizlenir.
+        Yan etki: SWEEP_DETECTED ve diger durumlarda st_wck temizlenir.
         """
+        from session import DailyBias
+
         if rsm.state_name == "TRIGGER_READY":
             tfvg = rsm.trigger_fvg
             self.emit(
@@ -286,7 +289,19 @@ class ConsoleReporter:
             )
             self.clear_state(sym, "st_wck")
         else:
-            # IDLE — sweep henuz yok, FVG taramasi sirasi gelmedi.
-            # "FVG BULUNAMADI" basma (sweep olmadan tarama yapilmaz).
-            self.clear_state(sym, "st_fvg")
-            self.clear_state(sym, "st_wck")
+            # IDLE — sweep durumuna gore FVG tarama gostergesi.
+            if ss.daily_bias == DailyBias.NEUTRAL:
+                # Sweep henuez yok, FVG taramasi sirasi gelmedi.
+                # "FVG BULUNAMADI" basma (sweep olmadan tarama yapilmaz).
+                self.clear_state(sym, "st_fvg")
+                self.clear_state(sym, "st_wck")
+            else:
+                # Sweep tamamlandi (bias belirlendi), RSM IDLE —
+                # yeni sweep gelmez (latch/lock), FVG bekleniyor.
+                self.emit(
+                    sym,
+                    "st_fvg",
+                    f"\U0001f7e8 FVG_SCAN | MIN_SIZE: {min_fvg:.6f} | FVG ARANIYOR...",
+                    force=True,
+                )
+                self.clear_state(sym, "st_wck")

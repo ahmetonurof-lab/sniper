@@ -449,6 +449,7 @@ class PaperTrader:
         self.reporter.display_fvg_status(
             sym,
             rsm,
+            ss,
             max(atr_val * cfg.FVG_SIZE_MAP.get(sym, cfg.FVG_MIN_SIZE_ATR_MULT), 1e-8),
             current.close,
         )
