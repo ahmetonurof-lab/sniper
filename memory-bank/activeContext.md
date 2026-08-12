@@ -1,6 +1,13 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: 2026-08-12 — Sweep/FVG log tutarlılığı: RSM tek kaynak (RENDER/DYDX log farkı)
+## Son İşlem: 2026-08-12 — FVG-sınır clearance kontrolü fill sonrası eksik (entry_manager parity)
+
+- **Bulgu (Kilo):** `validate_protection_with_actual_fill` fill sonrası yalnızca `entry_price` vs SL/TP epsilon kontrolü yapıyor; `validate_pre_entry_protection`'un FVG-sınır clearance kontrolü (SL, `trigger_fvg.bottom/top`'a eps'ten yakın mı?) burada hiç tekrar çalışmıyor. Ancak `execute_live_entry` SL'yi `actual_fill` (gerçek fiyat) ile yeniden hesaplıyor — slippage/gap sonucu yeni SL FVG sınırına daha yakın düşebilir; bu tam olarak pre-entry guard'ın önlemek için var olduğu direction-fail senaryosu ama kontrol hiç çalışmadığı için geçiliyor.
+- **Fix:** `validate_protection_with_actual_fill`'e `trigger_fvg` parametresi eklendi; FVG clearance kontrolü (`_fvg_height_valid` + `tick_size > 0` guard'ı) `validate_pre_entry_protection`'ın aynı mantığıyla entry sonrasına da uygulandı. `execute_live_entry` (bot.py:767 çağrısı) `trigger_fvg=trigger_fvg` geçiriyor.
+- **Test:** `tests/test_entry_manager.py` `TestValidateProtectionWithActualFill` +5 (`test_long_fvg_clearance_rejected_after_actual_fill`, `test_short_fvg_clearance_rejected_after_actual_fill`, `test_long_fvg_clearance_passes_after_actual_fill`, `test_no_fvg_skip_clearance_check`, `test_fvg_invalid_skips_clearance_check`). 100/100 geçti.
+- **Commit:** `fix: validate FVG clearance on actual fill price, not just signal price`.
+
+---
 
 - **Reis'in bulgusu:** Aynı durumdaki iki coin farklı log basıyor — RENDERUSDT: `SWEEP: DETECTED | BEARISH` + `FVG ARANIYOR...`; DYDXUSDT: `SWEEP: DETECTED | BULLISH` ama **FVG satırı hiç yok**. Reis "muhtemelen ikisini farklı modüller yazıyor" dedi — **haklıydı**.
 - **Kök neden (doğrulandı):** İki farklı state kaynağı + iki farklı okuma noktası:
