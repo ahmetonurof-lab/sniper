@@ -324,6 +324,16 @@ class TrailingManager:
             trade["tp"] = float(candidate.tp)
 
         trade["trail_count"] = int(trade.get("trail_count", 0)) + 1
+        step = {
+            "sl": round(float(candidate.sl), 6),
+            "bar": candidate.source_bar_index,
+        }
+        if candidate.tp is not None:
+            step["tp"] = round(float(candidate.tp), 6)
+        if "trail_steps" in trade:
+            trade["trail_steps"].append(step)
+        else:
+            trade["trail_steps"] = [step]
         protection_state.pop("last_invalid_fingerprint", None)
         protection_state.pop("last_invalid_reason", None)
         protection_state["last_applied_fingerprint"] = candidate.fingerprint
@@ -645,7 +655,6 @@ class TrailingManager:
         current_tp = _norm(trade["tp"], "tp")
         risk_pts = abs(trade["initial_sl"] - trade["entry_price"])
         trail_count = trade.get("trailing_count", 0)
-        trail_steps = trade.get("trail_steps", [])
         updated = False
         last_bar_index: int | None = None
         atr_buffer_retrace = atr_val * cfg.ATR_TRAIL_MULT
@@ -717,21 +726,6 @@ class TrailingManager:
             if hopped:
                 last_bar_index = fvg.real_index
                 updated = True
-                trail_steps.append(
-                    {
-                        "sl": round(current_sl, 6),
-                        "tp": round(current_tp, 6),
-                        "fvg_top": round(fvg.top, 6),
-                        "fvg_bot": round(fvg.bottom, 6),
-                        "bar": fvg.real_index,
-                    }
-                )
-                log.info(
-                    "[TRAIL] trail#%d sl=%.6f tp=%.6f",
-                    trail_count,
-                    current_sl,
-                    current_tp,
-                )
 
         # ── D Modu fallback: FVG adayi yoksa 1.5R kilitli ATR-Chase ──
         if cfg.TRAIL_MODE in ("atr_chase", "activation") and not updated:
@@ -771,22 +765,6 @@ class TrailingManager:
                         updated = True
                 if updated:
                     last_bar_index = int(chunk[-1].index) if chunk else None
-                    trail_steps.append(
-                        {
-                            "sl": round(current_sl, 6),
-                            "tp": round(current_tp, 6),
-                            "fvg_top": None,
-                            "fvg_bot": None,
-                            "bar": last_bar_index,
-                            "reason": "atr_chase_fallback",
-                        }
-                    )
-                    log.info(
-                        "[TRAIL] ATR-chase fallback trail#%d sl=%.6f tp=%.6f",
-                        trail_count,
-                        current_sl,
-                        current_tp,
-                    )
 
         if updated:
             return TrailScanResult(
