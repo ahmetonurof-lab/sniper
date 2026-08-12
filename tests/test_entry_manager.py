@@ -705,6 +705,81 @@ class TestValidateProtectionWithActualFill:
         # sl=99.95 < 100.0 - 0.01 = 99.99 -> True
         assert ok is True
 
+    def test_long_fvg_clearance_rejected_after_actual_fill(self):
+        """Fill sonrası SL FVG.sınırına eps'ten yakın → reddedilir.
+        (BEFORE FIX: trigger_fvg parametresi yoktu, bu kontrol hiç yapılmıyordu.)"""
+        fvg = _mock_fvg(top=105.0, bottom=103.0, direction="bullish")
+        ok, msg = EntryManager.validate_protection_with_actual_fill(
+            "long",
+            actual_fill=104.0,
+            sl=102.99,
+            tp=106.0,
+            tick_size=Decimal("0.01"),
+            epsilon_ticks=2,
+            trigger_fvg=fvg,
+        )
+        # clearance = 103.0 - 102.99 = 0.01 < eps (0.02) → rejected
+        assert ok is False
+        assert "FVG.bottom" in msg
+
+    def test_short_fvg_clearance_rejected_after_actual_fill(self):
+        fvg = _mock_fvg(top=105.0, bottom=103.0, direction="bearish")
+        ok, msg = EntryManager.validate_protection_with_actual_fill(
+            "short",
+            actual_fill=104.0,
+            sl=105.01,
+            tp=102.0,
+            tick_size=Decimal("0.01"),
+            epsilon_ticks=2,
+            trigger_fvg=fvg,
+        )
+        # clearance = 105.01 - 105.0 = 0.01 < eps (0.02) → rejected
+        assert ok is False
+        assert "FVG.top" in msg
+
+    def test_long_fvg_clearance_passes_after_actual_fill(self):
+        """SL, FVG.sınırına eps'ten uzaksa geçer."""
+        fvg = _mock_fvg(top=105.0, bottom=103.0, direction="bullish")
+        ok, msg = EntryManager.validate_protection_with_actual_fill(
+            "long",
+            actual_fill=104.0,
+            sl=102.90,
+            tp=106.0,
+            tick_size=Decimal("0.01"),
+            epsilon_ticks=2,
+            trigger_fvg=fvg,
+        )
+        # clearance = 103.0 - 102.90 = 0.10 ≥ eps (0.02) → passes
+        assert ok is True
+        assert msg == ""
+
+    def test_no_fvg_skip_clearance_check(self):
+        """trigger_fvg None → sadece entry-eps kontrolü, FVG clearance atlanır."""
+        ok, _ = EntryManager.validate_protection_with_actual_fill(
+            "long",
+            actual_fill=100.0,
+            sl=99.8,
+            tp=102.0,
+            tick_size=Decimal("0.01"),
+            epsilon_ticks=2,
+            trigger_fvg=None,
+        )
+        assert ok is True
+
+    def test_fvg_invalid_skips_clearance_check(self):
+        """FVG height <= 0 → clearance kontrolü atlanır."""
+        fvg = _mock_fvg(top=103.0, bottom=103.0, direction="bullish")  # height=0
+        ok, _ = EntryManager.validate_protection_with_actual_fill(
+            "long",
+            actual_fill=100.0,
+            sl=99.0,
+            tp=105.0,
+            tick_size=Decimal("0.01"),
+            epsilon_ticks=2,
+            trigger_fvg=fvg,
+        )
+        assert ok is True
+
 
 # ═══════════════════════════════════════════════════════════════════
 # validate_pre_entry_protection tests (GENEL pre-entry guard)

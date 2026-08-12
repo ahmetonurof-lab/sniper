@@ -269,8 +269,12 @@ class EntryManager:
         tp: float,
         tick_size: Decimal,
         epsilon_ticks: int = 2,
+        trigger_fvg: "FVG | None" = None,
     ) -> tuple[bool, str]:
         epsilon = float(tick_size) * epsilon_ticks
+        if tick_size <= 0:
+            epsilon = 0.0
+
         if side == "long":
             if not (sl < actual_fill - epsilon):
                 return False, f"SL={sl} >= actual_fill={actual_fill} - eps={epsilon}"
@@ -281,6 +285,26 @@ class EntryManager:
                 return False, f"SL={sl} <= actual_fill={actual_fill} + eps={epsilon}"
             if not (tp < actual_fill - epsilon):
                 return False, f"TP={tp} >= actual_fill={actual_fill} - eps={epsilon}"
+
+        if (
+            trigger_fvg is not None
+            and EntryManager._fvg_height_valid(trigger_fvg)
+            and tick_size > 0
+        ):
+            if side == "long":
+                clearance = trigger_fvg.bottom - sl
+                if clearance < epsilon:
+                    return False, (
+                        f"SL={sl} FVG.bottom={trigger_fvg.bottom}'e "
+                        f"{clearance:.8f} mesafede (< eps={epsilon})"
+                    )
+            else:
+                clearance = sl - trigger_fvg.top
+                if clearance < epsilon:
+                    return False, (
+                        f"SL={sl} FVG.top={trigger_fvg.top}'a "
+                        f"{clearance:.8f} mesafede (< eps={epsilon})"
+                    )
         return True, ""
 
     @staticmethod
@@ -690,7 +714,13 @@ class EntryManager:
 
             # ── Yön kontrolü (actual fill fiyatiyla) ──
             valid_dir, dir_msg = EntryManager.validate_protection_with_actual_fill(
-                side, actual_price, sl, tp, tick_dec, epsilon_ticks=2
+                side,
+                actual_price,
+                sl,
+                tp,
+                tick_dec,
+                epsilon_ticks=2,
+                trigger_fvg=trigger_fvg,
             )
             if not valid_dir:
                 log.critical(
