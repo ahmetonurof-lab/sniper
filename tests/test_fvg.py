@@ -159,6 +159,32 @@ class TestUpdateFvgStates:
         assert fvg.filled is False
         assert fvg.invalidated is False
 
+    def test_bullish_filled_sticky_after_zone_exit(self):
+        fvg = FVG(direction="bullish", top=110, bottom=105, real_index=1)
+        bars = [
+            _bar(0, 100, 105, 95, 102),
+            _bar(1, 103, 108, 99, 104),
+            _bar(2, 104, 108, 102, 106),
+            _bar(3, 106, 112, 104, 107),
+            _bar(4, 107, 115, 105, 113),
+        ]
+        update_fvg_states([fvg], bars)
+        assert fvg.filled is True
+        assert fvg.invalidated is False
+
+    def test_bearish_filled_sticky_after_zone_exit(self):
+        fvg = FVG(direction="bearish", top=110, bottom=105, real_index=1)
+        bars = [
+            _bar(0, 100, 105, 95, 102),
+            _bar(1, 103, 108, 99, 104),
+            _bar(2, 105, 110, 103, 108),
+            _bar(3, 106, 112, 104, 108),
+            _bar(4, 103, 110, 98, 99),
+        ]
+        update_fvg_states([fvg], bars)
+        assert fvg.filled is True
+        assert fvg.invalidated is False
+
 
 class TestFindLatestUnfilledFvg:
     def test_returns_latest_by_index(self):

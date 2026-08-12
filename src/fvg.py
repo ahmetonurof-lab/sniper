@@ -146,8 +146,6 @@ def update_fvg_states(
                     break
                 elif fvg.bottom <= b.close <= fvg.top:
                     object.__setattr__(fvg, "filled", True)
-                else:
-                    object.__setattr__(fvg, "filled", False)
             else:
                 if b.close > fvg.top:
                     object.__setattr__(fvg, "invalidated", True)
@@ -155,8 +153,6 @@ def update_fvg_states(
                     break
                 elif fvg.bottom <= b.close <= fvg.top:
                     object.__setattr__(fvg, "filled", True)
-                else:
-                    object.__setattr__(fvg, "filled", False)
 
         if not fvg.invalidated:
             object.__setattr__(fvg, "_next_check_abs", last_abs)
