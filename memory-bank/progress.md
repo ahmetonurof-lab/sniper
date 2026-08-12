@@ -1,5 +1,15 @@
 # Progress — Sniper Bot
 
+## 2026-08-12 — sweep TAMAMLANDI sonrası FVG ARANIYOR logu eksik (console_reporter fix)
+
+- **Bulgu:** `display_sweep_status` "✅ SWEEP: TAMAMLANDI | ... | FVG bekleniyor" bastıktan sonra (sweep completed, `daily_bias != NEUTRAL`, RSM IDLE) `display_fvg_status` RSM IDLE olduğu için `else` dalına düşüyor, FVG satırını **temizliyor** — "FVG ARANIYOR..." asla basılmıyor.
+- **Kök neden:** `display_fvg_status` SessionState (`ss`) almıyordu; IDLE branch sadece "sweep yok" varsayımıyla `clear_state` çalıştırıyordu. Sweep completed + RSM IDLE durumunu ayırt edemiyordu.
+- **Fix:** `display_fvg_status` signature'a `ss: "SessionState"` parametresi eklendi; IDLE branch'da `ss.daily_bias == NEUTRAL` → clear, `else` → "FVG ARANIYOR..." emit. `bot.py:449` call site güncellendi (`ss` argümanı).
+- **Test:** `test_console_reporter.py` 11/11 (yeni: `test_idle_with_bias_prints_araniyor`); test_bot/test_trailing_manager pre-existing fail seti değişmedi.
+- **Commit:** `fix: sweep tamamlandi sonrasi FVG ARANIYOR logu (idle+bias case)`.
+
+---
+
 ## 2026-08-12 — trail_steps dedup bypass fix (LDOUSDT 100+ tekrar kayıt)
 
 - **Bulgu (Reis):** `_fvg_multihop` içinde `trail_steps.append()` dedup fingerprint kontrolünden ÖNCE çalışıyor. Aday reddedilse bile trail_steps'e kayıt ekleniyor; sonraki bar'da aynı FVG yeniden bulunup tekrar ekleniyor → 100+ birebir aynı kayıt.
