@@ -182,7 +182,7 @@ class ConsoleReporter:
                 "st_swp",
                 f"\u2705 SWEEP: TAMAMLANDI | {c}{d} bias | {rt}: "
                 f"[{ss.cbdr_body_low:.4f}-{ss.cbdr_body_high:.4f}]"
-                f" | (%{cbdr_pct:.2f}) | FVG bekleniyor | {ts}",
+                f" | (%{cbdr_pct:.2f}) | {ts}",
                 force=True,
             )
             return "detected"
@@ -227,7 +227,7 @@ class ConsoleReporter:
                 "st_swp",
                 f"\u2705 SWEEP: TAMAMLANDI | {c}{d} bias | {rt}: "
                 f"[{ss.cbdr_body_low:.4f}-{ss.cbdr_body_high:.4f}]"
-                f" | (%{cbdr_pct:.2f}) | FVG bekleniyor | {ts}",
+                f" | (%{cbdr_pct:.2f}) | {ts}",
                 force=True,
             )
             return "detected"

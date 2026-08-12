@@ -371,3 +371,5 @@
 - **Test:** 5 yeni regresyon (`TestValidateProtectionWithActualFill`): long/short FVG rejection, long pass, no-fvg skip, invalid-fvg skip. **100 passed / 0 failed**.
 - **Commit:** `fix: validate FVG clearance on actual fill price, not just signal price` (`fdead9b0` + merge `024ab3c`).
 - **Push:** `github.com/ahmetonurof-lab/sniper` `main` → `024ab3c`.
+
+| 2026-08-12 22:37 | **FVG display kozmetik bug düzeltmesi** | `console_reporter.py`'de BIAS_LOCKED ve IDLE+bias SWEEP satırlarından inline "FVG bekleniyor" kaldırıldı. FVG durumu artık sadece `display_fvg_status()` üzerinden ayrı satırda gösteriliyor. Fix: {{fix: remove duplicate inline FVG status from SWEEP display}}. |
