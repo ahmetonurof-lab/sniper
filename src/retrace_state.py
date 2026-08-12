@@ -15,6 +15,12 @@ from models import Bar
 
 logger = logging.getLogger("nexus.retrace_state")
 
+# Grup 3 (Sonnet direktifi): order/fill gibi operasyonel hatalarda sınırsız
+# lock_bias + tekrar dene dongusu riskine karsi — art arda bu kadar hata
+# sonrasi tam reset'e (IDLE) dusulur. stale-event backstop'taki _stale_n>=3
+# mantigiyla ayni pattern.
+MAX_CONSECUTIVE_OP_FAILS = 3
+
 
 class RetraceState(Enum):
     IDLE = auto()
@@ -68,6 +74,7 @@ class RetraceStateMachine:
         self._max_wick_ratio = max_wick_ratio
         self._pending_sweep_id: str | None = None
         self._locked_from_bar: int | None = None
+        self._fail_count: int = 0
 
     @property
     def state_name(self) -> str:
@@ -101,6 +108,7 @@ class RetraceStateMachine:
         self.trigger_fvg = None
         self._pending_sweep_id = None
         self._locked_from_bar = None
+        self._fail_count = 0
 
     def lock_bias(self, bar_index: int | None = None):
         """Bias kilit moduna gec: yon korunur, yeni sweep beklemeden FVG re-entry.
@@ -121,6 +129,32 @@ class RetraceStateMachine:
         logger.info(
             f"[RST] BIAS_LOCKED | dir={self.direction} from_bar={self._locked_from_bar}"
         )
+
+    def on_operational_fail(self, bar_index: int | None = None):
+        """Grup 3 (Sonnet direktifi): operasyonel hata (order/fill).
+
+        Hata FVG'den bagimsiz olabileceginden (API kesintisi, delist vb.)
+        sinirsiz lock_bias + tekrar dene dongusu riski var. Art arda
+        MAX_CONSECUTIVE_OP_FAILS hata -> tam reset (IDLE); aksi halde bias
+        kilitli kalir ve sonraki taze FVG denenir. Sayac reset() veya basarili
+        entry (clear_fail_streak) ile sifirlanir.
+        """
+        self._fail_count += 1
+        if self._fail_count >= MAX_CONSECUTIVE_OP_FAILS:
+            logger.warning(
+                f"[RST] {self._fail_count} ardışık operasyonel hata -> full reset (IDLE)"
+            )
+            self.reset()
+            return
+        logger.warning(
+            f"[RST] operasyonel hata #{self._fail_count}/{MAX_CONSECUTIVE_OP_FAILS} "
+            f"-> BIAS_LOCKED (yeni FVG bekleniyor)"
+        )
+        self.lock_bias(bar_index=bar_index)
+
+    def clear_fail_streak(self):
+        """Basarili entry sonrasi ardisik hata sayacini sifirla."""
+        self._fail_count = 0
 
     def on_bias_fvg(
         self,

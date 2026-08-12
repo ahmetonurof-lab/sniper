@@ -882,7 +882,7 @@ class PaperTrader:
                     log.warning(
                         "[ORDER] %s %s — trade kaydedilmedi", sym, exec_result.error
                     )
-                    rsm.reset()
+                    rsm.on_operational_fail(bar_index=current.index)
                     return
                 sl_id = exec_result.sl_order_id
                 tp_id = exec_result.tp_order_id
@@ -904,7 +904,7 @@ class PaperTrader:
                         qty,
                         actual_entry_price,
                     )
-                    rsm.reset()
+                    rsm.on_operational_fail(bar_index=current.index)
                     return
                 entry_price = actual_entry_price
                 if exec_result.entry_log_msg:
@@ -1070,6 +1070,7 @@ class PaperTrader:
         )
         mark_trade_opened(sym, entry_price)
         ss.trades_today += 1
+        rsm.clear_fail_streak()
         # Bias Kilit Modu: entry sonrasi IDLE'a donme — yon korunur, kilitlenir.
         # Kapanis (exit) sonrasi ayni yonde taze bir FVG, yeni sweep beklemeden
         # tekrar TRIGGER_READY olabilir (on_bias_fvg). Bias tersine donerse /

@@ -627,7 +627,8 @@ class TestTryEntry:
             )
         )
         assert "ENAUSDT" not in bot.active_trades
-        assert rsm.state == RetraceState.IDLE
+        assert rsm.state == RetraceState.BIAS_LOCKED
+        assert rsm.bias_locked is True
         assert ss.sweep_confirmed is False
         bot.entry_manager.execute_live_entry.assert_not_awaited()
 
@@ -675,7 +676,8 @@ class TestTryEntry:
             )
         )
         assert "SEIUSDT" not in bot.active_trades
-        assert rsm.state == RetraceState.IDLE
+        assert rsm.state == RetraceState.BIAS_LOCKED
+        assert rsm.bias_locked is True
         assert ss.sweep_confirmed is False
         bot.entry_manager.execute_live_entry.assert_not_awaited()
 
@@ -721,7 +723,8 @@ class TestTryEntry:
             )
         )
         assert "ENAUSDT" not in bot.active_trades
-        assert rsm.state == RetraceState.IDLE
+        assert rsm.state == RetraceState.BIAS_LOCKED
+        assert rsm.bias_locked is True
         assert ss.sweep_confirmed is False
         bot.entry_manager.execute_live_entry.assert_not_awaited()
 
@@ -778,8 +781,8 @@ class TestTryEntry:
         self, mock_entry_mgr, mock_cfg, mock_hub_cls, mock_rest_cls
     ):
         """BUG-1 regresyon: execute_live_entry success=False dondururse bot
-        trade KAYDETMEZ ve rsm.reset() cagirir (emergency close sonrasi
-        pozisyon kapali olsa bile)."""
+        trade KAYDETMEZ; Grup 3 (Sonnet direktifi) geregi ilk order hatasi
+        BIAS_LOCKED'a gecirir (ardisik 3 hata -> full reset)."""
         _setup_minimal_cfg(mock_cfg)
         mock_cfg.BINANCE_API_KEY = "test_key"
         mock_entry_mgr.calculate_sl_tp.return_value = (100.0, 118.0)
@@ -832,7 +835,224 @@ class TestTryEntry:
         )
         # Trade kaydedilmemeli (emergency close sonrasi pozisyon yok)
         assert "BTCUSDT" not in bot.active_trades
+        assert rsm.state == RetraceState.BIAS_LOCKED
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.EntryManager")
+    def test_active_trade_skip_full_reset(
+        self, mock_entry_mgr, mock_cfg, mock_hub_cls, mock_rest_cls
+    ):
+        """Grup 1 (Sonnet direktifi): aktif trade varken entry denenmez,
+        RSM full reset kalir (hesap/oturum seviyesi)."""
+        _setup_minimal_cfg(mock_cfg)
+
+        from bot import PaperTrader
+
+        bot = PaperTrader(symbols=["BTCUSDT"])
+        rsm = bot.rsms["BTCUSDT"]
+        ss = bot.states["BTCUSDT"]
+        bot.active_trades["BTCUSDT"] = SimpleNamespace(
+            side="long", entry_price=100.0, entry_time=0
+        )
+
+        rsm.state = RetraceState.TRIGGER_READY
+        rsm.direction = "bullish"
+        current = _bar(20, 108, 110, 106, 109)
+        asyncio.run(
+            bot._try_entry(
+                sym="BTCUSDT",
+                current=current,
+                atr_val=3.0,
+                rsm=rsm,
+                ss=ss,
+                sweep_dir="bullish",
+                sl_atr=1.5,
+                tp_rr=2.0,
+                fvg_buf=0.3,
+                min_fvg=0.5,
+            )
+        )
+        assert "BTCUSDT" in bot.active_trades  # mevcut trade korunur
+        assert rsm.state == RetraceState.IDLE  # full reset
+        mock_entry_mgr.return_value.execute_live_entry.assert_not_called()
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.EntryManager")
+    @patch("bot.get_cbdr_multiplier", return_value=0.0)
+    def test_toxic_zone_full_reset(
+        self, mock_mult, mock_entry_mgr, mock_cfg, mock_hub_cls, mock_rest_cls
+    ):
+        """Grup 1 (Sonnet direktifi): Zehirli Bolge (cbdr_mult=0.0) sistemik —
+        RSM full reset kalir."""
+        _setup_minimal_cfg(mock_cfg)
+        mock_entry_mgr.calculate_sl_tp.return_value = (100.0, 118.0)
+        mock_entry_mgr.calculate_qty.return_value = 1.0
+        mock_entry_mgr.validate_risk.return_value = (True, "")
+        mock_entry_mgr.validate_pre_entry_protection.return_value = (True, "")
+
+        from bot import PaperTrader
+
+        bot = PaperTrader(symbols=["BTCUSDT"])
+        rsm = bot.rsms["BTCUSDT"]
+        ss = bot.states["BTCUSDT"]
+        ss.cbdr_body_high = 110.0
+        ss.cbdr_body_low = 100.0
+
+        rsm.state = RetraceState.TRIGGER_READY
+        rsm.direction = "bullish"
+        current = _bar(20, 108, 110, 106, 109)
+        asyncio.run(
+            bot._try_entry(
+                sym="BTCUSDT",
+                current=current,
+                atr_val=3.0,
+                rsm=rsm,
+                ss=ss,
+                sweep_dir="bullish",
+                sl_atr=1.5,
+                tp_rr=2.0,
+                fvg_buf=0.3,
+                min_fvg=0.5,
+            )
+        )
+        assert "BTCUSDT" not in bot.active_trades
         assert rsm.state == RetraceState.IDLE
+        mock_entry_mgr.return_value.execute_live_entry.assert_not_called()
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.EntryManager")
+    def test_fill_error_locks_bias(
+        self, mock_entry_mgr, mock_cfg, mock_hub_cls, mock_rest_cls
+    ):
+        """Grup 3 (Sonnet direktifi): gecersiz fill (qty/price <= 0) ->
+        lock_bias, IDLE'a donus yok."""
+        _setup_minimal_cfg(mock_cfg)
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_entry_mgr.calculate_sl_tp.return_value = (100.0, 118.0)
+        mock_entry_mgr.calculate_qty.return_value = 1.0
+        mock_entry_mgr.validate_risk.return_value = (True, "")
+        mock_entry_mgr.validate_pre_entry_protection.return_value = (True, "")
+        exec_result = AsyncMock()
+        exec_result.return_value = SimpleNamespace(
+            success=True,
+            error="",
+            sl_order_id="sl1",
+            tp_order_id="tp1",
+            qty=0.0,
+            actual_qty=0.0,
+            actual_price=0.0,
+            order_id="o1",
+            entry_log_msg="",
+        )
+        mock_entry_mgr.return_value.execute_live_entry = exec_result
+
+        from bot import PaperTrader
+
+        bot = PaperTrader(symbols=["BTCUSDT"])
+        bot._live = True
+        rsm = bot.rsms["BTCUSDT"]
+        ss = bot.states["BTCUSDT"]
+
+        rsm.state = RetraceState.TRIGGER_READY
+        rsm.direction = "bullish"
+        rsm.trigger_fvg = HTFFVG(
+            top=105.0, bottom=103.0, direction="bullish", bar_index=5
+        )
+        ss.london_high = 110.0
+        ss.london_low = 95.0
+
+        current = _bar(20, 108, 110, 106, 109)
+        asyncio.run(
+            bot._try_entry(
+                sym="BTCUSDT",
+                current=current,
+                atr_val=3.0,
+                rsm=rsm,
+                ss=ss,
+                sweep_dir="bullish",
+                sl_atr=1.5,
+                tp_rr=2.0,
+                fvg_buf=0.3,
+                min_fvg=0.5,
+            )
+        )
+        assert "BTCUSDT" not in bot.active_trades
+        assert rsm.state == RetraceState.BIAS_LOCKED
+        assert rsm._fail_count == 1
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    @patch("bot.EntryManager")
+    def test_three_consecutive_order_fails_full_reset(
+        self, mock_entry_mgr, mock_cfg, mock_hub_cls, mock_rest_cls
+    ):
+        """Grup 3 sarti (Sonnet direktifi): ayni sembolde art arda 3 order
+        hatasi -> lock_bias yerine full reset (IDLE) — sinirsiz tekrar dene
+        dongusu riski kapanir."""
+        _setup_minimal_cfg(mock_cfg)
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        mock_entry_mgr.calculate_sl_tp.return_value = (100.0, 118.0)
+        mock_entry_mgr.calculate_qty.return_value = 1.0
+        mock_entry_mgr.validate_risk.return_value = (True, "")
+        mock_entry_mgr.validate_pre_entry_protection.return_value = (True, "")
+        exec_result = AsyncMock()
+        exec_result.return_value = SimpleNamespace(
+            success=False,
+            error="API kesintisi",
+            sl_order_id="",
+            tp_order_id="",
+            qty=0.0,
+            actual_qty=0.0,
+            actual_price=0.0,
+            order_id="",
+            entry_log_msg="",
+        )
+        mock_entry_mgr.return_value.execute_live_entry = exec_result
+
+        from bot import PaperTrader
+
+        bot = PaperTrader(symbols=["BTCUSDT"])
+        bot._live = True
+        rsm = bot.rsms["BTCUSDT"]
+        ss = bot.states["BTCUSDT"]
+
+        rsm.state = RetraceState.TRIGGER_READY
+        rsm.direction = "bullish"
+        ss.london_high = 110.0
+        ss.london_low = 95.0
+
+        states = []
+        for idx in (20, 21, 22):
+            current = _bar(idx, 108, 110, 106, 109)
+            asyncio.run(
+                bot._try_entry(
+                    sym="BTCUSDT",
+                    current=current,
+                    atr_val=3.0,
+                    rsm=rsm,
+                    ss=ss,
+                    sweep_dir="bullish",
+                    sl_atr=1.5,
+                    tp_rr=2.0,
+                    fvg_buf=0.3,
+                    min_fvg=0.5,
+                )
+            )
+            states.append(rsm.state)
+
+        assert states[0] == RetraceState.BIAS_LOCKED  # 1. hata -> lock
+        assert states[1] == RetraceState.BIAS_LOCKED  # 2. hata -> lock
+        assert states[2] == RetraceState.IDLE  # 3. hata -> full reset
+        assert "BTCUSDT" not in bot.active_trades
+        assert rsm._fail_count == 0
+        assert mock_entry_mgr.return_value.execute_live_entry.call_count == 3
 
 
 # ═══════════════════════════════════════════════════════════════════

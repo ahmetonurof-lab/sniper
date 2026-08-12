@@ -455,6 +455,57 @@ class TestReset:
         assert rsm.direction is None
 
 
+class TestOperationalFail:
+    """Grup 3 (Sonnet direktifi): order/fill hatalarinda ardisik sayac —
+    3. hatada full reset (IDLE), aksi halde lock_bias."""
+
+    def _trigger_ready(self):
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0)
+        rsm.state = RetraceState.TRIGGER_READY
+        return rsm
+
+    def test_first_fail_locks_bias(self):
+        rsm = self._trigger_ready()
+        rsm.on_operational_fail(bar_index=10)
+        assert rsm.state == RetraceState.BIAS_LOCKED
+        assert rsm.direction == "bullish"
+        assert rsm._fail_count == 1
+        assert rsm._locked_from_bar == 10
+
+    def test_second_fail_still_locks_bias(self):
+        rsm = self._trigger_ready()
+        rsm.on_operational_fail(bar_index=10)
+        rsm.on_operational_fail(bar_index=11)
+        assert rsm.state == RetraceState.BIAS_LOCKED
+        assert rsm._fail_count == 2
+
+    def test_third_consecutive_fail_full_reset(self):
+        """Grup 3 sarti: art arda 3 order/fill hatasi -> full reset (IDLE)."""
+        rsm = self._trigger_ready()
+        rsm.on_operational_fail(bar_index=10)
+        rsm.on_operational_fail(bar_index=11)
+        rsm.on_operational_fail(bar_index=12)
+        assert rsm.state == RetraceState.IDLE
+        assert rsm.direction is None
+        assert rsm._fail_count == 0
+
+    def test_reset_clears_fail_streak(self):
+        rsm = self._trigger_ready()
+        rsm.on_operational_fail(bar_index=10)
+        rsm.reset()
+        assert rsm._fail_count == 0
+
+    def test_clear_fail_streak_after_successful_entry(self):
+        rsm = self._trigger_ready()
+        rsm.on_operational_fail(bar_index=10)
+        rsm.clear_fail_streak()
+        assert rsm._fail_count == 0
+        rsm.on_operational_fail(bar_index=11)
+        assert rsm._fail_count == 1
+        assert rsm.state == RetraceState.BIAS_LOCKED
+
+
 class TestMarkSweepUsed:
     @patch("state_manager.mark_sweep_used")
     def test_mark_sweep_used_called_on_trigger(self, mock_mark):
