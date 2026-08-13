@@ -84,8 +84,8 @@ class ConsoleReporter:
         self.emit(
             sym,
             "st_ses",
-            f"{side_icon} POZISYON AKTIF | {trade['side'].upper()} @ {trade['entry_price']:.2f}"
-            f" | SL: {trade['sl']:.2f} | TP: {trade['tp']:.2f}"
+            f"{side_icon} POZISYON AKTIF | {trade['side'].upper()} @ {_fmt_price(trade['entry_price'])}"
+            f" | SL: {_fmt_price(trade['sl'])} | TP: {_fmt_price(trade['tp'])}"
             f" | TRAIL: {trade.get('trailing_count', 0)}x | {ts} UTC",
             force=True,
         )

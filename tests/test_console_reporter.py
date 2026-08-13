@@ -114,6 +114,27 @@ class TestFvgStatus:
         out = capsys.readouterr().out
         assert "FVG ARANIYOR" in out
 
+    def test_active_position_prints_full_precision(self, capsys):
+        """POZISYON AKTIF satirinda entry/sl/tp 2 ondaliga yuvarlanmamali."""
+        r = ConsoleReporter()
+        trade = {
+            "side": "short",
+            "entry_price": 0.0854,
+            "sl": 0.0858,
+            "tp": 0.0846,
+            "trailing_count": 0,
+            "fvg_top": 0.0854,
+            "fvg_bottom": 0.0853,
+            "fvg_direction": "bearish",
+        }
+        r.display_active_position("ENAUSDT", trade, 19, 45)
+        out = capsys.readouterr().out
+        assert "SHORT @ 0.0854" in out
+        assert "SL: 0.0858" in out
+        assert "TP: 0.0846" in out
+        assert "FVG: bearish 0.0854-0.0853" in out
+        assert "0.09" not in out
+
     def test_trigger_ready_prints_hazir(self, capsys):
         r = ConsoleReporter()
         rsm = _RSM("TRIGGER_READY", _FVG(0.0795, 0.0800))
