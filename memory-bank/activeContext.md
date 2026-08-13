@@ -1,5 +1,17 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-14 — BULGU-16 devamı: trigger_fvg HTFFVG serialize hatası düzeltildi
+
+- **Tetik:** ONDOUSDT kapanışında canlı log `[TRADES] ONDOUSDT jsonl yazma hatasi: Object of type HTFFVG is not JSON serializable` (01:25:40) — BULGU-16 fix'i (`trail_level_extractor` pop) **eksikti**: `trigger_fvg` (models.py:525) plain class `retrace_state.HTFFVG` taşıyor, dataclass olmadığı için `asdict` onu dict'e çeviremiyor → trade yine diske yazılamıyordu.
+- **Fix (exit_lifecycle.py):** Modül seviyesi `_json_default(o)` eklendi — `__dict__`'si olan objeleri (HTFFVG vb.) flatten edip dict yapar; primitives olduğu gibi döner; liste/dict recursive. `json.dumps(..., default=_json_default)`. Böylece gelecekteki dataclass-dışı objeler de kırılmadan yazılır. `record.pop("trail_level_extractor", None)` duruyor.
+- **Önemli pitfall:** `_json_default` içinde recursion primitives'e de gidebilir — primitives kontrolü (`str/int/float/bool/None → return o`) EN BAŞTA olmalı; yoksa float bile "not JSON serializable" raise eder (ilk denemede yakalandı, test ile).
+- **Test:** Yeni `test_closed_trade_with_plain_object_writes_jsonl` — plain class trigger_fvg'li trade diske yazılıyor, `rec["trigger_fvg"]["direction"]` doğrulanıyor. test_exit_lifecycle **50/50** (49 + 1 yeni). Gerçek HTFFVG ile smoke test geçti (`{"tf": {"top": 0.3347, "bottom": 0.3338, "direction": "bearish", "bar_index": 487}}`).
+- **Commit:** `ab9290e` (fix + test), pushlandı, sunucuya pull edildi (`e942a13..ab9290e` ff), bot venv ile restart edildi (PID değişti).
+- **Sunucu durumu:** Bot aktif, SUIUSDT-499 LONG hâlâ açık ve trailing çalışıyor (trail_skipped event'leri canlı). trades_history.jsonl artık yeni kapanışları yazabilmeli — sonraki kapanışta doğrula.
+- **ONDOUSDT post-mortem (aynı seansta, bağlantılı):** Entry sinyali doğruydu (BIAS BEARISH stabil, sweep bearish level 0.34, FVG bars 486-488 `[0.3338-0.3347]` ACCEPT=trigger_ready), ama `[MARKET] gecikmeli fill` 0.3332'de gerçekleşti — FVG bottom 0.3338'in ALTINDA. Fiyat toparlanınca SL 0.335 yendi (pnl -14.00). Sonuç: sinyal mantığı değil, **execution kalitesi** sorunu (gecikmeli fill + dar SL).
+
+---
+
 ## Son İşlem: 2026-08-14 — BULGU-16: trades_history.jsonl yazımı düzeltildi (callable serialize)
 
 - **Tetik:** Canlı log `[TRADES] ENAUSDT jsonl yazma hatasi` (23:59:13). Soruşturma → `trades_history.jsonl` son değişiklik **Aug 10 07:49** — trail extractor (Ağu 12) eklendikten sonra hiçbir kapanan trade diske yazılamamıştı. INJUSDT/ENAUSDT dahil restart'ta kayıt kaybolacaktı (sadece hafızada).
