@@ -1,5 +1,19 @@
 # Progress — Sniper Bot
 
+## 2026-08-13 — D-01 refactor: tek-lock ortak exit API (`execute_with_pending`)
+
+| Tarih | İşlem | Detay |
+|-------|-------|-------|
+| 2026-08-13 | **D-01 single-lock exit API** | `exit_lifecycle.py`: `execute()` gövdesi `_execute_locked()`'a; yeni `execute_with_pending(sym, trade, ts, pending)` — per-trade lock BİR kez, pending guard sonrası + flag öncesi uygulanır. `user_data_handler.py`: ctor `exit_pending_callback`; 6 exit branch'inin tamamı (3 normalized + 3 legacy) dış `async with lock`+mutate+`_exit_trade` yerine `_pending` dict + `_exit_with_pending` (production'da service, test/fallback'te pending+`_exit_trade`). `bot.py`: trailing exit `execute_with_pending(...)`; `exit_pending_callback=self.exit_service.execute_with_pending` wiring; `_trade_identity_key` import'u temizlendi. |
+| 2026-08-13 | **Testler** | `TestExecuteWithPending` +4 (pending→commit, `wait_for(1)` deadlock guard, pending=None, concurrent serialize). 2 stale `TestExitTradePromotion` yeni akışa göre yeniden yazıldı (`_make_execute_like_exit_cb` import → `trading.exit_lifecycle`). test_user_data_handler 50/50, test_exit_lifecycle 42, etkilenen suite'ler 155 geçti. |
+| 2026-08-13 | **Sonuç** | test_bot 13 + integration/state 12 fail TAMAMEN pre-existing baseline (0 yeni). pre-commit (ruff/ruff-format/vulture/whitespace/eof) temiz. |
+
+- **Commit:** `feat: D-01 - tek-lock ortak exit API (execute_with_pending) + handler/bot convert`.
+- **Push:** `origin main`.
+- **Not:** Rapor 4 §5'teki refactor tamamlandı; deadlock aslında mevcut değildi (önceki entry'de kanıtlandı) — refactor TOCTOU/nested-acquire penceresini yapısal olarak kapattı.
+
+---
+
 ## 2026-08-13 — Rapor 4: Günlük BIAS latch persistence + D-02 dedup rework
 
 - **Direktif:** `reports/luna_sniper_canli_yeni_bug_raporu_4.md` — ilk geçerli sweep günlük BIAS'ı kilitler; kilit 22:00 resetine kadar korunur, sadece kilit yönünde FVG aranır. Gerçek bug: `bias_locked` bellek'te kaldığı için restart sonrası kayboluyordu.

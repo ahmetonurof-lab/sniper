@@ -70,7 +70,6 @@ from trading import (
     UserDataHandler,
     ExitLifecycleService,
     ProtectionLifecycleService,
-    _trade_identity_key,
 )
 from trading.trailing_manager import TrailingConfig, TrailLevel
 from websocket import BinanceWSHub
@@ -709,16 +708,20 @@ class PaperTrader:
             )
             exit_decision = self.trailing_manager.check_exit(current, trade)
             if exit_decision.triggered:
-                _trade_id_key = _trade_identity_key(trade)
-                trade_key = f"{sym}_{_trade_id_key}"
-                lock = self._exit_locks.setdefault(trade_key, asyncio.Lock())
-                async with lock:
-                    trade["status"] = STATUS_EXIT_REQUESTED
-                    trade["pending_exit_price"] = exit_decision.exit_price
-                    trade["exit_bar"] = current.index
-                    trade["exit_timestamp"] = current.timestamp
-                    trade["result"] = exit_decision.result
-                await self._exit_trade(sym, trade, current.timestamp)
+                # D-01 (rapor 4 §5): dis lock + mutate + _exit_trade yerine
+                # tek lock kapsaminda pending+exit (ExitLifecycleService).
+                await self.exit_service.execute_with_pending(
+                    sym,
+                    trade,
+                    current.timestamp,
+                    pending={
+                        "status": STATUS_EXIT_REQUESTED,
+                        "pending_exit_price": exit_decision.exit_price,
+                        "exit_bar": current.index,
+                        "exit_timestamp": current.timestamp,
+                        "result": exit_decision.result,
+                    },
+                )
                 return
 
         # ── UPNL + state writer — her bar'da (frozen dahil) ──
@@ -1414,6 +1417,7 @@ class PaperTrader:
                         order_manager=self.order_manager,
                         exit_callback=self._exit_trade,
                         exit_locks=self._exit_locks,
+                        exit_pending_callback=self.exit_service.execute_with_pending,
                     )
                     udh.register(self.hub)
                     asyncio.create_task(self.hub._listen_key_refresh_loop(self.rest))

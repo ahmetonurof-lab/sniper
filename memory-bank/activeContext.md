@@ -1,5 +1,18 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-13 — D-01 refactor: tek-lock ortak exit API (`execute_with_pending`)
+
+- **Direktif:** `reports/luna_sniper_canli_yeni_bug_raporu_4.md` §5 — kullanıcı "continue" dedi; D-01 refactor'ü onaylandı. Not: deadlock kanıtı önceki entry'de çürütülmüştü (6 branch lock'u `_exit_trade` öncesi release ediyor) — refactor yapısal TOCTOU/nested-acquire riskini kapattığı için yapıldı, mevcut bir deadlock'u düzeltmek için değil.
+- **Ne yapıldı:**
+  - `exit_lifecycle.py`: `execute()` gövdesi `_execute_locked(sym, trade, ts, pending=None)`'a taşındı (trade_key metod içinde hesaplanıyor). Yeni `execute_with_pending(...)` — per-trade lock'u BİR kez alıp `_execute_locked(..., pending)` çağırıyor. Pending, `_exit_committed` guard'ından SONRA, `_exit_committed=True`'tan ÖNCE uygulanıyor (eşzamanlı ikinci event committed kaydı bozamaz).
+  - `user_data_handler.py`: ctor'a opsiyonel `exit_pending_callback` eklendi; `_exit_locks` closure capture KALDIRILDI; yeni `_exit_with_pending` closure (production'da service'e delege, test/fallback'te pending uygulayıp `_exit_trade`). 6 exit branch'inin tamamı (3 normalized + 3 legacy) dış `async with lock` + mutate + `_exit_trade` yerine `_pending` dict + `_exit_with_pending` kullanıyor; WS_FALLBACK `pending_exit_reason`'u pending dict'e katlıyor.
+  - `bot.py`: `_trade_identity_key` import'u kaldırıldı; trailing exit `execute_with_pending(pending={"status": STATUS_EXIT_REQUESTED, ...})`'e çevrildi; UserDataHandler `exit_pending_callback=self.exit_service.execute_with_pending` ile kuruluyor.
+- **Test:** test_user_data_handler 50/50 (2 stale `TestExitTradePromotion` yeni akışa göre yeniden yazıldı; `_make_execute_like_exit_cb` import'u `trading.exit_lifecycle`'a düzeltildi); test_exit_lifecycle +4 (`TestExecuteWithPending`: pending uygulanıp commit, `wait_for(1)` deadlock guard, pending=None, concurrent serialize) → 42; etkilenen suite'ler 155 geçti. test_bot 13 + integration/state 12 fail TAMAMEN pre-existing baseline (0 yeni).
+- **Commit:** `feat: D-01 - tek-lock ortak exit API (execute_with_pending) + handler/bot convert`.
+- **Push:** `origin main`.
+
+---
+
 ## Son İşlem: 2026-08-13 — Rapor 4: Günlük BIAS latch persistence + D-02 rework
 
 - **Direktif:** `reports/luna_sniper_canli_yeni_bug_raporu_4.md` — ilk geçerli sweep günlük BIAS'ı belirler ve KİLİTLER; kilit 22:00'de resetlenene kadar gün boyunca korunur, sadece kilit yönünde FVG aranır (yeni sweep beklenmez). Gerçek bug: `bias_locked` yalnızca bellekte, restart sonrası kayboluyordu.

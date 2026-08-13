@@ -4,6 +4,7 @@ test_exit_lifecycle.py — ExitLifecycleService unit tests (Patch Set 2).
 Bot üzerinden değil, doğrudan DI ile kurulup test edilir.
 """
 
+import asyncio
 from collections import deque
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -11,6 +12,7 @@ import pytest
 
 from trading.exit_lifecycle import ExitLifecycleService
 from models import (
+    STATUS_CLOSED,
     STATUS_REPAIR_REQUIRED,
     STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED,
 )
@@ -537,6 +539,132 @@ class TestCommitConfirmedExit:
         # Second attempt with same trade should fail
         result2 = await svc.execute("BTCUSDT", trade, 50001)
         assert result2 is False
+
+
+# ═══════════════════════════════════════════════════════════════════
+# execute_with_pending (D-01, rapor 4 §5) — tek lock kapsaminda
+# pending mutation + execute. Deadlock guard: wait_for(timeout=1).
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestExecuteWithPending:
+    @patch("trading.exit_lifecycle.cfg")
+    @patch("trading.exit_lifecycle.asyncio.sleep")
+    @patch("trading.exit_lifecycle.mark_trade_closed")
+    @patch("trading.exit_lifecycle.capture_snapshot")
+    async def test_pending_applied_then_exit_commits(
+        self, mock_snap, mock_mark_closed, mock_sleep, mock_cfg, service
+    ):
+        """pending_exit_* alanlari tek lock kapsaminda uygulanir, normalize
+        edilir (exit_*) ve exit commit edilir."""
+        svc, rest, om, active_trades, trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        rest.get_positions = AsyncMock(return_value=[])
+
+        trade = _trade(side="long", result="TP")
+        active_trades["BTCUSDT"] = trade
+
+        result = await svc.execute_with_pending(
+            "BTCUSDT",
+            trade,
+            50000,
+            pending={
+                "pending_exit_price": 51200.0,
+                "pending_exit_qty": 0.2,
+                "pending_exit_order_id": "WF_001",
+                "pending_exit_timestamp": 100000,
+            },
+        )
+
+        assert result is True
+        assert trade["exit_price"] == 51200.0  # pending -> exit_* normalizasyonu
+        assert trade["exit_actual_qty"] == 0.2
+        assert trade["exit_order_id"] == "WF_001"
+        assert trade["pending_exit_price"] is None  # normalize sonrasi temiz
+        assert trade["status"] == STATUS_CLOSED
+        assert len(trades) == 1
+
+    @patch("trading.exit_lifecycle.cfg")
+    @patch("trading.exit_lifecycle.asyncio.sleep")
+    @patch("trading.exit_lifecycle.mark_trade_closed")
+    @patch("trading.exit_lifecycle.capture_snapshot")
+    async def test_no_deadlock_under_wait_for(
+        self, mock_snap, mock_mark_closed, mock_sleep, mock_cfg, service
+    ):
+        """D-01: execute_with_pending wait_for(1) icinde tamamlanir.
+
+        Ic ice (nested) lock edinimi olsaydi asyncio.Lock non-reentrant
+        oldugu icin islem asilirdi ve wait_for TimeoutError firlatirdi.
+        """
+        svc, rest, om, active_trades, trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        rest.get_positions = AsyncMock(return_value=[])
+
+        trade = _trade(side="long", result="TP")
+        active_trades["BTCUSDT"] = trade
+
+        result = await asyncio.wait_for(
+            svc.execute_with_pending(
+                "BTCUSDT",
+                trade,
+                50000,
+                pending={"pending_exit_price": 51000.0},
+            ),
+            timeout=1,
+        )
+
+        assert result is True
+        assert len(trades) == 1
+
+    @patch("trading.exit_lifecycle.cfg")
+    @patch("trading.exit_lifecycle.asyncio.sleep")
+    @patch("trading.exit_lifecycle.mark_trade_closed")
+    @patch("trading.exit_lifecycle.capture_snapshot")
+    async def test_pending_none_is_plain_execute(
+        self, mock_snap, mock_mark_closed, mock_sleep, mock_cfg, service
+    ):
+        """pending=None -> execute() ile birebir ayni davranis."""
+        svc, rest, om, active_trades, trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        rest.get_positions = AsyncMock(return_value=[])
+
+        trade = _trade(side="long", result="TP")
+        active_trades["BTCUSDT"] = trade
+
+        result = await svc.execute_with_pending("BTCUSDT", trade, 50000)
+
+        assert result is True
+        assert len(trades) == 1
+
+    @patch("trading.exit_lifecycle.cfg")
+    @patch("trading.exit_lifecycle.asyncio.sleep")
+    @patch("trading.exit_lifecycle.mark_trade_closed")
+    @patch("trading.exit_lifecycle.capture_snapshot")
+    async def test_concurrent_calls_serialized_no_double_mutation(
+        self, mock_snap, mock_mark_closed, mock_sleep, mock_cfg, service
+    ):
+        """Ayni trade'e eszamanli iki execute_with_pending tek lock uzerinde
+        serilir. Ikincisi _exit_committed guard'ina takilir VE pending'i
+        commit edilmis gecmise YAZMAZ (guard mutation'dan once calisir)."""
+        svc, rest, om, active_trades, trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        rest.get_positions = AsyncMock(return_value=[])
+
+        trade = _trade(side="long", result="TP")
+        active_trades["BTCUSDT"] = trade
+
+        r1, r2 = await asyncio.gather(
+            svc.execute_with_pending(
+                "BTCUSDT", trade, 50000, pending={"exit_price": 51000.0}
+            ),
+            svc.execute_with_pending(
+                "BTCUSDT", trade, 50001, pending={"exit_price": 52000.0}
+            ),
+        )
+
+        assert (r1, r2) == (True, False)
+        assert trade["exit_price"] == 51000.0  # ikinci pending uygulanmadi
+        assert len(trades) == 1
 
 
 # ═══════════════════════════════════════════════════════════════════
