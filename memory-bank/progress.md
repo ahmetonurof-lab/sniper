@@ -1,5 +1,18 @@
 # Progress — Sniper Bot
 
+## 2026-08-13 — Rapor 5 D-03 ÇÜRÜTÜLDÜ + claim contract kanıt testleri
+
+| Tarih | İşlem | Detay |
+|-------|-------|-------|
+| 2026-08-13 | **D-03 reddi (false positive)** | Rapor 5, `execute()`'in pending=None ile claim set etmediğini iddia etti. `exit_lifecycle.py:230-233` kodu ispatladı: `trade["_exit_committed"] = True` `if pending:` bloğunun dışında, guard sonrası koşulsuz. Raporun kendi kanıt snippet'i de bunu gösteriyordu (girinti yanlış okunmuş). |
+| 2026-08-13 | **5 kanıt testi eklendi** | `TestExecuteWithPending`: claim REST öncesi kurulur (pending=None); `pending={}` aynı davranış; False/exception yolu claim serbest + retry; commit sonrası duplicate bloklu; `gather(execute, execute_with_pending)` → tek commit. |
+
+- **Test:** test_exit_lifecycle 47/47 (42+5), test_user_data_handler 50/50, test_exit_registry_identity 6/6. 0 yeni fail. pre-commit temiz.
+- **Commit:** `test: D-03 claim contract kanit testleri (pending=None/{}/False-release/gather)`.
+- **Push:** `origin main`. Rapor 5 untracked.
+
+---
+
 ## 2026-08-13 — D-01 refactor: tek-lock ortak exit API (`execute_with_pending`)
 
 | Tarih | İşlem | Detay |

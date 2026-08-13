@@ -1,5 +1,17 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-13 — Rapor 5 D-03 iddiası ÇÜRÜTÜLDÜ (kanıt testleri eklendi)
+
+- **İddia (rapor 5):** `execute()` `_execute_locked()`'ı pending=None ile çağırıyor; iddiaya göre `trade["_exit_committed"] = True` yalnızca pending truthy iken çalışıyor → normal exit yolu claim'siz.
+- **Gerçek (kanıt):** YANLIŞ OKUMA. `exit_lifecycle.py:230-233` — `trade["_exit_committed"] = True`, `if pending:` bloğunun DIŞINDA (aynı girintide), guard'dan hemen sonra KOŞULSUZ set ediliyor. Raporun kendi yapıştırdığı kanıt kodu bile bunu gösteriyor (satır 20: `_exit_committed = True` `if pending:` ile aynı seviyede). D-03 false positive.
+- **Eklenen 5 regresyon testi** (`TestExecuteWithPending`): (1) `execute()` pending=None claim'i ilk REST çağrısından (position_still_open) ÖNCE kurar — REST mock'unun İÇİNDE assert ediliyor; (2) `pending={}` aynı claim davranışı; (3) False/exception yolu claim'i serbest bırakır (`_exit_committed=False`) ve ikinci çağrı tekrar deneyip commit eder; (4) confirmed commit sonrası duplicate execute guard'a takılır (duplicate accounting yok); (5) `asyncio.gather(execute, execute_with_pending)` → en fazla bir commit, ikinci pending uygulanmaz.
+- **Test sonucu:** test_exit_lifecycle 47/47 (42 + 5 yeni); test_user_data_handler 50/50 + exit_registry 6 geçti. 0 yeni fail. pre-commit temiz.
+- **Commit:** `test: D-03 claim contract kanit testleri (pending=None/{}/False-release/gather)`.
+- **Push:** `origin main`.
+- **Not:** Rapor 5'in Bias/FVG değerlendirmesi de onaylandı (BIAS latch yönü strateji ile uyumlu, bug değil). Rapor dosyası untracked bırakıldı.
+
+---
+
 ## Son İşlem: 2026-08-13 — D-01 refactor: tek-lock ortak exit API (`execute_with_pending`)
 
 - **Direktif:** `reports/luna_sniper_canli_yeni_bug_raporu_4.md` §5 — kullanıcı "continue" dedi; D-01 refactor'ü onaylandı. Not: deadlock kanıtı önceki entry'de çürütülmüştü (6 branch lock'u `_exit_trade` öncesi release ediyor) — refactor yapısal TOCTOU/nested-acquire riskini kapattığı için yapıldı, mevcut bir deadlock'u düzeltmek için değil.
