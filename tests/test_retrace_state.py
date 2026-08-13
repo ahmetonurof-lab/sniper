@@ -248,14 +248,14 @@ class TestOnSweep:
         rsm = RetraceStateMachine()
         with patch("state_manager.is_sweep_used", return_value=False):
             rsm.on_sweep("bullish", 105.0, bar_index=42)
-        assert rsm._pending_sweep_id == "bullish_42"
+        assert rsm._pending_sweep_persistence_id == "bullish_42"
 
     def test_on_sweep_with_symbol_prefixed_pending_id(self):
         """L-04: symbol verildiginde pending ID symbol icerir."""
         rsm = RetraceStateMachine()
         with patch("state_manager.is_sweep_used", return_value=False):
             rsm.on_sweep("bullish", 105.0, bar_index=42, symbol="BTCUSDT")
-        assert rsm._pending_sweep_id == "BTCUSDT_bullish_42"
+        assert rsm._pending_sweep_persistence_id == "BTCUSDT_bullish_42"
 
     @patch("state_manager.is_sweep_used")
     def test_on_sweep_symbol_included_in_dedup_check(self, mock_is_used):
@@ -273,10 +273,10 @@ class TestOnSweep:
         mock_is_used.return_value = False
         rsm = RetraceStateMachine()
         rsm.on_sweep("bullish", 105.0, bar_index=42, symbol="BTCUSDT")
-        assert rsm._pending_sweep_id == "BTCUSDT_bullish_42"
+        assert rsm._pending_sweep_persistence_id == "BTCUSDT_bullish_42"
         rsm.reset()
         rsm.on_sweep("bullish", 105.0, bar_index=42, symbol="ETHUSDT")
-        assert rsm._pending_sweep_id == "ETHUSDT_bullish_42"
+        assert rsm._pending_sweep_persistence_id == "ETHUSDT_bullish_42"
 
     @patch("state_manager.is_sweep_used")
     def test_on_sweep_skips_already_used(self, mock_is_used):
@@ -604,7 +604,7 @@ class TestReset:
         rsm.direction = "bullish"
         rsm.sweep_level = 105.0
         rsm.trigger_fvg = HTFFVG(110.0, 105.0, "bullish", 5)
-        rsm._pending_sweep_id = "bullish_42"
+        rsm._pending_sweep_persistence_id = "bullish_42"
 
         rsm.reset()
 
@@ -612,7 +612,7 @@ class TestReset:
         assert rsm.direction is None
         assert rsm.sweep_level is None
         assert rsm.trigger_fvg is None
-        assert rsm._pending_sweep_id is None
+        assert rsm._pending_sweep_persistence_id is None
 
     def test_reset_no_pending_sweep(self):
         rsm = RetraceStateMachine()
@@ -679,45 +679,126 @@ class TestOperationalFail:
 class TestSweepConsumption:
     """L-08/L-09: on_sweep_confirmed sweep tuketmez; tuketim
     confirm_entry_success()/_consume_sweep() uzerinden. Persistence hatasi
-    pending ID'yi korur (yutulmaz)."""
+    pending ID'yi korur (yutulmaz).
+
+    Rapor 4: dedup metadata'si lock state'ten BAGIMSIZDIR — lock_bias()/
+    restore_bias_lock() pending ID'yi silmez; yalnizca basarili
+    mark_sweep_used() sonrasi temizlenir. Persistence hatasi BIAS kilidini ve
+    FVG-only aramayi asla durdurmaz."""
 
     @patch("state_manager.mark_sweep_used")
     def test_consume_sweep_success_clears_pending(self, mock_mark):
         rsm = RetraceStateMachine()
-        rsm._pending_sweep_id = "bullish_42"
+        rsm._pending_sweep_persistence_id = "bullish_42"
         assert rsm._consume_sweep() is True
         mock_mark.assert_called_once_with("bullish_42")
-        assert rsm._pending_sweep_id is None
+        assert rsm._pending_sweep_persistence_id is None
 
     def test_consume_sweep_no_id_is_noop(self):
         rsm = RetraceStateMachine()
         assert rsm._consume_sweep() is True
-        assert rsm._pending_sweep_id is None
+        assert rsm._pending_sweep_persistence_id is None
 
     @patch("state_manager.mark_sweep_used")
     def test_consume_sweep_error_keeps_pending(self, mock_mark):
-        """L-09: persistence hatasi yutulmaz — pending ID korunur, False doner."""
+        """L-09+Rapor 4: persistence hatasi yutulmaz — ID ayni alanda korunur
+        (tasinmaz/silinmez), False doner."""
         mock_mark.side_effect = Exception("disk error")
         rsm = RetraceStateMachine()
-        rsm._pending_sweep_id = "bullish_42"
+        rsm._pending_sweep_persistence_id = "bullish_42"
         assert rsm._consume_sweep() is False
-        assert rsm._pending_sweep_id == "bullish_42"
+        assert rsm._pending_sweep_persistence_id == "bullish_42"
 
     @patch("state_manager.mark_sweep_used")
     def test_confirm_entry_success_delegates_to_consume(self, mock_mark):
         rsm = RetraceStateMachine()
-        rsm._pending_sweep_id = "BTCUSDT_bullish_42"
+        rsm._pending_sweep_persistence_id = "BTCUSDT_bullish_42"
         assert rsm.confirm_entry_success() is True
         mock_mark.assert_called_once_with("BTCUSDT_bullish_42")
-        assert rsm._pending_sweep_id is None
+        assert rsm._pending_sweep_persistence_id is None
 
     @patch("state_manager.mark_sweep_used")
-    def test_confirm_entry_success_keeps_pending_on_error(self, mock_mark):
+    def test_confirm_entry_success_keeps_id_on_error(self, mock_mark):
         mock_mark.side_effect = Exception("disk error")
         rsm = RetraceStateMachine()
-        rsm._pending_sweep_id = "bullish_42"
+        rsm._pending_sweep_persistence_id = "bullish_42"
         assert rsm.confirm_entry_success() is False
-        assert rsm._pending_sweep_id == "bullish_42"
+        assert rsm._pending_sweep_persistence_id == "bullish_42"
+
+    @patch("state_manager.mark_sweep_used")
+    def test_lock_bias_preserves_pending_sweep_persistence_id(self, mock_mark):
+        """Rapor 4 CORE: persistence hatasi -> confirm False -> lock_bias()
+        cagrisi ID'yi SILMEMELI; periyodik retry ile temizlenebilmeli."""
+        mock_mark.side_effect = Exception("disk error")
+        rsm = RetraceStateMachine()
+        rsm.direction = "bullish"
+        rsm._pending_sweep_persistence_id = "BTCUSDT_bullish_42"
+        assert rsm.confirm_entry_success() is False
+        rsm.lock_bias(bar_index=10)
+        assert rsm.state == RetraceState.BIAS_LOCKED
+        assert rsm._pending_sweep_persistence_id == "BTCUSDT_bullish_42"
+
+        # Sonraki retry basarili -> ID temizlenir, symbol-scoped key yazilir
+        mock_mark.side_effect = None
+        assert rsm.retry_pending_sweep_persistence() is True
+        mock_mark.assert_called_with("BTCUSDT_bullish_42")
+        assert rsm._pending_sweep_persistence_id is None
+
+    @patch("state_manager.mark_sweep_used")
+    def test_retry_pending_sweep_persistence_success_clears(self, mock_mark):
+        rsm = RetraceStateMachine()
+        rsm._pending_sweep_persistence_id = "BTCUSDT_bullish_42"
+        assert rsm.retry_pending_sweep_persistence() is True
+        mock_mark.assert_called_once_with("BTCUSDT_bullish_42")
+        assert rsm._pending_sweep_persistence_id is None
+
+    def test_retry_pending_sweep_persistence_no_id_is_noop(self):
+        rsm = RetraceStateMachine()
+        assert rsm.retry_pending_sweep_persistence() is True
+
+    @patch("state_manager.mark_sweep_used")
+    def test_retry_pending_sweep_persistence_error_keeps_id(self, mock_mark):
+        mock_mark.side_effect = Exception("disk error")
+        rsm = RetraceStateMachine()
+        rsm._pending_sweep_persistence_id = "bullish_42"
+        assert rsm.retry_pending_sweep_persistence() is False
+        assert rsm._pending_sweep_persistence_id == "bullish_42"
+
+    def test_reset_clears_pending_sweep_persistence_id(self):
+        rsm = RetraceStateMachine()
+        rsm._pending_sweep_persistence_id = "bullish_1"
+        rsm.reset()
+        assert rsm._pending_sweep_persistence_id is None
+
+    @patch("state_manager.mark_sweep_used")
+    def test_restore_bias_lock_keeps_pending_persistence_id(self, mock_mark):
+        """Rapor 4: restore_bias_lock() lock metadata'sini yukler ama dedup
+        pending ID'sine dokunmaz (restart oncesi yarim kalan tuketim retry ile
+        tamamlanir)."""
+        mock_mark.side_effect = Exception("disk error")
+        rsm = RetraceStateMachine()
+        rsm.direction = "bearish"
+        rsm._pending_sweep_persistence_id = "BTCUSDT_bearish_7"
+        rsm.lock_bias(bar_index=7)
+        rsm.restore_bias_lock("bearish", locked_from_bar=7)
+        assert rsm.state == RetraceState.BIAS_LOCKED
+        assert rsm.locked_direction == "bearish"
+        assert rsm._pending_sweep_persistence_id == "BTCUSDT_bearish_7"
+
+    def test_restore_bias_lock_sets_state_direction_from_bar(self):
+        """Rapor 4: restart sonrasi RSM IDLE'dan BIAS_LOCKED'a gecer; yeni
+        sweep beklemez, locked_from_bar korunur."""
+        rsm = RetraceStateMachine()
+        rsm.direction = "bullish"
+        rsm.on_sweep("bullish", 100.0, bar_index=5)
+        rsm.reset()
+        assert rsm.state == RetraceState.IDLE
+        rsm.restore_bias_lock("bullish", locked_from_bar=5)
+        assert rsm.state == RetraceState.BIAS_LOCKED
+        assert rsm.locked_direction == "bullish"
+        assert rsm._locked_from_bar == 5
+        assert rsm.sweep_level is None
+        assert rsm.trigger_fvg is None
 
     def test_trigger_does_not_consume_sweep(self):
         """L-08: on_sweep_confirmed TRIGGER_READY'ye gecirir ama sweep'i
@@ -739,11 +820,11 @@ class TestSweepConsumption:
         rsm.on_sweep_confirmed(bars, sweep_bar)
         assert rsm.state == RetraceState.TRIGGER_READY
         # Henuz tuketilmedi — lock_bias oncesi confirm_entry_success() gerekir
-        assert rsm._pending_sweep_id == "bullish_9"
+        assert rsm._pending_sweep_persistence_id == "bullish_9"
         with patch("state_manager.mark_sweep_used") as mock_mark:
             assert rsm.confirm_entry_success() is True
             mock_mark.assert_called_once_with("bullish_9")
-        assert rsm._pending_sweep_id is None
+        assert rsm._pending_sweep_persistence_id is None
 
 
 # ═══════════════════════════════════════════════════════════════════

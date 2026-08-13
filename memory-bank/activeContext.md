@@ -1,5 +1,20 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-13 — Rapor 4: Günlük BIAS latch persistence + D-02 rework
+
+- **Direktif:** `reports/luna_sniper_canli_yeni_bug_raporu_4.md` — ilk geçerli sweep günlük BIAS'ı belirler ve KİLİTLER; kilit 22:00'de resetlenene kadar gün boyunca korunur, sadece kilit yönünde FVG aranır (yeni sweep beklenmez). Gerçek bug: `bias_locked` yalnızca bellekte, restart sonrası kayboluyordu.
+- **Ne yapıldı:**
+  - `state_manager.py`: `mark_bias_locked(symbol, day_key, daily_bias, sweep_direction, sweep_level, bias_lock_bar_index) -> bool` + `load_bias_lock(symbol, day_key) -> dict | None`. FileLock atomic, day_key uyumsuzsa None, doğrulama (BULLISH/BEARISH, finite+pozitif sweep_level), hata asla yutulmaz. `mark_trade_opened`/`reconcile_from_active` artık symbol dict'ini MERGE ediyor — latch alanlarını silmez.
+  - `session.py`: `SessionState.lock_bias_from_sweep(symbol, direction, level, bar_index) -> bool` — idempotent (aynı gün latch değiştirilemez); persistence hatası critical log + False, bellek latch'i korunur.
+  - `retrace_state.py`: yeni `restore_bias_lock(direction, locked_from_bar)`; D-02 rework — `_pending_sweep_id` → `_pending_sweep_persistence_id` (lock state'ten BAĞIMSIZ), `lock_bias()` artık onu SİLMİYOR; `_unconsumed_sweep_id`/`retry_unconsumed_sweep` kaldırıldı → `retry_pending_sweep_persistence()`.
+  - `bot.py`: `_restore_bias_latch()` helper — restart sonrası `ss._cbdr` + RSM'e disk latch'ini yükler (bias_lock_bar_index yoksa conservative `fallback_bar=current.index`); `_on_15m_close` içinde ilk-lock geçişinde (`was_bias_locked False → True`) `lock_bias_from_sweep` çağrısı; `_on_1m_close`'ta periyodik `retry_pending_sweep_persistence()`.
+- **Test:** test_retrace_state 66/66; test_session +3 (lock_bias_from_sweep); test_state_manager +9 (bias latch roundtrip/day-mismatch/idempotent/validation/merge); test_signal_engine +4 (restore → yeni sweep İSTENMEZ, sadece on_bias_fvg); test_bot TestRestoreBiasLatch +4. Etkilenen suite 207 geçti + sadece 2 bilinen pre-existing fail (TestExitTradePromotion). test_bot.py 13 fail TAMAMEN pre-existing (0 yeni). pre-commit temiz.
+- **D-01 (rapor 3) — kanıt:** deadlock ÇÜRÜTÜLDÜ. `user_data_handler.py`'deki 6 exit branch'inin tamamı `_exit_locks[trade_key]` kilidini `_exit_trade(...)` çağrısından ÖNCE `async with` bloğu bitince release ediyor; `execute()` kilidi nested değil sequential re-acquire ediyor. 8 regresyon testi eklendi (`TestExitLockNoNestedAcquire`, 1s timeout), hepsi geçiyor. Rapor 4 §5 refactor'ü "halen zorunlu" diyor; kodu riske atmadan önce karar kullanıcıda bırakıldı.
+- **Commit:** `feat: rapor 4 — gunluk BIAS latch persistence + restore + D-02 dedup rework`.
+- **Push:** `origin main`.
+
+---
+
 ## Son İşlem: 2026-08-12 — sweep TAMAMLANDI sonrası FVG ARANIYOR logu eksik (console_reporter)
 
 - **Bulgu:** `display_sweep_status` "✅ SWEEP: TAMAMLANDI | ... | FVG bekleniyor" bastıktan sonra (sweep completed, `daily_bias != NEUTRAL`, RSM IDLE) `display_fvg_status` RSM IDLE olduğu için `else` dalına düşüyor, FVG satırını **temizliyor (clear_state)** — "FVG ARANIYOR..." asla basılmıyor. Yani sweep tamamlandı ama FVG aranıyor mesajı çıkmaz.

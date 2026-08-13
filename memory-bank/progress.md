@@ -1,5 +1,19 @@
 # Progress — Sniper Bot
 
+## 2026-08-13 — Rapor 4: Günlük BIAS latch persistence + D-02 dedup rework
+
+- **Direktif:** `reports/luna_sniper_canli_yeni_bug_raporu_4.md` — ilk geçerli sweep günlük BIAS'ı kilitler; kilit 22:00 resetine kadar korunur, sadece kilit yönünde FVG aranır. Gerçek bug: `bias_locked` bellek'te kaldığı için restart sonrası kayboluyordu.
+- **Yapılan:**
+  - `state_manager.py`: `mark_bias_locked` (FileLock atomic, idempotent — aynı gün latch değiştirilemez, doğrulama + hata yutulmaz) + `load_bias_lock` (day_key uyumsuzsa/geçersizse None). `mark_trade_opened`/`reconcile_from_active` artık symbol dict'ini MERGE ediyor (latch alanlarını korur).
+  - `session.py`: `lock_bias_from_sweep(symbol, direction, level, bar_index) -> bool` — persistence hatası critical log + False, bellek latch'i korunur.
+  - `retrace_state.py`: `restore_bias_lock(direction, locked_from_bar)`; `_pending_sweep_id` → `_pending_sweep_persistence_id` (lock'tan bağımsız), `lock_bias()` SİLMİYOR; `_unconsumed_sweep_id`/`retry_unconsumed_sweep` kaldırıldı → `retry_pending_sweep_persistence()`.
+  - `bot.py`: `_restore_bias_lock` helper + `_on_15m_close` içinde ilk-lock geçişinde persist (fallback_bar=current.index); `_on_1m_close` periyodik retry; `_bias_latch_restored` per-process guard.
+- **Test:** test_retrace_state 66; test_session +3; test_state_manager +9; test_signal_engine +4; test_bot TestRestoreBiasLatch +4. Etkilenen suite 207 geçti, 2 bilinen pre-existing fail. test_bot 13 fail pre-existing (0 yeni). pre-commit (ruff/format/vulture) temiz.
+- **D-01 (rapor 3):** deadlock çürütüldü (kanıt + `TestExitLockNoNestedAcquire` 8 test). Refactor kararı kullanıcıda — rapor 4 §5 hâlâ talep ediyor.
+- **Commit:** `feat: rapor 4 — gunluk BIAS latch persistence + restore + D-02 dedup rework`.
+
+---
+
 ## 2026-08-13 — luna_sniper_canli_yeni_bug_raporu.md Türkçe karakter onarımı
 
 - **Bulgu:** `reports/luna_sniper_canli_yeni_bug_raporu.md` UTF-8 olarak cp1252 çözülüp yeniden yazılmış (çift kodlama/mojibake): `Ä±`→`ı`, `Ã¶`→`ö`, `ÅŸ`→`ş`, `â€œ`/`â€\x9d`→tırnak işaretleri vb.

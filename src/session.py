@@ -318,6 +318,42 @@ class SessionState:
     def sweep_level(self, v) -> None:
         self._cbdr.sweep_level = v
 
+    def lock_bias_from_sweep(
+        self,
+        symbol: str,
+        direction: Literal["bullish", "bearish"],
+        level: float,
+        bar_index: int | None = None,
+    ) -> bool:
+        """Rapor 4: check_sweep'in actigi bias_locked latch'ini diske kaydet.
+
+        bot.py, ilk sweep latch'inin acildigi bar'da (was_locked=False ->
+        bias_locked=True gecisinde) cagirir. Idempotent: ayni CBDR gunu latch
+        zaten kayitliysa True doner — bias gunde bir kez kilitlenir, ikinci
+        sweep latch'i DEGISTIREMEZ.
+
+        Persistence hatasi YUTULMAZ: bellek latch'i korunur, critical log
+        basilir ve False doner (FVG-only arama ve kilit davranisi surer).
+        """
+        try:
+            from state_manager import mark_bias_locked
+
+            mark_bias_locked(
+                symbol=symbol,
+                day_key=self.cbdr_day,
+                daily_bias=self.daily_bias.value,
+                sweep_direction=direction,
+                sweep_level=level,
+                bias_lock_bar_index=bar_index,
+            )
+        except Exception as e:
+            log.critical(
+                f"[SESSION] bias latch persistence HATASI ({symbol}): {e} — "
+                "bellek latch korunuyor, FVG-only arama devam eder"
+            )
+            return False
+        return True
+
     # ── RangeTracker delegation (6 attribute) ───────────────
 
     @property

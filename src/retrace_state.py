@@ -126,7 +126,11 @@ class RetraceStateMachine:
         self.sweep_level: float | None = None
         self.trigger_fvg: HTFFVG | None = None
         self._max_wick_ratio = max_wick_ratio
-        self._pending_sweep_id: str | None = None
+        # Rapor 4: sweep dedup persistence ID'si lock state'ten BAGIMSIZDIR.
+        # lock_bias()/restore_bias_lock() bunu silmez; yalnizca basarili
+        # mark_sweep_used() sonrasi temizlenir. Boylece persistence hatasi
+        # günlük BIAS kilidini ve FVG-only aramayi asla durdurmaz.
+        self._pending_sweep_persistence_id: str | None = None
         self._locked_from_bar: int | None = None
         self._fail_count: int = 0
 
@@ -145,6 +149,27 @@ class RetraceStateMachine:
     def can_trigger(self) -> bool:
         return self.state == RetraceState.TRIGGER_READY
 
+    def restore_bias_lock(
+        self,
+        direction: Literal["bullish", "bearish"],
+        locked_from_bar: int,
+    ) -> None:
+        """Rapor 4: restart sonrasi persist edilmis BIAS latch'ini RSM'ye yukle.
+
+        State -> BIAS_LOCKED; IDLE baslatilmaz. locked_from_bar korunur:
+        on_bias_fvg yalnizca kilit noktasi SONRASI olusan FVG'leri tetikler
+        (restart oncesi dokunulmus FVG'ler tekrar kullanilmaz). Sweep pending
+        metadata'si dokunulmaz — yeni sweep beklenmez.
+        """
+        self.state = RetraceState.BIAS_LOCKED
+        self.direction = direction
+        self.sweep_level = None
+        self.trigger_fvg = None
+        self._locked_from_bar = locked_from_bar
+        logger.info(
+            f"[RST] BIAS_LOCKED RESTORE | dir={direction} from_bar={locked_from_bar}"
+        )
+
     def _consume_sweep(self) -> bool:
         """Bekleyen sweep'i persistence'dan tuket (ID olarak kullanilabilir yap).
 
@@ -152,21 +177,47 @@ class RetraceStateMachine:
         ID korunur, uyari loglanir ve False doner. Boylece sweep kaydi disk'te
         kalir ve gunluk (not-fill) backstop hala engelleme yapabilir. Basarili
         tuketimde ID temizlenir.
+
+        Rapor 4: hata durumunda ID `_pending_sweep_persistence_id`'de kalir —
+        lock_bias()/restore_bias_lock() tarafindan silinmez, bot periyodik
+        retry_pending_sweep_persistence() ile yeniden dener.
         """
-        if self._pending_sweep_id is None:
+        if self._pending_sweep_persistence_id is None:
             return True
         try:
             from state_manager import mark_sweep_used
 
-            mark_sweep_used(self._pending_sweep_id)
+            mark_sweep_used(self._pending_sweep_persistence_id)
         except Exception:
             logger.warning(
-                f"[RST] sweep persistence hatasi (pending ID korunuyor): "
-                f"{self._pending_sweep_id}",
+                f"[RST] sweep persistence hatasi (ID korunuyor, retry "
+                f"bekliyor): {self._pending_sweep_persistence_id}",
                 exc_info=True,
             )
             return False
-        self._pending_sweep_id = None
+        self._pending_sweep_persistence_id = None
+        return True
+
+    def retry_pending_sweep_persistence(self) -> bool:
+        """Rapor 4: persist edilememis sweep ID'sini tekrar tuketmeyi dene.
+
+        Basarili olursa ID temizlenir ve True doner; basarisizlikta ID korunur
+        (False). Bot, _on_1m_close per-symbol cagrisi ile surekli dener.
+        """
+        if self._pending_sweep_persistence_id is None:
+            return True
+        try:
+            from state_manager import mark_sweep_used
+
+            mark_sweep_used(self._pending_sweep_persistence_id)
+        except Exception:
+            logger.warning(
+                f"[RST] sweep persistence retry hatasi (ID korunuyor): "
+                f"{self._pending_sweep_persistence_id}",
+                exc_info=True,
+            )
+            return False
+        self._pending_sweep_persistence_id = None
         return True
 
     def confirm_entry_success(self) -> bool:
@@ -176,6 +227,9 @@ class RetraceStateMachine:
         beklenen entry'den once olusursa (robot anlik dogrulayamadan exit gelir)
         pending ID erken silinir ve sweep sifirdan tekrar sayilabilir. Bu metot
         bot.py'nin _try_entry success hattinda lock_bias()'tan ONCE cagrilir.
+
+        Rapor 4: basarisizlik BIAS latch'ini veya FVG aramasini durdurmaz —
+        yalnizca dedup metadata'si diskte kalir ve retry ile temizlenir.
         """
         return self._consume_sweep()
 
@@ -184,7 +238,7 @@ class RetraceStateMachine:
         self.direction = None
         self.sweep_level = None
         self.trigger_fvg = None
-        self._pending_sweep_id = None
+        self._pending_sweep_persistence_id = None
         self._locked_from_bar = None
         self._fail_count = 0
 
@@ -195,13 +249,15 @@ class RetraceStateMachine:
         sonrasi entry'den gelir). _locked_from_bar korunur: on_bias_fvg yalnizca
         kilit noktasi SONRASI olusan FVG'lerin tekrar tetiklenmesine izin verir
         (aynı FVG'nin donguye girerek tekrar tekrar entry yapmasi engellenir).
+
+        Rapor 4: _pending_sweep_persistence_id BURADA SILINMEZ — dedup
+        metadata'si lock state'ten bagimsizdir (yeni strateji kilidini bozmaz).
         """
         if self.direction is None:
             return
         self.state = RetraceState.BIAS_LOCKED
         self.sweep_level = None
         self.trigger_fvg = None
-        self._pending_sweep_id = None
         if bar_index is not None:
             self._locked_from_bar = bar_index
         logger.info(
@@ -352,7 +408,7 @@ class RetraceStateMachine:
         self.state = RetraceState.SWEEP_DETECTED
         self.direction = direction
         self.sweep_level = level
-        self._pending_sweep_id = (
+        self._pending_sweep_persistence_id = (
             _sweep_id(symbol, direction, bar_index) if bar_index is not None else None
         )
         logger.info(f"[RST] SWEEP_DETECTED | dir={direction} level={level:.2f}")

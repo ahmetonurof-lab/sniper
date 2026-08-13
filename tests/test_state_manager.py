@@ -18,6 +18,8 @@ from state_manager import (
     mark_sweep_used,
     reconcile_from_active,
     get_trade_count_today,
+    mark_bias_locked,
+    load_bias_lock,
     STATE_FILE,
     LOCK_FILE,
 )
@@ -304,3 +306,90 @@ class TestEdgeCases:
         """Symbol names like 1000PEPEUSDT should work."""
         mark_trade_opened("1000PEPEUSDT", entry_price=0.01)
         assert can_open_trade("1000PEPEUSDT") is False
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Rapor 4 — Günlük BIAS latch persistence
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestBiasLockPersistence:
+    """mark_bias_locked / load_bias_lock — restart-proof günlük BIAS latch."""
+
+    def test_mark_and_load_roundtrip(self, clean_state):
+        ok = mark_bias_locked(
+            "BTCUSDT",
+            "2026-06-19",
+            "BULLISH",
+            "bullish",
+            65550.0,
+            bias_lock_bar_index=42,
+        )
+        assert ok is True
+        latch = load_bias_lock("BTCUSDT", "2026-06-19")
+        assert latch is not None
+        assert latch["daily_bias"] == "BULLISH"
+        assert latch["sweep_direction"] == "bullish"
+        assert latch["sweep_level"] == 65550.0
+        assert latch["bias_lock_day"] == "2026-06-19"
+        assert latch["bias_lock_bar_index"] == 42
+
+    def test_load_returns_none_when_no_latch(self, clean_state):
+        assert load_bias_lock("BTCUSDT", "2026-06-19") is None
+
+    def test_load_returns_none_on_day_mismatch(self, clean_state):
+        mark_bias_locked("BTCUSDT", "2026-06-19", "BULLISH", "bullish", 65550.0)
+        # Farkli CBDR gunu (restart sonrasi yeni gun) -> latch yok sayilir
+        assert load_bias_lock("BTCUSDT", "2026-06-20") is None
+
+    def test_mark_idempotent_same_day(self, clean_state):
+        mark_bias_locked("BTCUSDT", "2026-06-19", "BULLISH", "bullish", 65550.0)
+        # Ikinci sweep (karsi yon) latch'i DEGISTIREMEZ — bias gunde bir kez kilitlenir
+        assert (
+            mark_bias_locked("BTCUSDT", "2026-06-19", "BEARISH", "bearish", 65000.0)
+            is True
+        )
+        latch = load_bias_lock("BTCUSDT", "2026-06-19")
+        assert latch["daily_bias"] == "BULLISH"
+        assert latch["sweep_direction"] == "bullish"
+
+    def test_mark_rejects_invalid_daily_bias(self, clean_state):
+        with pytest.raises(ValueError):
+            mark_bias_locked("BTCUSDT", "2026-06-19", "NEUTRAL", "bullish", 65550.0)
+
+    def test_mark_rejects_invalid_sweep_direction(self, clean_state):
+        with pytest.raises(ValueError):
+            mark_bias_locked("BTCUSDT", "2026-06-19", "BULLISH", "lateral", 65550.0)
+
+    def test_mark_rejects_invalid_sweep_level(self, clean_state):
+        with pytest.raises(ValueError):
+            mark_bias_locked(
+                "BTCUSDT", "2026-06-19", "BULLISH", "bullish", float("inf")
+            )
+        with pytest.raises(ValueError):
+            mark_bias_locked("BTCUSDT", "2026-06-19", "BULLISH", "bullish", -5.0)
+        with pytest.raises(ValueError):
+            mark_bias_locked("BTCUSDT", "2026-06-19", "BULLISH", "bullish", "abc")
+
+    def test_mark_trade_opened_preserves_bias_latch(self, clean_state):
+        """mark_trade_opened merge yapmali — latch alanlarini silmemeli."""
+        mark_bias_locked("BTCUSDT", "2026-06-19", "BULLISH", "bullish", 65550.0)
+        mark_trade_opened("BTCUSDT", entry_price=65600.0)
+        latch = load_bias_lock("BTCUSDT", "2026-06-19")
+        assert latch is not None
+        assert latch["daily_bias"] == "BULLISH"
+        assert get_trade_count_today("BTCUSDT") == 1
+
+    def test_load_returns_none_on_corrupt_stored_fields(self, clean_state):
+        _save(
+            {
+                "BTCUSDT": {
+                    "bias_locked": True,
+                    "bias_lock_day": "2026-06-19",
+                    "daily_bias": "LATERAL",
+                    "sweep_direction": "bullish",
+                    "sweep_level": 10.0,
+                }
+            }
+        )
+        assert load_bias_lock("BTCUSDT", "2026-06-19") is None

@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from unittest.mock import patch
 
 import pytest
 
@@ -238,3 +239,53 @@ class TestCheckCbdrSweep:
         ss._reset_for_new_cbdr_cycle()
         assert ss.bias_locked is False
         assert ss.daily_bias == DailyBias.NEUTRAL
+
+
+class TestLockBiasFromSweep:
+    """Rapor 4: check_sweep latch'ini diske kaydetme (lock_bias_from_sweep)."""
+
+    @patch("state_manager.mark_bias_locked")
+    def test_persists_latch(self, mock_mark):
+        ss = SessionState()
+        ss._cbdr.day = "2026-06-19"
+        ss._cbdr.daily_bias = DailyBias.BULLISH
+        ss._cbdr.sweep_direction = "bullish"
+        ss._cbdr.sweep_level = 50.0
+        ok = ss.lock_bias_from_sweep("BTCUSDT", "bullish", 50.0, bar_index=42)
+        assert ok is True
+        mock_mark.assert_called_once_with(
+            symbol="BTCUSDT",
+            day_key="2026-06-19",
+            daily_bias="BULLISH",
+            sweep_direction="bullish",
+            sweep_level=50.0,
+            bias_lock_bar_index=42,
+        )
+
+    @patch("state_manager.mark_bias_locked")
+    def test_persistence_error_returns_false_and_keeps_memory_latch(self, mock_mark):
+        """Hata YUTULMAZ: critical log + False; bellek latch'i korunur
+        (FVG-only davranis surer)."""
+        mock_mark.side_effect = Exception("disk error")
+        ss = SessionState()
+        ss._cbdr.day = "2026-06-19"
+        ss._cbdr.daily_bias = DailyBias.BEARISH
+        ss._cbdr.bias_locked = True
+        ok = ss.lock_bias_from_sweep("BTCUSDT", "bearish", 100.0)
+        assert ok is False
+        assert ss.bias_locked is True
+
+    @patch("state_manager.mark_bias_locked")
+    def test_mark_bias_locked_delegates(self, mock_mark):
+        ss = SessionState()
+        ss._cbdr.day = "2026-06-20"
+        ss._cbdr.daily_bias = DailyBias.BULLISH
+        assert ss.lock_bias_from_sweep("ETHUSDT", "bullish", 3000.0) is True
+        mock_mark.assert_called_once_with(
+            symbol="ETHUSDT",
+            day_key="2026-06-20",
+            daily_bias="BULLISH",
+            sweep_direction="bullish",
+            sweep_level=3000.0,
+            bias_lock_bar_index=None,
+        )

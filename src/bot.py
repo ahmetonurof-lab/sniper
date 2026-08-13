@@ -39,7 +39,7 @@ from models import (
     STATUS_REPAIR_REQUIRED,
     UNRESTRICTED_STATUSES,
 )
-from retrace_state import RetraceStateMachine
+from retrace_state import RetraceState, RetraceStateMachine
 from session import DailyBias, SessionState
 from risk_manager import RiskManager
 from fvg import fvg_is_alive
@@ -214,6 +214,9 @@ class PaperTrader:
         self.states: dict[str, SessionState] = {}
         self.rsms: dict[str, RetraceStateMachine] = {}
         self.signal_engines: dict[str, SignalEngine] = {}
+        # Rapor 4: her sembol icin gunluk BIAS latch restart restore'unun tek
+        # kez yapildigini izler (process basina bir kez, yeni gun yeni proses).
+        self._bias_latch_restored: dict[str, bool] = {}
         self.entry_manager: EntryManager | None = None
         self.cfgs: dict[str, dict] = {}
         self.active_trades: dict[str, ActiveTrade] = {}
@@ -392,6 +395,51 @@ class PaperTrader:
 
     # ── 15m: Sinyal kurulumu (CBDR, Sweep, FVG, Entry, Retrade) ──
 
+    def _restore_bias_latch(
+        self, sym: str, ss: SessionState, fallback_bar: int
+    ) -> None:
+        """Rapor 4: disk'teki gunluk BIAS latch'ini SessionState + RSM'e yukle.
+
+        Restart sonrasi RSM IDLE gelir; latch diske kayitliysa (bias_lock_day
+        == ss.cbdr_day) RSM BIAS_LOCKED'a gecer ve yeni sweep BEKLENMEZ —
+        sadece kilit yonunde olusan FVG'ler tekrar tetiklenir. SessionState'in
+        bias_locked'i read-only property oldugu icin _cbdr alanlarina yazilir
+        (rapor 4 §3.3). bias_lock_bar_index yoksa conservative fallback
+        (last_processed_bar) kullanilir: restart oncesi dokunulmus FVG'ler
+        tekrar entry yapamaz.
+        """
+        try:
+            from state_manager import load_bias_lock
+
+            latch = load_bias_lock(sym, ss.cbdr_day)
+        except Exception as e:
+            log.critical(f"[BIAS] {sym} latch yukleme hatasi: {e} — restore atlandi")
+            self._bias_latch_restored[sym] = True
+            return
+        if latch is not None:
+            direction = latch["sweep_direction"]
+            db = (
+                DailyBias.BULLISH
+                if latch["daily_bias"] == "BULLISH"
+                else DailyBias.BEARISH
+            )
+            ss._cbdr.daily_bias = db
+            ss._cbdr.bias_locked = True
+            ss._cbdr.sweep_confirmed = True
+            ss._cbdr.sweep_direction = direction
+            ss._cbdr.sweep_level = latch["sweep_level"]
+            bar = latch.get("bias_lock_bar_index")
+            if bar is None:
+                bar = fallback_bar
+            rsm = self.rsms[sym]
+            if rsm.state == RetraceState.IDLE:
+                rsm.restore_bias_lock(direction, locked_from_bar=bar)
+            log.info(
+                f"[BIAS] {sym} latch restore: {latch['daily_bias']} "
+                f"(day={latch['bias_lock_day']}, dir={direction}, bar={bar})"
+            )
+        self._bias_latch_restored[sym] = True
+
     async def _on_15m_close(self, sym: str, bars_15m: list[Bar]):
         sym_cfg = self.cfgs[sym]
         sl_atr = sym_cfg["SL_ATR_MULT"]
@@ -417,7 +465,28 @@ class PaperTrader:
         session = self._session_label(hour)
 
         ss = self.states[sym]
+        was_bias_locked = ss.bias_locked
         ss.update(dt, current.open, current.high, current.low, current.close, atr_val)
+
+        # ── Rapor 4: gunluk BIAS latch yonetimi ──
+        # 1) Ilk gecerli sweep latch'i actiysa -> diske kaydet (idempotent;
+        #    persistence hatasi bellek latch'ini bozmaz, critical log basar).
+        # 2) Restart sonrasi latch diske kayitliysa -> bu proses ilk 15m'de
+        #    SessionState._cbdr + RSM'i geri yukle (yeni sweep BEKLENMEZ,
+        #    sadece kilit yonunde FVG aranir).
+        if not was_bias_locked and ss.bias_locked and ss.sweep_direction:
+            ss.lock_bias_from_sweep(
+                sym,
+                ss.sweep_direction,
+                ss.sweep_level if ss.sweep_level is not None else 0.0,
+                bar_index=current.index,
+            )
+        elif (
+            not self._bias_latch_restored.get(sym)
+            and not ss.bias_locked
+            and ss.cbdr_day
+        ):
+            self._restore_bias_latch(sym, ss, fallback_bar=current.index)
 
         # Pozisyon açıkken sinyal taramasını atla. Trailing + exit _on_1m_close'da.
         if sym in self.active_trades:
@@ -557,6 +626,13 @@ class PaperTrader:
         self._orphan_check_counter += 1
         if self._orphan_check_counter % 10 == 0:
             _flush_ohlc_writers()
+
+        # Rapor 4: persist edilememis sweep dedup ID'sini periyodik dene.
+        # Basarisizlikta RSM kendi uyarisini loglar, ID korunur (BIAS kilidini
+        # etkilemez).
+        _rsm = self.rsms.get(sym)
+        if _rsm is not None:
+            _rsm.retry_pending_sweep_persistence()
 
         trade = self.active_trades.get(sym)
         if not trade:
@@ -1073,9 +1149,9 @@ class PaperTrader:
         ss.trades_today += 1
         rsm.clear_fail_streak()
         # L-08: entry fill'i dogrulandi — bekleyen sweep'i artik tuket (ID
-        # persistence'dan silinebilir). lock_bias()'tan ONCE cagrilir cunku
-        # lock_bias _pending_sweep_id'yi temizler; erken cagrilmasi durumunda
-        # sweep silinemez ve gunluk dedup devre disi kalir.
+        # persistence'dan silinebilir). lock_bias()'tan ONCE cagrilir. Rapor 4:
+        # lock_bias() artik pending dedup ID'sini silmez; tuketim basarisizsa
+        # ID korunur ve periyodik retry ile temizlenir.
         if not rsm.confirm_entry_success():
             log.warning(
                 f"[BOT] sweep persistence tuketim hatasi (sym={sym}) — "

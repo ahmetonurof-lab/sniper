@@ -6,6 +6,8 @@ normalize_order_event(), ID helpers, ve normalized/legacy handler behavior.
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import asyncio
+
 import pytest
 
 from trading.user_data_handler import (
@@ -754,3 +756,313 @@ class TestL02CallbackDoesNotPop:
 
         exit_cb.assert_awaited_once()
         assert "BTCUSDT" in active_trades  # L-02: pop yok
+
+
+# ═══════════════════════════════════════════════════════════════════
+# D-01: exit dallari ayni lock'u NESTED acquire etmez (deadlock kanit testi)
+# ═══════════════════════════════════════════════════════════════════
+#
+# Rapor 3 D-01, handler exit branch'lerinin `_exit_locks[trade_key]`'i hâlâ
+# tutarken `_exit_trade` (-> ExitLifecycleService.execute()) cagirdigini ve
+# execute()'in AYNI lock'u yeniden aldigini iddia eder. Kaynak kodu (3a88319):
+# tum 6 dalda `async with lock:` blogu yazim isini bitirip lock'u BIRAKIR,
+# `await _exit_trade(...)` lock DISINDA cagrilir (sirali, nested degil).
+# Bu sinif iddiayi DENEYSEL olarak dogrular: handler ile AYNI exit_locks
+# dict'ini paylasan ve execute() gibi AYNI trade_key lock'unu yeniden alan
+# bir exit callback stub'i kullanilir. Deadlock olsaydi
+# `asyncio.wait_for(..., timeout=1.0)` TimeoutError firlatirdi.
+
+
+def _make_execute_like_exit_cb(active_trades, exit_locks, commit=True):
+    """ExitLifecycleService.execute()'i taklit eden stub.
+
+    execute() gibi AYNI exit_locks dict'inden ayni trade_key lock'unu alir.
+    commit=True ise trade'i registry'den pop eder (True doner); commit=False
+    ise trade'i birakir (False doner) — execute()==False durumunu simule eder.
+    """
+    from trading.user_data_handler import _trade_identity_key
+
+    async def _exit_cb(sym, trade, ts):
+        tk = f"{sym}_{_trade_identity_key(trade)}"
+        lock = exit_locks.setdefault(tk, asyncio.Lock())
+        async with lock:
+            if trade.get("_exit_committed"):
+                return False
+            trade["_exit_committed"] = True
+            if commit:
+                active_trades.pop(sym, None)
+                return True
+            return False
+
+    return _exit_cb
+
+
+def _make_locked_handler(active_trades, exit_locks, order_manager=None, exit_cb=None):
+    """exit_locks'i handler'a actarak kurar; (on_order_cb, order_manager) doner."""
+    from trading.user_data_handler import UserDataHandler
+
+    om = order_manager if order_manager is not None else MagicMock()
+    handler = UserDataHandler(
+        active_trades,
+        MagicMock(),
+        MagicMock(),
+        om,
+        exit_cb or AsyncMock(),
+        exit_locks=exit_locks,
+    )
+    captured = {}
+
+    def _mock_user_data(event_type):
+        def _decorator(func):
+            captured[event_type] = func
+            return func
+
+        return _decorator
+
+    hub = MagicMock()
+    hub.on_user_data = _mock_user_data
+    handler.register(hub)
+    return captured.get("ORDER_TRADE_UPDATE"), om
+
+
+class TestExitLockNoNestedAcquire:
+    """D-01: 6 exit branch'i de lock'u birakip exit callback'i cagirir (deadlock yok)."""
+
+    @pytest.mark.asyncio
+    @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", True)
+    @patch("trading.user_data_handler.cfg")
+    async def test_normalized_matched_fill_no_nested_lock(self, mock_cfg):
+        active_trades = {}
+        exit_locks = {}
+        exit_cb = _make_execute_like_exit_cb(active_trades, exit_locks, commit=True)
+        on_order, _om = _make_locked_handler(active_trades, exit_locks, exit_cb=exit_cb)
+        assert on_order is not None
+
+        t = _trade(sl_order_id="SL_MATCH", tp_order_id="TP_X")
+        active_trades["BTCUSDT"] = t
+
+        raw_msg = {
+            "o": {
+                "s": "BTCUSDT",
+                "c": "SL_MATCH",
+                "X": "FILLED",
+                "R": True,
+                "ap": "49000",
+                "z": "0.1",
+                "Z": "4900",
+            }
+        }
+        await asyncio.wait_for(on_order(raw_msg), timeout=1.0)
+        assert t.get("result") == "SL"
+        assert "BTCUSDT" not in active_trades  # execute-like commit
+
+    @pytest.mark.asyncio
+    @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", True)
+    @patch("trading.user_data_handler.cfg")
+    async def test_normalized_cross_check_sl_no_nested_lock(self, mock_cfg):
+        active_trades = {}
+        exit_locks = {}
+        exit_cb = _make_execute_like_exit_cb(active_trades, exit_locks, commit=True)
+        om = MagicMock()
+        om.get_open_order_ids = AsyncMock(return_value=["TP_Y"])
+        on_order, _ = _make_locked_handler(
+            active_trades, exit_locks, order_manager=om, exit_cb=exit_cb
+        )
+        assert on_order is not None
+
+        t = _trade(sl_order_id="SL_X", tp_order_id="TP_Y")
+        active_trades["BTCUSDT"] = t
+
+        raw_msg = {
+            "o": {
+                "s": "BTCUSDT",
+                "c": "UNKNOWN_1",
+                "X": "FILLED",
+                "R": True,
+                "ap": "50000",
+                "z": "0.1",
+            }
+        }
+        await asyncio.wait_for(on_order(raw_msg), timeout=1.0)
+        assert t.get("result") == "SL"
+        assert "BTCUSDT" not in active_trades
+
+    @pytest.mark.asyncio
+    @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", True)
+    @patch("trading.user_data_handler.cfg")
+    async def test_normalized_ws_fallback_no_nested_lock(self, mock_cfg):
+        active_trades = {}
+        exit_locks = {}
+        exit_cb = _make_execute_like_exit_cb(active_trades, exit_locks, commit=True)
+        om = MagicMock()
+        om.get_open_order_ids = AsyncMock(return_value=["SL_X", "TP_Y"])
+        on_order, _ = _make_locked_handler(
+            active_trades, exit_locks, order_manager=om, exit_cb=exit_cb
+        )
+        assert on_order is not None
+
+        t = _trade(sl_order_id="SL_X", tp_order_id="TP_Y")
+        active_trades["BTCUSDT"] = t
+
+        raw_msg = {
+            "o": {
+                "s": "BTCUSDT",
+                "c": "UNKNOWN_1",
+                "X": "FILLED",
+                "R": True,
+                "ap": "50000",
+                "z": "0.1",
+            }
+        }
+        await asyncio.wait_for(on_order(raw_msg), timeout=1.0)
+        assert t.get("result") == "WS_FALLBACK"
+        assert "BTCUSDT" not in active_trades
+
+    @pytest.mark.asyncio
+    @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", False)
+    @patch("trading.user_data_handler.cfg")
+    async def test_legacy_matched_fill_no_nested_lock(self, mock_cfg):
+        active_trades = {}
+        exit_locks = {}
+        exit_cb = _make_execute_like_exit_cb(active_trades, exit_locks, commit=True)
+        on_order, _om = _make_locked_handler(active_trades, exit_locks, exit_cb=exit_cb)
+        assert on_order is not None
+
+        t = _trade(sl_order_id="SL_MATCH", tp_order_id="TP_X")
+        active_trades["BTCUSDT"] = t
+
+        raw_msg = {
+            "o": {
+                "s": "BTCUSDT",
+                "c": "SL_MATCH",
+                "X": "FILLED",
+                "R": True,
+                "ap": "49000",
+                "z": "0.1",
+                "Z": "4900",
+            }
+        }
+        await asyncio.wait_for(on_order(raw_msg), timeout=1.0)
+        assert t.get("result") == "SL"
+        assert t.get("exit_price") == 49000.0
+        assert "BTCUSDT" not in active_trades
+
+    @pytest.mark.asyncio
+    @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", False)
+    @patch("trading.user_data_handler.cfg")
+    async def test_legacy_cross_check_sl_no_nested_lock(self, mock_cfg):
+        active_trades = {}
+        exit_locks = {}
+        exit_cb = _make_execute_like_exit_cb(active_trades, exit_locks, commit=True)
+        om = MagicMock()
+        om.get_open_order_ids = AsyncMock(return_value=["TP_Y"])
+        on_order, _ = _make_locked_handler(
+            active_trades, exit_locks, order_manager=om, exit_cb=exit_cb
+        )
+        assert on_order is not None
+
+        t = _trade(sl_order_id="SL_X", tp_order_id="TP_Y")
+        active_trades["BTCUSDT"] = t
+
+        raw_msg = {
+            "o": {
+                "s": "BTCUSDT",
+                "c": "UNKNOWN_1",
+                "X": "FILLED",
+                "R": True,
+                "ap": "50000",
+                "z": "0.1",
+            }
+        }
+        await asyncio.wait_for(on_order(raw_msg), timeout=1.0)
+        assert t.get("result") == "SL"
+        assert "BTCUSDT" not in active_trades
+
+    @pytest.mark.asyncio
+    @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", False)
+    @patch("trading.user_data_handler.cfg")
+    async def test_legacy_ws_fallback_no_nested_lock(self, mock_cfg):
+        active_trades = {}
+        exit_locks = {}
+        exit_cb = _make_execute_like_exit_cb(active_trades, exit_locks, commit=True)
+        om = MagicMock()
+        om.get_open_order_ids = AsyncMock(return_value=["SL_X", "TP_Y"])
+        on_order, _ = _make_locked_handler(
+            active_trades, exit_locks, order_manager=om, exit_cb=exit_cb
+        )
+        assert on_order is not None
+
+        t = _trade(sl_order_id="SL_X", tp_order_id="TP_Y")
+        active_trades["BTCUSDT"] = t
+
+        raw_msg = {
+            "o": {
+                "s": "BTCUSDT",
+                "c": "UNKNOWN_1",
+                "X": "FILLED",
+                "R": True,
+                "ap": "50000",
+                "z": "0.1",
+            }
+        }
+        await asyncio.wait_for(on_order(raw_msg), timeout=1.0)
+        assert t.get("result") == "WS_FALLBACK"
+        assert "BTCUSDT" not in active_trades
+
+    # execute() == False durumlari: trade registry'de kalir (L-02 semantigi)
+
+    @pytest.mark.asyncio
+    @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", True)
+    @patch("trading.user_data_handler.cfg")
+    async def test_normalized_execute_false_keeps_trade(self, mock_cfg):
+        active_trades = {}
+        exit_locks = {}
+        exit_cb = _make_execute_like_exit_cb(active_trades, exit_locks, commit=False)
+        on_order, _om = _make_locked_handler(active_trades, exit_locks, exit_cb=exit_cb)
+        assert on_order is not None
+
+        t = _trade(sl_order_id="SL_MATCH", tp_order_id="TP_X")
+        active_trades["BTCUSDT"] = t
+
+        raw_msg = {
+            "o": {
+                "s": "BTCUSDT",
+                "c": "SL_MATCH",
+                "X": "FILLED",
+                "R": True,
+                "ap": "49000",
+                "z": "0.1",
+                "Z": "4900",
+            }
+        }
+        await asyncio.wait_for(on_order(raw_msg), timeout=1.0)
+        assert t.get("pending_exit_price") == 49000.0
+        assert "BTCUSDT" in active_trades  # execute False -> trade kalir
+
+    @pytest.mark.asyncio
+    @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", False)
+    @patch("trading.user_data_handler.cfg")
+    async def test_legacy_execute_false_keeps_trade(self, mock_cfg):
+        active_trades = {}
+        exit_locks = {}
+        exit_cb = _make_execute_like_exit_cb(active_trades, exit_locks, commit=False)
+        on_order, _om = _make_locked_handler(active_trades, exit_locks, exit_cb=exit_cb)
+        assert on_order is not None
+
+        t = _trade(sl_order_id="SL_MATCH", tp_order_id="TP_X")
+        active_trades["BTCUSDT"] = t
+
+        raw_msg = {
+            "o": {
+                "s": "BTCUSDT",
+                "c": "SL_MATCH",
+                "X": "FILLED",
+                "R": True,
+                "ap": "49000",
+                "z": "0.1",
+                "Z": "4900",
+            }
+        }
+        await asyncio.wait_for(on_order(raw_msg), timeout=1.0)
+        assert t.get("exit_price") == 49000.0
+        assert "BTCUSDT" in active_trades  # execute False -> trade kalir

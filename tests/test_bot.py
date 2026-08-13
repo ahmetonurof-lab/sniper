@@ -19,7 +19,7 @@ from models import (
     STATUS_REPAIR_REQUIRED,
 )
 from retrace_state import RetraceState, HTFFVG
-from session import SessionState
+from session import DailyBias, SessionState
 
 
 # ── Helpers ───────────────────────────────────────────────────────
@@ -1938,3 +1938,103 @@ def _setup_minimal_cfg(mock_cfg, balance=1000.0, symbols=None):
     mock_cfg.ASIA_DEAD_THRESHOLD_PCT = 0.3
     mock_cfg.DEFAULT_ATR_FALLBACK_PCT = 0.005
     mock_cfg.SL_EPSILON_TICKS = 2
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Rapor 4 — BIAS latch restart restore (_restore_bias_latch)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestRestoreBiasLatch:
+    """_restore_bias_latch: disk'teki gunluk BIAS latch'ini SessionState._cbdr
+    + RSM'e yukler; latch yoksa/hataysa IDLE kalir, bayrak set edilir."""
+
+    def _make_trader(self, mock_cfg):
+        _setup_minimal_cfg(mock_cfg)
+        import bot as bot_module
+
+        return bot_module.PaperTrader()
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    def test_restore_writes_cbdr_and_rsm(self, mock_cfg, mock_hub, mock_rest):
+        trader = self._make_trader(mock_cfg)
+        sym = "BTCUSDT"
+        ss = trader.states[sym]
+        ss._cbdr.day = "2026-06-19"
+        with patch(
+            "state_manager.load_bias_lock",
+            return_value={
+                "daily_bias": "BULLISH",
+                "sweep_direction": "bullish",
+                "sweep_level": 65550.0,
+                "bias_lock_day": "2026-06-19",
+                "bias_lock_bar_index": 42,
+            },
+        ):
+            trader._restore_bias_latch(sym, ss, fallback_bar=99)
+        assert ss.bias_locked is True
+        assert ss.daily_bias == DailyBias.BULLISH
+        assert ss.sweep_direction == "bullish"
+        assert ss.sweep_level == 65550.0
+        rsm = trader.rsms[sym]
+        assert rsm.state == RetraceState.BIAS_LOCKED
+        assert rsm.locked_direction == "bullish"
+        assert trader._bias_latch_restored[sym] is True
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    def test_restore_none_keeps_idle(self, mock_cfg, mock_hub, mock_rest):
+        trader = self._make_trader(mock_cfg)
+        sym = "BTCUSDT"
+        ss = trader.states[sym]
+        ss._cbdr.day = "2026-06-19"
+        with patch("state_manager.load_bias_lock", return_value=None):
+            trader._restore_bias_latch(sym, ss, fallback_bar=99)
+        assert ss.bias_locked is False
+        assert trader.rsms[sym].state == RetraceState.IDLE
+        assert trader._bias_latch_restored[sym] is True
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    def test_restore_error_keeps_idle_and_sets_flag(
+        self, mock_cfg, mock_hub, mock_rest
+    ):
+        trader = self._make_trader(mock_cfg)
+        sym = "BTCUSDT"
+        ss = trader.states[sym]
+        ss._cbdr.day = "2026-06-19"
+        with patch("state_manager.load_bias_lock", side_effect=Exception("disk error")):
+            trader._restore_bias_latch(sym, ss, fallback_bar=99)
+        assert trader.rsms[sym].state == RetraceState.IDLE
+        assert ss.bias_locked is False
+        assert trader._bias_latch_restored[sym] is True
+
+    @patch("bot.BinanceRESTClient")
+    @patch("bot.BinanceWSHub")
+    @patch("bot.cfg", autospec=True)
+    def test_restore_uses_fallback_bar_when_not_persisted(
+        self, mock_cfg, mock_hub, mock_rest
+    ):
+        trader = self._make_trader(mock_cfg)
+        sym = "BTCUSDT"
+        ss = trader.states[sym]
+        ss._cbdr.day = "2026-06-19"
+        with patch(
+            "state_manager.load_bias_lock",
+            return_value={
+                "daily_bias": "BEARISH",
+                "sweep_direction": "bearish",
+                "sweep_level": 64000.0,
+                "bias_lock_day": "2026-06-19",
+                "bias_lock_bar_index": None,
+            },
+        ):
+            trader._restore_bias_latch(sym, ss, fallback_bar=77)
+        rsm = trader.rsms[sym]
+        assert rsm.state == RetraceState.BIAS_LOCKED
+        assert rsm.locked_direction == "bearish"
+        assert rsm._locked_from_bar == 77
