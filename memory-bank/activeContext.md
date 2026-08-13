@@ -1,5 +1,17 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-14 — BULGU-16: trades_history.jsonl yazımı düzeltildi (callable serialize)
+
+- **Tetik:** Canlı log `[TRADES] ENAUSDT jsonl yazma hatasi` (23:59:13). Soruşturma → `trades_history.jsonl` son değişiklik **Aug 10 07:49** — trail extractor (Ağu 12) eklendikten sonra hiçbir kapanan trade diske yazılamamıştı. INJUSDT/ENAUSDT dahil restart'ta kayıt kaybolacaktı (sadece hafızada).
+- **Kök neden:** `asdict(trade)` closure olan `trail_level_extractor`'ı (models.py:544) record'a taşıyor → `json.dumps` `TypeError: Object of type function is not JSON serializable` → **bare `except Exception:` hatayı yutuyordu** (exit_lifecycle.py:852-853).
+- **Fix:** (1) `record.pop("trail_level_extractor", None)` — callable dışarıda; (2) `except Exception as e:` → hata detayı loglanıyor (kök neden görünür olacak).
+- **Test:** 2 regresyon testi (`TestJsonlSerialization`): callable'lı trade temiz jsonl yazıyor (disk roundtrip doğrulandı), hata durumunda warning detay içeriyor. test_exit_lifecycle 49/49. Genel süit: 16 fail TAMAMEN pre-existing baseline (stash ile doğrulandı, benim değişikliğim 0 yeni fail).
+- **Commit:** `e942a13` (fix + test), pushlandı.
+- **Deploy:** Sunucuya pull edildi; restart öncesi iki screen sorunu yaşandı (eski PID 484107 ölmedi → `pkill -f bot.py` + screen quit; system python `dotenv` yok → **venv ile başlatmak zorunlu**). Yeni bot PID 488577, `/root/sniper/venv/bin/python3 bot.py`, `paper_trade.log` temiz başladı, INJUSDT/ENAUSDT [INIT] analizleri tamam. Not: restart yöntemi memory-bank'teki eski base64 script yerine artık `screen -S bot -X quit; screen -S bot -dm bash -c 'cd /root/sniper/src && /root/sniper/venv/bin/python3 bot.py > /root/sniper/output/paper_trade.log 2>&1'`.
+- **Aktif pozisyon:** Restart öncesi INJUSDT LONG 530@4.6 (SL 4.61/TP 4.697 borsada NEW) ve ENAUSDT SHORT kapandı (+4.40). Restart sonrası trade_state recovery yeni bot'ta bekleniyor.
+
+---
+
 ## Son İşlem: 2026-08-13 — Konsol FVG/POZISYON display tam hassasiyet (`_fmt_price`)
 
 - **Tetik:** Canlı log'da ENAUSDT gibi düşük fiyatlı sembollerde konsol `FVG:[0.09 - 0.09]` gösteriyordu; gerçek FVG `[0.0853-0.0854]` idi. Display sabit `.2f` ile yuvarlıyordu (console_reporter.py). Trading'e etkisi yok, konsol yanıltıcı.
