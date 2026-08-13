@@ -29,3 +29,5 @@ __pycache__/
 
 # Coverage
 .coverage
+src/config.py.local
+src/output/
