@@ -1,5 +1,13 @@
 # Progress — Sniper Bot
 
+## 2026-08-13 — luna_sniper_canli_yeni_bug_raporu.md Türkçe karakter onarımı
+
+- **Bulgu:** `reports/luna_sniper_canli_yeni_bug_raporu.md` UTF-8 olarak cp1252 çözülüp yeniden yazılmış (çift kodlama/mojibake): `Ä±`→`ı`, `Ã¶`→`ö`, `ÅŸ`→`ş`, `â€œ`/`â€\x9d`→tırnak işaretleri vb.
+- **Fix:** Dosya byte seviyesinde `cp1252 → utf-8` ters dönüşümle onarıldı; `\x9d` (tanımsız cp1252 byte'ı, sağ tırnak `"`) özel handler ile birebir map'lendi. İçerik/501 satır korundu, kalan bozuk karakter yok.
+- **Not:** Rapor içeriği bu oturumda yazılmadı; yalnızca karakter onarımı yapıldı.
+
+---
+
 ## 2026-08-12 — sweep TAMAMLANDI sonrası FVG ARANIYOR logu eksik (console_reporter fix)
 
 - **Bulgu:** `display_sweep_status` "✅ SWEEP: TAMAMLANDI | ... | FVG bekleniyor" bastıktan sonra (sweep completed, `daily_bias != NEUTRAL`, RSM IDLE) `display_fvg_status` RSM IDLE olduğu için `else` dalına düşüyor, FVG satırını **temizliyor** — "FVG ARANIYOR..." asla basılmıyor.
