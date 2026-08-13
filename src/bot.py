@@ -1072,6 +1072,15 @@ class PaperTrader:
         mark_trade_opened(sym, entry_price)
         ss.trades_today += 1
         rsm.clear_fail_streak()
+        # L-08: entry fill'i dogrulandi — bekleyen sweep'i artik tuket (ID
+        # persistence'dan silinebilir). lock_bias()'tan ONCE cagrilir cunku
+        # lock_bias _pending_sweep_id'yi temizler; erken cagrilmasi durumunda
+        # sweep silinemez ve gunluk dedup devre disi kalir.
+        if not rsm.confirm_entry_success():
+            log.warning(
+                f"[BOT] sweep persistence tuketim hatasi (sym={sym}) — "
+                f"sweep kaydi diskte kalabilir"
+            )
         # Bias Kilit Modu: entry sonrasi IDLE'a donme — yon korunur, kilitlenir.
         # Kapanis (exit) sonrasi ayni yonde taze bir FVG, yeni sweep beklemeden
         # tekrar TRIGGER_READY olabilir (on_bias_fvg). Bias tersine donerse /

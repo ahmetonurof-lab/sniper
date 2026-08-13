@@ -1514,3 +1514,27 @@ if upd:
 
 ### Dokunulmadı
 - state_writer `sl_order_id_present`/`tp_order_id_present` boolean (backlog).
+
+---
+
+## Son Islem: 2026-08-13 - LUNA SNIPER CANLI YENI BUG RAPORU #2 - L-01..L-09 FIX
+
+### Yapilan (9 source fix + 27 regression test)
+- **L-01** `exit_lifecycle.py`/`user_data_handler.py` ctor `is not None` (registry identity korunuyor) + `tests/test_exit_registry_identity.py`.
+- **L-02** `user_data_handler.py` 6x `_active_trades.pop` kaldirildi; trade callback sonrasi registry'de kaliyor. `TestL02CallbackDoesNotPop` matrix.
+- **L-03** `_release_exit_claim` — duplicate-result + invalid-fill yollarinda `_exit_committed` reset.
+- **L-04** `_sweep_id(symbol, direction, bar_index)`; `on_sweep(symbol="")`; `signal_engine` symbol geciyor; state_manager docstring opaque-ID.
+- **L-05** `session.py` CBDRState `bias_locked` latch (sweep sonrasi ters yonlu flip engellendi); reset'te serbest.
+- **L-06** `scan_htf_fvgs(direction)` cap'ten ONCE filtre; her iki cagri noktasi direction + `[FVG-DEBUG] yon uyumlu aday sayisi` log.
+- **L-07** `on_bias_fvg`: `fvg_is_alive` + `_fvg_touched_between` (scan_from=formation+2); backtest parity (gap-inside close ACTIVE_ENTRY_ZONE, invalid degil).
+- **L-08** `on_sweep_confirmed` sweep konsum etmiyor; `bot.py:_try_entry` `confirm_entry_success()` `clear_fail_streak` sonrasi + `lock_bias` oncesi.
+- **L-09** `_consume_sweep() -> bool` — persistence exception pending ID'yi koruyor + `log.warning`.
+
+### Test / lint
+- 301 + 101 passed (yeni/degisen dosyalar). Tam suite: HEAD ile ayni 27 pre-existing fail, **0 regression**.
+- Pre-existing session sweep testleri gercek tolerans (CBDR_SWEEP_ATR_TOLERANCE_MULT=0.5) ile duzeltildi.
+- Pre-commit (ruff/ruff-format/vulture/whitespace/eof) Passed. `_exit_log` stale annotation duzeltildi; exit_lifecycle mypy-clean.
+
+### Not
+- mypy pre-commit hook'u `^(sonnet/src/|sniper/src/)` pattern'inden dolayi bu repoda skip. trailing_manager 4 pre-existing mypy hatasi (dokunulmadi).
+- Rapor dosyasi `reports/luna_sniper_canli_yeni_bug_raporu_2.md` untracked (commit'e dahil edilmedi).

@@ -174,7 +174,9 @@ class UserDataHandler:
         self._set_wallet = wallet_callback
         self._order_manager = order_manager
         self._exit_trade = exit_callback
-        self._exit_locks = exit_locks or {}
+        # L-01: `or {}` boş dict için yeni object üretir — bot.py'nin paylaştığı
+        # exit lock registry'sinin identity'si korunmalı (is not None).
+        self._exit_locks = exit_locks if exit_locks is not None else {}
 
     def register(self, hub: Any) -> None:
         """hub.on_user_data() ile ORDER_TRADE_UPDATE ve ACCOUNT_UPDATE
@@ -263,7 +265,9 @@ class UserDataHandler:
                         await _exit_trade(
                             sym, trade, evt.ts_ms or int(time.time() * 1000)
                         )
-                        _active_trades.pop(sym, None)
+                        # L-02: pop kaldirildi — ExitLifecycleService.execute() True
+                        # dönerse _commit_confirmed_exit / stale backstop kendi
+                        # pop'unu yapar; False dönerse trade registry'de kalmalı.
                     else:
                         if is_reduce_only:
                             # FIX (race): trade zaten kendi exit surecindeyse
@@ -335,7 +339,7 @@ class UserDataHandler:
                                 await _exit_trade(
                                     sym, trade, evt.ts_ms or int(time.time() * 1000)
                                 )
-                                _active_trades.pop(sym, None)
+                                # L-02: pop kaldirildi (service-owned pop).
                                 return
                             if result == "WS_FALLBACK":
                                 trade["pending_exit_reason"] = (
@@ -357,7 +361,7 @@ class UserDataHandler:
                                 await _exit_trade(
                                     sym, trade, evt.ts_ms or int(time.time() * 1000)
                                 )
-                                _active_trades.pop(sym, None)
+                                # L-02: pop kaldirildi (service-owned pop).
                                 log.critical(
                                     "[%s] %s reduceOnly FILLED ID eslesmedi "
                                     "(oid=%s, beklenen_sl=%s, beklenen_tp=%s, "
@@ -500,7 +504,7 @@ class UserDataHandler:
                                 trade["exit_timestamp"] = int(time.time() * 1000)
                                 trade["result"] = result
                             await _exit_trade(sym, trade, int(time.time() * 1000))
-                            _active_trades.pop(sym, None)
+                            # L-02: pop kaldirildi (service-owned pop).
                     else:
                         if is_reduce_only:
                             if trade.get("status") in _SELF_EXIT_IN_PROGRESS_STATUSES:
@@ -563,7 +567,7 @@ class UserDataHandler:
                                     if cum_quote > 0:
                                         trade["exit_quote_qty"] = cum_quote
                                 await _exit_trade(sym, trade, int(time.time() * 1000))
-                                _active_trades.pop(sym, None)
+                                # L-02: pop kaldirildi (service-owned pop).
                                 return
                             if result == "WS_FALLBACK":
                                 trade["pending_exit_reason"] = (
@@ -585,7 +589,7 @@ class UserDataHandler:
                                     trade["result"] = "WS_FALLBACK"
                                 _status_snapshot = trade.get("status", "")
                                 await _exit_trade(sym, trade, int(time.time() * 1000))
-                                _active_trades.pop(sym, None)
+                                # L-02: pop kaldirildi (service-owned pop).
                                 log.critical(
                                     "[%s] %s reduceOnly FILLED ID eslesmedi "
                                     "(oid=%s, beklenen_sl=%s, beklenen_tp=%s, "

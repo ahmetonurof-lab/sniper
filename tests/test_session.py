@@ -169,10 +169,11 @@ class TestCbdrDayKeyConsistency:
 
 class TestCheckCbdrSweep:
     def test_bullish_sweep(self):
+        # tol = atr*CBDR_SWEEP_ATR_TOLERANCE_MULT (0.5) = 5
         ss = SessionState()
         ss.cbdr_body_high = 110
         ss.cbdr_body_low = 100
-        ss._check_cbdr_sweep(high=120, low=95, close=105, atr=10)
+        ss._check_cbdr_sweep(high=112, low=90, close=105, atr=10)
         assert ss.sweep_confirmed is True
         assert ss.sweep_direction == "bullish"
         assert ss.daily_bias == DailyBias.BULLISH
@@ -181,7 +182,7 @@ class TestCheckCbdrSweep:
         ss = SessionState()
         ss.cbdr_body_high = 110
         ss.cbdr_body_low = 100
-        ss._check_cbdr_sweep(high=115, low=90, close=105, atr=10)
+        ss._check_cbdr_sweep(high=118, low=90, close=105, atr=10)
         assert ss.sweep_confirmed is True
         assert ss.sweep_direction == "bearish"
         assert ss.daily_bias == DailyBias.BEARISH
@@ -199,3 +200,41 @@ class TestCheckCbdrSweep:
         ss.cbdr_body_low = 100
         ss._check_cbdr_sweep(high=125, low=95, close=112, atr=10)
         assert ss.sweep_direction is None
+
+    def test_first_sweep_locks_bias(self):
+        """L-05: gunun ilk onaylanmis sweep'i bias_locked latch'ini acar."""
+        ss = SessionState()
+        ss.cbdr_body_high = 110
+        ss.cbdr_body_low = 100
+        assert ss.bias_locked is False
+        ss._check_cbdr_sweep(high=112, low=90, close=105, atr=10)
+        assert ss.sweep_confirmed is True
+        assert ss.daily_bias == DailyBias.BULLISH
+        assert ss.bias_locked is True
+
+    def test_subsequent_sweep_cannot_flip_locked_bias(self):
+        """L-05 core: bias_locked sonrasi ters yonlü sweep daily_bias'i
+        carpitamaz — aksi halde RSM BIAS_LOCKED modu erken resetlenirdi."""
+        ss = SessionState()
+        ss.cbdr_body_high = 110
+        ss.cbdr_body_low = 100
+        ss._check_cbdr_sweep(high=112, low=90, close=105, atr=10)
+        assert ss.daily_bias == DailyBias.BULLISH
+        assert ss.sweep_confirmed is True
+        # Ters yonlü ikinci sweep (bias_locked -> no-op)
+        ss.sweep_confirmed = False  # konsum edildi olarak isaretle
+        ss._check_cbdr_sweep(high=118, low=90, close=105, atr=10)
+        assert ss.daily_bias == DailyBias.BULLISH  # degismedi
+        assert ss.sweep_confirmed is False  # yeni sweep uretmedi
+        assert ss.bias_locked is True
+
+    def test_reset_for_new_cycle_releases_bias_lock(self):
+        """L-05: yeni CBDR dongusu bias_locked'i serbest birakir."""
+        ss = SessionState()
+        ss.cbdr_body_high = 110
+        ss.cbdr_body_low = 100
+        ss._check_cbdr_sweep(high=112, low=90, close=105, atr=10)
+        assert ss.bias_locked is True
+        ss._reset_for_new_cbdr_cycle()
+        assert ss.bias_locked is False
+        assert ss.daily_bias == DailyBias.NEUTRAL

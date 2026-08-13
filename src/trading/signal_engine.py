@@ -80,6 +80,7 @@ class SignalEngine:
                 direction=ss.sweep_direction or "bullish",
                 level=ss.sweep_level or 0.0,
                 bar_index=current.index,
+                symbol=symbol,
             )
             # Sweep tüketildi (SWEEP_DETECTED'e geçildi veya dedup reddetti):
             # bayrağı temizle. Aksi halde aynı sweep her 15m bar'da yeniden

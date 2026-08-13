@@ -4,6 +4,7 @@ test_retrace_state.py — RetraceStateMachine + scan_htf_fvgs unit tests.
 
 from unittest.mock import patch
 
+from fvg import detect_fvgs
 from models import Bar
 from retrace_state import (
     RetraceState,
@@ -69,6 +70,32 @@ def _make_bars_with_gap(direction="bullish", gap_index=10, base=100.0):
     return bars
 
 
+def _zigzag_fvg_bars(cycles=6, base=100.0):
+    """Alternating bull/bear FVG'ler: her 6 bar'lik cycle 2 FVG uretir.
+
+    Cycle: A(down) B(up impulse) C(up) D(contained) E(down impulse) F(down).
+    B-center -> bullish FVG (C.low > A.high), E-center -> bearish FVG
+    (F.high < D.low). Toplam FVG sayisi = cycles * 2.
+    """
+    bars = []
+    i = 0
+    p = base
+    for _ in range(cycles):
+        seq = [
+            (p, p + 0.5, p - 1.0, p),  # A down
+            (p, p + 20.0, p - 0.5, p + 18.0),  # B up impulse
+            (p + 18.0, p + 22.0, p + 17.0, p + 21.0),  # C up (bull FVG)
+            (p + 21.0, p + 22.0, p + 20.0, p + 21.0),  # D contained
+            (p + 21.0, p + 21.5, p + 1.0, p + 3.0),  # E down impulse (bear FVG)
+            (p + 3.0, p + 4.0, p, p + 2.0),  # F down
+        ]
+        for o, h, lo, c in seq:
+            bars.append(_bar(i, o, h, lo, c, timestamp=i * 900000))
+            i += 1
+        p += 2.0
+    return bars
+
+
 # ═══════════════════════════════════════════════════════════════════
 # scan_htf_fvgs tests
 # ═══════════════════════════════════════════════════════════════════
@@ -103,6 +130,44 @@ class TestScanHtfFvgs:
             base += 0.5
         result = scan_htf_fvgs(bars, lookback=100, min_fvg_size=0.05)
         assert len(result) <= 10
+
+    def test_direction_filter_applies_before_cap(self):
+        """L-06: cap (son 10) yon filtresinden once uygulanirsa tek yondeki
+        FVG'ler tum slotlari doldurup diger yonun FVG'lerini eleyebilir."""
+        bars = _zigzag_fvg_bars(cycles=6)
+        all_fvgs = detect_fvgs(
+            bars, lookback=len(bars), timeframe="15m", min_fvg_size=10.0
+        )
+        # Test onkosulu: toplam FVG > 10 -> cap gercekten kapsaniyor olmali
+        assert len(all_fvgs) > 10
+        bull_total = sum(1 for f in all_fvgs if f.direction == "bullish")
+        bear_total = sum(1 for f in all_fvgs if f.direction == "bearish")
+
+        unfiltered = scan_htf_fvgs(bars, lookback=100, min_fvg_size=10.0)
+        assert len(unfiltered) == 10  # cap aktif
+
+        bull = scan_htf_fvgs(bars, lookback=100, min_fvg_size=10.0, direction="bullish")
+        bear = scan_htf_fvgs(bars, lookback=100, min_fvg_size=10.0, direction="bearish")
+        assert all(x.direction == "bullish" for x in bull)
+        assert all(x.direction == "bearish" for x in bear)
+        # Filtre cap'tan ONCE: filtrelenmis sonuc TUM o yondeki FVG'leri icerir
+        assert len(bull) == bull_total
+        assert len(bear) == bear_total
+        assert bull_total > 0 and bear_total > 0
+
+    def test_direction_none_returns_all(self):
+        bars = _zigzag_fvg_bars(cycles=3)
+        result = scan_htf_fvgs(bars, lookback=100, min_fvg_size=10.0, direction=None)
+        baseline = scan_htf_fvgs(bars, lookback=100, min_fvg_size=10.0)
+        # HTFFVG eq tanimlamiyor -> alan bazli karsilastir
+        assert len(result) == len(baseline)
+        assert all(
+            a.direction == b.direction
+            and a.top == b.top
+            and a.bottom == b.bottom
+            and a.bar_index == b.bar_index
+            for a, b in zip(result, baseline)
+        )
 
     def test_handles_min_fvg_size_filter(self):
         bars = _make_bars_with_gap("bullish", gap_index=10, base=100.0)
@@ -184,6 +249,34 @@ class TestOnSweep:
         with patch("state_manager.is_sweep_used", return_value=False):
             rsm.on_sweep("bullish", 105.0, bar_index=42)
         assert rsm._pending_sweep_id == "bullish_42"
+
+    def test_on_sweep_with_symbol_prefixed_pending_id(self):
+        """L-04: symbol verildiginde pending ID symbol icerir."""
+        rsm = RetraceStateMachine()
+        with patch("state_manager.is_sweep_used", return_value=False):
+            rsm.on_sweep("bullish", 105.0, bar_index=42, symbol="BTCUSDT")
+        assert rsm._pending_sweep_id == "BTCUSDT_bullish_42"
+
+    @patch("state_manager.is_sweep_used")
+    def test_on_sweep_symbol_included_in_dedup_check(self, mock_is_used):
+        """L-04: dedup kontrolu symbol'lu ID ile yapilir."""
+        mock_is_used.return_value = False
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0, bar_index=42, symbol="ETHUSDT")
+        mock_is_used.assert_called_once_with("ETHUSDT_bullish_42")
+        assert rsm.state == RetraceState.SWEEP_DETECTED
+
+    @patch("state_manager.is_sweep_used")
+    def test_sweep_ids_distinct_across_symbols(self, mock_is_used):
+        """L-04 core: ayni bar_index farkli coinlerde ayri sweep sayilmali —
+        ID collision (sembolsuz format) bugu burada yakalanir."""
+        mock_is_used.return_value = False
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0, bar_index=42, symbol="BTCUSDT")
+        assert rsm._pending_sweep_id == "BTCUSDT_bullish_42"
+        rsm.reset()
+        rsm.on_sweep("bullish", 105.0, bar_index=42, symbol="ETHUSDT")
+        assert rsm._pending_sweep_id == "ETHUSDT_bullish_42"
 
     @patch("state_manager.is_sweep_used")
     def test_on_sweep_skips_already_used(self, mock_is_used):
@@ -279,8 +372,7 @@ class TestOnSweepConfirmed:
         bars.append(_bar(8, 96, 110, 95, 108.5, is_closed=True, timestamp=8 * 900000))
         # Sweep bar: wick goes up to 109 (touches FVG), body stays below, close ok (< sweep_level)
         sweep_bar = _bar(9, 96, 109, 94, 95, is_closed=True, timestamp=9 * 900000)
-        with patch("state_manager.mark_sweep_used"):
-            rsm.on_sweep_confirmed(bars, sweep_bar)
+        rsm.on_sweep_confirmed(bars, sweep_bar)
         assert rsm.state == RetraceState.TRIGGER_READY
         assert rsm.trigger_fvg is not None
 
@@ -315,6 +407,30 @@ class TestOnSweepConfirmed:
         sweep_bar = _bar(0, 116, 118, 104, 117)
         rsm.on_sweep_confirmed(bars, sweep_bar)
         assert rsm.state == RetraceState.SWEEP_DETECTED
+
+    @patch("retrace_state.scan_htf_fvgs")
+    def test_on_sweep_confirmed_filters_scan_by_direction(self, mock_scan):
+        """L-06: on_sweep_confirmed taramayi kendi yonuyle filtreler."""
+        mock_scan.return_value = []
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0)
+        bars = [_bar(i, 100, 102, 98, 101) for i in range(20)]
+        sweep_bar = _bar(19, 101, 106, 99, 105)
+        rsm.on_sweep_confirmed(bars, sweep_bar, atr_val=2.0)
+        _, kwargs = mock_scan.call_args
+        assert kwargs.get("direction") == "bullish"
+
+    @patch("retrace_state.scan_htf_fvgs")
+    def test_on_bias_fvg_filters_scan_by_direction(self, mock_scan):
+        """L-06: on_bias_fvg taramayi kendi yonuyle filtreler."""
+        mock_scan.return_value = []
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0)
+        rsm.lock_bias(bar_index=0)
+        bars = [_bar(i, 100, 102, 98, 101) for i in range(20)]
+        rsm.on_bias_fvg(bars, bars[15])
+        _, kwargs = mock_scan.call_args
+        assert kwargs.get("direction") == "bullish"
 
 
 class TestCanTrigger:
@@ -426,6 +542,60 @@ class TestBiasLock:
         rsm.on_bias_fvg(bars, bars[4])
         assert rsm.state == RetraceState.BIAS_LOCKED
 
+    def test_on_bias_fvg_rejects_invalidated_fvg(self):
+        """L-07: far-side close FVG'yi INVALIDATED yapar — tekrar tetiklenemez."""
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0)
+        rsm.lock_bias(bar_index=0)
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 103, 105, 102, 104),
+            _bar(
+                2, 106, 110, 105, 108
+            ),  # bullish FVG [103,105] (impulse=bar1, boundary=bar2)
+            _bar(3, 108, 112, 107, 110),
+            _bar(4, 110, 113, 100, 101),  # close 101 < bottom 103 -> invalidated
+            _bar(5, 110, 113, 104, 112),  # current: wick 104 <= top 105
+        ]
+        rsm.on_bias_fvg(bars, bars[5])
+        assert rsm.state == RetraceState.BIAS_LOCKED
+
+    def test_on_bias_fvg_rejects_already_touched_fvg(self):
+        """L-07: formation ile current arasinda wick dokunusu FVG'yi tuketir."""
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0)
+        rsm.lock_bias(bar_index=0)
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 103, 105, 102, 104),
+            _bar(
+                2, 106, 110, 105, 108
+            ),  # bullish FVG [103,105] (impulse=bar1, boundary=bar2)
+            _bar(3, 108, 112, 104, 110),  # low 104 <= top 105 -> FVG already filled
+            _bar(4, 110, 113, 104, 112),  # current: wick yine dokunur
+        ]
+        rsm.on_bias_fvg(bars, bars[4])
+        assert rsm.state == RetraceState.BIAS_LOCKED
+
+    def test_on_bias_fvg_gap_inside_close_is_not_invalid(self):
+        """L-07 parity (backtest): gap icinde kapanis (ACTIVE_ENTRY_ZONE)
+        INVALID DEGILDIR — FVG canli kalir; ancak ayni bar FVG'ye wick ile
+        dokundugundan (low <= top) FVG tuketilmis sayilir ve tekrar trigger
+        etmez."""
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0)
+        rsm.lock_bias(bar_index=0)
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 103, 105, 102, 104),
+            _bar(2, 106, 110, 105, 108),  # bullish FVG [103,105], boundary=bar2
+            _bar(3, 108, 112, 104, 104),  # close 104 gap icinde, low 104 <= top 105
+            _bar(4, 110, 113, 109, 112),  # current: wick 109 > top 105 -> dokunmaz
+        ]
+        rsm.on_bias_fvg(bars, bars[4])
+        # FVG alive (gap-inside close invalid degil) ama touched -> trigger yok
+        assert rsm.state == RetraceState.BIAS_LOCKED
+
 
 class TestReset:
     def test_reset_clears_all_fields(self):
@@ -506,25 +676,73 @@ class TestOperationalFail:
         assert rsm.state == RetraceState.BIAS_LOCKED
 
 
-class TestMarkSweepUsed:
+class TestSweepConsumption:
+    """L-08/L-09: on_sweep_confirmed sweep tuketmez; tuketim
+    confirm_entry_success()/_consume_sweep() uzerinden. Persistence hatasi
+    pending ID'yi korur (yutulmaz)."""
+
     @patch("state_manager.mark_sweep_used")
-    def test_mark_sweep_used_called_on_trigger(self, mock_mark):
+    def test_consume_sweep_success_clears_pending(self, mock_mark):
         rsm = RetraceStateMachine()
         rsm._pending_sweep_id = "bullish_42"
-        rsm._mark_sweep_used()
+        assert rsm._consume_sweep() is True
         mock_mark.assert_called_once_with("bullish_42")
         assert rsm._pending_sweep_id is None
 
-    def test_mark_sweep_used_no_id(self):
+    def test_consume_sweep_no_id_is_noop(self):
         rsm = RetraceStateMachine()
-        rsm._mark_sweep_used()  # Should not raise
+        assert rsm._consume_sweep() is True
+        assert rsm._pending_sweep_id is None
 
     @patch("state_manager.mark_sweep_used")
-    def test_mark_sweep_used_error_graceful(self, mock_mark):
+    def test_consume_sweep_error_keeps_pending(self, mock_mark):
+        """L-09: persistence hatasi yutulmaz — pending ID korunur, False doner."""
         mock_mark.side_effect = Exception("disk error")
         rsm = RetraceStateMachine()
         rsm._pending_sweep_id = "bullish_42"
-        rsm._mark_sweep_used()  # Should not raise
+        assert rsm._consume_sweep() is False
+        assert rsm._pending_sweep_id == "bullish_42"
+
+    @patch("state_manager.mark_sweep_used")
+    def test_confirm_entry_success_delegates_to_consume(self, mock_mark):
+        rsm = RetraceStateMachine()
+        rsm._pending_sweep_id = "BTCUSDT_bullish_42"
+        assert rsm.confirm_entry_success() is True
+        mock_mark.assert_called_once_with("BTCUSDT_bullish_42")
+        assert rsm._pending_sweep_id is None
+
+    @patch("state_manager.mark_sweep_used")
+    def test_confirm_entry_success_keeps_pending_on_error(self, mock_mark):
+        mock_mark.side_effect = Exception("disk error")
+        rsm = RetraceStateMachine()
+        rsm._pending_sweep_id = "bullish_42"
+        assert rsm.confirm_entry_success() is False
+        assert rsm._pending_sweep_id == "bullish_42"
+
+    def test_trigger_does_not_consume_sweep(self):
+        """L-08: on_sweep_confirmed TRIGGER_READY'ye gecirir ama sweep'i
+        tuketmez — confirm_entry_success()'e birakilir."""
+        rsm = RetraceStateMachine()
+        with patch("state_manager.is_sweep_used", return_value=False):
+            rsm.on_sweep("bullish", 105.0, bar_index=9)
+        bars = [
+            _bar(0, 100, 103, 99, 102),  # b_prev
+            _bar(1, 103, 105, 102, 104),  # impulse
+            _bar(2, 106, 110, 105, 105, is_closed=True),  # b_next
+            _bar(3, 108, 112, 107, 110, is_closed=True),
+            _bar(4, 110, 113, 109, 112, is_closed=True),
+            _bar(5, 112, 115, 111, 114, is_closed=True),
+            _bar(6, 114, 116, 113, 115, is_closed=True),
+            _bar(7, 115, 117, 114, 116, is_closed=True),
+        ]
+        sweep_bar = _bar(9, 116, 118, 101, 117, is_closed=True, timestamp=9 * 900000)
+        rsm.on_sweep_confirmed(bars, sweep_bar)
+        assert rsm.state == RetraceState.TRIGGER_READY
+        # Henuz tuketilmedi — lock_bias oncesi confirm_entry_success() gerekir
+        assert rsm._pending_sweep_id == "bullish_9"
+        with patch("state_manager.mark_sweep_used") as mock_mark:
+            assert rsm.confirm_entry_success() is True
+            mock_mark.assert_called_once_with("bullish_9")
         assert rsm._pending_sweep_id is None
 
 
@@ -559,8 +777,7 @@ class TestFullFlow:
         ]
         sweep_bar = _bar(9, 116, 118, 101, 117, is_closed=True, timestamp=9 * 900000)
 
-        with patch("state_manager.mark_sweep_used"):
-            rsm.on_sweep_confirmed(bars, sweep_bar)
+        rsm.on_sweep_confirmed(bars, sweep_bar)
 
         assert rsm.state == RetraceState.TRIGGER_READY
         assert rsm.can_trigger() is True
@@ -576,8 +793,7 @@ class TestFullFlow:
         rsm.on_sweep("bullish", 105.0)
         bars = [_bar(i, 100, 102, 98, 101) for i in range(5)]
         sweep_bar = _bar(5, 106, 109, 101, 102, timestamp=5 * 900000)
-        with patch("state_manager.mark_sweep_used"):
-            rsm.on_sweep_confirmed(bars, sweep_bar)
+        rsm.on_sweep_confirmed(bars, sweep_bar)
         assert rsm.state == RetraceState.IDLE
 
     def test_body_breaks_fvg_does_not_trigger_bearish(self):

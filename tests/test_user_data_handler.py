@@ -632,15 +632,22 @@ class TestSelfExitRaceGuard:
         mock_log_event.assert_not_called()
 
 
-class TestWsHandlerPop:
-    """WS handler pop after FILLED — primary cleanup point."""
+class TestL02CallbackDoesNotPop:
+    """L-02: WS handler FILLED sonrasi trade'i registry'den SİLMEZ.
+
+    Pop ExitLifecycleService.execute()'in sorumlulugudur (confirmed commit
+    sonrasi). Callback tarafindaki koşulsuz pop, exit_cb False dondugunde
+    (repair/gelen-veri-guvenilmez durumlari) trade'i ortadan kaldiriyor ve
+    sonraki legit retry'i imkansiz hale getiriyordu. Matrix: normalized/legacy
+    x exit_cb True/False — 4 kolda da trade registry'de kalir.
+    """
 
     @pytest.mark.asyncio
     @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", True)
     @patch("trading.user_data_handler.cfg")
-    async def test_matched_fill_pops_active_trade(self, mock_cfg):
+    async def test_normalized_exit_true_keeps_trade(self, mock_cfg):
         active_trades = {}
-        exit_cb = AsyncMock()
+        exit_cb = AsyncMock(return_value=True)
         on_order = _make_handler(active_trades, exit_cb)
         assert on_order is not None
 
@@ -661,14 +668,43 @@ class TestWsHandlerPop:
         await on_order(raw_msg)
 
         exit_cb.assert_awaited_once()
-        assert "BTCUSDT" not in active_trades
+        assert "BTCUSDT" in active_trades  # L-02: pop yok
+
+    @pytest.mark.asyncio
+    @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", True)
+    @patch("trading.user_data_handler.cfg")
+    async def test_normalized_exit_false_keeps_trade(self, mock_cfg):
+        active_trades = {}
+        exit_cb = AsyncMock(return_value=False)
+        on_order = _make_handler(active_trades, exit_cb)
+        assert on_order is not None
+
+        t = _trade(sl_order_id="SL_MATCH", tp_order_id="TP_X")
+        active_trades["BTCUSDT"] = t
+
+        raw_msg = {
+            "o": {
+                "s": "BTCUSDT",
+                "c": "SL_MATCH",
+                "X": "FILLED",
+                "R": True,
+                "ap": "49000",
+                "z": "0.1",
+                "Z": "4900",
+            }
+        }
+        await on_order(raw_msg)
+
+        exit_cb.assert_awaited_once()
+        # exit False (repair vb.) -> trade retry icin registry'de kalir
+        assert "BTCUSDT" in active_trades
 
     @pytest.mark.asyncio
     @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", False)
     @patch("trading.user_data_handler.cfg")
-    async def test_legacy_matched_fill_pops_active_trade(self, mock_cfg):
+    async def test_legacy_exit_true_keeps_trade(self, mock_cfg):
         active_trades = {}
-        exit_cb = AsyncMock()
+        exit_cb = AsyncMock(return_value=True)
         on_order = _make_handler(active_trades, exit_cb)
         assert on_order is not None
 
@@ -689,4 +725,32 @@ class TestWsHandlerPop:
         await on_order(raw_msg)
 
         exit_cb.assert_awaited_once()
-        assert "BTCUSDT" not in active_trades
+        assert "BTCUSDT" in active_trades  # L-02: pop yok
+
+    @pytest.mark.asyncio
+    @patch("trading.user_data_handler.WS_EVENT_NORMALIZATION_ENABLED", False)
+    @patch("trading.user_data_handler.cfg")
+    async def test_legacy_exit_false_keeps_trade(self, mock_cfg):
+        active_trades = {}
+        exit_cb = AsyncMock(return_value=False)
+        on_order = _make_handler(active_trades, exit_cb)
+        assert on_order is not None
+
+        t = _trade(sl_order_id="SL_MATCH", tp_order_id="TP_X")
+        active_trades["BTCUSDT"] = t
+
+        raw_msg = {
+            "o": {
+                "s": "BTCUSDT",
+                "c": "SL_MATCH",
+                "X": "FILLED",
+                "R": True,
+                "ap": "49000",
+                "z": "0.1",
+                "Z": "4900",
+            }
+        }
+        await on_order(raw_msg)
+
+        exit_cb.assert_awaited_once()
+        assert "BTCUSDT" in active_trades  # L-02: pop yok

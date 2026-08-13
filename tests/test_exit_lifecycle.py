@@ -514,6 +514,9 @@ class TestCommitConfirmedExit:
         assert trade["status"] == STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED
         # Trade should still be in active_trades for manual inspection
         assert "BTCUSDT" in active_trades
+        # L-03: registry'ye geri konan trade'in guard flag'i serbest birakilir —
+        # aksi halde sonraki recovery/manual retry execute()'a giremez.
+        assert trade.get("_exit_committed") is False
 
     @patch("trading.exit_lifecycle.cfg")
     @patch("trading.exit_lifecycle.asyncio.sleep")
@@ -869,6 +872,29 @@ class TestP0OneIdempotencyStaleConcurrency:
         active_trades["BTCUSDT"] = trade2
         result2 = await svc.execute("BTCUSDT", trade2, 2000)
         assert result2 is False  # idempotency: exit_log'da zaten "TP" kayitli
+
+    @pytest.mark.asyncio
+    @patch("trading.exit_lifecycle.cfg")
+    async def test_idempotency_block_releases_exit_claim(self, mock_cfg, service):
+        """L-03: idempotency guard (zaten kayitli result) `_exit_committed`'i
+        serbest birakir — yoksa sonraki legit retry ilk guard'da sonsuza
+        kadar takilir (ghost-lock bugi)."""
+        from trading.exit_lifecycle import _trade_identity_key
+
+        svc, rest, om, active_trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        rest.get_positions = AsyncMock(return_value=[])
+
+        trade = _trade(result="TP", entry_price=100.0, exit_price=110.0, qty=1.0)
+        active_trades["BTCUSDT"] = trade
+        # exit_log'da ayni trade kimligi + TP zaten kayitli (onceki deneme)
+        _tid = _trade_identity_key(trade)
+        svc._exit_log["BTCUSDT"] = {_tid: "TP"}
+
+        result = await svc.execute("BTCUSDT", trade, 1000)
+        assert result is False  # idempotency blockladi
+        # L-03: claim serbest birakildi — trade registry'deyse retry girebilir
+        assert trade.get("_exit_committed") is False
 
     @pytest.mark.asyncio
     @patch("trading.exit_lifecycle.cfg")

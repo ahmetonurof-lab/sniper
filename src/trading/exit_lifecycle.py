@@ -142,9 +142,15 @@ class ExitLifecycleService:
         self._output_dir = output_dir
         self._fvg_state_file = fvg_state_file
         # P0-1 idempotency guard: {sym: {exit_price: result}}
-        self._exit_log: dict[str, dict[float, str]] = exit_log or {}
+        # L-01: `or {}` boş dict için yeni object üretir — bot.py'nin paylaştığı
+        # registry'nin identity'si korunmalı (is not None).
+        self._exit_log: dict[str, dict[str, str]] = (
+            exit_log if exit_log is not None else {}
+        )
         # P0-1 per-trade lock: key = sym+entry_timestamp
-        self._exit_locks: dict[str, asyncio.Lock] = exit_locks or {}
+        self._exit_locks: dict[str, asyncio.Lock] = (
+            exit_locks if exit_locks is not None else {}
+        )
         # P1-15: stale event cooldown — tekrarlı stale döngüsünü kırmak için
         # {sym: timestamp} — son stale event'ten itibaren belirli süre
         # içinde yeni stale tetiklenmezse pozisyon WS fill ile kapanmış
@@ -153,6 +159,17 @@ class ExitLifecycleService:
         self._stale_count: dict[str, int] = {}
 
     # ── Ana orkestrasyon ────────────────────────────────────────
+
+    @staticmethod
+    def _release_exit_claim(trade: Any) -> None:
+        """_exit_committed guard flag'ini serbest birak.
+
+        L-03: execute() False dönen ve trade'in registry'de kalmaya devam
+        ettiği her yolda flag resetlenmeli — aksi halde sonraki legit retry
+        ilk guard'da takilir. Yalnizca confirmed accounting commit sonrasinda
+        flag True birakilir (trade zaten registry'den cikar).
+        """
+        trade["_exit_committed"] = False
 
     async def execute(self, sym: str, trade: Any, exit_timestamp: int) -> bool:
         # P0-1: per-trade lock — aynı sembolde farklı trade'ler birbirini bloklamaz.
@@ -179,6 +196,7 @@ class ExitLifecycleService:
                         _trade_id,
                         _exit_reason,
                     )
+                    self._release_exit_claim(trade)
                     return False
 
             # P0-6 EXPANDED: SL/TP/WS_FALLBACK result'larında pozisyonun gerçekten
@@ -697,6 +715,10 @@ class ExitLifecycleService:
             trade["status"] = STATUS_BROKEN_MANUAL_INTERVENTION_REQUIRED
             trade["exit_unconfirmed_reason"] = "invalid_fill_data"
             self._active_trades[sym] = trade
+            # L-03: trade registry'ye geri konuldugu icin guard flag'i de
+            # serbest birakilmali — sonraki recovery/manual retry execute()
+            # icerisine tekrar girebilmeli.
+            self._release_exit_claim(trade)
             self._pl(
                 sym,
                 f"exit_unconfirmed_{exit_timestamp}",

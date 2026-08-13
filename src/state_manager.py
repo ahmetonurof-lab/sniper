@@ -132,7 +132,10 @@ def mark_trade_closed(symbol: str):
 def is_sweep_used(sweep_id: str) -> bool:
     """
     Bu sweep ID bugün zaten kullanıldı mı?
-    sweep_id formatı: "{direction}_{bar_index}" → örn: "bullish_12345"
+    sweep_id formatı (L-04): "{symbol}_{direction}_{bar_index}" → örn:
+    "BTCUSDT_bullish_12345". Symbol bilinmiyorsa legacy fallback
+    "{direction}_{bar_index}" geçerli (örn. "bullish_12345"). Opaque ID —
+    bu fonksiyon ID'nin ic yapisini bilmez; disaridan _sweep_id() üretilir.
     """
     with FileLock(LOCK_FILE):
         state = _load()
@@ -147,6 +150,7 @@ def mark_sweep_used(sweep_id: str):
     """
     Sweep ID'yi bugün kullanıldı olarak işaretle.
     Eski günlerin sweep kayıtlarını otomatik temizler.
+    sweep_id opaque'dir (formatlama _sweep_id() ile caller tarafında yapilir).
     """
     with FileLock(LOCK_FILE):
         state = _load()

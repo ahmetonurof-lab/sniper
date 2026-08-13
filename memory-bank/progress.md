@@ -401,3 +401,22 @@
 - **Test:** 5 yeni regresyon (`TestValidateProtectionWithActualFill`): long/short FVG rejection, long pass, no-fvg skip, invalid-fvg skip. **100 passed / 0 failed**.
 - **Commit:** `fix: validate FVG clearance on actual fill price, not just signal price` (`fdead9b0` + merge `024ab3c`).
 - **Push:** `github.com/ahmetonurof-lab/sniper` `main` → `024ab3c`.
+
+---
+
+## 2026-08-13 - LUNA SNIPER CANLI YENI BUG RAPORU #2 - L-01..L-09 FIX (9 bug, 9 source fix + 27 regression test)
+
+| Tarih | Islem | Detay |
+|-------|-------|--------|
+| 2026-08-13 | **L-01 exit registry identity** | `exit_lifecycle.py` + `user_data_handler.py` constructor'larda `exit_log if exit_log is not None else {}` + `exit_locks` ayni. Bot'un paylastigi `_exit_log`/`_exit_locks` registry identity'si korunuyor. Yeni: `tests/test_exit_registry_identity.py` (identity + gather race). |
+| 2026-08-13 | **L-02 callback trade kaydi korunuyor** | `user_data_handler.py` 6x `_active_trades.pop(sym, None)` kaldirildi (normalized matched-fill / cross-valid SL-TP / WS_FALLBACK + 3 legacy). Trade registry'de kalmaya devam ediyor. `TestWsHandlerPop` -> `TestL02CallbackDoesNotPop` (4 kollu matrix). |
+| 2026-08-13 | **L-03 exit_committed guard reset** | `_release_exit_claim(trade)` staticmethod. Duplicate-result ve invalid-fill yollarinda `_exit_committed` resetleniyor. `test_idempotency_block_releases_exit_claim` + invalid_fill test guncellendi. |
+| 2026-08-13 | **L-04 sweep ID symbol-scoped** | `_sweep_id(symbol, direction, bar_index)` helper; `on_sweep` `symbol: str = ""` parametresi (bos = legacy format). `signal_engine.py` symbol geciyor; `state_manager.py` docstring'leri opaque ID formatina guncellendi. |
+| 2026-08-13 | **L-05 CBDR bias_locked latch** | `session.py` CBDRState `bias_locked` (slots/init/reset); ilk onaylanmis sweep sonrasi `check_sweep` no-op (ters yonlu sweep daily_bias'i carpitamaz). SessionState delegate. 3 test. |
+| 2026-08-13 | **L-06 HTF FVG direction filtresi** | `scan_htf_fvgs(direction=...)` `levels[-10:]` cap'inden ONCE filtreler. `on_sweep_confirmed`/`on_bias_fvg` direction geciyor + `[FVG-DEBUG] yon uyumlu aday sayisi` ozet logu. Zigzag helper + 5 test. |
+| 2026-08-13 | **L-07 invalidated/touched FVG reddi** | `on_bias_fvg`: `fvg_is_alive` (invalidated) + `_fvg_touched_between` (touched, scan_from = formation+2, boundary bar touch sayilmiyor). Backtest parity (gap-inside close = ACTIVE_ENTRY_ZONE, invalid degil). |
+| 2026-08-13 | **L-08 trigger sweep'i konsum etmiyor** | `on_sweep_confirmed` `_mark_sweep_used` cagirmiyor. `bot.py:_try_entry` `confirm_entry_success()` -> `clear_fail_streak()` sonrasi, `lock_bias()` oncesi (lock_bias pending id'yi siliyor). |
+| 2026-08-13 | **L-09 sweep persistence hatasi yalitimli** | `_mark_sweep_used` -> `_consume_sweep() -> bool`; exception `log.warning` (pending ID korunuyor), basari pending'i temizliyor. `confirm_entry_success()` delege. `TestSweepConsumption` (5 test). |
+
+- **Test sonucu:** Yeni/degisen dosyalarda 301 passed + 101 passed (exit_registry/session/retrace). Tam suite: HEAD ile ayni 27 pre-existing fail (test_bot 13, TestExitTradePromotion `_exit_trade_legacy` 2, event_log 1, state_writer 2, initial_protection 2, integration_lifecycle 1, integration_v2 6) - **0 regression**. Pre-existing session sweep testleri gercek tolerans semantiqine (CBDR_SWEEP_ATR_TOLERANCE_MULT=0.5) gore duzeltildi.
+- **Lint:** ruff/ruff-format/vulture/whitespace/eof Passed (pre-commit). mypy hook `^(sonnet/src/|sniper/src/)` pattern'i yuzunden bu repoda skip. `_exit_log` stale annotation `dict[float,str]` -> `dict[str,str]` (L-01 alaninda) duzeltildi; exit_lifecycle mypy-clean. trailing_manager 4 pre-existing mypy hatasi (dokunulmadi).
