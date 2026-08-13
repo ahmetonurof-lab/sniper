@@ -844,13 +844,16 @@ class ExitLifecycleService:
         record["pnl"] = pnl
         record["exit_bar"] = trade.get("exit_bar", 0)
         record["close_time"] = exit_timestamp
+        # trail_level_extractor bir closure'dir (FVG trailing ureteci);
+        # json.dumps callable serialize edemez -> BULGU-16 fix: disari birak.
+        record.pop("trail_level_extractor", None)
         self._trades.append(record)
         try:
             trades_file = os.path.join(self._output_dir, "trades_history.jsonl")
             with open(trades_file, "a", encoding="utf-8") as f:
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
-        except Exception:
-            log.warning("[TRADES] %s jsonl yazma hatasi", sym)
+        except Exception as e:
+            log.warning("[TRADES] %s jsonl yazma hatasi: %s", sym, e)
         mark_trade_closed(sym)
 
         # ── Sweep consumption mark — aynı level sweep tekrar tetiklenmesin ──

@@ -945,6 +945,70 @@ def _trade(side="long", **kw):
 
 
 # ═══════════════════════════════════════════════════════════════════
+# BULGU-16: trades_history.jsonl — callable field serialize fix
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestJsonlSerialization:
+    """trail_level_extractor (closure) record serialize'i bozmamali.
+
+    Fix oncesi: asdict() callable'i record'a tasiyor, json.dumps TypeError
+    firlatiyor ve bare except hata yutup jsonl'e hicbir sey yazmiyordu
+    (sunucu trades_history.jsonl Aug 10'dan beri guncellenmemisti).
+    """
+
+    @pytest.mark.asyncio
+    @patch("trading.exit_lifecycle.cfg")
+    async def test_closed_trade_with_callable_writes_clean_jsonl(
+        self, mock_cfg, service, tmp_path
+    ):
+        svc, rest, om, active_trades, trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        svc._output_dir = str(tmp_path)
+        svc._fvg_state_file = str(tmp_path / "fvg.json")
+
+        trade = _trade(result="SL", exit_price=49000.0)
+        trade["trail_level_extractor"] = lambda sym: None
+        active_trades["BTCUSDT"] = trade
+        svc._rsms["BTCUSDT"] = _rsm()
+
+        result = await svc.execute("BTCUSDT", trade, 50000)
+
+        assert result is True
+        assert "trail_level_extractor" not in trades[-1]
+        written = (tmp_path / "trades_history.jsonl").read_text(encoding="utf-8")
+        import json
+
+        rec = json.loads(written.strip().splitlines()[-1])
+        assert rec["sym"] == "BTCUSDT"
+        assert rec["exit_price"] == 49000.0
+        assert "trail_level_extractor" not in rec
+
+    @pytest.mark.asyncio
+    @patch("trading.exit_lifecycle.cfg")
+    async def test_jsonl_write_error_logs_reason(self, mock_cfg, service, tmp_path):
+        """Bare except hata detayini loglamali (kök neden görünür olmali)."""
+
+        svc, rest, om, active_trades, trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        svc._output_dir = str(tmp_path)
+        svc._fvg_state_file = str(tmp_path / "fvg.json")
+
+        trade = _trade(result="SL", exit_price=49000.0)
+        active_trades["BTCUSDT"] = trade
+        svc._rsms["BTCUSDT"] = _rsm()
+
+        with patch(
+            "trading.exit_lifecycle.json.dumps", side_effect=OSError("disk tam")
+        ):
+            with patch("trading.exit_lifecycle.log.warning") as warn:
+                await svc.execute("BTCUSDT", trade, 50000)
+        assert warn.called
+        msg = str(warn.call_args)
+        assert "disk tam" in msg
+
+
+# ═══════════════════════════════════════════════════════════════════
 # Sprint E: Chaos / edge-case scenarios
 # ═══════════════════════════════════════════════════════════════════
 
