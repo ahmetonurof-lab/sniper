@@ -1,5 +1,54 @@
 # Progress — Sniper Bot
 
+## 2026-08-13 — Rapor 5 D-03 ÇÜRÜTÜLDÜ + claim contract kanıt testleri
+
+| Tarih | İşlem | Detay |
+|-------|-------|-------|
+| 2026-08-13 | **D-03 reddi (false positive)** | Rapor 5, `execute()`'in pending=None ile claim set etmediğini iddia etti. `exit_lifecycle.py:230-233` kodu ispatladı: `trade["_exit_committed"] = True` `if pending:` bloğunun dışında, guard sonrası koşulsuz. Raporun kendi kanıt snippet'i de bunu gösteriyordu (girinti yanlış okunmuş). |
+| 2026-08-13 | **5 kanıt testi eklendi** | `TestExecuteWithPending`: claim REST öncesi kurulur (pending=None); `pending={}` aynı davranış; False/exception yolu claim serbest + retry; commit sonrası duplicate bloklu; `gather(execute, execute_with_pending)` → tek commit. |
+
+- **Test:** test_exit_lifecycle 47/47 (42+5), test_user_data_handler 50/50, test_exit_registry_identity 6/6. 0 yeni fail. pre-commit temiz.
+- **Commit:** `test: D-03 claim contract kanit testleri (pending=None/{}/False-release/gather)`.
+- **Push:** `origin main`. Rapor 5 untracked.
+
+---
+
+## 2026-08-13 — D-01 refactor: tek-lock ortak exit API (`execute_with_pending`)
+
+| Tarih | İşlem | Detay |
+|-------|-------|-------|
+| 2026-08-13 | **D-01 single-lock exit API** | `exit_lifecycle.py`: `execute()` gövdesi `_execute_locked()`'a; yeni `execute_with_pending(sym, trade, ts, pending)` — per-trade lock BİR kez, pending guard sonrası + flag öncesi uygulanır. `user_data_handler.py`: ctor `exit_pending_callback`; 6 exit branch'inin tamamı (3 normalized + 3 legacy) dış `async with lock`+mutate+`_exit_trade` yerine `_pending` dict + `_exit_with_pending` (production'da service, test/fallback'te pending+`_exit_trade`). `bot.py`: trailing exit `execute_with_pending(...)`; `exit_pending_callback=self.exit_service.execute_with_pending` wiring; `_trade_identity_key` import'u temizlendi. |
+| 2026-08-13 | **Testler** | `TestExecuteWithPending` +4 (pending→commit, `wait_for(1)` deadlock guard, pending=None, concurrent serialize). 2 stale `TestExitTradePromotion` yeni akışa göre yeniden yazıldı (`_make_execute_like_exit_cb` import → `trading.exit_lifecycle`). test_user_data_handler 50/50, test_exit_lifecycle 42, etkilenen suite'ler 155 geçti. |
+| 2026-08-13 | **Sonuç** | test_bot 13 + integration/state 12 fail TAMAMEN pre-existing baseline (0 yeni). pre-commit (ruff/ruff-format/vulture/whitespace/eof) temiz. |
+
+- **Commit:** `feat: D-01 - tek-lock ortak exit API (execute_with_pending) + handler/bot convert`.
+- **Push:** `origin main`.
+- **Not:** Rapor 4 §5'teki refactor tamamlandı; deadlock aslında mevcut değildi (önceki entry'de kanıtlandı) — refactor TOCTOU/nested-acquire penceresini yapısal olarak kapattı.
+
+---
+
+## 2026-08-13 — Rapor 4: Günlük BIAS latch persistence + D-02 dedup rework
+
+- **Direktif:** `reports/luna_sniper_canli_yeni_bug_raporu_4.md` — ilk geçerli sweep günlük BIAS'ı kilitler; kilit 22:00 resetine kadar korunur, sadece kilit yönünde FVG aranır. Gerçek bug: `bias_locked` bellek'te kaldığı için restart sonrası kayboluyordu.
+- **Yapılan:**
+  - `state_manager.py`: `mark_bias_locked` (FileLock atomic, idempotent — aynı gün latch değiştirilemez, doğrulama + hata yutulmaz) + `load_bias_lock` (day_key uyumsuzsa/geçersizse None). `mark_trade_opened`/`reconcile_from_active` artık symbol dict'ini MERGE ediyor (latch alanlarını korur).
+  - `session.py`: `lock_bias_from_sweep(symbol, direction, level, bar_index) -> bool` — persistence hatası critical log + False, bellek latch'i korunur.
+  - `retrace_state.py`: `restore_bias_lock(direction, locked_from_bar)`; `_pending_sweep_id` → `_pending_sweep_persistence_id` (lock'tan bağımsız), `lock_bias()` SİLMİYOR; `_unconsumed_sweep_id`/`retry_unconsumed_sweep` kaldırıldı → `retry_pending_sweep_persistence()`.
+  - `bot.py`: `_restore_bias_lock` helper + `_on_15m_close` içinde ilk-lock geçişinde persist (fallback_bar=current.index); `_on_1m_close` periyodik retry; `_bias_latch_restored` per-process guard.
+- **Test:** test_retrace_state 66; test_session +3; test_state_manager +9; test_signal_engine +4; test_bot TestRestoreBiasLatch +4. Etkilenen suite 207 geçti, 2 bilinen pre-existing fail. test_bot 13 fail pre-existing (0 yeni). pre-commit (ruff/format/vulture) temiz.
+- **D-01 (rapor 3):** deadlock çürütüldü (kanıt + `TestExitLockNoNestedAcquire` 8 test). Refactor kararı kullanıcıda — rapor 4 §5 hâlâ talep ediyor.
+- **Commit:** `feat: rapor 4 — gunluk BIAS latch persistence + restore + D-02 dedup rework`.
+
+---
+
+## 2026-08-13 — luna_sniper_canli_yeni_bug_raporu.md Türkçe karakter onarımı
+
+- **Bulgu:** `reports/luna_sniper_canli_yeni_bug_raporu.md` UTF-8 olarak cp1252 çözülüp yeniden yazılmış (çift kodlama/mojibake): `Ä±`→`ı`, `Ã¶`→`ö`, `ÅŸ`→`ş`, `â€œ`/`â€\x9d`→tırnak işaretleri vb.
+- **Fix:** Dosya byte seviyesinde `cp1252 → utf-8` ters dönüşümle onarıldı; `\x9d` (tanımsız cp1252 byte'ı, sağ tırnak `"`) özel handler ile birebir map'lendi. İçerik/501 satır korundu, kalan bozuk karakter yok.
+- **Not:** Rapor içeriği bu oturumda yazılmadı; yalnızca karakter onarımı yapıldı.
+
+---
+
 ## 2026-08-12 — sweep TAMAMLANDI sonrası FVG ARANIYOR logu eksik (console_reporter fix)
 
 - **Bulgu:** `display_sweep_status` "✅ SWEEP: TAMAMLANDI | ... | FVG bekleniyor" bastıktan sonra (sweep completed, `daily_bias != NEUTRAL`, RSM IDLE) `display_fvg_status` RSM IDLE olduğu için `else` dalına düşüyor, FVG satırını **temizliyor** — "FVG ARANIYOR..." asla basılmıyor.
@@ -394,4 +443,21 @@
 - **Commit:** `fix: validate FVG clearance on actual fill price, not just signal price` (`fdead9b0` + merge `024ab3c`).
 - **Push:** `github.com/ahmetonurof-lab/sniper` `main` → `024ab3c`.
 
-| 2026-08-12 22:37 | **FVG display kozmetik bug düzeltmesi** | `console_reporter.py`'de BIAS_LOCKED ve IDLE+bias SWEEP satırlarından inline "FVG bekleniyor" kaldırıldı. FVG durumu artık sadece `display_fvg_status()` üzerinden ayrı satırda gösteriliyor. Fix: {{fix: remove duplicate inline FVG status from SWEEP display}}. |
+---
+
+## 2026-08-13 - LUNA SNIPER CANLI YENI BUG RAPORU #2 - L-01..L-09 FIX (9 bug, 9 source fix + 27 regression test)
+
+| Tarih | Islem | Detay |
+|-------|-------|--------|
+| 2026-08-13 | **L-01 exit registry identity** | `exit_lifecycle.py` + `user_data_handler.py` constructor'larda `exit_log if exit_log is not None else {}` + `exit_locks` ayni. Bot'un paylastigi `_exit_log`/`_exit_locks` registry identity'si korunuyor. Yeni: `tests/test_exit_registry_identity.py` (identity + gather race). |
+| 2026-08-13 | **L-02 callback trade kaydi korunuyor** | `user_data_handler.py` 6x `_active_trades.pop(sym, None)` kaldirildi (normalized matched-fill / cross-valid SL-TP / WS_FALLBACK + 3 legacy). Trade registry'de kalmaya devam ediyor. `TestWsHandlerPop` -> `TestL02CallbackDoesNotPop` (4 kollu matrix). |
+| 2026-08-13 | **L-03 exit_committed guard reset** | `_release_exit_claim(trade)` staticmethod. Duplicate-result ve invalid-fill yollarinda `_exit_committed` resetleniyor. `test_idempotency_block_releases_exit_claim` + invalid_fill test guncellendi. |
+| 2026-08-13 | **L-04 sweep ID symbol-scoped** | `_sweep_id(symbol, direction, bar_index)` helper; `on_sweep` `symbol: str = ""` parametresi (bos = legacy format). `signal_engine.py` symbol geciyor; `state_manager.py` docstring'leri opaque ID formatina guncellendi. |
+| 2026-08-13 | **L-05 CBDR bias_locked latch** | `session.py` CBDRState `bias_locked` (slots/init/reset); ilk onaylanmis sweep sonrasi `check_sweep` no-op (ters yonlu sweep daily_bias'i carpitamaz). SessionState delegate. 3 test. |
+| 2026-08-13 | **L-06 HTF FVG direction filtresi** | `scan_htf_fvgs(direction=...)` `levels[-10:]` cap'inden ONCE filtreler. `on_sweep_confirmed`/`on_bias_fvg` direction geciyor + `[FVG-DEBUG] yon uyumlu aday sayisi` ozet logu. Zigzag helper + 5 test. |
+| 2026-08-13 | **L-07 invalidated/touched FVG reddi** | `on_bias_fvg`: `fvg_is_alive` (invalidated) + `_fvg_touched_between` (touched, scan_from = formation+2, boundary bar touch sayilmiyor). Backtest parity (gap-inside close = ACTIVE_ENTRY_ZONE, invalid degil). |
+| 2026-08-13 | **L-08 trigger sweep'i konsum etmiyor** | `on_sweep_confirmed` `_mark_sweep_used` cagirmiyor. `bot.py:_try_entry` `confirm_entry_success()` -> `clear_fail_streak()` sonrasi, `lock_bias()` oncesi (lock_bias pending id'yi siliyor). |
+| 2026-08-13 | **L-09 sweep persistence hatasi yalitimli** | `_mark_sweep_used` -> `_consume_sweep() -> bool`; exception `log.warning` (pending ID korunuyor), basari pending'i temizliyor. `confirm_entry_success()` delege. `TestSweepConsumption` (5 test). |
+
+- **Test sonucu:** Yeni/degisen dosyalarda 301 passed + 101 passed (exit_registry/session/retrace). Tam suite: HEAD ile ayni 27 pre-existing fail (test_bot 13, TestExitTradePromotion `_exit_trade_legacy` 2, event_log 1, state_writer 2, initial_protection 2, integration_lifecycle 1, integration_v2 6) - **0 regression**. Pre-existing session sweep testleri gercek tolerans semantiqine (CBDR_SWEEP_ATR_TOLERANCE_MULT=0.5) gore duzeltildi.
+- **Lint:** ruff/ruff-format/vulture/whitespace/eof Passed (pre-commit). mypy hook `^(sonnet/src/|sniper/src/)` pattern'i yuzunden bu repoda skip. `_exit_log` stale annotation `dict[float,str]` -> `dict[str,str]` (L-01 alaninda) duzeltildi; exit_lifecycle mypy-clean. trailing_manager 4 pre-existing mypy hatasi (dokunulmadi).

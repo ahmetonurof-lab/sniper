@@ -15,8 +15,12 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Literal
 
+import logging
+
 import config as cfg
 from state_manager import cbdr_day_key
+
+log = logging.getLogger("nexus.session")
 
 
 class SessionPhase(Enum):
@@ -49,6 +53,7 @@ class CBDRState:
         "locked",
         "day",
         "daily_bias",
+        "bias_locked",
         "sweep_confirmed",
         "sweep_direction",
         "sweep_level",
@@ -60,6 +65,7 @@ class CBDRState:
         self.locked: bool = False
         self.day: str = ""
         self.daily_bias: DailyBias = DailyBias.NEUTRAL
+        self.bias_locked: bool = False
         self.sweep_confirmed: bool = False
         self.sweep_direction: Literal["bullish", "bearish"] | None = None
         self.sweep_level: float | None = None
@@ -80,7 +86,21 @@ class CBDRState:
     def check_sweep(
         self, high: float, low: float, close: float, atr: float = 0.0
     ) -> None:
-        """CBDR body kırılımı + kapanış yönüne göre sweep/bias belirle."""
+        """CBDR body kırılımı + kapanış yönüne göre sweep/bias belirle.
+
+        L-05: gunun ILK onaylanmis sweep'i daily_bias'i belirler ve bias_locked
+        latch'i acilir. Sonraki sweep'ler (ayni CBDR body'sine ikinci dokunus,
+        yukari/asagi zigzag) daily_bias'i carpitamaz — aksi halde sweep'in ilk
+        yonu ile daily_bias birbiriyle yarisir ve RSM BIAS_LOCKED modu
+        erken/normal olmayan sekilde resetlenir, islem sayisi duser.
+        """
+        if self.bias_locked:
+            log.info(
+                "[SESSION] check_sweep SKIP — bias_locked (daily_bias=%s stabil)",
+                self.daily_bias,
+            )
+            return
+
         tolerance = (
             atr * cfg.CBDR_SWEEP_ATR_TOLERANCE_MULT
             if atr > 0
@@ -93,6 +113,7 @@ class CBDRState:
                 self.sweep_direction = "bearish"
                 self.sweep_level = self.body_high
                 self.daily_bias = DailyBias.BEARISH
+                self.bias_locked = True
                 return
 
         if low < self.body_low - tolerance:
@@ -101,6 +122,7 @@ class CBDRState:
                 self.sweep_direction = "bullish"
                 self.sweep_level = self.body_low
                 self.daily_bias = DailyBias.BULLISH
+                self.bias_locked = True
                 return
 
     def reset_for_new_cycle(self) -> None:
@@ -109,6 +131,7 @@ class CBDRState:
         self.body_low = float("inf")
         self.locked = False
         self.daily_bias = DailyBias.NEUTRAL
+        self.bias_locked = False
         self.sweep_confirmed = False
         self.sweep_direction = None
         self.sweep_level = None
@@ -268,6 +291,10 @@ class SessionState:
         self._cbdr.daily_bias = v
 
     @property
+    def bias_locked(self) -> bool:
+        return self._cbdr.bias_locked
+
+    @property
     def sweep_confirmed(self) -> bool:
         return self._cbdr.sweep_confirmed
 
@@ -290,6 +317,42 @@ class SessionState:
     @sweep_level.setter
     def sweep_level(self, v) -> None:
         self._cbdr.sweep_level = v
+
+    def lock_bias_from_sweep(
+        self,
+        symbol: str,
+        direction: Literal["bullish", "bearish"],
+        level: float,
+        bar_index: int | None = None,
+    ) -> bool:
+        """Rapor 4: check_sweep'in actigi bias_locked latch'ini diske kaydet.
+
+        bot.py, ilk sweep latch'inin acildigi bar'da (was_locked=False ->
+        bias_locked=True gecisinde) cagirir. Idempotent: ayni CBDR gunu latch
+        zaten kayitliysa True doner — bias gunde bir kez kilitlenir, ikinci
+        sweep latch'i DEGISTIREMEZ.
+
+        Persistence hatasi YUTULMAZ: bellek latch'i korunur, critical log
+        basilir ve False doner (FVG-only arama ve kilit davranisi surer).
+        """
+        try:
+            from state_manager import mark_bias_locked
+
+            mark_bias_locked(
+                symbol=symbol,
+                day_key=self.cbdr_day,
+                daily_bias=self.daily_bias.value,
+                sweep_direction=direction,
+                sweep_level=level,
+                bias_lock_bar_index=bar_index,
+            )
+        except Exception as e:
+            log.critical(
+                f"[SESSION] bias latch persistence HATASI ({symbol}): {e} — "
+                "bellek latch korunuyor, FVG-only arama devam eder"
+            )
+            return False
+        return True
 
     # ── RangeTracker delegation (6 attribute) ───────────────
 

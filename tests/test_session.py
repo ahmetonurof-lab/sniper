@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from unittest.mock import patch
 
 import pytest
 
@@ -169,10 +170,11 @@ class TestCbdrDayKeyConsistency:
 
 class TestCheckCbdrSweep:
     def test_bullish_sweep(self):
+        # tol = atr*CBDR_SWEEP_ATR_TOLERANCE_MULT (0.5) = 5
         ss = SessionState()
         ss.cbdr_body_high = 110
         ss.cbdr_body_low = 100
-        ss._check_cbdr_sweep(high=120, low=95, close=105, atr=10)
+        ss._check_cbdr_sweep(high=112, low=90, close=105, atr=10)
         assert ss.sweep_confirmed is True
         assert ss.sweep_direction == "bullish"
         assert ss.daily_bias == DailyBias.BULLISH
@@ -181,7 +183,7 @@ class TestCheckCbdrSweep:
         ss = SessionState()
         ss.cbdr_body_high = 110
         ss.cbdr_body_low = 100
-        ss._check_cbdr_sweep(high=115, low=90, close=105, atr=10)
+        ss._check_cbdr_sweep(high=118, low=90, close=105, atr=10)
         assert ss.sweep_confirmed is True
         assert ss.sweep_direction == "bearish"
         assert ss.daily_bias == DailyBias.BEARISH
@@ -199,3 +201,91 @@ class TestCheckCbdrSweep:
         ss.cbdr_body_low = 100
         ss._check_cbdr_sweep(high=125, low=95, close=112, atr=10)
         assert ss.sweep_direction is None
+
+    def test_first_sweep_locks_bias(self):
+        """L-05: gunun ilk onaylanmis sweep'i bias_locked latch'ini acar."""
+        ss = SessionState()
+        ss.cbdr_body_high = 110
+        ss.cbdr_body_low = 100
+        assert ss.bias_locked is False
+        ss._check_cbdr_sweep(high=112, low=90, close=105, atr=10)
+        assert ss.sweep_confirmed is True
+        assert ss.daily_bias == DailyBias.BULLISH
+        assert ss.bias_locked is True
+
+    def test_subsequent_sweep_cannot_flip_locked_bias(self):
+        """L-05 core: bias_locked sonrasi ters yonlü sweep daily_bias'i
+        carpitamaz — aksi halde RSM BIAS_LOCKED modu erken resetlenirdi."""
+        ss = SessionState()
+        ss.cbdr_body_high = 110
+        ss.cbdr_body_low = 100
+        ss._check_cbdr_sweep(high=112, low=90, close=105, atr=10)
+        assert ss.daily_bias == DailyBias.BULLISH
+        assert ss.sweep_confirmed is True
+        # Ters yonlü ikinci sweep (bias_locked -> no-op)
+        ss.sweep_confirmed = False  # konsum edildi olarak isaretle
+        ss._check_cbdr_sweep(high=118, low=90, close=105, atr=10)
+        assert ss.daily_bias == DailyBias.BULLISH  # degismedi
+        assert ss.sweep_confirmed is False  # yeni sweep uretmedi
+        assert ss.bias_locked is True
+
+    def test_reset_for_new_cycle_releases_bias_lock(self):
+        """L-05: yeni CBDR dongusu bias_locked'i serbest birakir."""
+        ss = SessionState()
+        ss.cbdr_body_high = 110
+        ss.cbdr_body_low = 100
+        ss._check_cbdr_sweep(high=112, low=90, close=105, atr=10)
+        assert ss.bias_locked is True
+        ss._reset_for_new_cbdr_cycle()
+        assert ss.bias_locked is False
+        assert ss.daily_bias == DailyBias.NEUTRAL
+
+
+class TestLockBiasFromSweep:
+    """Rapor 4: check_sweep latch'ini diske kaydetme (lock_bias_from_sweep)."""
+
+    @patch("state_manager.mark_bias_locked")
+    def test_persists_latch(self, mock_mark):
+        ss = SessionState()
+        ss._cbdr.day = "2026-06-19"
+        ss._cbdr.daily_bias = DailyBias.BULLISH
+        ss._cbdr.sweep_direction = "bullish"
+        ss._cbdr.sweep_level = 50.0
+        ok = ss.lock_bias_from_sweep("BTCUSDT", "bullish", 50.0, bar_index=42)
+        assert ok is True
+        mock_mark.assert_called_once_with(
+            symbol="BTCUSDT",
+            day_key="2026-06-19",
+            daily_bias="BULLISH",
+            sweep_direction="bullish",
+            sweep_level=50.0,
+            bias_lock_bar_index=42,
+        )
+
+    @patch("state_manager.mark_bias_locked")
+    def test_persistence_error_returns_false_and_keeps_memory_latch(self, mock_mark):
+        """Hata YUTULMAZ: critical log + False; bellek latch'i korunur
+        (FVG-only davranis surer)."""
+        mock_mark.side_effect = Exception("disk error")
+        ss = SessionState()
+        ss._cbdr.day = "2026-06-19"
+        ss._cbdr.daily_bias = DailyBias.BEARISH
+        ss._cbdr.bias_locked = True
+        ok = ss.lock_bias_from_sweep("BTCUSDT", "bearish", 100.0)
+        assert ok is False
+        assert ss.bias_locked is True
+
+    @patch("state_manager.mark_bias_locked")
+    def test_mark_bias_locked_delegates(self, mock_mark):
+        ss = SessionState()
+        ss._cbdr.day = "2026-06-20"
+        ss._cbdr.daily_bias = DailyBias.BULLISH
+        assert ss.lock_bias_from_sweep("ETHUSDT", "bullish", 3000.0) is True
+        mock_mark.assert_called_once_with(
+            symbol="ETHUSDT",
+            day_key="2026-06-20",
+            daily_bias="BULLISH",
+            sweep_direction="bullish",
+            sweep_level=3000.0,
+            bias_lock_bar_index=None,
+        )

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 from datetime import datetime, timedelta, UTC
 
@@ -103,12 +104,11 @@ def mark_trade_opened(symbol: str, entry_price: float = 0.0):
     """
     with FileLock(LOCK_FILE):
         state = _load()
-        state[symbol] = {
-            "date": _today(),
-            "count": 1,
-            "entry_price": entry_price,
-            "open": True,
-        }
+        s = state.setdefault(symbol, {})
+        s["date"] = _today()
+        s["count"] = 1
+        s["entry_price"] = entry_price
+        s["open"] = True
         _save(state)
     log.info("[STATE] %s — trade açıldı kaydedildi @ %.4f", symbol, entry_price)
 
@@ -132,7 +132,10 @@ def mark_trade_closed(symbol: str):
 def is_sweep_used(sweep_id: str) -> bool:
     """
     Bu sweep ID bugün zaten kullanıldı mı?
-    sweep_id formatı: "{direction}_{bar_index}" → örn: "bullish_12345"
+    sweep_id formatı (L-04): "{symbol}_{direction}_{bar_index}" → örn:
+    "BTCUSDT_bullish_12345". Symbol bilinmiyorsa legacy fallback
+    "{direction}_{bar_index}" geçerli (örn. "bullish_12345"). Opaque ID —
+    bu fonksiyon ID'nin ic yapisini bilmez; disaridan _sweep_id() üretilir.
     """
     with FileLock(LOCK_FILE):
         state = _load()
@@ -147,6 +150,7 @@ def mark_sweep_used(sweep_id: str):
     """
     Sweep ID'yi bugün kullanıldı olarak işaretle.
     Eski günlerin sweep kayıtlarını otomatik temizler.
+    sweep_id opaque'dir (formatlama _sweep_id() ile caller tarafında yapilir).
     """
     with FileLock(LOCK_FILE):
         state = _load()
@@ -187,6 +191,93 @@ def mark_sweep_consumed(direction: str, level: float):
     log.info("[STATE] sweep consumed: %s", sweep_id)
 
 
+# ── Günlük BIAS kilidi (latch) persistence ────────────────────────
+# Rapor 4: ilk geçerli sweep, o CBDR günü için günlük BIAS'ı belirler ve kilitler.
+# Bu latch disk'e yazilir; restart sonrasi SessionState/RSM yeniden yuklenir.
+
+
+def mark_bias_locked(
+    symbol: str,
+    day_key: str,
+    daily_bias: str,
+    sweep_direction: str,
+    sweep_level: float,
+    bias_lock_bar_index: int | None = None,
+) -> bool:
+    """Günlük BIAS latch'ini atomik olarak kaydet.
+
+    Symbol-scoped: latch, trade state'iyle aynı symbol dict'inde tutulur
+    (mark_trade_opened merge yapar, latch alanlarını silmez). day_key uyumsuzsa
+    yazılmaz. Aynı günün latch'i zaten varsa True döner (idempotent) — ikinci
+    sweep latch'i DEĞİŞTİREMEZ (bias günde bir kez kilitlenir).
+
+    Hata asla yutulmaz: StateManager/disk hatası exception olarak firlar;
+    caller (bot) critical log basar, bellek latch'i korunur.
+    """
+    if daily_bias not in ("BULLISH", "BEARISH"):
+        raise ValueError(f"daily_bias BULLISH/BEARISH olmali: {daily_bias!r}")
+    if sweep_direction not in ("bullish", "bearish"):
+        raise ValueError(f"sweep_direction bullish/bearish olmali: {sweep_direction!r}")
+    if not isinstance(sweep_level, (int, float)) or not math.isfinite(sweep_level):
+        raise ValueError(f"sweep_level finite olmali: {sweep_level!r}")
+    if sweep_level <= 0:
+        raise ValueError(f"sweep_level pozitif olmali: {sweep_level!r}")
+    if not day_key:
+        raise ValueError("day_key bos olamaz")
+
+    with FileLock(LOCK_FILE):
+        state = _load()
+        s = state.setdefault(symbol, {})
+        if s.get("bias_locked") and s.get("bias_lock_day") == day_key:
+            return True  # idempotent: aynı gün latch'i değiştirilmez
+        s["bias_locked"] = True
+        s["daily_bias"] = daily_bias
+        s["sweep_direction"] = sweep_direction
+        s["sweep_level"] = sweep_level
+        s["bias_lock_day"] = day_key
+        if bias_lock_bar_index is not None:
+            s["bias_lock_bar_index"] = bias_lock_bar_index
+        _save(state)
+    log.info(
+        "[STATE] %s BIAS latch kaydedildi: %s (day=%s, sweep_level=%.4f)",
+        symbol,
+        daily_bias,
+        day_key,
+        sweep_level,
+    )
+    return True
+
+
+def load_bias_lock(symbol: str, day_key: str) -> dict | None:
+    """Aynı CBDR day key için persist edilmiş BIAS latch'ini döndür.
+
+    Latch yoksa, day_key uyumsuzsa (yeni gün) veya alanlar geçersizse None.
+    Dönüş dict: daily_bias, sweep_direction, sweep_level, bias_lock_day,
+    bias_lock_bar_index (varsa).
+    """
+    with FileLock(LOCK_FILE):
+        state = _load()
+        s = state.get(symbol, {})
+        if not s.get("bias_locked") or s.get("bias_lock_day") != day_key:
+            return None
+        daily_bias = s.get("daily_bias")
+        sweep_direction = s.get("sweep_direction")
+        sweep_level = s.get("sweep_level")
+        if daily_bias not in ("BULLISH", "BEARISH"):
+            return None
+        if sweep_direction not in ("bullish", "bearish"):
+            return None
+        if not isinstance(sweep_level, (int, float)) or not math.isfinite(sweep_level):
+            return None
+        return {
+            "daily_bias": daily_bias,
+            "sweep_direction": sweep_direction,
+            "sweep_level": sweep_level,
+            "bias_lock_day": s["bias_lock_day"],
+            "bias_lock_bar_index": s.get("bias_lock_bar_index"),
+        }
+
+
 # ── Startup reconciliation ────────────────────────────────────────
 
 
@@ -212,13 +303,12 @@ def reconcile_from_active(active_trades: dict):
             # Bugünkü kayıt zaten varsa dokunma
             if state.get(sym, {}).get("date") == today:
                 continue
-            state[sym] = {
-                "date": today,
-                "count": 1,
-                "entry_price": trade.get("entry_price", 0.0),
-                "open": True,
-                "source": "startup_reconcile",
-            }
+            s = state.setdefault(sym, {})
+            s["date"] = today
+            s["count"] = 1
+            s["entry_price"] = trade.get("entry_price", 0.0)
+            s["open"] = True
+            s["source"] = "startup_reconcile"
             changed.append(sym)
 
         if changed:

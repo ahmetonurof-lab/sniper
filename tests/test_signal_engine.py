@@ -90,3 +90,61 @@ class TestProgressRsmBiasLock:
         assert res.decision == "TRIGGER"
         assert res.direction == "bullish"
         assert res.trigger_fvg is not None
+
+
+class TestProgressRsmRestoredBiasLock:
+    """Rapor 4: restore_bias_lock sonrasi progress_rsm yeni sweep ISTEMEZ;
+    sadece on_bias_fvg (kilit yonunde) calisir. Restart'la tutarli davranis."""
+
+    def _restored_engine(self, direction="bullish", locked_from=0):
+        rsm = RetraceStateMachine()
+        rsm.restore_bias_lock(direction, locked_from_bar=locked_from)
+        return rsm, SignalEngine(rsm)
+
+    def test_restored_lock_does_not_request_new_sweep(self):
+        """sweep_confirmed=True (latch restore'uyla gelir) olsa bile RSM
+        BIAS_LOCKED'ta kalir — on_sweep asla cagrilmaz."""
+        rsm, engine = self._restored_engine(locked_from=2)
+        ss = SessionState()
+        ss.daily_bias = DailyBias.BULLISH
+        ss.sweep_confirmed = True
+        bars = [_bar(i, 100, 102, 98, 101) for i in range(5)]
+        engine.progress_rsm(bars, bars[4], ss)
+        assert rsm.state_name == "BIAS_LOCKED"
+        assert rsm.bias_locked is True
+
+    def test_restored_lock_triggers_on_fresh_locked_fvg(self):
+        """Restore sonrasi kilit yonunde taze FVG wick rejection'i -> TRIGGER_READY
+        (yeni sweep olmadan FVG-only devam eder)."""
+        rsm, engine = self._restored_engine(locked_from=0)
+        ss = SessionState()
+        ss.daily_bias = DailyBias.BULLISH
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 103, 105, 102, 104),
+            _bar(2, 106, 110, 105, 108),
+            _bar(3, 108, 112, 107, 110),
+            _bar(4, 110, 113, 104, 112),
+        ]
+        engine.progress_rsm(bars, bars[4], ss)
+        assert rsm.state_name == "TRIGGER_READY"
+        assert ss.fvg_ready is True
+
+    def test_restored_lock_resets_on_opposing_bias(self):
+        """Restore edilen kilit, ss.daily_bias ile celisirse reset (bias_conflict)
+        — canli sifirdan baslamis gibi IDLE'a doner."""
+        rsm, engine = self._restored_engine(direction="bullish", locked_from=0)
+        ss = SessionState()
+        ss.daily_bias = DailyBias.BEARISH
+        bars = [_bar(i, 100, 102, 98, 101) for i in range(5)]
+        engine.progress_rsm(bars, bars[4], ss)
+        assert rsm.state_name == "IDLE"
+
+    def test_restored_lock_keeps_state_without_fvg(self):
+        """Taze FVG yokken BIAS_LOCKED korunur (reset yok)."""
+        rsm, engine = self._restored_engine(direction="bearish", locked_from=10)
+        ss = SessionState()
+        ss.daily_bias = DailyBias.BEARISH
+        bars = [_bar(i, 100, 102, 98, 101) for i in range(5)]
+        engine.progress_rsm(bars, bars[4], ss)
+        assert rsm.state_name == "BIAS_LOCKED"
