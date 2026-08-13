@@ -1,5 +1,15 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-13 — Konsol FVG/POZISYON display tam hassasiyet (`_fmt_price`)
+
+- **Tetik:** Canlı log'da ENAUSDT gibi düşük fiyatlı sembollerde konsol `FVG:[0.09 - 0.09]` gösteriyordu; gerçek FVG `[0.0853-0.0854]` idi. Display sabit `.2f` ile yuvarlıyordu (console_reporter.py). Trading'e etkisi yok, konsol yanıltıcı.
+- **Ne yapıldı:** `console_reporter.py`'e `_fmt_price(v, max_decimals=6)` eklendi (kuyruk sıfırları kırpar). `display_fvg_status` (FVG_SCAN + WICK_REJECTION + CLOSE) ve `display_active_position` (POZISYON AKTIF entry/sl/tp + FVG etiketi) `.2f`'ten `_fmt_price`'a geçti.
+- **Doğrulama:** `test_console_reporter.py` 13/13 (2 yeni test: TRIGGER_READY full precision + POZISYON AKTIF full precision). Sunucuda `_fmt_price(0.0853)=0.0853`, `_fmt_price(1.2670)=1.267` doğrulandı. Canlı konsol hardcopy: `POZISYON AKTIF | SHORT @ 0.0854 | SL: 0.0858 | TP: 0.0846` ve `FVG: bearish 0.0854-0.0853`.
+- **Commit'ler:** `fe0a23a` (FVG_SCAN/WICK_REJECTION/CLOSE) + `9e3cbd2` (POZISYON AKTIF). İkisi pushlandı, sunucuya pull edildi, bot restart (screen session "bot", base64-restart yöntemi).
+- **Sunucu notu:** Bot screen session `bot` içinde `python3 bot.py` olarak çalışıyor; restart için `screen -S bot -X stuff $'\003'` + `stuff $'cd /root/sniper/src && python3 bot.py\r'` — cmd/plink quoting bozulduğu için base64'lenmiş script (`base64 -d > /tmp/bot_restart.sh`) kullanılıyor. Key'ler `/root/.env`'den (repo kökünün parent'ı), sistem python değil venv (`/root/sniper/venv/bin/python3`).
+
+---
+
 ## Son İşlem: 2026-08-13 — Rapor 5 D-03 iddiası ÇÜRÜTÜLDÜ (kanıt testleri eklendi)
 
 - **İddia (rapor 5):** `execute()` `_execute_locked()`'ı pending=None ile çağırıyor; iddiaya göre `trade["_exit_committed"] = True` yalnızca pending truthy iken çalışıyor → normal exit yolu claim'siz.
