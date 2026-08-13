@@ -70,6 +70,26 @@ log = logging.getLogger("sniper.exit_lifecycle")
 COMMISSION_RATE = 0.0005
 
 
+def _json_default(o: Any) -> Any:
+    """json.dumps default — serialize edilemeyen objeleri dict'e çevirir.
+
+    HTFFVG (retrace_state) ve benzeri plain class'lar dataclass olmadığı
+    için asdict onları record'a olduğu gibi koyar; json.dumps TypeError
+    fırlatır ve kapanan trade trades_history.jsonl'e yazılamaz
+    (BULGU-16 devamı: trail_level_extractor'dan sonra trigger_fvg bulundu).
+    __dict__ üzerinden flatten edilir; dataclass/FVG vb. zaten dict olur.
+    """
+    if isinstance(o, (str, int, float, bool)) or o is None:
+        return o
+    if hasattr(o, "__dict__"):
+        return {k: _json_default(v) for k, v in o.__dict__.items()}
+    if isinstance(o, (list, tuple)):
+        return [_json_default(v) for v in o]
+    if isinstance(o, dict):
+        return {k: _json_default(v) for k, v in o.items()}
+    raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
+
+
 def _trade_identity_key(trade: Any) -> str:
     """Aynı bar/fiyat tekrar trade collision'ını önlemek için benzersiz trade anahtarı.
 
@@ -851,7 +871,9 @@ class ExitLifecycleService:
         try:
             trades_file = os.path.join(self._output_dir, "trades_history.jsonl")
             with open(trades_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+                f.write(
+                    json.dumps(record, ensure_ascii=False, default=_json_default) + "\n"
+                )
         except Exception as e:
             log.warning("[TRADES] %s jsonl yazma hatasi: %s", sym, e)
         mark_trade_closed(sym)

@@ -1007,6 +1007,48 @@ class TestJsonlSerialization:
         msg = str(warn.call_args)
         assert "disk tam" in msg
 
+    @pytest.mark.asyncio
+    @patch("trading.exit_lifecycle.cfg")
+    async def test_closed_trade_with_plain_object_writes_jsonl(
+        self, mock_cfg, service, tmp_path
+    ):
+        """Plain class (HTFFVG gibi) trigger_fvg record'u bozmamali.
+
+        BULGU-16 devami: trail_level_extractor fix'inden sonra 'Object of
+        type HTFFVG is not JSON serializable' hatasi cikti — trigger_fvg
+        dataclass degil (retrace_state.HTFFVG). _json_default __dict__ ile
+        flatten ediyor; trade yine diske yazilabiliyor.
+        """
+
+        class FakePlain:
+            def __init__(self):
+                self.top = 0.3347
+                self.bottom = 0.3338
+                self.direction = "bearish"
+                self.bar_index = 487
+
+        svc, rest, om, active_trades, trades, *_ = service
+        mock_cfg.BINANCE_API_KEY = "test_key"
+        svc._output_dir = str(tmp_path)
+        svc._fvg_state_file = str(tmp_path / "fvg.json")
+
+        trade = _trade(result="SL", exit_price=49000.0)
+        trade["trigger_fvg"] = FakePlain()
+        active_trades["BTCUSDT"] = trade
+        svc._rsms["BTCUSDT"] = _rsm()
+
+        result = await svc.execute("BTCUSDT", trade, 50000)
+
+        assert result is True
+        written = (tmp_path / "trades_history.jsonl").read_text(encoding="utf-8")
+        import json
+
+        rec = json.loads(written.strip().splitlines()[-1])
+        assert rec["sym"] == "BTCUSDT"
+        assert rec["trigger_fvg"]["direction"] == "bearish"
+        assert rec["trigger_fvg"]["bar_index"] == 487
+        assert "trail_level_extractor" not in rec
+
 
 # ═══════════════════════════════════════════════════════════════════
 # Sprint E: Chaos / edge-case scenarios
