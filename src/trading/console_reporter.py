@@ -20,6 +20,11 @@ if TYPE_CHECKING:
 TR_TZ = timezone(timedelta(hours=3))
 
 
+def _fmt_price(v: float, max_decimals: int = 6) -> str:
+    """Fiyatı kuyruk sıfırları olmadan, hassas ondalıkla formatlar."""
+    return f"{v:.{max_decimals}f}".rstrip("0").rstrip(".")
+
+
 class ConsoleReporter:
     """Konsol çıktı formatlaması ve state-based dedup.
 
@@ -70,7 +75,7 @@ class ConsoleReporter:
         fvg_bottom = trade.get("fvg_bottom")
         fvg_dir = trade.get("fvg_direction", "")
         if fvg_top is not None and fvg_bottom is not None:
-            fvg_label = f"FVG: {fvg_dir} {fvg_top:.5f}-{fvg_bottom:.5f}"
+            fvg_label = f"FVG: {fvg_dir} {_fmt_price(fvg_top)}-{_fmt_price(fvg_bottom)}"
         else:
             fvg_label = "FVG: ISLEMDE"
         self.emit(sym, "st_fvg", f"\U0001f7e9 {fvg_label}", force=True)
@@ -269,14 +274,14 @@ class ConsoleReporter:
             self.emit(
                 sym,
                 "st_fvg",
-                f"\U0001f7e9 FVG_SCAN | MIN_SIZE: {min_fvg:.6f} | FVG:[{tfvg.bottom:.2f} - {tfvg.top:.2f}] | \u2705 HAZIR",
+                f"\U0001f7e9 FVG_SCAN | MIN_SIZE: {min_fvg:.6f} | FVG:[{_fmt_price(tfvg.bottom)} - {_fmt_price(tfvg.top)}] | \u2705 HAZIR",
                 force=True,
             )
             self.emit(
                 sym,
                 "st_wck",
-                f"\u23f3 WICK_REJECTION | FVG:[{tfvg.bottom:.2f}-{tfvg.top:.2f}]"
-                f" | BODY_SAFE | CLOSE: {current_close:.2f}"
+                f"\u23f3 WICK_REJECTION | FVG:[{_fmt_price(tfvg.bottom)}-{_fmt_price(tfvg.top)}]"
+                f" | BODY_SAFE | CLOSE: {_fmt_price(current_close)}"
                 f" | \u27a1\ufe0f ENTRY BEKLENIYOR",
                 force=True,
             )

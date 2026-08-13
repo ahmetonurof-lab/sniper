@@ -120,3 +120,14 @@ class TestFvgStatus:
         r.display_fvg_status("BTCUSDT", rsm, _SS(), 0.000330, 0.080)
         out = capsys.readouterr().out
         assert "HAZIR" in out
+
+    def test_trigger_ready_prints_full_precision_fvg(self, capsys):
+        """Dusuk fiyatli sembollerde FVG 2 ondaliga yuvarlanmamali (0.0853 -> 0.09)."""
+        r = ConsoleReporter()
+        rsm = _RSM("TRIGGER_READY", _FVG(0.0853, 0.0854))
+        r.display_fvg_status("ENAUSDT", rsm, _SS(), 0.000006, 0.0854)
+        out = capsys.readouterr().out
+        assert "FVG:[0.0853 - 0.0854]" in out
+        assert "FVG:[0.0853-0.0854]" in out
+        assert "CLOSE: 0.0854" in out
+        assert "[0.09" not in out
