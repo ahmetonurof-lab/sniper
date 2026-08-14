@@ -1,5 +1,13 @@
 # Progress — Sniper Bot
 
+## 2026-08-14 — Günlük CBDR sweep taraması: 17/28 sembol sweep, bias uyumu %100
+
+| Tarih | İşlem | Detay |
+|-------|-------|-------|
+| 2026-08-14 | **Sweep taraması** | check_sweep kuralı netleştirildi (tolerance=ATR*0.5, bearish: high>body_high+tol & close<body_high; bullish: low<body_low-tol & close>body_low). 17/28 sembol sweep yapmış: BULLISH 12, BEARISH 5, NEUTRAL 11. Sweep yönü == daily_bias (tasarım gereği, L-05 latch). PYTH sweep'ten sonra 1 trade açtı. |
+
+---
+
 ## 2026-08-14 — PYTHUSDT trailing teşhisi: kök neden kanıtlandı
 
 | Tarih | İşlem | Detay |

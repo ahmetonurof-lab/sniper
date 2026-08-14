@@ -1,5 +1,15 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-14 — Günlük CBDR sweep taraması (28 sembol): 17 sweep, bias ile %100 uyum
+
+- **Kural (session.py:86-126):** `tolerance = atr * 0.5` (atr<=0 → 10.0). BEARISH: `high > body_high + tol AND close < body_high`; BULLISH: `low < body_low - tol AND close > body_low`. İlk sweep daily_bias'ı belirler + bias_locked latch (L-05), sonraki sweep'ler SKIP. Body pencere içi `track_body`, pencere dışı `lock()` → check_sweep.
+- **Bugün (live_state 17:07 UTC) 17/28 sembol sweep yaptı:** BULLISH 12 (AAVE/ADA/ALGO/ARB/AVAX/DOGE/ENA/LINK/NEAR/ONDO/RENDER/STRK), BEARISH 5 (APT/GMX/LDO/PYTH/TIA). NEUTRAL 11 (BNB/SOL/XRP/ATOM/DOT/SUI/OP/INJ/UNI/SEI/DYDX).
+- **Uyum:** Sweep yönü == daily_bias yönü TASARIM GEREĞİ %100 uyumlu — check_sweep aynı fonksiyonda sweep onayı + bias üretiyor. BULLISH sweep'ler bias=BULLISH, BEARISH'ler bias=BEARISH, sweep'sizler NEUTRAL. bias_reject (bot.py:532) ters yöndeki FVG girişlerini reddediyor.
+- **Canlı yeni sweep olayları:** APT 15:15 bearish 0.56, PYTH 18:30 bearish 0.04 (sonrasında 1 trade açtı, fvg_ready=True), AVAX 18:45 bullish 6.42.
+- **Session saatleri:** REAL_CBDR 19-1 (APT/PYTH/TIA/...), DEFAULT 22-2 (AAVE/XRP/...), ASIA_RANGE 1-5 (ONDO/RENDER/SUI).
+
+---
+
 ## Son İşlem: 2026-08-14 — PYTHUSDT trailing teşhisi: `no_better_trail_candidate` kök nedeni kanıtlandı
 
 - **Tetik:** Baş mühendis, PYTHUSDT short trade'inde trailing'in neden hiç tetiklenmediğini sordu (5 hipotez: FVG yok / is_placeable reddi / iyileşme yetersiz / last_invalid_fingerprint tıkanması / extractor kurulmamış).
