@@ -1,5 +1,16 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-14 — CBDR sweep formülü doğrulandı + per-symbol session saatleri keşfi
+
+- **Soru:** (1) CBDR sweep formülü nedir? (2) Doğru yöndeki coinlerde (APT/ONDO/PYTH/TIA — hepsi bot BEARISH, gerçek BEARISH) sweep nasıl oluşmuş?
+- **Formül (config.py:618-620, session.py:86-126):** `tolerance = ATR * 0.5` (`CBDR_SWEEP_ATR_TOLERANCE_MULT`), ATR<=0 ise `10.0` fallback (`CBDR_SWEEP_DEFAULT_TOLERANCE`). **Bearish:** `high > body_high + tol` AND `close < body_high`. **Bullish:** `low < body_low - tol` AND `close > body_low`. İlk onaylanan sweep `bias_locked`'ı açar (sonraki sweep'ler SKIP). Body 22:00-02:00 UTC'de `track_body`, pencere dışında `lock`.
+- **KRİTİK KEŞİF:** Bot **per-symbol session saatleri** kullanıyor — `get_session_hours(sym)` (session_router.py:27-33) → DEFAULT 22/2, REAL_CBDR 19/1, ASIA_RANGE 1/5. Harita: APTUSDT/PYTHUSDT/TIAUSDT=**REAL_CBDR(19-1)**, ONDOUSDT/RENDERUSDT/SUIUSDT=**ASIA_RANGE(1-5)**, ARBUSDT=DEFAULT(22-2). Sim'de 22/2 kullanınca APT/ONDO/SUI ile çelişiyordu; per-symbol saatlere geçince bot ile birebir eşleşti. **Sim/doğrulama yazarken session_router.get_session_hours kullan, varsayılan 22/2 KULLANMA.**
+- **ATR:** Bot `_warmup_cbdr` (bot.py:1209-1237) tüm barlar üzerinden rolling Wilder's ATR (`calculate_true_range` + `update_atr`) inşa edip `ss.update(dt, o, h, l, c, current_atr)` çağırıyor; `compute_atr_series` KULLANILMIYOR (SMMA seed farklı). Sim ATR'leri bot WARMUP ile eşleşti (ör. APT 0.002076/0.001985, PYTH 0.000186/0.000187).
+- **Sonuç (per-symbol saatlerle sim):** APTUSDT bearish sweep ✓ (body [0.558600-0.561000], H>0.561992 & C<0.561000), PYTHUSDT bearish ✓ (body [0.039850-0.040430], H>0.040523 & C<0.040430), TIAUSDT bearish ✓ (body [0.308900-0.311700], H>0.312418 & C<0.311700), RENDERUSDT bullish ✓, ARBUSDT bullish ✓, SUIUSDT sweep YOK ✓ (bot canlıda da sweep=False, `_used_sweeps`'teki `SUIUSDT_bullish_499` eski restart öncesi kalıntı), ONDOUSDT sim'de bullish çıkıyor ama bot `_used_sweeps`'te `ONDOUSDT_bearish_499` tutuyor (ASIA_RANGE 1-5 penceresinde bot canlı `[WARMUP] ... sweep=True ATR=0.001396` — yön sim ile netleştirilmedi).
+- **Not:** `_used_sweeps` içindeki `*_499` anahtarları restart öncesi eski run'dan kalma olabilir — canlı bot'un WARMUP satırı (lock/body/sweep/ATR) ve o anki trade_state.json birlikte okunmalı.
+
+---
+
 ## Son İşlem: 2026-08-14 — Bot restart YÖNTEMİ GÜNCELLENDİ (plink quoting hatası)
 
 - **Olay:** HTFFVG fix'i sonrası `plink ... "pkill -f bot.py; ...; nohup screen -S bot -dm bash -c '...'"` komutu **sessizce başarısız oldu** — screen hiç başlamadı, bot 09:53'e kadar ölü kaldı (process yok, `screen -ls` "No Sockets"). plink, iç içe tırnakları (bash -c '...') quote edemiyor; `nohup` + `screen -dm` kombinasyonu da etkisiz kaldı.
