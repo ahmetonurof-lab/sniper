@@ -1,5 +1,13 @@
 # Progress — Sniper Bot
 
+## 2026-08-14 — PYTHUSDT trailing teşhisi: kök neden kanıtlandı
+
+| Tarih | İşlem | Detay |
+|-------|-------|-------|
+| 2026-08-14 | **PYTHUSDT trailing teşhisi** | Trade 10:44→15:17 UTC, TP ile kapandı (+32.92 $), `trail_count=0`. 259 trail_skipped, hepsi `no_better_trail_candidate`. `trail_steps=[]`, `protection_state={}`. Simülasyon kanıtı: onaylanan bearish FVG'lerin top'u hep 0.040+ (SL 0.03966'yı kötüleştirir), SL altındaki tek FVG (#1800) close_confirmed=False. `TRAIL_MODE=retrace` gap-içi kapanış onayı hiç oluşmadı. Rapor: `reports/PYTHUSDT-trailing-teshis-2026-08-14.md`. |
+
+---
+
 ## 2026-08-13 — Rapor 5 D-03 ÇÜRÜTÜLDÜ + claim contract kanıt testleri
 
 | Tarih | İşlem | Detay |

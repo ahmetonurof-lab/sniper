@@ -1,5 +1,17 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-14 — PYTHUSDT trailing teşhisi: `no_better_trail_candidate` kök nedeni kanıtlandı
+
+- **Tetik:** Baş mühendis, PYTHUSDT short trade'inde trailing'in neden hiç tetiklenmediğini sordu (5 hipotez: FVG yok / is_placeable reddi / iyileşme yetersiz / last_invalid_fingerprint tıkanması / extractor kurulmamış).
+- **Veri (baş mühendisin istediği 3 madde):** (1) `paper_trade.log`'da 259 adet `trail_skipped` event, TAMAMI `reason="no_better_trail_candidate"`, 10:46→15:04 UTC, median gap ~60s (her 1m kapanışta denendi). (2) `trades_history.jsonl` kapanış kaydı: `trailing_count=0, trail_steps=[], trail_count=0` — trailing hiç adım üretmedi. (3) `protection_state={}` — `last_invalid_fingerprint` YOK.
+- **Kapanış:** Trade 15:17:31 UTC'de **TP ile kapandı: pnl=+32.92 $, exit 0.03876**, trail yok. Sunucu canlı log'da 15:16 UTC'ye kadar trail_skipped devam etti — trailing hiç durmadı, sadece hep `no_better_trail_candidate`.
+- **Kök neden (simülasyonla kanıt):** Sunucuda bot'un kendi `_fvg_multihop` + `detect_fvgs` + `_fvg_close_confirmed` gerçek `PYTHUSDT_15m.csv` verisiyle çalıştırıldı. Short için şart: `fvg.top < 0.039577` (SL 0.03966 + eşik 0.00006397). Son 50 bardaki 7 bearish FVG'nin onaylananlarının top'u hep 0.040+ (SL'yi kötüleştirir), SL altındaki tek FVG (#1800 top 0.03904) ise `_fvg_close_confirmed`=False (sonraki close > top → invalidation). → Hiçbir "gap içi kapanış" onayı yok.
+- **Hipotez eleği:** #1 DOĞRU (genişletilmiş: FVG var ama onaylananlar yanlış konumda). #2 YANLIŞ (retrace modunda `placeable = not retrace_only = False` → is_placeable devre dışı). #3 kısmen. #4 ELEK (`protection_state={}`). #5 YANLIŞ (extractor her dakika çalıştı — trail_skipped üretimi kanıt).
+- **Rapor:** `reports/PYTHUSDT-trailing-teshis-2026-08-14.md` (yerel + sunucu `/root/sniper/reports/`).
+- **Not:** 1m/15m CSV yazımı 15:00 UTC civarı durmuş görünüyor (ayrı inceleme adayı).
+
+---
+
 ## Son İşlem: 2026-08-14 — CBDR sweep formülü doğrulandı + per-symbol session saatleri keşfi
 
 - **Soru:** (1) CBDR sweep formülü nedir? (2) Doğru yöndeki coinlerde (APT/ONDO/PYTH/TIA — hepsi bot BEARISH, gerçek BEARISH) sweep nasıl oluşmuş?
