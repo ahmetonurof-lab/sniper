@@ -5,9 +5,10 @@ PYTHUSDT short trade (PYTHUSDT-0) 10:44:37 UTC'de açıldı, **15:17:31 UTC'de T
 **pnl=+32.92 $, trail_count=0, trailing_count=0, trail_steps=[]**. Trailing trade hayatı boyunca HİÇ uygulanmadı.
 
 ## 1) [TRAIL] Logları (baş mühendisin istediği veri #1)
-- 259 adet `trail_skipped` event, tamamı `reason="no_better_trail_candidate"`.
-- İlk: 10:46:14 UTC, Son (yerel kopya): 15:04:14 UTC. Median gap ~60.053s → her 1m kapanışta trailing çalıştı.
-- **Canlı log'da 18:16 local (15:16 UTC) hâlâ trail_skipped var** → trailing kapanışa kadar hiç durmadı; tek sebep `no_better_trail_candidate`.
+- **278 adet** `trail_skipped` event (canlı `paper_trade.log` tam sayım), tamamı `reason="no_better_trail_candidate"`.
+- İlk: 10:46:14 UTC, Son: 15:16 UTC (trade 15:17:31'de kapandı). Median gap ~60s → her 1m kapanışta trailing çalıştı.
+- (İlk yerel kopya 18:05'te alınmıştı, 259 event içeriyordu; canlı log kapanış anında toplam 278'e ulaştı.)
+- **Trailing kapanışa kadar hiç durmadı; tek sebep `no_better_trail_candidate`.**
 - trail event'leri `events_2026-08-14.jsonl`'da YOK, yalnız `paper_trade.log`'da.
 
 Örnek satır:
