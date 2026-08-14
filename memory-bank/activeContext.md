@@ -1,5 +1,14 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-14 — Bot restart YÖNTEMİ GÜNCELLENDİ (plink quoting hatası)
+
+- **Olay:** HTFFVG fix'i sonrası `plink ... "pkill -f bot.py; ...; nohup screen -S bot -dm bash -c '...'"` komutu **sessizce başarısız oldu** — screen hiç başlamadı, bot 09:53'e kadar ölü kaldı (process yok, `screen -ls` "No Sockets"). plink, iç içe tırnakları (bash -c '...') quote edemiyor; `nohup` + `screen -dm` kombinasyonu da etkisiz kaldı.
+- **ÇÖZÜM (artık standart):** Restart için script dosyası kullan: (1) `bot_restart.sh` yaz (`pkill -f bot.py; sleep 2; cd /root/sniper/src; nohup screen -S bot -dm bash -c 'cd /root/sniper/src && /root/sniper/venv/bin/python3 bot.py > /root/sniper/output/paper_trade.log 2>&1'`); (2) `pscp` ile `/tmp/bot_restart.sh`'e yükle; (3) `plink ... "bash /tmp/bot_restart.sh"`. Çalışır, doğrulandı (screen `495960.bot` detached, PID 495962, log canlı, WS 56 stream, tüm INIT tamam).
+- **Önemli:** plink komut satırında `screen -dm bash -c '...'` veya iç içe quote İÇEREN hiçbir restart tek satırına güvenme — her zaman pscp+script yöntemini kullan. Eski notta (Ağu 13) base64 script deniyordu; pscp+plain script daha basit ve çalışıyor.
+- **Log doğrulama:** Restart sonrası `tail -25 paper_trade.log` — WS 56 stream bağlandı, `[INIT] ... ilk analiz tamam (500 bar)` satırları görünmeli, hata yok.
+
+---
+
 ## Son İşlem: 2026-08-14 — BULGU-16 devamı: trigger_fvg HTFFVG serialize hatası düzeltildi
 
 - **Tetik:** ONDOUSDT kapanışında canlı log `[TRADES] ONDOUSDT jsonl yazma hatasi: Object of type HTFFVG is not JSON serializable` (01:25:40) — BULGU-16 fix'i (`trail_level_extractor` pop) **eksikti**: `trigger_fvg` (models.py:525) plain class `retrace_state.HTFFVG` taşıyor, dataclass olmadığı için `asdict` onu dict'e çeviremiyor → trade yine diske yazılamıyordu.
