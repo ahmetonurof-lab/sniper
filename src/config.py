@@ -23,43 +23,57 @@ else:
 
 INITIAL_BALANCE = 10000.0
 
-RISK_PER_TRADE = 0.003
+# [VARYASYON - Aktif] düşük MaxDD coin grubu + daha sıkı risk
+# Önceki varyasyon (geri dönüş için): RISK_PER_TRADE = 0.003, LEVERAGE = 5
+RISK_PER_TRADE = 0.002
 
-LEVERAGE = 5
+LEVERAGE = 10
 
 
 # ── Semboller (aktif trade listesi) ───────────────────────────
-
+# [VARYASYON - Aktif] sadece düşük MaxDD coinler
 SYMBOLS = [
-    "BNBUSDT",
-    "SOLUSDT",
-    "AVAXUSDT",
-    "LINKUSDT",
-    "XRPUSDT",
-    "ATOMUSDT",
-    "ADAUSDT",
-    "APTUSDT",
-    "DOTUSDT",
-    "NEARUSDT",
-    "SUIUSDT",
-    "OPUSDT",
-    "ARBUSDT",
-    "INJUSDT",
-    "ALGOUSDT",
-    "AAVEUSDT",
-    "UNIUSDT",
-    "DOGEUSDT",
-    "TIAUSDT",
-    "SEIUSDT",
-    "ONDOUSDT",
-    "PYTHUSDT",
-    "RENDERUSDT",
-    "ENAUSDT",
-    "STRKUSDT",
-    "GMXUSDT",
-    "DYDXUSDT",
-    "LDOUSDT",
+    "PYTHUSDT",  # MaxDD 0.4
+    "TIAUSDT",  # MaxDD 0.4
+    "GMXUSDT",  # MaxDD 0.5
+    "SEIUSDT",  # MaxDD 0.5
+    "ENAUSDT",  # MaxDD 0.7
+    "LDOUSDT",  # MaxDD 0.7
+    "STRKUSDT",  # MaxDD 0.8
+    "DYDXUSDT",  # MaxDD 0.7
 ]
+
+# Önceki varyasyon (geri dönüş için) — 28 coin:
+# SYMBOLS = [
+#     "BNBUSDT",
+#     "SOLUSDT",
+#     "AVAXUSDT",
+#     "LINKUSDT",
+#     "XRPUSDT",
+#     "ATOMUSDT",
+#     "ADAUSDT",
+#     "APTUSDT",
+#     "DOTUSDT",
+#     "NEARUSDT",
+#     "SUIUSDT",
+#     "OPUSDT",
+#     "ARBUSDT",
+#     "INJUSDT",
+#     "ALGOUSDT",
+#     "AAVEUSDT",
+#     "UNIUSDT",
+#     "DOGEUSDT",
+#     "TIAUSDT",
+#     "SEIUSDT",
+#     "ONDOUSDT",
+#     "PYTHUSDT",
+#     "RENDERUSDT",
+#     "ENAUSDT",
+#     "STRKUSDT",
+#     "GMXUSDT",
+#     "DYDXUSDT",
+#     "LDOUSDT",
+# ]
 
 
 # ── Global fallback: FVG.size / ATR eşiği (coin bazlı override yoksa) ──
