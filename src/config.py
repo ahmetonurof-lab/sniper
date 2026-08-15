@@ -31,48 +31,48 @@ LEVERAGE = 10
 
 
 # ── Semboller (aktif trade listesi) ───────────────────────────
-# [VARYASYON - Aktif] sadece düşük MaxDD coinler
+# [VARYASYON - Aktif] 28 coin tam evren
 SYMBOLS = [
-    "PYTHUSDT",  # MaxDD 0.4
-    "TIAUSDT",  # MaxDD 0.4
-    "GMXUSDT",  # MaxDD 0.5
-    "SEIUSDT",  # MaxDD 0.5
-    "ENAUSDT",  # MaxDD 0.7
-    "LDOUSDT",  # MaxDD 0.7
-    "STRKUSDT",  # MaxDD 0.8
-    "DYDXUSDT",  # MaxDD 0.7
+    "BNBUSDT",
+    "SOLUSDT",
+    "AVAXUSDT",
+    "LINKUSDT",
+    "XRPUSDT",
+    "ATOMUSDT",
+    "ADAUSDT",
+    "APTUSDT",
+    "DOTUSDT",
+    "NEARUSDT",
+    "SUIUSDT",
+    "OPUSDT",
+    "ARBUSDT",
+    "INJUSDT",
+    "ALGOUSDT",
+    "AAVEUSDT",
+    "UNIUSDT",
+    "DOGEUSDT",
+    "TIAUSDT",
+    "SEIUSDT",
+    "ONDOUSDT",
+    "PYTHUSDT",
+    "RENDERUSDT",
+    "ENAUSDT",
+    "STRKUSDT",
+    "GMXUSDT",
+    "DYDXUSDT",
+    "LDOUSDT",
 ]
 
-# Önceki varyasyon (geri dönüş için) — 28 coin:
+# Önceki varyasyon (geri dönüş için) — 8 coin (düşük MaxDD):
 # SYMBOLS = [
-#     "BNBUSDT",
-#     "SOLUSDT",
-#     "AVAXUSDT",
-#     "LINKUSDT",
-#     "XRPUSDT",
-#     "ATOMUSDT",
-#     "ADAUSDT",
-#     "APTUSDT",
-#     "DOTUSDT",
-#     "NEARUSDT",
-#     "SUIUSDT",
-#     "OPUSDT",
-#     "ARBUSDT",
-#     "INJUSDT",
-#     "ALGOUSDT",
-#     "AAVEUSDT",
-#     "UNIUSDT",
-#     "DOGEUSDT",
-#     "TIAUSDT",
-#     "SEIUSDT",
-#     "ONDOUSDT",
-#     "PYTHUSDT",
-#     "RENDERUSDT",
-#     "ENAUSDT",
-#     "STRKUSDT",
-#     "GMXUSDT",
-#     "DYDXUSDT",
-#     "LDOUSDT",
+#     "PYTHUSDT",  # MaxDD 0.4
+#     "TIAUSDT",  # MaxDD 0.4
+#     "GMXUSDT",  # MaxDD 0.5
+#     "SEIUSDT",  # MaxDD 0.5
+#     "ENAUSDT",  # MaxDD 0.7
+#     "LDOUSDT",  # MaxDD 0.7
+#     "STRKUSDT",  # MaxDD 0.8
+#     "DYDXUSDT",  # MaxDD 0.7
 # ]
 
 
