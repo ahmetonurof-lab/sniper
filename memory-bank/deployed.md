@@ -2,6 +2,7 @@
 
 | Tarih | Commit | Açıklama |
 |-------|--------|----------|
+| 2026-08-17 01:53 | `dba658b` | **LEVERAGE 10→5 drift fix + B_SWING_ONLY RISK 0.003 canlı.** 8-coin/0.002/10x deneyi terkedilmiş, LEVERAGE geri alındı (DENEYSEL-KULLANILMIYOR notu eklendi). RISK_PER_TRADE=0.003, 28 coin. Screen 554362.bot, venv python. Teyit: 28 coin leverage=5x OK, 0 ERROR, WS 56 stream. |
 | 2026-08-08 21:25 | `695b2a4` | **TRAIL_MODE=retrace kapanış** — D modu (activation) + continuation tam evren backtest'inde A/retrace'i geçemedi, geri çekildi. Config: TRAIL_MODE default "retrace"; CONT_BUFFER_MULT/TRAIL_ACTIVATION_R_MULT/ATR_TRAIL_MULT_CONTINUATION/CONTINUATION_CONFIRM_BARS DENEYSEL-KULLANILMIYOR. Screen 377433.bot, venv python, cwd /root/sniper/src. Teyit: bot venv TRAIL_MODE=retrace, 28 coin init + WS 56 stream + user-data bağlandı, 0 ERROR. Canlı trail olayı: pozisyon açılışını bekliyor (deploy anında açık pozisyon yok). |
 | 2026-08-08 03:07 | `daaeeb0` | RECOVERY tick_size parity fix — screen 366235.bot, venv python, run paper-20260808-000537. Teyit: ALGO tick_size=1e-05 / RENDER tick_size=0.001, ikisi de `[TRAIL] trail#1` updated (fvg_scan_multihop) — önceden tick=0.1 yüzünden kilitliydi |
 | 2026-08-07 01:45 | `b9c2d53` | Continuation-confirm + is_placeable stale-candidate guard (FVG trailing) — screen 349790.bot, venv python, run paper-20260806-223127 |

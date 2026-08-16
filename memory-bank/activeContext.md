@@ -1,6 +1,13 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: 2026-08-14 — Günlük CBDR sweep taraması (28 sembol): 17 sweep, bias ile %100 uyum
+## Son İşlem: 2026-08-17 — Deploy + LEVERAGE geri alma (8-coin deney drift fix)
+
+- **Deploy:** `b898602` → `dba658b` (ff-only pull + restart). Screen `554362.bot` (PID 554086, venv python, cwd `/root/sniper/src`).
+- **Değişiklik:** RISK_PER_TRADE 0.003 (B_SWING_ONLY 28-coin doğrulaması canlıya alındı); LEVERAGE 10→5 (8-coin/0.002/10x deneyi terkedilmiş, drift geri alındı — `# DENEYSEL — KULLANILMIYOR` notu eklendi).
+- **Canlı:** 28 coin leverage=5x OK, 520 trade history yüklendi, WS 56 stream + USER_DATA, 0 ERROR/CRITICAL, açık pozisyon yok.
+- **Not:** Backtest kaldıraçtan bağımsızdır (risk-yüzdesi bazlı). 10x doğrulaması doğrudan paper'da yapılmalıdır.
+
+## Önceki: 2026-08-14 — Günlük CBDR sweep taraması (28 sembol): 17 sweep, bias ile %100 uyum
 
 - **Kural (session.py:86-126):** `tolerance = atr * 0.5` (atr<=0 → 10.0). BEARISH: `high > body_high + tol AND close < body_high`; BULLISH: `low < body_low - tol AND close > body_low`. İlk sweep daily_bias'ı belirler + bias_locked latch (L-05), sonraki sweep'ler SKIP. Body pencere içi `track_body`, pencere dışı `lock()` → check_sweep.
 - **Bugün (live_state 17:07 UTC) 17/28 sembol sweep yaptı:** BULLISH 12 (AAVE/ADA/ALGO/ARB/AVAX/DOGE/ENA/LINK/NEAR/ONDO/RENDER/STRK), BEARISH 5 (APT/GMX/LDO/PYTH/TIA). NEUTRAL 11 (BNB/SOL/XRP/ATOM/DOT/SUI/OP/INJ/UNI/SEI/DYDX).
