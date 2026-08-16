@@ -23,9 +23,9 @@ else:
 
 INITIAL_BALANCE = 10000.0
 
-# [VARYASYON - Aktif] düşük MaxDD coin grubu + daha sıkı risk
-# Önceki varyasyon (geri dönüş için): RISK_PER_TRADE = 0.003, LEVERAGE = 5
-RISK_PER_TRADE = 0.002
+# [VARYASYON - Aktif] tam evren + risk 0.003 (B_SWING_ONLY 28-coin dogrulamasi icin)
+# Opsiyonel geri donus: RISK_PER_TRADE = 0.002 (8 dusuk-MaxDD coin varyasyonu)
+RISK_PER_TRADE = 0.003
 
 LEVERAGE = 10
 
