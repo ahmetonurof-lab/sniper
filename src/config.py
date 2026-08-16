@@ -27,7 +27,11 @@ INITIAL_BALANCE = 10000.0
 # Opsiyonel geri donus: RISK_PER_TRADE = 0.002 (8 dusuk-MaxDD coin varyasyonu)
 RISK_PER_TRADE = 0.003
 
-LEVERAGE = 10
+# DENEYSEL — KULLANILMIYOR: 8-coin/0.002/10x varyasyon deneyi icin
+# gecici olarak 10'a cikarilmisti, deney tamamlanmadan geri alinmadi.
+# Backtest kaldirictan bagimsizdir (risk-yuzdesi bazli), 10x dogrulamasi
+# paper'da yapilmalidir. 2026-08-17 geri alindi.
+LEVERAGE = 5
 
 
 # ── Semboller (aktif trade listesi) ───────────────────────────
