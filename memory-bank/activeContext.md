@@ -1,6 +1,19 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: 2026-08-17 — Deploy + LEVERAGE geri alma (8-coin deney drift fix)
+## Son İşlem: 2026-08-17 — Binance Futures WS URL Migration (kritik fix)
+
+- **Sorun:** Bot 16-08'ten beri hiç trade üretmiyordu. WS bağlantısı kuruluyordu ama hiç kline verisi almıyordu (6612 heartbeat timeout, 0 bar kapandı).
+- **Kök neden:** Binance 2026-04-23'te USDⓈ-M Futures WS endpoint'lerini değiştirdi. Eski `/stream?streams=` sessizce veri düşürüyor (bağlantı kuruluyor ama payload gelmiyor).
+- **Fix (3 commit, 3 deploy):**
+  1. `b7735a4` — Market stream: `/stream?streams=` → `/market/stream?streams=` (hem testnet hem prod)
+  2. `23fa115` — User data: `stream.binancefuture.com/ws/<key>` → `fstream.binance.com/private/ws?listenKey=<key>&events=...`
+  3. `4507e75` — User data testnet/prod ayrımı: testnet eski `/ws/<key>` formatını hâlâ kullanıyor; prod yeni query param formatına geçti. `IS_TESTNET=True` default'u yüzünden testnet key production'a gönderiliyordu → 400.
+- **Doğrulama:** Sunucuda tanı scripti ile eski URL'in çalışmadığı, yeni URL'in 0.2sn'de veri döndüğü kanıtlandı. Deploy sonrası: 0 heartbeat timeout, USER_DATA bağlantısı kuruldu, INJUSDT short pozisyon açıldı (trail_skipped eventleri canlı).
+- **Not:** Binance migration rehberi: https://developers.binance.com/docs/derivatives/USDS-margined-futures/websocket-market-streams/Important-WebSocket-Change-Notice
+
+---
+
+## Önceki: 2026-08-17 — Deploy + LEVERAGE geri alma (8-coin deney drift fix)
 
 - **Deploy:** `b898602` → `dba658b` (ff-only pull + restart). Screen `554362.bot` (PID 554086, venv python, cwd `/root/sniper/src`).
 - **Değişiklik:** RISK_PER_TRADE 0.003 (B_SWING_ONLY 28-coin doğrulaması canlıya alındı); LEVERAGE 10→5 (8-coin/0.002/10x deneyi terkedilmiş, drift geri alındı — `# DENEYSEL — KULLANILMIYOR` notu eklendi).

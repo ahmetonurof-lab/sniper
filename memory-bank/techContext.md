@@ -56,7 +56,11 @@ python bot.py
 - aiohttp, python-dotenv, numpy
 
 ## Harici Servisler
-- Binance Futures Testnet: `wss://fstream.binancefuture.com` / `https://demo-fapi.binance.com`
+- Binance Futures Testnet: `wss://stream.binancefuture.com` / `https://demo-fapi.binance.com`
+- Binance Futures Production: `wss://fstream.binance.com` / `https://fapi.binance.com`
+  - Market streams: `wss://fstream.binance.com/market/stream?streams=...` (2026-04-23 migration)
+  - User data: `wss://fstream.binance.com/private/ws?listenKey=<KEY>&events=...` (prod)
+  - User data testnet: `wss://stream.binancefuture.com/ws/<KEY>` (eski format, hala çalışıyor)
 
 ## Ortam Değişkenleri (.env)
 ```
