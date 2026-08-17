@@ -1408,7 +1408,13 @@ class PaperTrader:
             try:
                 listen_key = await self.rest.get_listen_key()
                 if listen_key:
-                    self.hub.set_user_data_listen_key(listen_key)
+                    # Testnet: /ws/<listenKey> (eski format hala calisiyor)
+                    # Prod:   /private/ws?listenKey=<KEY>&events=... (2026-04-23 migration)
+                    if self.testnet:
+                        ud_ws = "wss://stream.binancefuture.com/ws"
+                    else:
+                        ud_ws = "wss://fstream.binance.com/private/ws"
+                    self.hub.set_user_data_listen_key(listen_key, ws_base_url=ud_ws)
                     # Faz 6.3: UserDataHandler DI ile callback'leri kur
                     udh = UserDataHandler(
                         active_trades=self.active_trades,

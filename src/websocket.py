@@ -269,13 +269,22 @@ class BinanceWSHub:
         listen_key: str,
         ws_base_url: str = "wss://fstream.binance.com/private/ws",
     ) -> None:
-        """User data stream için listen key ve WebSocket URL'ini ayarlar."""
+        """User data stream için listen key ve WebSocket URL'ini ayarlar.
+
+        Production (private/ws): listenKey query param olarak gecer.
+        Testnet (/ws): listenKey path segment olarak gecer (eski format).
+        """
         self._user_data_listen_key = listen_key
-        self._user_data_ws_url = (
-            f"{ws_base_url.rstrip('/')}"
-            f"?listenKey={listen_key}"
-            "&events=ORDER_TRADE_UPDATE,ACCOUNT_UPDATE,listenKeyExpired"
-        )
+        base = ws_base_url.rstrip("/")
+        if "/private/ws" in base:
+            # Production: /private/ws?listenKey=<KEY>&events=...
+            self._user_data_ws_url = (
+                f"{base}?listenKey={listen_key}"
+                "&events=ORDER_TRADE_UPDATE,ACCOUNT_UPDATE,listenKeyExpired"
+            )
+        else:
+            # Testnet: /ws/<listenKey> (eski format)
+            self._user_data_ws_url = f"{base}/{listen_key}"
 
     def on_user_data(
         self,
