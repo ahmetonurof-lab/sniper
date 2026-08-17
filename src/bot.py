@@ -199,10 +199,10 @@ class PaperTrader:
         self.testnet = cfg.IS_TESTNET
         if self.testnet:
             self.rest_base = "https://demo-fapi.binance.com"
-            self.ws_base = "wss://fstream.binancefuture.com/stream?streams="
+            self.ws_base = "wss://fstream.binance.com/market/stream?streams="
         else:
             self.rest_base = "https://fapi.binance.com"
-            self.ws_base = "wss://fstream.binance.com/stream?streams="
+            self.ws_base = "wss://fstream.binance.com/market/stream?streams="
 
         self.hub = BinanceWSHub(
             symbols=self.symbols,
