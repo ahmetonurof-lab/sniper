@@ -1,5 +1,13 @@
 # Progress — Sniper Bot
 
+## 2026-08-17 — IFVG Bias Muafiyeti Uygulandı (Devir Eki direktifi)
+
+| Tarih | İşlem | Detay |
+|-------|-------|-------|
+| 2026-08-17 | **IFVG bias muafiyeti** | `signal_engine.py` evaluate_trigger() içinde bias_reject kontrollerine `if getattr(self.rsm, "_last_trigger_source", None) != "IFVG":` guard eklendi. `_last_trigger_source` her bar NORMAL, IFVG tetiklediğinde IFVG ile overwrite. IFVG + ters bias → KABUL, NORMAL + ters bias → RED. 6 yeni test: `TestIFVGBiasExemption` (IFVG bull+bearish bias, IFVG bear+bullish bias, IFVG+neutral, NORMAL+bearish, NORMAL+bullish, NORMAL+neutral). test_retrace_state 80/80 + test_signal_engine 15/15 PASS. |
+
+---
+
 ## 2026-08-14 — Günlük CBDR sweep taraması: 17/28 sembol sweep, bias uyumu %100
 
 | Tarih | İşlem | Detay |

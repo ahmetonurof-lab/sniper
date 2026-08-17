@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from typing import Literal
 
 from models import Bar
-from retrace_state import RetraceStateMachine, HTFFVG
+from retrace_state import RetraceStateMachine, HTFFVG, RetraceState
 from session import DailyBias, SessionState
 
 log = logging.getLogger("sniper.signal_engine")
@@ -75,6 +75,11 @@ class SignalEngine:
         atr_val: ATR-bazlı dinamik FVG eşiği için on_sweep_confirmed'e iletilir.
         symbol: coin bazli FVG_SIZE_MAP lookup icin.
         """
+        # IFVG (ikincil yol): her bar'da kaynak etiketini 'NORMAL' sifirla;
+        # asagidaki IFVG blogu tetiklenirse 'IFVG' ile ezer. Flag kapaliyken
+        # check_ifvg_retest None dondugu icin islevsel etkisi yoktur.
+        self.rsm._last_trigger_source = "NORMAL"
+
         if self.rsm.state_name == "IDLE" and ss.sweep_confirmed:
             self.rsm.on_sweep(
                 direction=ss.sweep_direction or "bullish",
@@ -111,6 +116,19 @@ class SignalEngine:
                 # ile yeniden TRIGGER_READY olmaya calis (yeni sweep gerekmez).
                 self.rsm.on_bias_fvg(bars_15m, current, atr_val, symbol)
 
+        # ── IFVG ikincil yol: normal yol TRIGGER_READY yapmadiysa dene ──
+        # Ana sweep+FVG yolu onceeliklidir; ayni bar'da normal kazandiysa
+        # (state zaten TRIGGER_READY) buraya girilmez. IFVG tetiklenirse
+        # trigger_fvg ayni tiptedir (HTFFVG) -> entry_manager SL/TP ayni kaliyla
+        # calisir (direktif madde 6).
+        if self.rsm.state != RetraceState.TRIGGER_READY:
+            ifvg_hit = self.rsm.check_ifvg_retest(current)
+            if ifvg_hit is not None:
+                self.rsm.state = RetraceState.TRIGGER_READY
+                self.rsm.direction = ifvg_hit.direction
+                self.rsm.trigger_fvg = ifvg_hit
+                self.rsm._last_trigger_source = "IFVG"
+
         ss.fvg_ready = self.rsm.state_name == "TRIGGER_READY"
 
     # ── Blok 10: Trigger check + filtreler ─────────────────────
@@ -133,21 +151,25 @@ class SignalEngine:
             self.rsm.reset()
             return EvalResult(decision="SKIP", reason="bar_not_closed")
 
-        # Bias filter (analyzer.py ile aynı)
-        if self.rsm.direction == "bullish" and ss.daily_bias == DailyBias.BEARISH:
-            log.info("[SKIP] bullish trigger — bias BEARISH, atlandi (rsm reset)")
-            self.rsm.reset()
-            return EvalResult(decision="SKIP", reason="bias_bearish")
+        # Bias filter — IFVG kaynakli trigger'lar bu filtreden MUAF:
+        # counter-trend (inversion) yapisi geregi bias uyumu gerektirmez.
+        # IFVG_ENABLED=False iken _last_trigger_source hep 'NORMAL' oldugundan
+        # guard her zaman True calisir, davranis bugunku ile bit-bit ayni.
+        if getattr(self.rsm, "_last_trigger_source", None) != "IFVG":
+            if self.rsm.direction == "bullish" and ss.daily_bias == DailyBias.BEARISH:
+                log.info("[SKIP] bullish trigger — bias BEARISH, atlandi (rsm reset)")
+                self.rsm.reset()
+                return EvalResult(decision="SKIP", reason="bias_bearish")
 
-        if self.rsm.direction == "bearish" and ss.daily_bias == DailyBias.BULLISH:
-            log.info("[SKIP] bearish trigger — bias BULLISH, atlandi (rsm reset)")
-            self.rsm.reset()
-            return EvalResult(decision="SKIP", reason="bias_bullish")
+            if self.rsm.direction == "bearish" and ss.daily_bias == DailyBias.BULLISH:
+                log.info("[SKIP] bearish trigger — bias BULLISH, atlandi (rsm reset)")
+                self.rsm.reset()
+                return EvalResult(decision="SKIP", reason="bias_bullish")
 
-        if ss.daily_bias == DailyBias.NEUTRAL:
-            log.info("[SKIP] trigger — bias NEUTRAL, atlandi (rsm reset)")
-            self.rsm.reset()
-            return EvalResult(decision="SKIP", reason="bias_neutral")
+            if ss.daily_bias == DailyBias.NEUTRAL:
+                log.info("[SKIP] trigger — bias NEUTRAL, atlandi (rsm reset)")
+                self.rsm.reset()
+                return EvalResult(decision="SKIP", reason="bias_neutral")
 
         # Session filter — analyzer_v5.py:302-303 ile birebir:
         # CBDR penceresi ICINDE ise SKIP, disinda her saat TRIGGER'a acik.

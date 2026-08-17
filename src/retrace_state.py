@@ -133,6 +133,13 @@ class RetraceStateMachine:
         self._pending_sweep_persistence_id: str | None = None
         self._locked_from_bar: int | None = None
         self._fail_count: int = 0
+        # IFVG (ikincil yol): kirmis FVG'lerin ters-yon retest adaylari.
+        # Yalnizca tam reset() temizler; lock_bias() dokunmaz (suressiz gecerli).
+        self._inverted_candidates: list[HTFFVG] = []
+        # Her tetigin kaynagi ('NORMAL' | 'IFVG') — raporlama (analyzer_v5) icin.
+        # Sürücü (signal_engine/sweep_sync) her bar'da 'NORMAL' sifirlar, IFVG
+        # tetiklenirse 'IFVG' yazar. RSM kendi metotlari bunu DEGISTIRMEZ.
+        self._last_trigger_source: str | None = None
 
     @property
     def state_name(self) -> str:
@@ -241,6 +248,7 @@ class RetraceStateMachine:
         self._pending_sweep_persistence_id = None
         self._locked_from_bar = None
         self._fail_count = 0
+        self._inverted_candidates = []
 
     def lock_bias(self, bar_index: int | None = None):
         """Bias kilit moduna gec: yon korunur, yeni sweep beklemeden FVG re-entry.
@@ -370,6 +378,8 @@ class RetraceStateMachine:
             if not wick_touched:
                 continue
             if body_broke_down:
+                if getattr(_cfg, "IFVG_ENABLED", False):
+                    self._register_inverted(fvg)
                 continue
 
             logger.info(
@@ -379,6 +389,47 @@ class RetraceStateMachine:
             self.state = RetraceState.TRIGGER_READY
             self.trigger_fvg = fvg
             return
+
+    # ── IFVG (Inversion FVG) ikincil yol ─────────────────────
+    # KIRILMIS FVG'yi ters yonde retest adayi olarak izler. Flag:
+    # config.IFVG_ENABLED (default False). Ana sweep+FVG yolu hic degistirilmedi;
+    # yalnizca on_sweep_confirmed/on_bias_fvg'deki body_broke_down reddi aninda
+    # aday kayda alinir. Surucu (signal_engine/sweep_sync) her kapali bar'da
+    # check_ifvg_retest() cagirisini on_sweep_confirmed/on_bias_fvg SONRASONRA
+    # yapar (direktif madde 5).
+    def _register_inverted(self, fvg: HTFFVG) -> None:
+        """Body FVG'yi kirarsa (body_broke_down=True) cagrilir.
+        FVG'yi ters yonde retest adayi olarak kaydeder (yon flip)."""
+        flipped_dir = "bearish" if fvg.direction == "bullish" else "bullish"
+        self._inverted_candidates.append(
+            HTFFVG(fvg.top, fvg.bottom, flipped_dir, fvg.bar_index)
+        )
+
+    def check_ifvg_retest(self, current: Bar) -> HTFFVG | None:
+        """Her yeni (kapali) bar'da surucu tarafindan cagrilir.
+        Kayitli inverted adaylardan biri ters yonde wick-touch + no-break
+        sartini saglarsa onu dondurup listeden cikarir. Sart saglanmadan ters
+        yonde de tamamen kirilirse (o taraf da delinirse) aday olu kabul edip
+        listeden duskurur. Flag kapali (IFVG_ENABLED=False) ise hicbir sey
+        degistirmeden None doner -> ana yol davranisi korunur."""
+        import config as _cfg
+
+        if not getattr(_cfg, "IFVG_ENABLED", False):
+            return None
+        for fvg in list(self._inverted_candidates):
+            if fvg.direction == "bullish":
+                wick_touched = current.low <= fvg.top
+                body_broke = current.close < fvg.bottom
+            else:
+                wick_touched = current.high >= fvg.bottom
+                body_broke = current.close > fvg.top
+            if body_broke:
+                self._inverted_candidates.remove(fvg)
+                continue
+            if wick_touched:
+                self._inverted_candidates.remove(fvg)
+                return fvg
+        return None
 
     def on_sweep(
         self,
@@ -498,6 +549,8 @@ class RetraceStateMachine:
                 continue
             if body_broke_down:
                 logger.info("%s | reject=body_broke_fvg", _fvg_debug)
+                if getattr(_cfg, "IFVG_ENABLED", False):
+                    self._register_inverted(fvg)
                 continue
 
             # NOTE: fvg_close_confirmed gecici olarak devre disi — backtest karsilastirmasi icin

@@ -1,6 +1,20 @@
 # Active Context — Sniper Bot
 
-## Son İşlem: 2026-08-17 — Binance Futures WS URL Migration (kritik fix)
+## Son İşlem: 2026-08-17 — IFVG Bias Muafiyeti Uygulandı (Devir Eki direktifi)
+
+- **Direktif:** `reports/ifvg-direktif-ek-devir.md` — IFVG girişleri daily-bias filtresinden muaf tutulmalı. Bias bulaşması (signal_engine bias_reject + analyzer_v5 HTF_BIAS_ALIGN) IFVG'yi engelliyordu.
+- **Yapılan (signal_engine.py):** `evaluate_trigger()` içinde bias_reject kontrolüne IFVG guard eklendi: `if getattr(self.rsm, "_last_trigger_source", None) != "IFVG":` ile bias kontrolleri (bearish/bullish/neutral) IFVG tetiklemelerinde atlanıyor. `_last_trigger_source` her bar `PROGRESS_RSM`'de `"NORMAL"` olarak ayarlanıyor; IFVG tetiklediğinde `"IFVG"` ile overwrite ediliyor.
+- **Test:** `TestIFVGBiasExemption` (6 yeni test, `tests/test_signal_engine.py`):
+  - IFVG + ters bias → KABUL ✓
+  - NORMAL + ters bias → RED ✓
+  - IFVG + nötr bias → KABUL ✓
+  - NORMAL + nötr bias → RED ✓
+  - test_retrace_state 80/80 + test_signal_engine 15/15 PASS
+- **Commit/Push:** Henüz yapılmadı — kullanıcı onayı bekleniyor.
+
+---
+
+## Önceki: 2026-08-17 — Binance Futures WS URL Migration (kritik fix)
 
 - **Sorun:** Bot 16-08'ten beri hiç trade üretmiyordu. WS bağlantısı kuruluyordu ama hiç kline verisi almıyordu (6612 heartbeat timeout, 0 bar kapandı).
 - **Kök neden:** Binance 2026-04-23'te USDⓈ-M Futures WS endpoint'lerini değiştirdi. Eski `/stream?streams=` sessizce veri düşürüyor (bağlantı kuruluyor ama payload gelmiyor).

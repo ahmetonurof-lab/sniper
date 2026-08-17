@@ -84,6 +84,14 @@ SYMBOLS = [
 
 FVG_MIN_SIZE_ATR_MULT = 0.06
 
+# ── IFVG (Inversion FVG) ikincil sinyal yolu ────────────────────
+# KIRILMIS FVG'yi ters yonde retest adayi olarak izler; retrace_state.py'deki
+# RetraceStateMachine'e eklenen IKINCIL yoldur. Ana sweep+FVG yolu hic degismez.
+# KANLI KALICI default False. Backtest'te SNIPER_IFVG_ENABLED=true ile acilir
+# (ayni paylasilan config -> canli davranisi bozmaz). Flag kapaliyken davranis
+# bugunku davranisla bitt-bit aynidir (test_retrace_state.py regresyon).
+IFVG_ENABLED = os.environ.get("SNIPER_IFVG_ENABLED", "False").lower() == "true"
+
 
 # ── CBDR Risk Matrisi (coin bazli session + bucket carpani) ─────
 

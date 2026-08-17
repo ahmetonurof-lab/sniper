@@ -904,3 +904,167 @@ class TestFullFlow:
     def test_stores_custom_max_wick_ratio(self):
         rsm = RetraceStateMachine(max_wick_ratio=0.5)
         assert rsm._max_wick_ratio == 0.5
+
+
+# ═══════════════════════════════════════════════════════════════════
+# IFVG (Inversion FVG) — ikincil sinyal yolu (flag: config.IFVG_ENABLED)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestIFVGRegisterInverted:
+    def test_bullish_flips_to_bearish(self):
+        rsm = RetraceStateMachine()
+        rsm._register_inverted(HTFFVG(110.0, 105.0, "bullish", 5))
+        assert len(rsm._inverted_candidates) == 1
+        c = rsm._inverted_candidates[0]
+        assert c.direction == "bearish"
+        assert c.top == 110.0 and c.bottom == 105.0 and c.bar_index == 5
+
+    def test_bearish_flips_to_bullish(self):
+        rsm = RetraceStateMachine()
+        rsm._register_inverted(HTFFVG(110.0, 105.0, "bearish", 3))
+        assert len(rsm._inverted_candidates) == 1
+        assert rsm._inverted_candidates[0].direction == "bullish"
+
+    def test_appends_multiple(self):
+        rsm = RetraceStateMachine()
+        rsm._register_inverted(HTFFVG(110.0, 105.0, "bullish", 5))
+        rsm._register_inverted(HTFFVG(90.0, 85.0, "bearish", 9))
+        assert len(rsm._inverted_candidates) == 2
+        assert [c.direction for c in rsm._inverted_candidates] == [
+            "bearish",
+            "bullish",
+        ]
+
+
+class TestIFVGCheckRetest:
+    def test_flag_off_returns_none_and_keeps_candidate(self):
+        """Flag kapali (default) -> davranis korunur: None, aday listede kalir."""
+        rsm = RetraceStateMachine()
+        rsm._inverted_candidates.append(HTFFVG(110.0, 105.0, "bullish", 5))
+        cur = _bar(9, 110, 112, 106, 107, timestamp=9 * 900000)  # wick low<=top
+        assert rsm.check_ifvg_retest(cur) is None
+        assert len(rsm._inverted_candidates) == 1
+
+    def test_bullish_wick_touch_no_break_returns_and_removes(self, monkeypatch):
+        # Bullish aday: low<=top (dokunur), close>=bottom (kirik degil).
+        monkeypatch.setattr("config.IFVG_ENABLED", True)
+        rsm = RetraceStateMachine()
+        rsm._inverted_candidates.append(HTFFVG(110.0, 105.0, "bullish", 5))
+        cur = _bar(
+            9, 110, 112, 106, 107, timestamp=9 * 900000
+        )  # low106<=110, close107>=105
+        hit = rsm.check_ifvg_retest(cur)
+        assert hit is not None
+        assert hit.direction == "bullish"
+        assert len(rsm._inverted_candidates) == 0  # kullanildi, listeden cikti
+
+    def test_bullish_full_break_drops_without_return(self, monkeypatch):
+        # Bullish aday: close<bottom -> tam kirdi -> silinir, None (trigger yok).
+        monkeypatch.setattr("config.IFVG_ENABLED", True)
+        rsm = RetraceStateMachine()
+        rsm._inverted_candidates.append(HTFFVG(110.0, 105.0, "bullish", 5))
+        cur = _bar(9, 108, 110, 100, 101, timestamp=9 * 900000)  # close101<105
+        assert rsm.check_ifvg_retest(cur) is None
+        assert len(rsm._inverted_candidates) == 0  # olu aday duskuruldü
+
+    def test_bearish_wick_touch_no_break(self, monkeypatch):
+        # Bearish aday: high>=bottom (dokunur), close<=top (kirik degil).
+        monkeypatch.setattr("config.IFVG_ENABLED", True)
+        rsm = RetraceStateMachine()
+        rsm._inverted_candidates.append(HTFFVG(110.0, 105.0, "bearish", 5))
+        cur = _bar(
+            9, 106, 109, 103, 107, timestamp=9 * 900000
+        )  # high109>=105, close107<=110
+        hit = rsm.check_ifvg_retest(cur)
+        assert hit is not None and hit.direction == "bearish"
+        assert len(rsm._inverted_candidates) == 0
+
+    def test_no_touch_keeps_candidate(self, monkeypatch):
+        # Bullish aday: low>top -> wick dokunmadi -> aday kalir, None.
+        monkeypatch.setattr("config.IFVG_ENABLED", True)
+        rsm = RetraceStateMachine()
+        rsm._inverted_candidates.append(HTFFVG(110.0, 105.0, "bullish", 5))
+        cur = _bar(9, 111, 114, 111, 113, timestamp=9 * 900000)  # low111>top110
+        assert rsm.check_ifvg_retest(cur) is None
+        assert len(rsm._inverted_candidates) == 1
+
+    def test_break_checked_before_touch(self, monkeypatch):
+        # Ayni anda wick dokunup bedende kirilirsa: kirmak onceliklidir ->
+        # aday duskurulur, trigger YOK.
+        monkeypatch.setattr("config.IFVG_ENABLED", True)
+        rsm = RetraceStateMachine()
+        rsm._inverted_candidates.append(HTFFVG(110.0, 105.0, "bullish", 5))
+        cur = _bar(
+            9, 100, 112, 99, 100, timestamp=9 * 900000
+        )  # low99<=110 VE close100<105
+        assert rsm.check_ifvg_retest(cur) is None
+        assert len(rsm._inverted_candidates) == 0
+
+
+class TestIFVGLifecycle:
+    def test_reset_clears_inverted_candidates(self):
+        rsm = RetraceStateMachine()
+        rsm._inverted_candidates.append(HTFFVG(110.0, 105.0, "bearish", 5))
+        rsm.reset()
+        assert rsm._inverted_candidates == []
+
+    def test_lock_bias_does_not_clear_inverted_candidates(self):
+        rsm = RetraceStateMachine()
+        rsm._inverted_candidates.append(HTFFVG(110.0, 105.0, "bearish", 5))
+        rsm.direction = "bullish"
+        rsm.lock_bias(bar_index=5)
+        assert rsm.state == RetraceState.BIAS_LOCKED
+        # lock_bias() kirmis-FVG adaylarina DOKUNMAZ (suressiz gecerli)
+        assert len(rsm._inverted_candidates) == 1
+
+
+class TestIFVGRegisterOnBodyBreak:
+    """Item 3: body break aninda aday kaydi — on_sweep_confirmed + on_bias_fvg."""
+
+    @patch("retrace_state.scan_htf_fvgs")
+    def test_on_sweep_confirmed_registers_on_body_break(self, mock_scan, monkeypatch):
+        monkeypatch.setattr("config.IFVG_ENABLED", True)
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 100.0)  # dusuk sweep seviyesi -> invalidation yok
+        mock_scan.return_value = [HTFFVG(105.0, 103.0, "bullish", 1)]
+        # sweep bar: low101<=top105 (wick), close101<bottom103 (broke), >=100 (no reset)
+        sweep_bar = _bar(5, 110, 112, 101, 101, timestamp=5 * 900000)
+        bars = [_bar(i, 100, 102, 99, 101, timestamp=i * 900000) for i in range(5)]
+        rsm.on_sweep_confirmed(bars, sweep_bar)
+        # body broke -> normal trigger YOK; ama inverted aday (bearish) kayda alindi
+        assert rsm.state == RetraceState.SWEEP_DETECTED
+        assert len(rsm._inverted_candidates) == 1
+        assert rsm._inverted_candidates[0].direction == "bearish"
+
+    @patch("retrace_state._fvg_touched_between", return_value=False)
+    @patch("retrace_state.fvg_is_alive", return_value=True)
+    @patch("retrace_state.scan_htf_fvgs")
+    def test_on_bias_fvg_registers_on_body_break(
+        self, mock_scan, mock_alive, mock_touched, monkeypatch
+    ):
+        monkeypatch.setattr("config.IFVG_ENABLED", True)
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 100.0)
+        rsm.lock_bias(bar_index=0)
+        mock_scan.return_value = [HTFFVG(105.0, 103.0, "bullish", bar_index=2)]
+        bars = [_bar(i, 110, 113, 100, 111, timestamp=i * 900000) for i in range(6)]
+        current = _bar(
+            5, 110, 113, 101, 101, timestamp=5 * 900000
+        )  # low101<=105, close101<103
+        rsm.on_bias_fvg(bars, current)
+        assert rsm.state == RetraceState.BIAS_LOCKED  # break -> trigger yok
+        assert len(rsm._inverted_candidates) == 1
+        assert rsm._inverted_candidates[0].direction == "bearish"
+
+    @patch("retrace_state.scan_htf_fvgs")
+    def test_flag_off_no_register_on_body_break(self, mock_scan):
+        """Flag kapali (default): body break'te aday kaydi YAPILMAZ (regresyon)."""
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 100.0)
+        mock_scan.return_value = [HTFFVG(105.0, 103.0, "bullish", 1)]
+        sweep_bar = _bar(5, 110, 112, 101, 101, timestamp=5 * 900000)
+        bars = [_bar(i, 100, 102, 99, 101, timestamp=i * 900000) for i in range(5)]
+        rsm.on_sweep_confirmed(bars, sweep_bar)
+        assert rsm.state == RetraceState.SWEEP_DETECTED
+        assert rsm._inverted_candidates == []
