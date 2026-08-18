@@ -439,13 +439,14 @@ class EntryManager:
         tp_rr: float = 2.0,
         trigger_fvg: "FVG | None" = None,
         trade_id: str = "",
+        entry_source: str = "NORMAL",
     ) -> EntryExecutionResult:
         if not self._is_live:
             return EntryExecutionResult(
                 success=True,
                 qty=qty,
                 entry_log_msg=(
-                    f"\U0001f7e8 ENTRY: {side.upper()} | "
+                    f"\U0001f7e8 ENTRY: {side.upper()} | SRC: {entry_source} | "
                     f"PRICE: {entry_price or 0:.2f} | "
                     f"SL: {sl:.2f} | TP: {tp:.2f} | "
                     f"QTY: {qty:.4f}"
@@ -950,7 +951,7 @@ class EntryManager:
                 sl_order_id=sl_id,
                 tp_order_id=None,
                 entry_log_msg=(
-                    f"★ ENTRY: {side.upper()} | "
+                    f"★ ENTRY: {side.upper()} | SRC: {entry_source} | "
                     f"PRICE: {_fmt_price(est_price)} (filled @ {_fmt_price(actual_price)}) | "
                     f"SL: {_fmt_price(sl)} | TP: {_fmt_price(tp)} (FAILED) | "
                     f"QTY: {valid_qty:.4f} (filled: {actual_qty:.4f})"
@@ -968,7 +969,7 @@ class EntryManager:
             sl_order_id=sl_id,
             tp_order_id=tp_id,
             entry_log_msg=(
-                f"\U0001f7e8 ENTRY: {side.upper()} | "
+                f"\U0001f7e8 ENTRY: {side.upper()} | SRC: {entry_source} | "
                 f"PRICE: {_fmt_price(est_price)} (filled @ {_fmt_price(actual_price)}) | "
                 f"SL: {_fmt_price(sl)} | TP: {_fmt_price(tp)} | "
                 f"QTY: {valid_qty:.4f} (filled: {actual_qty:.4f})"

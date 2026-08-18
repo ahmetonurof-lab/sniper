@@ -969,6 +969,7 @@ class PaperTrader:
                     tp_rr=tp_rr,
                     trigger_fvg=fvg,
                     trade_id=trade_id,
+                    entry_source=getattr(rsm, "_last_trigger_source", None) or "NORMAL",
                 )
                 if not exec_result.success:
                     self._pl(sym, "order_err", f"\u274c ORDER: {exec_result.error}")
@@ -1077,6 +1078,7 @@ class PaperTrader:
                     tp_rr=tp_rr,
                     trigger_fvg=fvg,
                     trade_id=trade_id,
+                    entry_source=getattr(rsm, "_last_trigger_source", None) or "NORMAL",
                 )
                 if paper_result.entry_log_msg:
                     self._pl(sym, "entry", paper_result.entry_log_msg)

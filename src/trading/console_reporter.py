@@ -263,25 +263,29 @@ class ConsoleReporter:
         min_fvg: float,
         current_close: float,
     ) -> None:
-        """FVG durum display: HAZIR / ARANIYOR / BULUNAMADI.
+        """GAP (FVG/IFVG) durum display.
 
-        Yan etki: SWEEP_DETECTED ve diger durumlarda st_wck temizlenir.
+        Tarama:  🟨 GAP_SCAN | ARANIYOR...
+        FVG:     🟩 FVG:[...] | ✅ HAZIR | CLOSE: ... | ➡️ ENTRY BEKLENIYOR
+        IFVG:    🟩 IFVG:[...] | ✅ HAZIR | CLOSE: ... | ➡️ ENTRY BEKLENIYOR
+
+        Gap bulundugunda st_fvg (GAP_SCAN) kaldirilir, st_wck tek satir
+        olarak FVG veya IFVG detayini basar.
         """
         from session import DailyBias
 
         if rsm.state_name == "TRIGGER_READY":
             tfvg = rsm.trigger_fvg
-            self.emit(
-                sym,
-                "st_fvg",
-                f"\U0001f7e9 FVG_SCAN | MIN_SIZE: {min_fvg:.6f} | FVG:[{_fmt_price(tfvg.bottom)} - {_fmt_price(tfvg.top)}] | \u2705 HAZIR",
-                force=True,
-            )
+            # IFVG mi FVG mi? Kaynak etiketine gore sec
+            src = getattr(rsm, "_last_trigger_source", None)
+            tag = "IFVG" if src == "IFVG" else "FVG"
+            # Tarama satirini kaldir, tek satir detay bas
+            self.clear_state(sym, "st_fvg")
             self.emit(
                 sym,
                 "st_wck",
-                f"\u23f3 WICK_REJECTION | FVG:[{_fmt_price(tfvg.bottom)}-{_fmt_price(tfvg.top)}]"
-                f" | BODY_SAFE | CLOSE: {_fmt_price(current_close)}"
+                f"\U0001f7e9 {tag}:[{_fmt_price(tfvg.bottom)} - {_fmt_price(tfvg.top)}]"
+                f" | \u2705 HAZIR | CLOSE: {_fmt_price(current_close)}"
                 f" | \u27a1\ufe0f ENTRY BEKLENIYOR",
                 force=True,
             )
@@ -289,24 +293,23 @@ class ConsoleReporter:
             self.emit(
                 sym,
                 "st_fvg",
-                f"\U0001f7e8 FVG_SCAN | MIN_SIZE: {min_fvg:.6f} | FVG ARANIYOR...",
+                f"\U0001f7e8 GAP_SCAN | MIN_SIZE: {min_fvg:.6f} | ARANIYOR...",
                 force=True,
             )
             self.clear_state(sym, "st_wck")
         else:
-            # IDLE — sweep durumuna gore FVG tarama gostergesi.
+            # IDLE — sweep durumuna gore GAP tarama gostergesi.
             if ss.daily_bias == DailyBias.NEUTRAL:
-                # Sweep henuez yok, FVG taramasi sirasi gelmedi.
-                # "FVG BULUNAMADI" basma (sweep olmadan tarama yapilmaz).
+                # Sweep henuez yok, tarama sirasi gelmedi.
                 self.clear_state(sym, "st_fvg")
                 self.clear_state(sym, "st_wck")
             else:
                 # Sweep tamamlandi (bias belirlendi), RSM IDLE —
-                # yeni sweep gelmez (latch/lock), FVG bekleniyor.
+                # yeni sweep gelmez (latch/lock), GAP bekleniyor.
                 self.emit(
                     sym,
                     "st_fvg",
-                    f"\U0001f7e8 FVG_SCAN | MIN_SIZE: {min_fvg:.6f} | FVG ARANIYOR...",
+                    f"\U0001f7e8 GAP_SCAN | MIN_SIZE: {min_fvg:.6f} | ARANIYOR...",
                     force=True,
                 )
                 self.clear_state(sym, "st_wck")
