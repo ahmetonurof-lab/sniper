@@ -1,5 +1,21 @@
 # Progress — Sniper Bot
 
+## 2026-08-18 — IFVG GUARD-FIX (guard semantik uyumu) — koşu tamamlandı, canlı onay Baş Mühendiste
+
+| Tarih | İşlem | Detay |
+|-------|-------|-------|
+| 2026-08-18 | **IFVG guard-fix** | `retrace_state.py`: `HTFFVG.break_bar_index` + `_register_inverted(fvg, break_bar_index)`; `on_sweep_confirmed` çağrı noktası EKSİKTİ → tamamlandı (`last.index`). `fvg.py`: `fvg_is_alive(scan_from=None)` — IFVG adayları `break_bar+1`'den taranır (kırılım barı ölüm değil). `bot.py ~564`: trigger guard `scan_from=tf.break_bar_index+1`. Backtest `analyzer_v5.py`: IFVG trigger'ları için aynı `fvg_is_alive` + `scan_from` (NORMAL path aynen). Parity contract tazelendi (stale 2026-07-31) + IFVG-on senaryosu eklendi → **18/18 PASS**. Yeni testler: test_retrace_state +4, test_fvg +6. Yeniden koşu (`--ifvg`): **53,018 trade / +1,889,348** — IFVG 9,872 (+406,592) vs eski 14,899 (+782,552) → **−33.7%**, 28/28 coin IFVG pozitif. Sniper suite 1050 pass / 24 fail pre-existing (baseline ile birebir). **Kırmızı çizgi korundu: IFVG_ENABLED=True canlıya deploy edilmedi.** |
+
+---
+
+## 2026-08-17 — IFVG STATE-FIX (state suppression düzeltmesi) — canlı onay bekleniyor
+
+| Tarih | İşlem | Detay |
+|-------|-------|-------|
+| 2026-08-17 | **IFVG state-fix** | IFVG entry'leri RSM state makinesini yok ediyordu (backtest: NORMAL 48,943→31,923, −353,963 PnL). Fix (Baş Mühendis onaylı seçenek a): `signal_engine.py` canlı IFVG bloğuna `rsm._pre_ifvg_direction = rsm.direction` kaydı; `bot.py` (~1167) IFVG entry sonrası direction'ı geri yükleyip `lock_bias()` (NORMAL entry ile birebir). Backtest `sweep_sync.py` + `analyzer_v5.py` (~1162) aynı mantıkla güncellendi. Sonuç (23:53): **62,806 trade / +2,345,188** — NORMAL 47,907 (+1,562,636), IFVG 14,899 (+782,552), 28/28 coin IFVG pozitif. Suppression YOK. Testler: test_signal_engine 18/18 PASS (3 yeni), test_ifvg_state_fix.py 5/5 PASS (backtest), signal_engine+retrace_state+integration 130 PASS. Parity testi pre-existing stale (fix'ten değil). |
+
+---
+
 ## 2026-08-17 — IFVG Bias Muafiyeti Uygulandı (Devir Eki direktifi)
 
 | Tarih | İşlem | Detay |

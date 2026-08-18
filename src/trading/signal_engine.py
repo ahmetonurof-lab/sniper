@@ -124,6 +124,13 @@ class SignalEngine:
         if self.rsm.state != RetraceState.TRIGGER_READY:
             ifvg_hit = self.rsm.check_ifvg_retest(current)
             if ifvg_hit is not None:
+                # IFVG entry state makinesini kirletmesin: trigger aninda yon
+                # IFVG yonune cekilir (entry side hesabi icin gerekli) AMA giris
+                # oncesi sweep/bias yonu saklanir. Entry tarafi (bot.py)
+                # kapanista bu yone geri donup normal entry gibi BIAS_LOCKED'a
+                # gecer — ters yon kilidi bias_conflict -> reset ile gunun sweep
+                # penceresini oldurmesin.
+                self.rsm._pre_ifvg_direction = self.rsm.direction
                 self.rsm.state = RetraceState.TRIGGER_READY
                 self.rsm.direction = ifvg_hit.direction
                 self.rsm.trigger_fvg = ifvg_hit

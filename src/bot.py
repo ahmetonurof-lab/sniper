@@ -557,8 +557,21 @@ class PaperTrader:
                 # FVG'yi gecersiz kilarsa (FVG_SWEPT) entry iptal. bars_15m'in
                 # tamamini (mevcut bar dahil) gecir: giris barinin kapanisi FVG
                 # far-side kirarsa backtest gibi girme.
+                # IFVG adaylari: tarama kirilim barindan SONRA baslar
+                # (scan_from=break_bar_index+1) — kirilimin kendisi flipped
+                # aday icin olum kosulu degildir; aksi halde her IFVG trigger
+                # guard'da olur (backtest-parity fix, Baş Mühendis onayi).
                 if not fvg_is_alive(
-                    tf.direction, tf.top, tf.bottom, tf.bar_index, bars_15m
+                    tf.direction,
+                    tf.top,
+                    tf.bottom,
+                    tf.bar_index,
+                    bars_15m,
+                    scan_from=(
+                        tf.break_bar_index + 1
+                        if tf.break_bar_index is not None
+                        else None
+                    ),
                 ):
                     log.info(
                         "[FVG-FILTER] %s FVG bar=%d dokunulmus veya invalid — canli degil (iptal)",
@@ -1164,6 +1177,12 @@ class PaperTrader:
         # Kapanis (exit) sonrasi ayni yonde taze bir FVG, yeni sweep beklemeden
         # tekrar TRIGGER_READY olabilir (on_bias_fvg). Bias tersine donerse /
         # nötrlesirse signal_engine BIAS_LOCKED'i resetler.
+        # IFVG entry: state makinesi kirlenmez — trigger aninda IFVG yonune
+        # cekilen direction, giris oncesi sweep/bias yonune geri alinir ve
+        # normal entry gibi BIAS_LOCKED'a gecilir (ters yon kilidi gunun
+        # sweep penceresini oldurmesin).
+        if getattr(rsm, "_last_trigger_source", None) == "IFVG":
+            rsm.direction = getattr(rsm, "_pre_ifvg_direction", None) or rsm.direction
         rsm.lock_bias(bar_index=current.index)
 
     async def _exit_trade(self, sym, trade, exit_timestamp: int):

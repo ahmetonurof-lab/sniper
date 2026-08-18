@@ -1,5 +1,29 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-18 — IFVG GUARD-FIX (guard semantik uyumu) — canlı onay + rapor sunuldu
+
+- **Direktif:** `reports/ifvg-guard-fix-direktif.md` — canlı `fvg_is_alive` (bot.py) FVG'yi formasyon+2'den tararken, IFVG adayları kırılım barının kendisini de görüp doğduğu anda ölü sayılıyordu; backtest'in cur-bar-only kontrolü bunu görmüyor, binlerce canlıya taşınamaz IFVG trade'i üretiyordu.
+- **Yapılan (retrace_state.py):** `HTFFVG.break_bar_index` alanı + `_register_inverted(fvg, break_bar_index)` — aday kırılım barının index'ini taşır. **Her iki çağrı noktası güncellendi:** `on_bias_fvg` (current.index, önceki ajan yapmıştı) **+ `on_sweep_confirmed` (last.index — önceki çalışmada EKSİKTİ, bu oturumda tamamlandı).**
+- **Yapılan (fvg.py):** `fvg_is_alive(..., scan_from=None)` — IFVG adayları `scan_from=break_bar_index+1` ile kırılım barının SONRASINDAN taranır (kırılımın kendisi flipped aday için ölüm değildir).
+- **Yapılan (bot.py ~564):** trigger guard'ı `fvg_is_alive(..., scan_from=tf.break_bar_index + 1)` ile çağırıyor (IFVG adayları için; NORMAL path bit-bit korunur).
+- **Backtest parity:** `analyzer_v5.py` IFVG kaynaklı trigger'lar için aynı `fvg_is_alive` + `scan_from=break_bar_index+1` ile `chunk` üzerinde canlılık taraması yapar (NORMAL `get_fvg_status(cur)` aynen korundu). → iki tarafta AYNI semantik.
+- **Parity contract:** `tests/parity/test_parity_regression.py` — 2026-07-31 stale benchmark'i tazelendi (trigger 10K+→~500, sweep-lock 33K→0; input sha256 AYNI) + **IFVG-on senaryosu** eklendi (`test_parity_ifvg_on`, 9 sembol: flag açıkken canlı/backtest aynı IFVG trigger/reddi üretir). **18/18 PASS.**
+- **Yeni testler:** test_retrace_state (+2 break_bar_index, +2 çağrı noktası assert), test_fvg (+6 fvg_is_alive scan_from — kırılım barı ölüm değil / sonrası ölüm).
+- **Koşu (backtest-sniper, `--workers 6 --ifvg`, 797s):** 53,018 trade / **+1,889,348** — NORMAL 43,146 (+1,482,756), **IFVG 9,872 (+406,592)** vs önceki 14,899 (+782,552) → **IFVG −33.7% (direktif beklentisi karşılandı)**, 28/28 coin IFVG$ pozitif. Rapor: `backtest-sniper/reports/ifvg_guard_fix_raporu.md`.
+- **Test:** sniper 1050 pass (baseline 1039 → +11), fail seti 24/24 birebir pre-existing (stash A/B kanıtı).
+- **Kırmızı çizgi:** `IFVG_ENABLED=True` canlıya deploy EDİLMEDİ (config'de flag tanımlı değil, default False) — fix + yeniden koşu + rapor tamam; deploy kararı Baş Mühendiste.
+- **COMMIT/PUSH:** Bu oturumda yapıldı (sniper + backtest-sniper).
+
+## Son İşlem: 2026-08-17 — IFVG STATE-FIX (state suppression düzeltmesi) — canlı onay bekleniyor
+
+- **Bağlam:** Devir Eki + Baş Mühendis onaylı seçenek (a) — IFVG entry'leri RSM state makinesini yok ediyordu (sweep penceresi/kayıtları ölüyor, NORMAL trade'ler 48,943→31,923'e düşüyordu). Fix: IFVG trigger'ında direction'ı kaydet (`_pre_ifvg_direction`), entry'de geri yükle + `lock_bias()`.
+- **Yapılan (signal_engine.py):** canlı IFVG bloğunda `rsm._pre_ifvg_direction = rsm.direction` kaydı (before direction overwrite).
+- **Yapılan (bot.py ~1167):** IFVG entry sonrası `rsm.direction = _pre_ifvg_direction` + `rsm.lock_bias()` — NORMAL entry ile birebir BIAS_LOCKED yolu (SWEEP_DETECTED restore değil: stale FVG filtresi yok, aynı kırık FVG yeniden aday olup tekrar tetikleyebilirdi).
+- **Backtest doğrulama (23:53, +2,345,188 / 62,806 trade):** NORMAL 47,907 (+1,562,636) ~ baseline 48,943 (+1,602,063); IFVG 14,899 (+782,552, +52.5/trade); 28/28 coin IFVG pozitif. State suppression YOK.
+- **Test:** test_signal_engine.py TestIFVGBiasExemption +3 (trigger sweep direction'ı kaydeder, entry restore+lock, flag-off inert) → 18/18 PASS; signal_engine+retrace_state+integration 130 PASS. test_bot.py 13 fail pre-existing (stash A/B kanıtı, mark_trade_closed/_stage/MIN_FVG_SIZE eksik — IFVG ile ilgisiz).
+- **Parity:** test_parity_regression pre-existing stale contract (clean HEAD'de de aynı sayılarla fail) — fix'ten değil, ayrı bulgu.
+- **BEKLEYEN:** Baş Mühendis canlı onayı (IFVG_ENABLED=True) + commit/push + memory-bank.
+
 ## Son İşlem: 2026-08-17 — IFVG Bias Muafiyeti Uygulandı (Devir Eki direktifi)
 
 - **Direktif:** `reports/ifvg-direktif-ek-devir.md` — IFVG girişleri daily-bias filtresinden muaf tutulmalı. Bias bulaşması (signal_engine bias_reject + analyzer_v5 HTF_BIAS_ALIGN) IFVG'yi engelliyordu.

@@ -7,6 +7,7 @@ from models import Bar
 from retrace_state import RetraceStateMachine, RetraceState
 from session import DailyBias, SessionState
 from trading.signal_engine import EvalResult, SignalEngine
+from unittest import mock
 
 
 def _bar(index, open_, high, low, close, is_closed=True, timestamp=0):
@@ -269,3 +270,80 @@ class TestIFVGBiasExemption:
         assert res.decision == "SKIP"
         assert res.reason == "bias_neutral"
         assert rsm.state_name == "IDLE"
+
+    # ── State-fix regresyonlari (17K normal trade bastirmasi) ──
+    # IFVG entry'si state makinesini kirletmesin: trigger aninda sweep/bias
+    # yonu _pre_ifvg_direction ile saklanir; entry tarafi (bot.py) kapanista
+    # bu yone geri donup normal entry gibi BIAS_LOCKED'a gecer.
+
+    def _make_sweep_with_ifvg_candidate(self):
+        """SWEEP_DETECTED (bullish) + kirilmis BULLISH FVG'den tureyen
+        bearish inverted aday + flat bars (normal yol tetiklemez).
+
+        _register_inverted yonu cevirir: bullish FVG -> bearish aday.
+        """
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0)
+        fvg = type(
+            "HTFFVG",
+            (),
+            {"top": 108.0, "bottom": 105.0, "direction": "bullish", "bar_index": 2},
+        )()
+        rsm._register_inverted(fvg)
+        return rsm
+
+    def test_progress_rsm_ifvg_trigger_saves_sweep_direction(self):
+        """IFVG trigger'i rsm.direction'i IFVG yonune ceker AMA
+        _pre_ifvg_direction (sweep/bias yonu) korunur."""
+        rsm = self._make_sweep_with_ifvg_candidate()
+        engine = SignalEngine(rsm)
+        ss = SessionState()
+        ss.daily_bias = DailyBias.BULLISH
+        bars = [_bar(i, 100, 101, 99, 100) for i in range(5)]
+        current = _bar(5, 104, 106, 103, 105.5)  # bearish aday wick touch
+        with mock.patch("config.IFVG_ENABLED", True):
+            engine.progress_rsm(bars, current, ss)
+        assert rsm.state_name == "TRIGGER_READY"
+        assert rsm._last_trigger_source == "IFVG"
+        assert rsm.direction == "bearish"
+        assert rsm._pre_ifvg_direction == "bullish"
+        assert ss.fvg_ready is True
+
+    def test_progress_rsm_ifvg_off_no_side_effect(self):
+        """IFVG_ENABLED=False iken ayni senaryo: state/direction/source
+        degismez, _pre_ifvg_direction set edilmez (bit-bit parity)."""
+        rsm = self._make_sweep_with_ifvg_candidate()
+        engine = SignalEngine(rsm)
+        ss = SessionState()
+        ss.daily_bias = DailyBias.BULLISH
+        bars = [_bar(i, 100, 101, 99, 100) for i in range(5)]
+        current = _bar(5, 104, 106, 103, 105.5)
+        with mock.patch("config.IFVG_ENABLED", False):
+            engine.progress_rsm(bars, current, ss)
+        assert rsm.state_name == "SWEEP_DETECTED"
+        assert rsm.direction == "bullish"
+        assert rsm._last_trigger_source == "NORMAL"
+        assert not hasattr(rsm, "_pre_ifvg_direction")
+        assert ss.fvg_ready is False
+
+    def test_progress_rsm_normal_trigger_never_sets_pre_ifvg(self):
+        """NORMAL yol trigger'i _pre_ifvg_direction uretmez (fix IFVG'ye ozel)."""
+        rsm = RetraceStateMachine()
+        rsm.on_sweep("bullish", 105.0)
+        engine = SignalEngine(rsm)
+        ss = SessionState()
+        ss.daily_bias = DailyBias.BULLISH
+        # Kilit sonrasi taze bullish FVG -> NORMAL TRIGGER_READY
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 103, 105, 102, 104),
+            _bar(2, 106, 110, 105, 108),
+            _bar(3, 108, 112, 107, 110),
+            _bar(4, 110, 113, 104, 112),
+        ]
+        with mock.patch("config.IFVG_ENABLED", True):
+            engine.progress_rsm(bars, bars[4], ss)
+        assert rsm.state_name == "TRIGGER_READY"
+        assert rsm._last_trigger_source == "NORMAL"
+        assert not hasattr(rsm, "_pre_ifvg_direction")
+        assert rsm.direction == "bullish"

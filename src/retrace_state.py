@@ -78,11 +78,23 @@ class RetraceState(Enum):
 class HTFFVG:
     """HTF FVG key level."""
 
-    def __init__(self, top: float, bottom: float, direction: str, bar_index: int):
+    def __init__(
+        self,
+        top: float,
+        bottom: float,
+        direction: str,
+        bar_index: int,
+        break_bar_index: int | None = None,
+    ):
         self.top = top
         self.bottom = bottom
         self.direction = direction
         self.bar_index = bar_index
+        # IFVG (inverted) adaylarda: gövde kırılımının gerçekleştiği bar.
+        # Canlılık taraması bu barı SAYMAZ (kırılımın kendisi ölüm koşulu
+        # değildir) — scan break_bar_index+1'den başlar. NORMAL adaylarda
+        # None kalır (formasyon+2'den tarama korunur).
+        self.break_bar_index = break_bar_index
 
     def __repr__(self):
         return f"FVG([{self.bottom:.2f}-{self.top:.2f}] dir={self.direction} bar={self.bar_index})"
@@ -379,7 +391,7 @@ class RetraceStateMachine:
                 continue
             if body_broke_down:
                 if getattr(_cfg, "IFVG_ENABLED", False):
-                    self._register_inverted(fvg)
+                    self._register_inverted(fvg, break_bar_index=current.index)
                 continue
 
             logger.info(
@@ -397,12 +409,24 @@ class RetraceStateMachine:
     # aday kayda alinir. Surucu (signal_engine/sweep_sync) her kapali bar'da
     # check_ifvg_retest() cagirisini on_sweep_confirmed/on_bias_fvg SONRASONRA
     # yapar (direktif madde 5).
-    def _register_inverted(self, fvg: HTFFVG) -> None:
+    def _register_inverted(
+        self, fvg: HTFFVG, break_bar_index: int | None = None
+    ) -> None:
         """Body FVG'yi kirarsa (body_broke_down=True) cagrilir.
-        FVG'yi ters yonde retest adayi olarak kaydeder (yon flip)."""
+        FVG'yi ters yonde retest adayi olarak kaydeder (yon flip).
+        break_bar_index: kirilim barinin index'i — canlilik taramasi
+        (fvg_is_alive scan_from) bu barin SONRASINDAN baslar; kirilimin
+        kendisi flipped aday icin olum kosulu sayilmaz (canli bot.py:560
+        guard'i ile backtest analyzer_v5 ayni semantigi kullanir)."""
         flipped_dir = "bearish" if fvg.direction == "bullish" else "bullish"
         self._inverted_candidates.append(
-            HTFFVG(fvg.top, fvg.bottom, flipped_dir, fvg.bar_index)
+            HTFFVG(
+                fvg.top,
+                fvg.bottom,
+                flipped_dir,
+                fvg.bar_index,
+                break_bar_index,
+            )
         )
 
     def check_ifvg_retest(self, current: Bar) -> HTFFVG | None:
@@ -550,7 +574,11 @@ class RetraceStateMachine:
             if body_broke_down:
                 logger.info("%s | reject=body_broke_fvg", _fvg_debug)
                 if getattr(_cfg, "IFVG_ENABLED", False):
-                    self._register_inverted(fvg)
+                    # IFVG guard-fix: kırılım barının index'i adayda saklanır
+                    # (on_bias_fvg ile aynı konvansiyon) — canlılık taraması
+                    # break_bar+1'den başlar, kırılım barının kendisi flipped
+                    # aday için ölüm koşulu sayılmaz.
+                    self._register_inverted(fvg, break_bar_index=last.index)
                 continue
 
             # NOTE: fvg_close_confirmed gecici olarak devre disi — backtest karsilastirmasi icin

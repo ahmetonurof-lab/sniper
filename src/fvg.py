@@ -164,6 +164,7 @@ def fvg_is_alive(
     bottom: float,
     formation_index: int,
     bars: list[Bar],
+    scan_from: int | None = None,
 ) -> bool:
     """FVG canli mi? Backtest get_fvg_status ile ayni semantik: yalnizca
     far-side close (bullish: close < bottom, bearish: close > top) FVG'yi
@@ -172,10 +173,13 @@ def fvg_is_alive(
 
     Scan araligi: formation_index + 2 .. verilen bar listesinin sonu
     (trigger bari haric tutmak icin caller listeyi current bari disarda
-    birakarak gecirmeli)."""
-    scan_from = formation_index + 2
+    birakarak gecirmeli). scan_from verilirse formation_index yoksayilir
+    ve tarama dogrudan scan_from'dan baslar — IFVG adaylari kirilim
+    barindan SONRAKINI taramak icin scan_from=break_bar_index+1 gecirir
+    (kirilimin kendisi flipped aday icin olum kosulu DEGILDIR)."""
+    start = scan_from if scan_from is not None else formation_index + 2
     for b in bars:
-        if not b.is_closed or b.index < scan_from:
+        if not b.is_closed or b.index < start:
             continue
         if direction == "bullish":
             if b.close < bottom:

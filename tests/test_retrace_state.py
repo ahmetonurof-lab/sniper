@@ -936,6 +936,26 @@ class TestIFVGRegisterInverted:
             "bullish",
         ]
 
+    def test_break_bar_index_default_none(self):
+        """IFVG guard-fix: break_bar_index verilmezse None kalir (NORMAL
+        aday konvansiyonu) — formasyon+2 taramasi korunur."""
+        rsm = RetraceStateMachine()
+        rsm._register_inverted(HTFFVG(110.0, 105.0, "bullish", 5))
+        c = rsm._inverted_candidates[0]
+        assert c.break_bar_index is None
+        assert c.bar_index == 5
+
+    def test_break_bar_index_recorded(self):
+        """IFVG guard-fix: kirilim barinin index'i adayda saklanir —
+        canlilik taramasi bu barin SONRASINDAN baslar."""
+        rsm = RetraceStateMachine()
+        rsm._register_inverted(HTFFVG(110.0, 105.0, "bullish", 5), break_bar_index=12)
+        c = rsm._inverted_candidates[0]
+        assert c.direction == "bearish"
+        assert c.top == 110.0 and c.bottom == 105.0
+        assert c.bar_index == 5  # orijinal formasyon bari korunur
+        assert c.break_bar_index == 12
+
 
 class TestIFVGCheckRetest:
     def test_flag_off_returns_none_and_keeps_candidate(self):
@@ -1036,6 +1056,8 @@ class TestIFVGRegisterOnBodyBreak:
         assert rsm.state == RetraceState.SWEEP_DETECTED
         assert len(rsm._inverted_candidates) == 1
         assert rsm._inverted_candidates[0].direction == "bearish"
+        # IFVG guard-fix: break_bar_index = kirilimin gerceklestigi bar (sweep bar)
+        assert rsm._inverted_candidates[0].break_bar_index == sweep_bar.index
 
     @patch("retrace_state._fvg_touched_between", return_value=False)
     @patch("retrace_state.fvg_is_alive", return_value=True)
@@ -1056,6 +1078,8 @@ class TestIFVGRegisterOnBodyBreak:
         assert rsm.state == RetraceState.BIAS_LOCKED  # break -> trigger yok
         assert len(rsm._inverted_candidates) == 1
         assert rsm._inverted_candidates[0].direction == "bearish"
+        # IFVG guard-fix: break_bar_index = kirilimin gerceklestigi bar (current)
+        assert rsm._inverted_candidates[0].break_bar_index == current.index
 
     @patch("retrace_state.scan_htf_fvgs")
     def test_flag_off_no_register_on_body_break(self, mock_scan):

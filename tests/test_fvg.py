@@ -6,6 +6,7 @@ from fvg import (
     is_retesting_fvg,
     cleanup_fvgs,
     refresh_fvg_list,
+    fvg_is_alive,
 )
 
 
@@ -265,6 +266,80 @@ class TestCleanupFvgs:
         ]
         result = cleanup_fvgs(fvgs, current_abs=600, max_age=50)
         assert len(result) == 2
+
+
+class TestFvgIsAlive:
+    """IFVG guard-fix: scan_from semantigi — kirilim barinin kendisi flipped
+    aday icin olum kosulu DEGILDIR; tarama break_bar+1'den baslar."""
+
+    def test_default_scans_from_formation_plus_2(self):
+        """scan_from yok: tarama formation+2'den baslar; far-side close orada
+        FVG'yi oldurur (bullish: close < bottom)."""
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 103, 105, 102, 104),  # formation
+            _bar(2, 100, 102, 98, 101),  # formation+1 (boundary, sayilmaz)
+            _bar(3, 100, 102, 98, 101),  # formation+2: close 101 < 103 -> dead
+        ]
+        assert fvg_is_alive("bullish", 105, 103, 1, bars) is False
+
+    def test_default_ignores_bars_before_formation_plus_2(self):
+        """formation+1'deki far-side close taramaya DAHIL edilmez (boundary bar)."""
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 103, 105, 102, 104),  # formation
+            _bar(2, 100, 102, 98, 101),  # formation+1 far-side close — sayilmaz
+        ]
+        assert fvg_is_alive("bullish", 105, 103, 1, bars) is True
+
+    def test_scan_from_skips_break_bar_far_side_close(self):
+        """IFVG: kirilim barinin kendisi flipped aday icin olum DEGIL —
+        scan_from=break_bar+1 ile tarama kirilimin sonrasindan baslar.
+        (bearish flipped aday: far-side close = close > top)"""
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 103, 105, 102, 104),
+            _bar(2, 100, 102, 98, 101),
+            _bar(3, 106, 108, 104, 107),  # kirilim bari: close 107 > top 105
+            _bar(4, 103, 105, 101, 104),  # retest bari: close 104 <= top 105
+        ]
+        # scan_from=4 (break_bar 3 + 1) -> kirilim bari sayilmaz -> alive
+        assert fvg_is_alive("bearish", 105, 103, 1, bars, scan_from=4) is True
+
+    def test_scan_from_counts_bars_after_break(self):
+        """Kirilim SONRASI far-side close hala olum kosuludur (tutarlilik,
+        gevsetme degil)."""
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 103, 105, 102, 104),
+            _bar(2, 100, 102, 98, 101),
+            _bar(3, 106, 108, 104, 107),  # kirilim bari
+            _bar(4, 105, 107, 103, 106),  # break+1: close 106 > top 105 -> dead
+        ]
+        assert fvg_is_alive("bearish", 105, 103, 1, bars, scan_from=4) is False
+
+    def test_scan_from_overrides_formation_index(self):
+        """scan_from verilince formation_index yoksayilir — tarama dogrudan
+        verilen bardan baslar."""
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 103, 105, 102, 104),
+            _bar(
+                2, 100, 102, 98, 101
+            ),  # formation+1 far-side — scan_from=3 ile sayilmaz
+            _bar(3, 103, 105, 101, 104),
+        ]
+        assert fvg_is_alive("bullish", 105, 103, 1, bars, scan_from=3) is True
+
+    def test_unclosed_bars_skipped(self):
+        """Kapanmamis bar canlilik taramasinda sayilmaz (canli parity)."""
+        bars = [
+            _bar(0, 100, 103, 99, 102),
+            _bar(1, 103, 105, 102, 104),
+            _bar(2, 100, 102, 98, 101),
+            _bar(3, 100, 102, 98, 101, is_closed=False),  # kapanmamis
+        ]
+        assert fvg_is_alive("bullish", 105, 103, 1, bars) is True
 
 
 class TestRefreshFvgList:
