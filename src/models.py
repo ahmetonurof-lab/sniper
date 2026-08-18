@@ -480,6 +480,7 @@ class ActiveTrade:
 
     symbol: str = ""
     side: Literal["long", "short"] = "long"
+    entry_source: str = "NORMAL"  # NORMAL | IFVG — paper izleme (IFVG paper-deploy G3)
     entry_price: float = 0.0
     entry_bar_index: int = 0
     sl: float = 0.0

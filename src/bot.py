@@ -1120,6 +1120,7 @@ class PaperTrader:
         self.active_trades[sym] = ActiveTrade(
             symbol=sym,
             side=side,
+            entry_source=getattr(rsm, "_last_trigger_source", None) or "NORMAL",
             status=STATUS_ACTIVE,
             entry_price=entry_price,
             entry_bar_index=current.index,
@@ -1182,6 +1183,11 @@ class PaperTrader:
         # normal entry gibi BIAS_LOCKED'a gecilir (ters yon kilidi gunun
         # sweep penceresini oldurmesin).
         if getattr(rsm, "_last_trigger_source", None) == "IFVG":
+            log.info(
+                "[IFVG] %s IFVG entry — direction restored to %s (paper izleme G3)",
+                sym,
+                getattr(rsm, "_pre_ifvg_direction", None) or rsm.direction,
+            )
             rsm.direction = getattr(rsm, "_pre_ifvg_direction", None) or rsm.direction
         rsm.lock_bias(bar_index=current.index)
 
