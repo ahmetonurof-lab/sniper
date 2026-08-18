@@ -120,7 +120,7 @@ class ConsoleReporter:
         self.emit(
             sym,
             "st_ses",
-            f"{ses_emoji} SESSION: {session} | {ts} UTC | CBDR: {cbdr_s}{rt_str}{bias_str}",
+            f"{ses_emoji} {cbdr_type} | {ts} UTC | CBDR: {cbdr_s}{rt_str}{bias_str}",
             force=True,
         )
 
