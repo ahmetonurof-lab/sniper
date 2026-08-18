@@ -1,5 +1,15 @@
 # Progress — Sniper Bot
 
+## 2026-08-18 — IFVG PAPER'A AÇILDI (G3) — Baş Mühendis onayı + sunucu deploy + restart doğrulandı + izleme eklendi
+
+| Tarih | İşlem | Detay |
+|-------|-------|-------|
+| 2026-08-18 | **G3 paper açılışı** | Baş Mühendis G1+G2 onayı → sunucu `169.58.41.73`'te paper bot'a `SNIPER_IFVG_ENABLED=true` env ile açıldı (config dosyası ortak, flag env var — canlıya dokunulmadı). Sunucu kodu 4 commit gerideydi → `git pull` (7a53693 + f50f633). İki restart: ilk pull sonrası, ikinci izleme kodu sonrası. **Canlı doğrulama:** her restart'ta 10× `[RST] BIAS_LOCKED RESTORE` (bias latch korundu), 28 coin leverage OK, 0 hata — `_inverted_candidates` temiz sıfırlandı (G1 teorisi pratikte kapandı). Yedekler: trade_state.json.pre_ifvg / active_fvg.json.pre_ifvg. |
+| 2026-08-18 | **İzleme eklemesi (f50f633)** | Canlı loglama IFVG'yi ayırt edemiyordu → `ActiveTrade.entry_source` (NORMAL\|IFVG) + bot.py `[IFVG]` entry logu + `tools/ifvg_paper_monitor.py` (günlük IFVG sayısı/PnL, backtest ~%19 ile karşılaştırma). Üretim mantığı değişmedi. Test: test_bot 43 pass (13 fail pre-existing), test_retrace_state+signal_engine+integration 112 pass (1 fail pre-existing — stash A/B kanıtı). |
+| 2026-08-18 | **İzleme görevi aktif** | Baş Mühendis şartları: ① restart sonrası candidates temiz ✓ gözlendi, ② günlük IFVG entry/PnL izleme — sunucuda `python3 tools/ifvg_paper_monitor.py`, ③ anomali = anında flag kapat (env unset + restart). |
+
+---
+
 ## 2026-08-18 — IFVG PAPER-DEPLOY G1+G2 — restart persistence belgelendi + NORMAL suppression kök nedeni teşhis edildi (Görev 3 BEKLEMEDE)
 
 | Tarih | İşlem | Detay |

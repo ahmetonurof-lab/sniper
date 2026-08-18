@@ -1,5 +1,18 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-18 — IFVG PAPER'A AÇILDI (G3) — Baş Mühendis onayı, sunucuya deploy + restart doğrulandı
+
+- **Onay:** Baş Mühendis G1+G2 raporlarını onayladı (G1: temiz tasarım sonucu, G2: kabul edilebilir trade-off) → **Görev 3: paper'a açma onaylandı**.
+- **Sunucu:** `169.58.41.73` root (plink, hostkey SHA256:up718...). Bot `SCREEN` içinde `src/bot.py` (testnet/paper, `_live=False`). Sunucu kodu 4 commit gerideydi (IFVG yok) → `git pull` ile `7a53693`'e güncellendi, sonra izleme commit'i `f50f633`'e.
+- **Deploy:** Bot durduruldu, `SNIPER_IFVG_ENABLED=true` env ile yeniden başlatıldı (flag env var — config dosyası canlıyla paylaşıldığı için canlıya dokunulmadı). **İki restart** yapıldı (ilki pull sonrası, ikincisi izleme kodu sonrası).
+- **Canlı doğrulama (G1 teorisi pratikte kapandı):** Her iki restart'ta `[RST] BIAS_LOCKED RESTORE` logları (10 adet — bias latch'ler korundu), 28 coin leverage OK, **0 hata/crash**. `_inverted_candidates` temiz başladı (yeni RSM). Aktif pozisyon yoktu — restart güvenli. Yedekler: `output/trade_state.json.pre_ifvg`, `output/active_fvg.json.pre_ifvg`.
+- **İzleme eklemesi (commit `f50f633`):** Canlı loglama IFVG'yi ayırt edemiyordu → `ActiveTrade.entry_source` (NORMAL|IFVG, trades_history.jsonl'ye otomatik yansır) + bot.py IFVG restore noktasına `[IFVG]` log + `tools/ifvg_paper_monitor.py` (günlük IFVG sayısı/PnL/backtest ~%19 uyumu). Üretim mantığı değişmedi.
+- **İzleme görevi (Baş Mühendis şartları):** ① ilk gerçek restart beklenip `_inverted_candidates` temiz sıfırlanması gözlendi ✓ (bu oturumda iki restart), ② IFVG entry sayısı/PnL günlük izlenecek — sunucuda `python3 tools/ifvg_paper_monitor.py` ile, ③ anomali = anında flag kapat (SNIPER_IFVG_ENABLED unset + restart).
+- **Kırmızı çizgi:** Flag yalnızca paper bot process'inde (env var) — canlı config'e dokunulmadı, config dosyasında default False.
+- **COMMIT/PUSH:** sniper `f50f633` push edildi; memory-bank güncellemesi bu oturumda commit edilecek.
+
+---
+
 ## Son İşlem: 2026-08-18 — IFVG PAPER-DEPLOY ÖNCESİ G1+G2 (restart persistence + NORMAL suppression teşhisi) — Görev 3 paper açılışı BEKLEMEDE
 
 - **Direktif:** `reports/ifvg-paper-deploy-on-direktif.md` — 3 görev. **Görev 1 (restart persistence):** BUG YOK — bilinçli tasarım kararı, belgelendi. **Görev 2 (NORMAL suppression):** kök neden teşhis edildi, kabul edilebilir trade-off. **Görev 3 (paper'a açma):** G1+G2 raporları Baş Mühendise sunulmadan BEKLEMEDE — bu oturumda YAPILMADI.
