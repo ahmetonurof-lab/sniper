@@ -1,5 +1,16 @@
 # Active Context — Sniper Bot
 
+## Son İşlem: 2026-08-18 — IFVG PAPER-DEPLOY ÖNCESİ G1+G2 (restart persistence + NORMAL suppression teşhisi) — Görev 3 paper açılışı BEKLEMEDE
+
+- **Direktif:** `reports/ifvg-paper-deploy-on-direktif.md` — 3 görev. **Görev 1 (restart persistence):** BUG YOK — bilinçli tasarım kararı, belgelendi. **Görev 2 (NORMAL suppression):** kök neden teşhis edildi, kabul edilebilir trade-off. **Görev 3 (paper'a açma):** G1+G2 raporları Baş Mühendise sunulmadan BEKLEMEDE — bu oturumda YAPILMADI.
+- **G1 bulgusu:** `_inverted_candidates` restart'ta sessizce boşalır ama bu tick_size bug'ı DEĞİL — RecoveryManager RSM'e hiç dokunmaz (grep 0 eşleşme); `bot.py::__init__` her restart'ta yeni `RetraceStateMachine` kurar (candidates=[]); persist edilen tek RSM state'i günlük BIAS latch (`state_manager.trade_state.json`: daily_bias/sweep_direction/sweep_level/bias_lock_day/bias_lock_bar_index). `active_fvg.json` sadece exit-lifecycle FVG'si içindir. → RSM tamamen sıfırdan kurulduğu için kısmi-restore eksikliği YOK; sadece **beklenen veri kaybı** (kısa ömürlü adaylar). Rapor: `reports/ifvg_restart_persistence_bulgu.md`.
+- **G1 test:** `test_retrace_state.py::TestIFVGLifecycle::test_restart_simulation_loses_inverted_candidates` — aday kaydet → yeni RSM + `restore_bias_lock` → adaylar boş, bias lock korunur. **83/83 PASS.**
+- **G2 bulgusu (3 coin örneklem, bar-bazlı iz):** NORMAL kaybının kök nedeni = IFVG ikincil yolu RSM'i **IDLE yerine BIAS_LOCKED'de tutuyor** (ARB 948 / SEI 454 / XRP 451 bar) → `IDLE+on_sweep` dalı çalışamıyor, yeni NORMAL sweep→FVG zinciri gecikiyor. Ayrıca IFVG trigger'ı yön flipli BIAS_LOCKED yaratıp bias_conflict reset'iyle kilit düşürüyor. Ölçülen: ARB ΔNORMAL −213 vs +353 IFVG (net +7,530), SEI −222 vs +396 (+19,786), XRP −107 vs +233 (+3,937) — **3/3 net pozitif, kabul edilebilir trade-off**. Öneri (kod değişikliği YOK, direktif gereği): ileride IFVG izlemesi ana RSM'den ayrı paralel mini-state ile yürütülebilir. Rapor: `backtest-sniper/reports/ifvg_normal_suppression_diagnoz.md` + araç `backtest-sniper/tools/diag_ifvg_normal_suppression.py`.
+- **Kırmızı çizgi korundu:** `IFVG_ENABLED=True` ne canlıya ne paper'a açıldı (config'de flag yok, default False).
+- **COMMIT/PUSH:** Bu oturumda yapıldı (sniper + backtest-sniper).
+
+---
+
 ## Son İşlem: 2026-08-18 — IFVG GUARD-FIX (guard semantik uyumu) — canlı onay + rapor sunuldu
 
 - **Direktif:** `reports/ifvg-guard-fix-direktif.md` — canlı `fvg_is_alive` (bot.py) FVG'yi formasyon+2'den tararken, IFVG adayları kırılım barının kendisini de görüp doğduğu anda ölü sayılıyordu; backtest'in cur-bar-only kontrolü bunu görmüyor, binlerce canlıya taşınamaz IFVG trade'i üretiyordu.

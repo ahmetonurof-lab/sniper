@@ -1038,6 +1038,33 @@ class TestIFVGLifecycle:
         # lock_bias() kirmis-FVG adaylarina DOKUNMAZ (suressiz gecerli)
         assert len(rsm._inverted_candidates) == 1
 
+    def test_restart_simulation_loses_inverted_candidates(self):
+        """IFVG paper-deploy G1: restart'ta RSM sifirdan kurulur (bot.py
+        __init__ her sembol icin yeni RetraceStateMachine yaratir) ve yalnizca
+        günlük BIAS latch'i restore_bias_lock() ile yuklenir. _inverted_candidates
+        hicbir persistence'a (trade_state.json / active_fvg.json) yazilmaz —
+        restart sonrasi SESSIZCE BOS olur. Bu bilincli bir tasarim karari
+        (kritik degil, veri kaybi olarak belgelenir); tick_size bug'i gibi
+        kismi-restore eksikligi DEGILDIR cunku alan asla yarim yuklenmez.
+        """
+        # Restart oncesi: IFVG adayi kaydedildi, bias kilitli.
+        rsm_before = RetraceStateMachine()
+        rsm_before.direction = "bullish"
+        rsm_before._register_inverted(
+            HTFFVG(110.0, 105.0, "bullish", 5), break_bar_index=12
+        )
+        assert len(rsm_before._inverted_candidates) == 1
+
+        # Restart: bot.py __init__ yeni RSM kurar (bellek state'i yok olur).
+        rsm_after = RetraceStateMachine()
+        rsm_after.restore_bias_lock("bullish", locked_from_bar=12)
+        # BIAS latch'i korunur (state_manager.trade_state.json'dan) ...
+        assert rsm_after.state == RetraceState.BIAS_LOCKED
+        assert rsm_after.locked_direction == "bullish"
+        assert rsm_after._locked_from_bar == 12
+        # ... ama IFVG adaylari sessizce sifirlandi (persist edilmiyor).
+        assert rsm_after._inverted_candidates == []
+
 
 class TestIFVGRegisterOnBodyBreak:
     """Item 3: body break aninda aday kaydi — on_sweep_confirmed + on_bias_fvg."""

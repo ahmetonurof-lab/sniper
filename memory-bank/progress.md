@@ -1,5 +1,15 @@
 # Progress — Sniper Bot
 
+## 2026-08-18 — IFVG PAPER-DEPLOY G1+G2 — restart persistence belgelendi + NORMAL suppression kök nedeni teşhis edildi (Görev 3 BEKLEMEDE)
+
+| Tarih | İşlem | Detay |
+|-------|-------|-------|
+| 2026-08-18 | **IFVG paper-deploy G1 (restart persistence)** | `_inverted_candidates` restart'ta sessizce boşalır — **BUG DEĞİL, bilinçli tasarım** (belgelendi). Kanıt: RecoveryManager RSM'e dokunmaz (grep 0), `bot.py::__init__` her restart'ta yeni RSM kurar, persist edilen tek RSM state'i günlük BIAS latch (`state_manager` trade_state.json), `active_fvg.json` exit-lifecycle'a özel. Kısmi-restore eksikliği (tick_size bug'ı deseni) YOK — tam sıfırdan kurulum. Etki: kritik değil (adaylar kısa ömürlü), paper açılışını engellemez. Test: `test_restart_simulation_loses_inverted_candidates` eklendi → **83/83 PASS**. Rapor: `reports/ifvg_restart_persistence_bulgu.md`. |
+| 2026-08-18 | **IFVG paper-deploy G2 (NORMAL suppression teşhisi)** | 3 coin örneklem (ARB/SEI/XRP) bar-bazlı RSM izi (IFVG off vs on, `tools/diag_ifvg_normal_suppression.py` monkeypatch — üretim kodu değişmedi). Kök neden: IFVG yolu RSM'i IDLE yerine BIAS_LOCKED'de tutuyor (ARB 948/SEI 454/XRP 451 bar) → `IDLE+on_sweep` dalı çalışmaz, NORMAL sweep→FVG zinciri bastırılır (SUPPRESSED: 197/204/106). İkinci mekanizma: IFVG trigger'ı yön flipli BIAS_LOCKED → bias_conflict reset. Ölçüm: ΔNORMAL −213/−222/−107 vs IFVG +353/+396/+233 → net PnL +7,530/+19,786/+3,937, **3/3 pozitif → kabul edilebilir trade-off** (IFVG katkısı NORMAL kaybının ~3.4 katı). Öneri (karar ayrı): ileride IFVG izlemesi ana RSM'den ayrı paralel mini-state. Rapor: `backtest-sniper/reports/ifvg_normal_suppression_diagnoz.md`. |
+| 2026-08-18 | **Görev 3 BEKLEMEDE** | Paper'a IFVG_ENABLED=True açma — G1+G2 raporları Baş Mühendise sunulmadan yapılmayacak (direktif sırası). Kırmızı çizgi korundu: flag ne canlıda ne paper'da aktif. |
+
+---
+
 ## 2026-08-18 — IFVG GUARD-FIX (guard semantik uyumu) — koşu tamamlandı, canlı onay Baş Mühendiste
 
 | Tarih | İşlem | Detay |
