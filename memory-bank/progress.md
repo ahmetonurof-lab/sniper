@@ -1,5 +1,40 @@
 # Progress — Sniper Bot
 
+## 2026-08-20 — RETRACE_FALLBACK (E) — Coin-Level Döküm Tamamlandı + Ölçüm Hatası Düzeltildi
+
+| Tarih | İşlem | Detay |
+|-------|-------|-------|
+| 2026-08-20 | **Coin-level döküm (N=30, tamamlandı)** | A=1,602,063 / E30=1,601,999 / **Δ−63.55**. Dağılım: **15 negatif / 13 pozitif coin**. En büyük negatif: ALGOUSDT −471, ARBUSDT −273, DOTUSDT −149. En büyük pozitif: SUIUSDT +236, DYDXUSDT +224, DOGEUSDT +184. BNBUSDT **+50.73** (pozitif). Hiçbir tek coin domine etmiyor — spread, concentrated değil. |
+| 2026-08-20 | **Ölçüm hatası düzeltildi** | İlk analizde checkpoint dict KEY'leri (`(sym,entry_time,side,entry_price)`).iterasyon yapıp `t[3]`=entry_price'yi PnL olarak toplamıştım → BNB −1,053 "outlier" iddiası YANLIŞ ÇIKTI. Doğru: trade dict'lerindeki `final_pnl_usd`. A deterministicliği de doğrulandı: her iki koşuda da 1,602,063 (önceki rapor ile birebir). |
+| 2026-08-20 | **Baş Mühendis kararı (değişmedi)** | Global retrace_fallback deploy REDDEDİLDİ: Δ−64 negatif, pozitif değil. Neden: "faydasız/marjinal negatif" (D-modu wash standardı). Opsiyon C gerekçesi güncellendi: "outlier koruması" değil → "27 coin'i gereksiz küçük negatif drag'den kurtarma" + NEARUSDT kuraklık pattern'i hâlâ gerçek sorun. |
+| 2026-08-20 | **Checkpoint kök nedeni + fix** | `replay_trailing_v2.py` `os.remove(_checkpoint_path())` → backup zinciri işlevsizdi. FIX uygulandı, checkpoint artık kalıcı + `_n30_full_backup.pkl` otomatik yedek (BACKUP_OK). |
+
+---
+
+## 2026-08-19 — RETRACE_FALLBACK TRAILING MODU (E) — SWEEP TAMAMLANDI
+
+| Tarih | İşlem | Detay |
+|-------|-------|-------|
+| 2026-08-19 | **Sweep sonucu (30 coin)** | `--fallback-bars 20 30 50 --cont-k 2.0`, 4 koşu, 0 hata, 6585s. A +1,602,063 (48,943T) · E20 +1,600,363 (122T farklı, Δ−1,700) · E30 +1,601,999 (49T farklı, Δ−64) · **E50 +1,601,961 (10T farklı, Δ−102)**. TÜM E < A — backtest'te fallback net iyileştirme yapmıyor; NEARUSDT tipi patolojik durum backtest döneminde neredeyse yok (E50'de sadece 10/48,943 trade etkilendi). |
+| 2026-08-19 | **Doğrulama koşusu (NEAR+SUI)** | 2 coin A vs E50 (106s): A +112,462 → E50 +112,490 (Δ+28). Matched: 1 trade farklı, HOP+1, PnL Δ+59, **0 sonuç değişen, 0 outlier**. Fallback gerçekten tetikleniyor, SL kilidi çıkışı iyileştiriyor. |
+| 2026-08-19 | **Karar** | Baş Mühendis: TÜM E < A (net negatif) → N seçimi anlamsızlaştı, **global retrace_fallback reddedildi** (D-modu ile aynı standard). Önerilen yol: N=30 etkilenen trade'lerin (49) coin-level dökümü + outlier konsantrasyon kontrolü; ardından Opsiyon C (kuraklık geçmişli coin'lere özel) değerlendirme. |
+| 2026-08-19 | **Deploy (REDDEDİLDİ)** | `SNIPER_TRAIL_MODE=retrace_fallback` sunucuya deploy YAPILMAYACAK — Baş Mühendis onayı yok. Default config 30'da kaldı (canlıda retrace modu aktif, fallback devre dışı). |
+
+---
+
+## 2026-08-19 — RETRACE_FALLBACK TRAILING MODU (E) — kod + unit test tamam, backtest sweep devam ediyor
+
+| Tarih | İşlem | Detay |
+|-------|-------|-------|
+| 2026-08-19 | **Kök neden (NEARUSDT)** | `TRAIL_MODE=retrace` iken FVG retrace-onay beklenir; NEAR +%6'ya rağmen onay gelmedi → SL hiç kıpırdamadı. `_fvg_multihop` ATR-chase fallback'i yalnızca `("atr_chase","activation")`'te çalışıyordu. |
+| 2026-08-19 | **Tasarım (Baş Mühendis onaylı)** | `retrace_fallback`: FVG yolu retrace ile birebir; fallback `SL=close∓K*ATR` yalnızca UPNL >= `TRAIL_ACTIVATION_R_MULT`*risk_pts VE son hop'tan beri >= `TRAIL_FALLBACK_BARS` (N) 15m bar suskunluk varsa. Option A (activation) reddedildi (28-coin: A +4,100,540 vs D +4,094,961, %0.14 daha kötü; SUIUSDT −5,592 outlier). |
+| 2026-08-19 | **Canlı kod** | `models.py` `last_trail_bar_index` (:547); `config.py` `TRAIL_FALLBACK_BARS` env `SNIPER_TRAIL_FALLBACK_BARS` default 30 (:606); `trailing_manager.py` retrace tuple + if/elif/else gate + recovery `_last<=0` koruması + `atr_buffer` gate-içi (UnboundLocalError fix) + `orchestrate_trail` state yazımı (:329); `bot.py` constructor kwarg (:1129); `state_writer.py` persist (:73). Recovery: `recovery_manager` state'ten restore etmez (exchange-kurulum, entry_bar_index=0) → `_last<=0` ile fallback sessizce kapalı. |
+| 2026-08-19 | **Backtest kod** | `analyzer_v5.py` retrace tuple (:1327), placeable (:1351), fallback `retrace_fallback` branch (:1492), trade init `last_trail_bar_index=sb+1` (:1154), upd `=sb` (:1532), `TRAIL_FALLBACK_BARS` modül sabiti (:285). `replay_trailing_v2.py` E modu + `--fallback-bars N...` grid (rapor `trailing_fallback_scan.md`). |
+| 2026-08-19 | **Test** | `TestRetraceFallbackEModu` +6 → **trailing_manager 76/76 PASS**. test_bot 13 fail + test_state_writer 2 fail **pre-existing** (stash A/B kanıtı). |
+| 2026-08-19 | **BACKTEST (devam)** | `--fallback-bars 20 30 50 --cont-k 2.0` 30 sembol × 4 koşu, 4 worker aktif. N kararı: en az yeni outlier (SUIUSDT tarzı) kuralı. Checkpoint bekleniyor. |
+
+---
+
 ## 2026-08-18 — IFVG PAPER'A AÇILDI (G3) — Baş Mühendis onayı + sunucu deploy + restart doğrulandı + izleme eklendi
 
 | Tarih | İşlem | Detay |
